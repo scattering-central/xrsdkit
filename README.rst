@@ -22,23 +22,30 @@ to a measured saxs spectrum.
 NOTE: this code block is not visible on github.
 
 .. code-block:: python
-    from scattered import saxs
+    from scattered.saxs import ssrlsaxsfit as ssf
     
-    img = # read in an image array
-    q_I = # use some other library to calibrate/reduce
-    saxs_metrics = saxs.spectrum_profile(img1d)
-    saxs_params = saxs.parameterize_spectrum(img1d,saxs_metrics)
-    saxs_params = saxs.fit_spectrum(img1d,saxs_params)
-    q_I_model = saxs.compute_saxs(saxs_params)
-    # now plot q_I versus q_I_model
+    img = #TODO: use FabIO to read an image 
+    q, I = #TODO: use PyFAI to calibrate/reduce
 
+    saxs_metrics = ssf.profile_spectrum(q,I)
+    saxs_params = ssf.parameterize_spectrum(q,I,saxs_metrics)
+    fit_params = ['r0_form','sigma_form'] # keys from saxs_params to optimize
+    fit_constraints = ['fix_I0'] # any desired constraints
+    saxs_params = ssf.fit_spectrum(q,I,'chi2_log',saxs_params,fit_params,fit_constraints)
+    I_model = ssf.compute_saxs(q,saxs_params)
+
+    # now plot q,I versus q,I_model
+    from matplotlib import pyplot as plt
+    plt.plot(q,I)
+    plt.plot(q,I_model,'g')
+    plt.legend(['measured','parameterized'])
+    plt.show()
 
 Installation
 ------------
 
 This package is not yet distributed in any way.
-It can be downloaded from this repository-
-please take note of the attached LICENSE.
+It can be downloaded from this repository.
 
 
 Attribution
@@ -56,8 +63,8 @@ or access it through a Python interpreter:
 NOTE: this code block is not visible on github.
 
 .. code-block:: python
-    from scattered import saxs
-    print saxs.__doc__
+    from scattered.saxs import ssrlsaxsfit as ssf
+    print ssf.__doc__
 
 
 Contribution
