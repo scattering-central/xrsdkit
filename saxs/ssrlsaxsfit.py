@@ -1,15 +1,10 @@
 """
 SAXS data fitting functions by SSRL.
 
-Authors:
-Lenson A. Pellouchoud, Amanda P. Fournier
-
-Contributors:
-
-Citation:
+Citations:
 Lenson A. Pellouchoud, Amanda P. Fournier, Christopher J. Tassone (2017).
-scattered.saxs.ssrlsaxsfit [software]. 
-Retrieved from https://github.com/lensonp/scattered.
+ssrlsaxsfit [software]. 
+Retrieved from https://github.com/scatteringcentral/pysaxs.
 """
 from __future__ import print_function
 from collections import OrderedDict

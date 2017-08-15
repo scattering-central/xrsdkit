@@ -1,12 +1,12 @@
-scattered: Python modules for scattering and diffraction data processing 
-========================================================================
+pysaxs: Python modules for small angle x-ray scattering data analysis 
+=====================================================================
 
 
 Description
 -----------
 
-This repository is a temporary solution
-for collecting modules that should eventually be rolled uphill
+This repository is a staging area for some SAXS analysis modules.
+We hope they will eventually be roll uphill
 into a more mature repository, such as scikit-beam
 (https://github.com/scikit-beam).
 
@@ -15,17 +15,17 @@ Example
 -------
 
 This is sort of how it should work.
-This example uses the `saxs` subpackage of `scattered`
+This example uses the `saxs` subpackage 
 to profile, parameterize, and optimize the fit of a scattering equation
 to a measured saxs spectrum.
 
 NOTE: this code block is not visible on github.
 
 .. code-block:: python
-    from scattered.saxs import ssrlsaxsfit as ssf
+    from pysaxs.saxs import ssrlsaxsfit as ssf
     
-    img = #TODO: use FabIO to read an image 
-    q, I = #TODO: use PyFAI to calibrate/reduce
+    img = #TODO: use some IO library (e.g. FabIO) to read an image 
+    q, I = #TODO: use some mature package (e.g. PyFAI) to calibrate/reduce
 
     saxs_metrics = ssf.profile_spectrum(q,I)
     saxs_params = ssf.parameterize_spectrum(q,I,saxs_metrics)
@@ -45,41 +45,35 @@ Installation
 ------------
 
 This package is not yet distributed in any way.
-It can be downloaded from this repository.
+It can be downloaded from this repository as is.
 
 
 Attribution
 -----------
 
-If you use `scattered` in any original work,
+If you use this in any original work,
 the authors of the modules you use
 would appreciate a citation.
-Every subpackage and module in `scattered` 
-has authorship and citation information attached
-(not yet implemented). 
-You can read it from the source code, 
-or access it through a Python interpreter:
+
+To get a citation through a Python interpreter,
+follow this procecdure for whatever modules you use:
 
 NOTE: this code block is not visible on github.
 
 .. code-block:: python
-    from scattered.saxs import ssrlsaxsfit as ssf
+    from pysaxs.saxs import ssrlsaxsfit as ssf
     print ssf.__doc__
 
 
 Contribution
 ------------
 
-This repository is a temporary solution
-for collecting code that will be moved eventually
-to a more mature package, like scikit-beam 
-(https://github.com/scikit-beam).
-Please feel free to submit pull requests for minor contributions,
+This repository is a staging area 
+for code that aspires to a more mature package, 
+such as scikit-beam (https://github.com/scikit-beam).
+Please feel free to submit pull requests for contributions,
 and add yourself to the authorship and citation information 
-for the modules that you contribute to.
-If you are looking to develop substantive scattering and diffraction modules,
-we suggest that you start a temporary repository of your own,
-and also aim to merge your modules into scikit-beam.
+in the docstrings of the modules that you contribute to.
 
 
 License
