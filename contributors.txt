@@ -1,3 +1,9 @@
+saxskit authors:
+Lenson A. Pellouchoud
 Ekaterina Tcareva
 Amanda Fournier
-Lenson Pellouchoud
+Christopher J. Tassone
+
+data contributors:
+Wu, Liheng, et al. Nature 548, 197–201 (2017). doi: 10.1038/nature23308
+
