@@ -34,8 +34,7 @@ TODO: fill out example.
 Installation
 ------------
 
-This package is not yet distributed in any way.
-It can be downloaded from this repository as is.
+This package is hosted on PyPI. Install it by `pip install pysaxs`
 
 
 Contribution

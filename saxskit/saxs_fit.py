@@ -26,7 +26,7 @@ def compute_saxs(q,flags,params):
     params : dict
         Scattering equation parameters.
         Supported parameter keys:
-        - 'I0_floor': magnitude of constant (flat in q) floor term 
+        - 'I0_floor': magnitude of constant floor term- fills in for noise etc. 
         - 'rg_precursor': radius of gyration of precursors 
         - 'G_precursor': Guinier prefactor for precursor scattering 
         - 'I0_sphere': spherical form factor scattering intensity scaling factor 
@@ -329,7 +329,7 @@ def fit_spectrum(q_I,flags,params,fixed_params,objective='chi2log'):
         Dict of scattering equation parameters 
         optimized to fit `q_I` under `objective`.
     rpt : dict
-        Dict stating objective function and its values
+        Dict reporting objective function and its values
         at the initial and final points 
     """
 
@@ -689,7 +689,7 @@ def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
     from a quadratic cost function 
     and the Lagrange-multiplied constraint function.
     
-    TODO: Explicitly document cost function, constraints, Lagrangian.
+    TODO: Document cost function, constraints, Lagrangian.
 
     Inputs q and I are not standardized in this function,
     so they should be standardized beforehand 
