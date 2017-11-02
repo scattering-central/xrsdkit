@@ -6,8 +6,6 @@ from sklearn import preprocessing,linear_model
 from collections import OrderedDict
 import os
 
-from ... import pawstools
-
 class SaxsClassifier(object):
     """A container for a set of classifiers to be used on SAXS spectra"""
 
