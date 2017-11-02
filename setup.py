@@ -8,6 +8,6 @@ setup(name='saxskit',
     author_email='paws-developers@slac.stanford.edu',
     packages=find_packages(),
     install_requires=[
-        'numpy','scikit-learn'
+        'numpy','scipy','scikit-learn'
     ],
 )
