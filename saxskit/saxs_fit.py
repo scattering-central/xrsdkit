@@ -304,6 +304,132 @@ def parameterize_spectrum(q_I,flags):
         d['I0_sphere'] = I_at_0 - I0_floor
     return d
 
+def saxs_chi2log(flags,params,q_I):
+    saxs_fun = lambda q,x: compute_saxs_with_substitutions(q,flags,params,x)
+    q = q_I[:,0]
+    n_q = len(q)
+    I = q_I[:,1]
+    f_pre = flags['precursor_scattering']
+    f_form = flags['form_factor_scattering']
+    f_pks = flags['diffraction_peaks']
+    if f_pre and not f_form and not f_pks:
+        # if we are fitting only precursors,
+        # intensities should be relatively low,
+        # so low-q region can be problematic. 
+        # TODO: consider whether this special case is justified,
+        # or come up with a better way to filter high-error low-q points
+        idx_fit = ((I>0)&(np.arange(n_q)>n_q*1./4))
+    else:
+        idx_fit = (I>0)
+    q_fit = q[idx_fit]
+    logI_fit = np.log(I[idx_fit])
+    logImean_fit = np.mean(logI_fit)
+    logIstd_fit = np.std(logI_fit)
+    logIs_fit = (logI_fit-logImean_fit)/logIstd_fit
+    fit_obj = lambda x: compute_chi2(
+    (np.log(saxs_fun(q_fit,x))-logImean_fit)/logIstd_fit , logIs_fit)
+    return fit_obj
+
+def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
+    """Perform a Metropolis-Hastings iteration for spectrum fit refinement.
+
+    Parameters
+    ----------
+    q_I : array
+        n-by-2 array of intensity (arb) versus scattering vector (1/Angstrom)
+    flags : dict
+        Dict of scattering population flags
+    params : dict
+        Dict of scattering equation parameters
+    stepsize : float
+        Fraction of initial params to use as random walk step size
+    nsteps : int
+        Number of iterations to perform
+    T : float
+        Temperature employed in Metropolis acceptance decisions.
+
+    Returns
+    -------
+    p_best : dict
+        Dict of best-fit parameters
+    p_fin : dict
+        Dict of parameters obtained at the final iteration
+    rpt : dict
+        Report of objective function and Metropolis-Hastings results
+    """
+    f_bd = flags['bad_data']
+    f_pre = flags['precursor_scattering']
+    f_form = flags['form_factor_scattering']
+    f_pks = flags['diffraction_peaks']
+    if f_bd or f_pks: return OrderedDict(),OrderedDict(),OrderedDict()
+    q = q_I[:,0]
+    n_q = len(q)
+    I = q_I[:,1]
+
+    fit_obj = saxs_chi2log(flags,params,q_I) 
+    p_init = copy.deepcopy(params) 
+    p_current = copy.deepcopy(params) 
+    p_best = copy.deepcopy(params) 
+    obj_current = fit_obj(p_current.values())
+    obj_best = obj_current 
+    nrej = 0.
+
+    rpt = OrderedDict()
+    all_trials = range(nsteps)
+    all_obj = []
+    #
+    #
+    acc_trials = [] 
+    acc_obj = [] 
+    #
+    #
+    for imc in all_trials:
+        # get trial params 
+        p_new = copy.deepcopy(p_current)
+        for k,v in p_new.items():
+            p_new[k] += np.random.normal(0.,stepsize)*p_init[k]
+        # evaluate objective, determine acceptance
+        obj_new = fit_obj(p_new.values())
+        #
+        #
+        all_obj.append(obj_new)
+        #
+        #
+        if obj_new < obj_current:
+            accept = True
+            if obj_new < obj_best:
+                p_best = p_new
+                obj_best = obj_new
+        elif T == 0:
+            accept = False
+        else:
+            accept = np.exp(-1.*(obj_new-obj_current)/T) > np.random.rand()
+        # act on acceptance decision
+        if accept:
+            p_current = p_new
+            obj_current = obj_new
+            #
+            #
+            acc_trials.append(imc)
+            acc_obj.append(obj_new)
+            #
+            #
+        else:
+            nrej += 1
+            p_new = p_current
+    rpt['reject_ratio'] = float(nrej)/nsteps
+    rpt['obj_init'] = fit_obj(p_init.values())
+    rpt['obj_best'] = fit_obj(p_best.values())
+    rpt['obj_final'] = fit_obj(p_current.values())
+
+    from matplotlib import pyplot as plt
+    plt.figure(1)
+    plt.plot(all_trials,all_obj)
+    plt.plot(acc_trials,acc_obj)
+    plt.show()
+
+    return p_best,p_current,rpt
+
 def fit_spectrum(q_I,flags,params,fixed_params,objective='chi2log'):
     """Fit a SAXS spectrum, given population flags and parameter guesses.
 
@@ -334,10 +460,10 @@ def fit_spectrum(q_I,flags,params,fixed_params,objective='chi2log'):
     """
 
     f_bd = flags['bad_data']
-    if f_bd: return {},{}
     f_pre = flags['precursor_scattering']
     f_form = flags['form_factor_scattering']
     f_pks = flags['diffraction_peaks']
+    if f_bd or f_pks: return OrderedDict(),OrderedDict()
     q = q_I[:,0]
     n_q = len(q)
     I = q_I[:,1]
@@ -375,44 +501,23 @@ def fit_spectrum(q_I,flags,params,fixed_params,objective='chi2log'):
         c.append({'type':'eq','fun':cfun})
     # --- end constraints ---
 
-    rpt = OrderedDict()
-    saxs_fun = lambda q,x,p: compute_saxs_with_substitutions(q,flags,params,x)
     p_opt = copy.deepcopy(params) 
-    # Only proceed if there is work to do.
-    if not f_pks:
-        if objective in ['chi2log','chi2log_fixI0']:
-            #idx_fit = ((I>0)&(q>0.1))
-            if f_pre and not f_form and not f_pks:
-                # if we are fitting only precursors,
-                # intensities should be relatively low,
-                # so low-q region can be problematic. 
-                # TODO: consider whether this special case is justified,
-                # or come up with a better way to filter high-error low-q points
-                idx_fit = ((I>0)&(np.arange(len(q))>n_q*1./4))
-            else:
-                idx_fit = (I>0)
-            q_fit = q[idx_fit]
-            logI_fit = np.log(I[idx_fit])
-            logImean_fit = np.mean(logI_fit)
-            logIstd_fit = np.std(logI_fit)
-            logIs_fit = (logI_fit-logImean_fit)/logIstd_fit
-            fit_obj = lambda x: compute_chi2(
-            (np.log(saxs_fun(q_fit,x,params))-logImean_fit)/logIstd_fit , logIs_fit)
-            #fit_obj = lambda x: compute_chi2(
-            res = scipimin(fit_obj,x_init,
-                #method='SLSQP',
-                bounds=x_bounds,
-                options={'ftol':1E-3},constraints=c)
-            rpt['objective_before'] = fit_obj(x_init)
-            rpt['objective_after'] = fit_obj(res.x)
-            for k,xk in zip(params.keys(),res.x):
-                p_opt[k] = xk
-            rpt['fixed_params'] = fixed_params
-            rpt['objective'] = objective 
-            I_opt = compute_saxs(q,flags,p_opt) 
-            I_bg = I - I_opt
-            snr = np.mean(I_opt)/np.std(I_bg) 
-            rpt['fit_snr'] = snr
+    fit_obj = saxs_chi2log(flags,params,q_I)
+    rpt = OrderedDict()
+    res = scipimin(fit_obj,x_init,
+        bounds=x_bounds,
+        options={'ftol':1E-3},
+        constraints=c)
+    rpt['objective_before'] = fit_obj(x_init)
+    rpt['objective_after'] = fit_obj(res.x)
+    for k,xk in zip(params.keys(),res.x):
+        p_opt[k] = xk
+    rpt['fixed_params'] = fixed_params
+    rpt['objective'] = objective 
+    I_opt = compute_saxs(q,flags,p_opt) 
+    I_bg = I - I_opt
+    snr = np.mean(I_opt)/np.std(I_bg) 
+    rpt['fit_snr'] = snr
     return p_opt,rpt
 
     #I_opt = compute_saxs(q,flags,p_opt) 
