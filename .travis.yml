@@ -1,0 +1,16 @@
+language: python
+python:
+- '2.7'
+- '3.4'
+- '3.5'
+- '3.6'
+script:
+- pytest ./tests
+deploy:
+  provider: pypi
+  user: lensonp
+  password:
+    secure: FqUG3fqJ5Th2Ouy5484EGwUDsNozkxLXZhfeO860F634y3qtrWPDhvQpE6xtSh95ymWxQRh76L5PWvkHYDa+vYY6d3Ou46mXdmAe9pZYIjeoII3+ByJIjTDabvrvi1xOfistDu7OfpJhflgj8mL1zNGs85QTcef90V275ee2tArTC6UY11J2O3sz3B7o5yiFOXXQ9BujX4Pc/2p6mp46jO+UgD8QzBUm9jK2ZoBeD2P4GvOIyqeVVRK9q4ivzbHROvrpCGISk6IhP3fmBmGcAlVxiE5c153VecEXggII5IvUOKb4PdrzQlkLtlFaNwG5n6clDP1sPb0bdJhEHT6fN6uihZpu6LGw9y8NAvpkglv/VLPATHO/S+huA0ESwbsZq12powxIlTWzNMCqzpP5F5WHXH5QOAivl7xgZswu3Rt6OfWmIvs08r73A2OO96Du9j/kTtsuMz0g11XLZr6NaODHeZakRQiDsfEXcRMnnhHQvTZoyVTe7bDXWfLkQrUjxfPavdO2ZFN8rpbrvdCyWXtKl9bcTd4zLd3IinoQJe+wDvqQBqApQVPM4iyBO287BwRE/ICoHz/zWRUawu4iFrADYYrglQF5pFFHk2IEbXdZicCxLvoFyE+ZR4Jhj6BSu3zYCVkfzFlBmA0UXJujywjThjUeuWdlp4W6gHepjc4=
+  on:
+    distributions: sdist bdist_wheel
+    branch: master 
