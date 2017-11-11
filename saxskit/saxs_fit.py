@@ -417,16 +417,14 @@ def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
         else:
             nrej += 1
             p_new = p_current
-    rpt['reject_ratio'] = float(nrej)/nsteps
-    rpt['obj_init'] = fit_obj(p_init.values())
-    rpt['obj_best'] = fit_obj(p_best.values())
-    rpt['obj_final'] = fit_obj(p_current.values())
+    rpt['MC_reject_ratio'] = float(nrej)/nsteps
+    rpt['objective_value'] = fit_obj(p_best.values())
 
-    from matplotlib import pyplot as plt
-    plt.figure(1)
-    plt.plot(all_trials,all_obj)
-    plt.plot(acc_trials,acc_obj)
-    plt.show()
+    #from matplotlib import pyplot as plt
+    #plt.figure(1)
+    #plt.plot(all_trials,all_obj)
+    #plt.plot(acc_trials,acc_obj)
+    #plt.show()
 
     return p_best,p_current,rpt
 
