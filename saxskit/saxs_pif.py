@@ -105,13 +105,10 @@ def saxs_properties(q_I,temp_C,flags,params,report):
         prof_props = profile_properties(prof)
         props.extend(prof_props)
         # ML flags for this featurization
-        try:
-            sxc = saxs_classify.SaxsClassifier()
-            ml_flags = sxc.classify(np.array(list(prof.values())).reshape(1,-1))
-            ml_flag_props = ml_flag_properties(ml_flags)
-            props.extend(ml_flag_props)
-        except:
-            import pdb; pdb.set_trace()
+        sxc = saxs_classify.SaxsClassifier()
+        ml_flags = sxc.classify(np.array(list(prof.values())).reshape(1,-1))
+        ml_flag_props = ml_flag_properties(ml_flags)
+        props.extend(ml_flag_props)
 
     if flags is not None:
         fprops = ground_truth_flag_properties(flags)
@@ -196,7 +193,6 @@ def param_properties(params):
 
 def fitreport_properties(rpt):
     props = []
-    print(rpt)
     for rptnm,rptval in rpt.items():
         #if isinstance(rptval,float):
         props.append(scalar_property(
