@@ -521,8 +521,8 @@ def fit_spectrum(q_I,flags,params,fixed_params,objective='chi2log'):
         constraints=c)
     for k,xk in zip(params.keys(),res.x):
         p_opt[k] = xk
-    rpt['fixed_params'] = fixed_params
-    rpt['objective'] = objective 
+    #rpt['fixed_params'] = fixed_params
+    #rpt['objective'] = objective 
     rpt['objective_value'] = fit_obj(res.x)
     I_opt = compute_saxs(q,flags,p_opt) 
     I_bg = I - I_opt
