@@ -7,6 +7,15 @@ import copy
 import numpy as np
 from scipy.optimize import minimize as scipimin
 
+# parameter limits for fit_spectrum() and MC_anneal_fit():
+param_limits = OrderedDict(
+    I0_floor = (0.,1.),
+    G_precursor = (0.,1000.),
+    rg_precursor = (1E-6,100.),
+    I0_sphere = (0.,10000.),
+    r0_sphere = (1E-6,1000.),
+    sigma_sphere = (0.,1.))
+
 def compute_saxs(q,flags,params):
     """Compute a SAXS intensity spectrum given some parameters.
 
@@ -342,7 +351,7 @@ def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
     params : dict
         Dict of scattering equation parameters
     stepsize : float
-        Fraction of initial params to use as random walk step size
+        fractional step size for random walk 
     nsteps : int
         Number of iterations to perform
     T : float
@@ -387,7 +396,13 @@ def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
         # get trial params 
         p_new = copy.deepcopy(p_current)
         for k,v in p_new.items():
-            p_new[k] += np.random.normal(0.,stepsize)*p_init[k]
+            if v == 0.:
+                p_trial = np.random.rand()*param_limits[k][1]
+            else:
+                p_trial = np.random.normal(v,v*stepsize)
+            if p_trial < param_limits[k][0]:
+                p_trial = param_limits[k][0] 
+            p_new[k] = p_trial 
         # evaluate objective, determine acceptance
         obj_new = fit_obj(p_new.values())
         #
@@ -417,14 +432,11 @@ def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
         else:
             nrej += 1
             p_new = p_current
-    rpt['MC_reject_ratio'] = float(nrej)/nsteps
-    rpt['objective_value'] = fit_obj(p_best.values())
 
-    #from matplotlib import pyplot as plt
-    #plt.figure(1)
-    #plt.plot(all_trials,all_obj)
-    #plt.plot(acc_trials,acc_obj)
-    #plt.show()
+    rpt['reject_ratio'] = float(nrej)/nsteps
+    rpt['objective_init'] = fit_obj(p_init.values())
+    rpt['objective_best'] = fit_obj(p_best.values())
+    rpt['objective_final'] = fit_obj(p_current.values())
 
     return p_best,p_current,rpt
 
@@ -477,14 +489,15 @@ def fit_spectrum(q_I,flags,params,fixed_params,objective='chi2log'):
         x_init[i] = params[k]
         if k in ['G_precursor','I0_floor','I0_sphere']:
             I_idx[k] = i
-        if k in ['rg_precursor','r0_sphere']:
-            x_bounds.append((1E-3,None))
-        elif k in ['G_precursor','I0_sphere','I0_floor']:
-            x_bounds.append((0.0,None))
-        elif k in ['sigma_sphere']:
-            x_bounds.append((0.0,1.0))
-        else:
-            x_bounds.append((None,None))
+        x_bounds.append(param_limits[k])
+        #if k in ['rg_precursor','r0_sphere']:
+        #    x_bounds.append((1E-3,None))
+        #elif k in ['G_precursor','I0_sphere','I0_floor']:
+        #    x_bounds.append((0.0,None))
+        #elif k in ['sigma_sphere']:
+        #    x_bounds.append((0.0,1.0))
+        #else:
+        #    x_bounds.append((None,None))
    
     # --- constraints --- 
     c = []
