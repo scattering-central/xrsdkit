@@ -8,7 +8,7 @@ import os
 import numpy as np
 
 class SaxsClassifier(object):
-    """A container for a set of classifiers to be used on SAXS spectra"""
+    """A set of classifiers to be used on SAXS spectra"""
 
     def __init__(self,yml_file=None):
         if yml_file is None:
@@ -102,7 +102,10 @@ class SaxsClassifier(object):
         Returns
         -------
         flags : dict
-            dictionary of boolean flags indicating sample populations
+            dictionary of (boolean,float) tuples,
+            where the first item is the flag 
+            and the second is the probability,
+            for each of the potential scattering populations
         """ 
         flags = OrderedDict()
         x_bd = self.scalers['bad_data'].transform(sample_params)
