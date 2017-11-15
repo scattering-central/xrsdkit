@@ -385,19 +385,13 @@ def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
 
     rpt = OrderedDict()
     all_trials = range(nsteps)
-    all_obj = []
-    #
-    #
-    acc_trials = [] 
-    acc_obj = [] 
-    #
-    #
     for imc in all_trials:
         # get trial params 
         p_new = copy.deepcopy(p_current)
         for k,v in p_new.items():
-            if v == 0.:
-                p_trial = np.random.rand()*param_limits[k][1]
+            if v < param_limits[k][0] or v == 0:
+                param_range = param_limits[k][1] - param_limits[k][0]
+                p_trial = param_limits[k][0]+np.random.rand()*0.1*param_range 
             else:
                 p_trial = np.random.normal(v,v*stepsize)
             if p_trial < param_limits[k][0]:
@@ -405,11 +399,6 @@ def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
             p_new[k] = p_trial 
         # evaluate objective, determine acceptance
         obj_new = fit_obj(p_new.values())
-        #
-        #
-        all_obj.append(obj_new)
-        #
-        #
         if obj_new < obj_current:
             accept = True
             if obj_new < obj_best:
@@ -423,12 +412,6 @@ def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
         if accept:
             p_current = p_new
             obj_current = obj_new
-            #
-            #
-            acc_trials.append(imc)
-            acc_obj.append(obj_new)
-            #
-            #
         else:
             nrej += 1
             p_new = p_current
