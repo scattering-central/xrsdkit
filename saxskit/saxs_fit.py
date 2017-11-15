@@ -134,7 +134,7 @@ def guinier_porod(q,r_g,porod_exponent,guinier_factor):
     B. Hammouda, J. Appl. Cryst. (2010). 43, 716-719.
     """
     # q-domain boundary q_splice:
-    q_splice = 1./r_g * np.sqrt(3./2*porod_exponent**2)
+    q_splice = 1./r_g * np.sqrt(3./2*porod_exponent)
     idx_guinier = (q <= q_splice)
     idx_porod = (q > q_splice)
     # porod prefactor D:
