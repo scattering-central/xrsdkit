@@ -8,6 +8,7 @@ lib64
 share
 local
 pip-selfcheck.json
+.idea
 *.cache
 *.pyc
 *__pycache__

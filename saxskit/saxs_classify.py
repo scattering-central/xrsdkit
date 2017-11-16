@@ -5,9 +5,10 @@ import sklearn
 from sklearn import preprocessing,linear_model
 from collections import OrderedDict
 import os
+import numpy as np
 
 class SaxsClassifier(object):
-    """A container for a set of classifiers to be used on SAXS spectra"""
+    """A set of classifiers to be used on SAXS spectra"""
 
     def __init__(self,yml_file=None):
         if yml_file is None:
@@ -101,7 +102,10 @@ class SaxsClassifier(object):
         Returns
         -------
         flags : dict
-            dictionary of boolean flags indicating sample populations
+            dictionary of (boolean,float) tuples,
+            where the first item is the flag 
+            and the second is the probability,
+            for each of the potential scattering populations
         """ 
         flags = OrderedDict()
         x_bd = self.scalers['bad_data'].transform(sample_params)
@@ -117,6 +121,22 @@ class SaxsClassifier(object):
                     fk = self.models[k].predict(xk)
                     pk = self.models[k].predict_proba(xk)[0,int(fk)]
                     flags[k] = (fk,pk)
+        return flags
+
+    def run_classifier(self, sample_params):
+        """Apply self.models and self.scalers to sample_params.
+
+        Parameters
+        ----------
+        sample_params : OrderedDict
+            OrderedDict of features with their values
+
+        Returns
+        -------
+        flags : dict
+            dictionary of boolean flags indicating sample populations
+        """
+        flags = self.classify(np.array(list(sample_params.values())).reshape(1,-1))
         return flags
 
 
