@@ -389,7 +389,7 @@ def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
         # get trial params 
         p_new = copy.deepcopy(p_current)
         for k,v in p_new.items():
-            if v < param_limits[k][0] or v == 0:
+            if v == 0.:
                 param_range = param_limits[k][1] - param_limits[k][0]
                 p_trial = param_limits[k][0]+np.random.rand()*0.1*param_range 
             else:
