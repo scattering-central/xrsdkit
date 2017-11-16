@@ -5,6 +5,7 @@ import sklearn
 from sklearn import preprocessing,linear_model
 from collections import OrderedDict
 import os
+import numpy as np
 
 class SaxsClassifier(object):
     """A set of classifiers to be used on SAXS spectra"""
@@ -120,6 +121,22 @@ class SaxsClassifier(object):
                     fk = self.models[k].predict(xk)
                     pk = self.models[k].predict_proba(xk)[0,int(fk)]
                     flags[k] = (fk,pk)
+        return flags
+
+    def run_classifier(self, sample_params):
+        """Apply self.models and self.scalers to sample_params.
+
+        Parameters
+        ----------
+        sample_params : OrderedDict
+            OrderedDict of features with their values
+
+        Returns
+        -------
+        flags : dict
+            dictionary of boolean flags indicating sample populations
+        """
+        flags = self.classify(np.array(list(sample_params.values())).reshape(1,-1))
         return flags
 
 
