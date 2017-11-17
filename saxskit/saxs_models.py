@@ -51,7 +51,7 @@ def train_classifiers(cit_client,dsid_list=[],yaml_filename=None, hyper_paramete
     transformed_data = scaler.transform(all_data[features])
 
     if hyper_parameters_search == True:
-        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['bad_data']], all_data['experiment'])
+        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['bad_data']], all_data['experiment_id'])
     else:
         penalty = 'l1'
         alpha = 0.001
@@ -73,7 +73,7 @@ def train_classifiers(cit_client,dsid_list=[],yaml_filename=None, hyper_paramete
     transformed_data = scaler.transform(all_data[features])
 
     if hyper_parameters_search == True:
-        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['form']], all_data['experiment'])
+        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['form']], all_data['experiment_id'])
     else:
         penalty = 'l1'
         alpha = 0.001
@@ -91,7 +91,7 @@ def train_classifiers(cit_client,dsid_list=[],yaml_filename=None, hyper_paramete
     transformed_data = scaler.transform(all_data[features])
 
     if hyper_parameters_search == True:
-        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['precursor']], all_data['experiment'])
+        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['precursor']], all_data['experiment_id'])
     else:
         penalty = 'elasticnet'
         alpha = 0.01
@@ -109,7 +109,7 @@ def train_classifiers(cit_client,dsid_list=[],yaml_filename=None, hyper_paramete
     transformed_data = scaler.transform(all_data[features])
 
     if hyper_parameters_search == True:
-        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['structure']], all_data['experiment'])
+        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['structure']], all_data['experiment_id'])
     else:
         penalty = 'elasticnet'
         alpha = 0.001
@@ -171,9 +171,9 @@ def hyperparameters_search(data_features, data_labels, group_by):
     clf = GridSearchCV(svc, parameters, cv=cv)
     clf.fit(data_features, data_labels)
 
-    penalty = clf.best_score_['penalty']
-    alpha = clf.best_score_['alpha']
-    l1_ratio = clf.best_score_['l1_ratio']
+    penalty = clf.best_params_['penalty']
+    alpha = clf.best_params_['alpha']
+    l1_ratio = clf.best_params_['l1_ratio']
 
     return penalty, alpha, l1_ratio
 
