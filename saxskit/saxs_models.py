@@ -1,5 +1,20 @@
+import pandas as pd
+import numpy as np
+from pypif.pif import dumps
+import json
 
-def train_classifiers(cit_client,dsid_list=[],yaml_filename=None):
+import sklearn
+from sklearn import preprocessing
+from sklearn import linear_model
+import yaml
+import os
+
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import LeavePGroupsOut
+
+
+
+def train_classifiers(cit_client,dsid_list=[],yaml_filename=None, hyper_parameters_search = False):
     """Train and save SAXS classification models as a YAML file.
 
     Parameters
@@ -12,10 +27,16 @@ def train_classifiers(cit_client,dsid_list=[],yaml_filename=None):
         File where scalers and models will be saved.
         If None, the default file is used.
     """
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(p)
+
+    if yaml_filename is None:
+        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
+    else:
+        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
 
 
     current_version = list(map(int,sklearn.__version__.split('.')))
-    major,minor,patch = current_version
 
     scalers = {}
     models = {}
@@ -101,7 +122,7 @@ def train_classifiers(cit_client,dsid_list=[],yaml_filename=None):
     models['diffraction_peaks'] = log.__dict__
 
     # save scalers and models
-    with open('modeling_data/scalers_and_models.yml', 'w') as yaml_file:
+    with open(yaml_filename, 'w') as yaml_file:
         yaml.dump(scalers_and_models, yaml_file)
 
 
@@ -172,11 +193,8 @@ def get_data_from_Citrination(client, dataset_id_list):
         If None, the default file is used.
     """
 
+    data = []
 
-
-    df = pd.DataFrame(columns= [['experiment_id', 'q_Imax', 'Imax_over_Imean', 'Imax_sharpness','logI_fluctuation',
-                                 'logI_max_over_std', 'bad_data', 'form', 'precursor', 'structure',
-                                 'ro_shpere', 'sigma_sphere', 'g_precursor', 'rg_precursor']])
     for dataset in dataset_id_list:
         query = PifSystemReturningQuery(
             from_index=0,
@@ -233,15 +251,15 @@ def get_data_from_Citrination(client, dataset_id_list):
 
                     # extract labels
                     if pr['name'] == 'bad_data_flag':
-                        bad_data = bool(float(pr['scalars'][0]['value']))
+                        bad_data = np.float32(pr['scalars'][0]['value'])
                         if bad_data == True:
                             continue
                     if pr['name'] == 'form_factor_scattering_flag':
-                        form = bool(float(pr['scalars'][0]['value']))
+                        form = np.float32(pr['scalars'][0]['value'])
                     if pr['name'] == 'diffraction_peaks_flag':
-                        structure = bool(float(pr['scalars'][0]['value']))
+                        structure = np.float32(pr['scalars'][0]['value'])
                     if pr['name'] == 'precursor_scattering_flag':
-                        precursor = bool(float(pr['scalars'][0]['value']))
+                        precursor = np.float32(pr['scalars'][0]['value'])
 
                     if pr['name'] == 'r0_sphere':
                         ro_sphere = np.float32(pr['scalars'][0]['value'])
@@ -252,9 +270,9 @@ def get_data_from_Citrination(client, dataset_id_list):
                     if pr['name'] == 'rg_precursor':
                         rg_precursor = np.float32(pr['scalars'][0]['value'])
 
-                df.loc[df.shape[0]] = [experiment_id, q_Imax, Imax_over_Imean, Imax_sharpness, logI_fluctuation,
+                data.append([experiment_id, q_Imax, Imax_over_Imean, Imax_sharpness, logI_fluctuation,
                                            logI_max_over_std, bad_data, form, precursor, structure,
-                                      ro_sphere, sigma_sphere, g_precursor, rg_precursor]
+                                      ro_sphere, sigma_sphere, g_precursor, rg_precursor])
             except:
                 # May be in PAWS we need to put a custom exeption here
                 my_str = dumps(line)
@@ -262,8 +280,9 @@ def get_data_from_Citrination(client, dataset_id_list):
                 print(obj)
                 continue
 
-    d = df.convert_objects(convert_numeric=True)
-    #d = pd.to_numeric(df)
+    d = pd.DataFrame(data = data, columns= ['experiment_id', 'q_Imax', 'Imax_over_Imean', 'Imax_sharpness','logI_fluctuation',
+                                 'logI_max_over_std', 'bad_data', 'form', 'precursor', 'structure',
+                                 'ro_shpere', 'sigma_sphere', 'g_precursor', 'rg_precursor'])
     shuffled_rows = np.random.permutation(d.index)
     df_work = d.loc[shuffled_rows]
 
