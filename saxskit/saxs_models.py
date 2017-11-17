@@ -157,9 +157,6 @@ def hyperparameters_search(data_features, data_labels, group_by):
     return penalty, alpha, l1_ratio
 
 
-def hiiiiiiii():
-    return 8
-
 def get_data_from_Citrination(client, dataset_id_list):
     """Get data from Citrination and create a dataframe
 
@@ -265,7 +262,8 @@ def get_data_from_Citrination(client, dataset_id_list):
                 print(obj)
                 continue
 
-    #d = df.convert_objects(convert_numeric=True)
+    d = df.convert_objects(convert_numeric=True)
+    #d = pd.to_numeric(df)
     shuffled_rows = np.random.permutation(d.index)
     df_work = d.loc[shuffled_rows]
 
