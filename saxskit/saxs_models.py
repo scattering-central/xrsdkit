@@ -12,17 +12,20 @@ import os
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import LeavePGroupsOut
 
+from citrination_client import PifSystemReturningQuery
+from citrination_client import DatasetQuery
+from citrination_client import DataQuery
+from citrination_client import Filter
 
 
-def train_classifiers(cit_client,dsid_list=[],yaml_filename=None, hyper_parameters_search = False):
+
+def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search = False):
     """Train and save SAXS classification models as a YAML file.
 
     Parameters
     ----------
-    cit_client : citrination_client.CitrinationClient
-        A python Citrination client for fetching data
-    dsid_list : list of int
-        List of dataset id (integers) for fetching SAXS records
+    all_data : pandas dataframe of features
+        and labels
     yaml_filename : str
         File where scalers and models will be saved.
         If None, the default file is used.
@@ -42,84 +45,115 @@ def train_classifiers(cit_client,dsid_list=[],yaml_filename=None, hyper_paramete
     models = {}
     scalers_and_models = {'version':current_version, 'scalers' : scalers, 'models': models}
 
-    all_data = get_data_from_Citrination(cit_client, dsid_list)
     features = ['q_Imax', 'Imax_over_Imean', 'Imax_sharpness','logI_fluctuation', 'logI_max_over_std']
 
-    # bad_data model
-    scaler = preprocessing.StandardScaler()
-    scaler.fit(all_data[features])
-    transformed_data = scaler.transform(all_data[features])
+    possible_models = check_labels(all_data)
 
-    if hyper_parameters_search == True:
-        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['bad_data']], all_data['experiment_id'])
+    # we need at least 3 groups to use leaveTwoGroupOut
+    if len(all_data.experiment_id.unique()) > 2:
+        leaveTwoGroupOut = True
     else:
-        penalty = 'l1'
-        alpha = 0.001
-        l1_ratio = 1.0
+        leaveTwoGroupOut = False
 
-    log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', penalty= penalty, l1_ratio = l1_ratio)
-    log.fit(transformed_data, all_data['bad_data'])
+    # bad_data model
+    if possible_models['bad_data'] == True:
+        scaler = preprocessing.StandardScaler()
+        scaler.fit(all_data[features])
+        transformed_data = scaler.transform(all_data[features])
 
-    # save the scaler and model for "bad_data"
-    scalers['bad_data'] = scaler.__dict__
-    models['bad_data'] = log.__dict__
+        if hyper_parameters_search == True:
+            penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['bad_data']],
+                                                              all_data['experiment_id'], leaveTwoGroupOut)
+        else:
+            penalty = 'l1'
+            alpha = 0.001
+            l1_ratio = 1.0
+
+        log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', penalty= penalty, l1_ratio = l1_ratio)
+        log.fit(transformed_data, all_data['bad_data'])
+
+        # save the scaler and model for "bad_data"
+        scalers['bad_data'] = scaler.__dict__
+        models['bad_data'] = log.__dict__
+
+    else:
+        scalers['bad_data'] = None
+        models['bad_data'] = None
 
     # we will use only data with "bad_data" = Fasle for the other models
     all_data = all_data[all_data['bad_data']==False]
 
     # form_scattering model
-    scaler = preprocessing.StandardScaler()
-    scaler.fit(all_data[features])
-    transformed_data = scaler.transform(all_data[features])
+    if possible_models['form'] == True:
+        scaler = preprocessing.StandardScaler()
+        scaler.fit(all_data[features])
+        transformed_data = scaler.transform(all_data[features])
 
-    if hyper_parameters_search == True:
-        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['form']], all_data['experiment_id'])
+        if hyper_parameters_search == True:
+            penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['form']],
+                                                              all_data['experiment_id'], leaveTwoGroupOut)
+        else:
+            penalty = 'l1'
+            alpha = 0.001
+            l1_ratio = 1.0
+
+        log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', penalty= penalty, l1_ratio = l1_ratio)
+        log.fit(transformed_data, all_data['form'])
+
+        scalers['form_factor_scattering'] = scaler.__dict__
+        models['form_factor_scattering'] = log.__dict__
+
     else:
-        penalty = 'l1'
-        alpha = 0.001
-        l1_ratio = 1.0
-
-    log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', penalty= penalty, l1_ratio = l1_ratio)
-    log.fit(transformed_data, all_data['form'])
-
-    scalers['form_factor_scattering'] = scaler.__dict__
-    models['form_factor_scattering'] = log.__dict__
+        scalers['form_factor_scattering'] = None
+        models['form_factor_scattering'] = None
 
     # precursor_scattering model
-    scaler = preprocessing.StandardScaler()
-    scaler.fit(all_data[features])
-    transformed_data = scaler.transform(all_data[features])
+    if possible_models['precursor'] == True:
+        scaler = preprocessing.StandardScaler()
+        scaler.fit(all_data[features])
+        transformed_data = scaler.transform(all_data[features])
 
-    if hyper_parameters_search == True:
-        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['precursor']], all_data['experiment_id'])
+        if hyper_parameters_search == True:
+            penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['precursor']],
+                                                              all_data['experiment_id'], leaveTwoGroupOut)
+        else:
+            penalty = 'elasticnet'
+            alpha = 0.01
+            l1_ratio = 0.85
+
+        log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', penalty= penalty, l1_ratio = l1_ratio)
+        log.fit(transformed_data, all_data['precursor'])
+
+        scalers['precursor_scattering'] = scaler.__dict__
+        models['precursor_scattering'] = log.__dict__
+
     else:
-        penalty = 'elasticnet'
-        alpha = 0.01
-        l1_ratio = 0.85
-
-    log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', penalty= penalty, l1_ratio = l1_ratio)
-    log.fit(transformed_data, all_data['precursor'])
-
-    scalers['precursor_scattering'] = scaler.__dict__
-    models['precursor_scattering'] = log.__dict__
+        scalers['precursor_scattering'] = None
+        models['precursor_scattering'] = None
 
     # diffraction_peaks model
-    scaler = preprocessing.StandardScaler()
-    scaler.fit(all_data[features])
-    transformed_data = scaler.transform(all_data[features])
+    if possible_models['structure'] == True:
+        scaler = preprocessing.StandardScaler()
+        scaler.fit(all_data[features])
+        transformed_data = scaler.transform(all_data[features])
 
-    if hyper_parameters_search == True:
-        penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['structure']], all_data['experiment_id'])
+        if hyper_parameters_search == True:
+            penalty, alpha, l1_ratio = hyperparameters_search(transformed_data, all_data[['structure']],
+                                                              all_data['experiment_id'], leaveTwoGroupOut)
+        else:
+            penalty = 'elasticnet'
+            alpha = 0.001
+            l1_ratio = 0.85
+
+        log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', penalty= penalty, l1_ratio = l1_ratio)
+        log.fit(transformed_data, all_data['structure'])
+
+        scalers['diffraction_peaks'] = scaler.__dict__
+        models['diffraction_peaks'] = log.__dict__
+
     else:
-        penalty = 'elasticnet'
-        alpha = 0.001
-        l1_ratio = 0.85
-
-    log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', penalty= penalty, l1_ratio = l1_ratio)
-    log.fit(transformed_data, all_data['structure'])
-
-    scalers['diffraction_peaks'] = scaler.__dict__
-    models['diffraction_peaks'] = log.__dict__
+        scalers['diffraction_peaks'] = None
+        models['diffraction_peaks'] = None
 
     # save scalers and models
     with open(yaml_filename, 'w') as yaml_file:
@@ -130,15 +164,13 @@ def train_classifiers(cit_client,dsid_list=[],yaml_filename=None, hyper_paramete
 
 
 
-def train_regressors(cit_client,dsid_list=[],yaml_filename=None):
+def train_regressors(dataframe, yaml_filename=None):
     """Train and save SAXS regression models as a YAML file.
 
     Parameters
     ----------
-    cit_client : citrination_client.CitrinationClient
-        A python Citrination client for fetching data
-    dsid_list : list of int
-        List of dataset id (integers) for fetching SAXS records
+    dataframe : pandas dataframe of features
+        and labels
     yaml_filename : str
         File where scalers and models will be saved.
         If None, the default file is used.
@@ -147,7 +179,7 @@ def train_regressors(cit_client,dsid_list=[],yaml_filename=None):
 
 
 
-def hyperparameters_search(data_features, data_labels, group_by):
+def hyperparameters_search(data_features, data_labels, group_by, leaveTwoGroupOut):
     """Grid search for alpha, penalty, and l1 ratio
 
     Parameters
@@ -155,6 +187,8 @@ def hyperparameters_search(data_features, data_labels, group_by):
     data_features : 2D numpy array of features
     data_labels : a column of dataframe with labels
     group_by: a column of dataframe we want to group_by
+    leaveTwoGroupOut: bool value. It is true when we have more
+        than 2 experiments in the training data
 
     Returns
         -------
@@ -165,17 +199,51 @@ def hyperparameters_search(data_features, data_labels, group_by):
               'alpha':[0.00001, 0.0001, 0.001, 0.01, 0.1], #regularisation koef, default 0.0001
              'l1_ratio': [0, 0.15, 0.5, 0.85, 1.0]} #using with elasticnet only; default 0.15
 
-    cv=LeavePGroupsOut(n_groups=2).split(data_features, data_labels, groups=group_by)
+    if leaveTwoGroupOut == True:
+        cv=LeavePGroupsOut(n_groups=2).split(data_features, np.ravel(data_labels), groups=group_by)
+    else:
+        cv = 5 # five folders cross validation
 
     svc = linear_model.SGDClassifier(loss = 'log')
     clf = GridSearchCV(svc, parameters, cv=cv)
-    clf.fit(data_features, data_labels)
+    clf.fit(data_features, np.ravel(data_labels))
 
     penalty = clf.best_params_['penalty']
     alpha = clf.best_params_['alpha']
     l1_ratio = clf.best_params_['l1_ratio']
 
     return penalty, alpha, l1_ratio
+
+
+def check_labels(dataframe):
+    """test if we have both true and false values for all labels
+
+    Parameters
+    ----------
+    dataframe : pandas dataframe of features and labels
+
+    Returns
+        -------
+        dictionary with "True" if we can create this model
+    """
+    possible_models = {}
+
+    if len(dataframe.bad_data.unique()) == 2:
+        possible_models['bad_data'] = True
+    else:
+        possible_models['bad_data'] = False
+
+    # we will use only data with "bad_data" = Fasle for the other models
+
+    dataframe = dataframe[dataframe['bad_data']==False]
+    labels = ['form', 'precursor', 'structure']
+
+    for l in labels:
+        if len(dataframe[l].unique()) == 2:
+            possible_models[l] = True
+        else:
+            possible_models[l] = False
+    return possible_models
 
 
 def get_data_from_Citrination(client, dataset_id_list):
