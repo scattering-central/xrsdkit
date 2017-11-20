@@ -129,7 +129,7 @@ class SaxsClassifier(object):
         else:
             flags['bad_data'] = (None, None)
             f_bd = False # when we do not have a model for bad_data, we can try make predictins for others labels
-            
+
         # NOTE: this is temporary, until new models have been built
         #flags['bad_data'] = (True,1.)
         if not f_bd: 

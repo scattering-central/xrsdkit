@@ -4,6 +4,7 @@ from pypif.pif import dumps
 import json
 
 import sklearn
+from sklearn.model_selection import cross_val_score
 from sklearn import preprocessing
 from sklearn import linear_model
 import yaml
@@ -37,23 +38,25 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search = Fa
         yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
     else:
         yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
+    accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
 
 
     current_version = list(map(int,sklearn.__version__.split('.')))
 
     scalers = {}
     models = {}
-    scalers_and_models = {'version':current_version, 'scalers' : scalers, 'models': models}
+    accuracy = {}
+    scalers_and_models = {'version':current_version, 'scalers' : scalers, 'models': models, 'accuracy': accuracy}
 
     features = ['q_Imax', 'Imax_over_Imean', 'Imax_sharpness','logI_fluctuation', 'logI_max_over_std']
 
     possible_models = check_labels(all_data)
 
-    # we need at least 3 groups to use leaveTwoGroupOut
-    if len(all_data.experiment_id.unique()) > 2:
+    # using leaveTwoGroupOut makes sence when we have at least 5 groups
+    if len(all_data.experiment_id.unique()) > 4:
         leaveTwoGroupOut = True
     else:
-        leaveTwoGroupOut = False
+        leaveTwoGroupOut = False # in this case we will use 5 folders cross validation
 
     # bad_data model
     if possible_models['bad_data'] == True:
@@ -76,9 +79,16 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search = Fa
         scalers['bad_data'] = scaler.__dict__
         models['bad_data'] = log.__dict__
 
+        # save the accuracy
+        if leaveTwoGroupOut:
+            accuracy['bad_data'] = testing_by_experiments(all_data, 'bad_data', features, alpha, l1_ratio, penalty)
+        else:
+            accuracy['bad_data'] = testing_using_crossvalidation(all_data,'bad_data', features, alpha, l1_ratio, penalty)
+
     else:
         scalers['bad_data'] = None
         models['bad_data'] = None
+        accuracy['bad_data'] = None
 
     # we will use only data with "bad_data" = Fasle for the other models
     all_data = all_data[all_data['bad_data']==False]
@@ -102,10 +112,17 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search = Fa
 
         scalers['form_factor_scattering'] = scaler.__dict__
         models['form_factor_scattering'] = log.__dict__
+        if leaveTwoGroupOut:
+            accuracy['form_factor_scattering'] = testing_by_experiments(all_data, 'form',features, alpha,
+                                                                        l1_ratio, penalty)
+        else:
+            accuracy['form_factor_scattering'] = testing_using_crossvalidation(all_data, 'form', features, alpha,
+                                                                               l1_ratio, penalty)
 
     else:
         scalers['form_factor_scattering'] = None
         models['form_factor_scattering'] = None
+        accuracy['form_factor_scattering'] = None
 
     # precursor_scattering model
     if possible_models['precursor'] == True:
@@ -126,10 +143,17 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search = Fa
 
         scalers['precursor_scattering'] = scaler.__dict__
         models['precursor_scattering'] = log.__dict__
+        if leaveTwoGroupOut:
+            accuracy['precursor_scattering'] = testing_by_experiments(all_data,'precursor', features, alpha,
+                                                                      l1_ratio, penalty)
+        else:
+            accuracy['precursor_scattering'] = testing_using_crossvalidation(all_data,'precursor', features, alpha,
+                                                                             l1_ratio, penalty)
 
     else:
         scalers['precursor_scattering'] = None
         models['precursor_scattering'] = None
+        accuracy['precursor_scattering'] = None
 
     # diffraction_peaks model
     if possible_models['structure'] == True:
@@ -150,16 +174,25 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search = Fa
 
         scalers['diffraction_peaks'] = scaler.__dict__
         models['diffraction_peaks'] = log.__dict__
+        if leaveTwoGroupOut:
+            accuracy['diffraction_peaks'] = testing_by_experiments(all_data,'structure',features, alpha, l1_ratio,
+                                                                   penalty)
+        else:
+            accuracy['diffraction_peaks'] = testing_using_crossvalidation(all_data,'structure', features, alpha,
+                                                                          l1_ratio, penalty)
 
     else:
         scalers['diffraction_peaks'] = None
         models['diffraction_peaks'] = None
+        accuracy['diffraction_peaks'] = None
 
     # save scalers and models
     with open(yaml_filename, 'w') as yaml_file:
         yaml.dump(scalers_and_models, yaml_file)
 
-
+    # save accuracy
+    with open (accuracy_txt, 'w') as txt_file:
+        txt_file.write(str(accuracy))
 
 
 
@@ -244,6 +277,67 @@ def check_labels(dataframe):
         else:
             possible_models[l] = False
     return possible_models
+
+
+def testing_using_crossvalidation(df,label, features, alpha, l1_ratio, penalty):
+    """create the model using alpha, loss, and penalty and test it using crossvalidation
+
+    Parameters
+    ----------
+    df : pandas dataframe of features and labels
+    features : list of features to use
+    alpha : float; constant that multiplies the regularization term
+    l1_ratio : float; the Elastic Net mixing parameter, with 0 <= l1_ratio <= 1.
+        l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1
+    penalty : string;  ‘none’, ‘l2’, ‘l1’, or ‘elasticnet’
+
+    Returns
+        -------
+        average crossvalidation score (accuracy)
+    """
+    scaler = preprocessing.StandardScaler()
+    scaler.fit(df[features])
+    log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', l1_ratio = l1_ratio, penalty= penalty)
+    scores = cross_val_score(log, scaler.transform(df[features]), df[label], cv=5)
+
+    return scores.mean()
+
+
+def testing_by_experiments(df, label, features, alpha, l1_ratio, penalty):
+    """create the model using alpha, loss, and penalty
+                and test it leaveTwoGroupOut approach
+
+    Parameters
+    ----------
+    df : pandas dataframe of features and labels
+    features : list of features to use
+    alpha : float; constant that multiplies the regularization term
+    l1_ratio : float; the Elastic Net mixing parameter, with 0 <= l1_ratio <= 1.
+        l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1
+    penalty : string;  ‘none’, ‘l2’, ‘l1’, or ‘elasticnet’
+
+    Returns
+        -------
+        average accuracy
+    """
+    experiments = df.experiment_id.unique()# we have at least 5 experiments
+    test_scores_by_ex = []
+    count = 0
+    for i in range(len(experiments)):
+        for j in range(i +1, len(experiments)):
+            tr = df[(df['experiment_id']!= experiments[i]) & (df['experiment_id']!= experiments[j])]
+            test = df[(df['experiment_id']== experiments[i]) | (df['experiment_id']== experiments[j])]
+
+            scaler = preprocessing.StandardScaler()
+            scaler.fit(tr[features])
+            log = linear_model.SGDClassifier(alpha= alpha,loss= 'log', l1_ratio = l1_ratio,  penalty= penalty)
+            log.fit(scaler.transform(tr[features]), tr[label])
+            test_score = log.score(scaler.transform(test[features]), test[label])
+            test_scores_by_ex.append(test_score)
+            count +=1
+
+    acc =  sum(test_scores_by_ex)/count
+    return acc
 
 
 def get_data_from_Citrination(client, dataset_id_list):
