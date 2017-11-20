@@ -47,31 +47,44 @@ class SaxsClassifier(object):
         scaler_param_precur = scalers_dict['precursor_scattering']
         scaler_param_diff_peaks = scalers_dict['diffraction_peaks']
 
-        # recreate the scalers
-        scaler_bad_data = preprocessing.StandardScaler()
-        self.set_param( scaler_bad_data, scaler_param_bad_data)
+        model_bad_data = None
+        model_form = None
+        model_precur = None
+        model_diff_peaks = None
+        scaler_bad_data = None
+        scaler_form = None
+        scaler_precur = None
+        scaler_diff_peaks = None
 
-        scaler_form = preprocessing.StandardScaler()
-        self.set_param( scaler_form, scaler_param_form)
+        # recreate the scalers and models
+        if scaler_param_bad_data != None:
+            scaler_bad_data = preprocessing.StandardScaler()
+            self.set_param( scaler_bad_data, scaler_param_bad_data)
 
-        scaler_precur = preprocessing.StandardScaler()
-        self.set_param( scaler_precur, scaler_param_precur)
+            model_bad_data = linear_model.SGDClassifier()
+            self.set_param( model_bad_data, model_param_bad_data)
 
-        scaler_diff_peaks = preprocessing.StandardScaler()
-        self.set_param( scaler_diff_peaks, scaler_param_diff_peaks)
 
-        # recreate the models
-        model_bad_data = linear_model.SGDClassifier()
-        self.set_param( model_bad_data, model_param_bad_data)
+        if scaler_param_form != None:
+            scaler_form = preprocessing.StandardScaler()
+            self.set_param( scaler_form, scaler_param_form)
 
-        model_form = linear_model.SGDClassifier()
-        self.set_param( model_form, model_param_form)
+            model_form = linear_model.SGDClassifier()
+            self.set_param( model_form, model_param_form)
 
-        model_precur = linear_model.SGDClassifier()
-        self.set_param( model_precur, model_param_precur)
+        if scaler_param_precur != None:
+            scaler_precur = preprocessing.StandardScaler()
+            self.set_param( scaler_precur, scaler_param_precur)
 
-        model_diff_peaks = linear_model.SGDClassifier()
-        self.set_param( model_diff_peaks, model_param_diff_peaks)
+            model_precur = linear_model.SGDClassifier()
+            self.set_param( model_precur, model_param_precur)
+
+        if scaler_param_diff_peaks != None:
+            scaler_diff_peaks = preprocessing.StandardScaler()
+            self.set_param( scaler_diff_peaks, scaler_param_diff_peaks)
+
+            model_diff_peaks = linear_model.SGDClassifier()
+            self.set_param( model_diff_peaks, model_param_diff_peaks)
 
         # save the dicts of classifiers and scalers as outputs
         self.models = {'bad_data': model_bad_data,
@@ -108,19 +121,27 @@ class SaxsClassifier(object):
             for each of the potential scattering populations
         """ 
         flags = OrderedDict()
-        x_bd = self.scalers['bad_data'].transform(sample_params)
-        f_bd = self.models['bad_data'].predict(x_bd)[0]
-        p_bd = self.models['bad_data'].predict_proba(x_bd)[0,int(f_bd)]
-        flags['bad_data'] = (f_bd,p_bd)
+        if self.scalers['bad_data'] != None:
+            x_bd = self.scalers['bad_data'].transform(sample_params)
+            f_bd = self.models['bad_data'].predict(x_bd)[0]
+            p_bd = self.models['bad_data'].predict_proba(x_bd)[0,int(f_bd)]
+            flags['bad_data'] = (f_bd,p_bd)
+        else:
+            flags['bad_data'] = (None, None)
+            f_bd = False # when we do not have a model for bad_data, we can try make predictins for others labels
+
         # NOTE: this is temporary, until new models have been built
         #flags['bad_data'] = (True,1.)
         if not f_bd: 
             for k in self.models.keys():
                 if not k == 'bad_data':
-                    xk = self.scalers[k].transform(sample_params)
-                    fk = self.models[k].predict(xk)
-                    pk = self.models[k].predict_proba(xk)[0,int(fk)]
-                    flags[k] = (fk,pk)
+                    if self.scalers[k] != None:
+                        xk = self.scalers[k].transform(sample_params)
+                        fk = self.models[k].predict(xk)
+                        pk = self.models[k].predict_proba(xk)[0,int(fk)]
+                        flags[k] = (fk,pk)
+                    else:
+                        flags[k] = (None, None)
         return flags
 
     def run_classifier(self, sample_params):
