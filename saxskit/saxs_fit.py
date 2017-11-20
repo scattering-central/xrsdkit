@@ -1,3 +1,39 @@
+"""Modules for fitting a measured SAXS spectrum to a scattering equation.
+
+SAXS spectra are described by an n-by-2 array
+of scattering vector magnitudes (1/Angstrom)
+and intensities (arbitrary units).
+Computing the theoretical SAXS spectrum requires a dictionary of populations
+(groups of scatterers where each group shares the same scattering model)
+and a dictionary of parameters
+(parameters will be expected for all of the flagged populations).
+
+The supported populations and parameters are:
+
+    - Common parameters for any and all populations:
+      
+      - 'I0_floor': magnitude of floor term, flat for all q. 
+
+    - 'guinier_porod': number of Guinier-Porod scatterers 
+
+      - 'G_gp': Guinier prefactor for Guinier-Porod scatterers 
+      - 'rg_gp': radius of gyration for Guinier-Porod scatterers 
+      - 'D_gp': Porod exponent for Guinier-Porod scatterers 
+
+    - 'spherical_normal': number of populations of spheres 
+        with normal (Gaussian) size distribution 
+
+      - 'I0_sphere': spherical form factor scattering intensity scaling factor
+      - 'r0_sphere': mean sphere size (Angstrom) 
+      - 'sigma_sphere': fractional standard deviation of sphere size 
+
+    - 'diffraction_peaks': number of Psuedo-Voigt 
+        diffraction peaks (not yet supported) 
+
+    - 'unidentified': if not zero, the scattering spectrum is unfamiliar. 
+        This populations causes all populations and parameters to be ignored.
+
+"""
 from __future__ import print_function
 import warnings
 from collections import OrderedDict
@@ -7,16 +43,24 @@ import copy
 import numpy as np
 from scipy.optimize import minimize as scipimin
 
+# population types supported:
+population_types = [\
+    'unidentified',\
+    'guinier_porod',\
+    'spherical_normal',\
+    'diffraction_peaks'])
+
 # parameter limits for fit_spectrum() and MC_anneal_fit():
 param_limits = OrderedDict(
-    I0_floor = (0.,1.),
-    G_precursor = (0.,1000.),
-    rg_precursor = (1E-6,100.),
-    I0_sphere = (0.,10000.),
-    r0_sphere = (1E-6,1000.),
-    sigma_sphere = (0.,1.))
+    I0_floor = (0.,10.),
+    G_gp = (0.,1.E4),
+    rg_gp = (1E-6,1.E3),
+    D_gp = (0.,4.),
+    I0_sphere = (0.,1.E4),
+    r0_sphere = (1E-6,1.E3),
+    sigma_sphere = (0.,0.5))
 
-def compute_saxs(q,flags,params):
+def compute_saxs(q,populations,params):
     """Compute a SAXS intensity spectrum given some parameters.
 
     TODO: Document the equation.
@@ -25,61 +69,64 @@ def compute_saxs(q,flags,params):
     ----------
     q : array
         Array of q values at which saxs intensity should be computed.
-    flags : dict
-        Flags for scatterer populations. 
-        Supported flags:
-        - 'bad_data'
-        - 'precursor_scattering' 
-        - 'form_factor_scattering'
-        - 'diffraction_peaks'
+    populations : dict
+        Each entry is an integer representing the number 
+        of distinct populations of various types of scatterer. 
     params : dict
-        Scattering equation parameters.
-        Supported parameter keys:
-        - 'I0_floor': magnitude of constant floor term- fills in for noise etc. 
-        - 'rg_precursor': radius of gyration of precursors 
-        - 'G_precursor': Guinier prefactor for precursor scattering 
-        - 'I0_sphere': spherical form factor scattering intensity scaling factor 
-        - 'r0_sphere': mean sphere size (Angstrom) 
-        - 'sigma_sphere': fractional standard deviation of sphere size 
+        Scattering equation parameters. 
+        Each entry in the dict may be a float or a list of floats,
+        depending on whether there are one or more of the corresponding
+        scatterer populations.
 
     Returns
     ------- 
     I : array
         Array of scattering intensities for each of the input q values
     """
-    b_flag = flags['bad_data']
-    s_flag = flags['diffraction_peaks']
+    u_flag = bool(populations['unidentified'])
+    pks_flag = bool(populations['diffraction_peaks'])
     I = np.zeros(len(q))
-    if not b_flag and not s_flag:
-        pre_flag = flags['precursor_scattering']
-        f_flag = flags['form_factor_scattering']
+    if not u_flag and not pks_flag:
+        n_gp = populations['guinier_porod']
+        n_sph = populations['spherical_normal']
+
         I0_floor = params['I0_floor'] 
         I = I0_floor*np.ones(len(q))
-        if pre_flag:
-            rg_pre = params['rg_precursor']
-            G_pre = params['G_precursor']
-            # Precursor as a monodisperse spherical form factor:
-            #I_pre = spherical_normal_saxs(q,r0_pre,0)
-            # TODO: Finish implementing Guinier-Porod here, or similar 
-            # TODO: implement G_pre as a (fixed?) parameter
-            # Precursor as a Guinier-Porod equation for a small sphere:
-            I_pre = guinier_porod(q,rg_pre,4,G_pre)
-            I += I_pre
-        if f_flag:
+
+        if n_gp:
+            rg_gp = params['rg_gp']
+            G_gp = params['G_gp']
+            D_gp = params['D_gp']
+            if not isinstance(rg_gp,list): rg_gp = [rg_gp]
+            if not isinstance(G_gp,list): G_gp = [G_gp]
+            if not isinstance(D_gp,list): D_gp = [D_gp]
+            for igp in range(n_gp):
+                I_gp = guinier_porod(q,rg_gp[igp],D_gp[igp],G_gp[igp])
+                I += I_gp
+
+        if n_sph:
             I0_sph = params['I0_sphere']
             r0_sph = params['r0_sphere']
             sigma_sph = params['sigma_sphere']
-            I_sph = spherical_normal_saxs(q,r0_sph,sigma_sph)
-            I += I0_sph*I_sph
+            if not isinstance(I0_sph,list): I0_sph = [I0_sph]
+            if not isinstance(r0_sph,list): r0_sph = [r0_sph]
+            if not isinstance(sigma_sph,list): sigma_sph = [sigma_sph]
+            for isph in range(n_sph):
+                I_sph = spherical_normal_saxs(q,r0_sph[isph],sigma_sph[isph])
+                I += I0_sph[isph]*I_sph
+
     return I
 
 def spherical_normal_saxs(q,r0,sigma):
     """Compute SAXS intensity of a normally-distributed sphere population.
 
-    Originally contributed by Amanda Fournier.
-
     The returned intensity is normalized 
     such that I(q=0) is equal to 1.
+    The current version samples the distribution 
+    from r0*(1-5*sigma) to r0*(1+5*sigma) 
+    in steps of 0.02*sigma*r0.
+    Originally contributed by Amanda Fournier.
+    TODO: test distribution sampling, speed up if possible.
 
     Parameters
     ----------
@@ -124,10 +171,21 @@ def spherical_normal_saxs(q,r0,sigma):
 def guinier_porod(q,r_g,porod_exponent,guinier_factor):
     """Compute the Guinier-Porod small-angle scattering intensity.
     
-    Computes the Guinier-Porod scattering intensity,
-    given the Guinier prefactor of the solvent/scatterer system,
-    the Porod exponent of the scatterer geometry,
-    and the radius of gyration of the scatterer.
+    Parameters
+    ----------
+    q : array
+        array of q values
+    r_g : float
+        radius of gyration
+    porod_exponent : float
+        high-q Porod's law exponent
+    guinier_factor : float
+        low-q Guinier prefactor (equal to intensity at q=0)
+
+    Returns
+    -------
+    I : array
+        Array of scattering intensities for each of the input q values
 
     Reference
     ---------
@@ -149,7 +207,6 @@ def guinier_porod(q,r_g,porod_exponent,guinier_factor):
     if any(idx_porod):
         I[idx_porod] = porod_factor * 1./(q[idx_porod]**porod_exponent)
     return I
-
 
 def profile_spectrum(q_I):
     """Numerical profiling of a SAXS spectrum.
@@ -225,41 +282,48 @@ def profile_spectrum(q_I):
     params['logI_max_over_std'] = logI_max_over_std
     return params 
 
-def parameterize_spectrum(q_I,flags):
+def parameterize_spectrum(q_I,populations):
     """Determine scattering equation parameters for a given spectrum.
 
     Parameters
     ----------
     q_I : array
         n-by-2 array of q (scattering vector in 1/A) and I (intensity)
-    flags : dict
-        dictionary of population flags, like SaxsClassifier.classify() output
+    populations : dict
+        dictionary of populations, similar to input of compute_saxs()
 
     Returns
     -------
     params : dict
         dict of scattering equation parameters
-        corresponding to the flagged populations,
-        similar to the input params for compute_saxs().
+        corresponding to `populations`,
+        similar to the input of compute_saxs().
+
+    See Also
+    --------
+    compute_saxs : computes saxs intensity from `populations` and `params`
     """
 
     d = OrderedDict()
-    if flags['bad_data']:
+    if bool(populations['unidentified']):
         return d 
-    if flags['diffraction_peaks']:
-        warnings.warn('diffraction peak parameterization '\
-        'is not supported yet: aborting {}.parameterize_spectrum()'\
+    if bool(flags['diffraction_peaks']):
+        warnings.warn('{}: diffraction peak parameterization '\
+        'is not supported yet: aborting parameterize_spectrum()'\
         .format(__name__))
         return d
     q = q_I[:,0]
+    n_q = len(q)
     I = q_I[:,1]
     I_nz = np.invert((I<=0))
-    f_pre = flags['precursor_scattering']
-    f_form = flags['form_factor_scattering']
-    f_pks = flags['diffraction_peaks']
-    n_q = len(q)
+    n_gp = populations['guinier_porod']
+    n_sph = populations['spherical_normal']
 
     # PART 1: Get a number for I(q=0)
+    # NOTE: This is not designed to handle peaks.
+    # TODO: Fit a sensible low-q region
+    # when q_Imax is not at low q
+    # (i.e. when there are high-q peaks).
     q_Imax = q[np.argmax(I)]
     idx_fit = (q>=q_Imax)&(q<2.*q_Imax)
     if q_Imax > q[int(n_q/2)]:
@@ -274,70 +338,193 @@ def parameterize_spectrum(q_I,flags):
     I_bg = I_fit-I_sig
     snr = np.mean(I_fit)/np.std(I_bg)
     if snr < 100:
-        # if noisy, constrained fit on third order
+        # if fit is noisy, try constrained fit on third order
         I_at_0,pI = fit_I0(q_fit,I_fit,3)
 
     # PART 2: Estimate parameters for flagged populations
     #TODO: add parameters for diffraction peaks
-    #if flags['diffraction_peaks']:
-    #    .... 
-    if f_form:
-        # TODO: insert cases for non-spherical form factors
-        r0_sphere, sigma_sphere = spherical_normal_heuristics(
-            np.array(zip(q,I)),I_at_0)
-        d['r0_sphere'] = r0_sphere
-        d['sigma_sphere'] = sigma_sphere
-    if f_pre:
-        rg_pre, G_pre = precursor_heuristics(
-            np.array(zip(q,I)))
-        I_pre = guinier_porod(q,rg_pre,4,G_pre)
-        d['rg_precursor'] = rg_pre 
-        d['G_precursor'] = G_pre 
-    if f_pre and f_form: 
-        Ifunc = lambda x: x[0]*np.ones(n_q) \
-            + guinier_porod(q,rg_pre,4,x[1]) \
-            + x[2]*spherical_normal_saxs(q,r0_sphere,sigma_sphere) 
-        I_error = lambda x: np.sum( (np.log(Ifunc(x)[I_nz]) - np.log(I[I_nz]))**2 )
-        # NOTE: this fit is constrained to hold I(q=0) constant
-        res = scipimin(I_error,[0.0,G_pre,I_at_0],
-            bounds=[(0.0,None),(1E-6,None),(1E-6,None)],
-            constraints=[{'type':'eq','fun':lambda x:np.sum(x)-I_at_0}])
-        d['I0_floor'] = res.x[0]
-        d['G_precursor'] = res.x[1]
-        d['I0_sphere'] = res.x[2]
-    elif f_pre:
-        d['I0_floor'] = 0
-    elif f_form:
-        I0_floor = np.mean(I[int(n_q*0.9):])
-        d['I0_floor'] = I0_floor 
-        d['I0_sphere'] = I_at_0 - I0_floor
+    #TODO: add parameters for non-spherical form factors
+    #if n_sph:
+    #    #r0_sphere, sigma_sphere = spherical_normal_heuristics(
+    #    #    np.array(zip(q,I)),I_at_0)
+    #    #d['r0_sphere'] = r0_sphere
+    #    #d['sigma_sphere'] = sigma_sphere
+    #if n_gp:
+    #    rg_pre, G_pre = precursor_heuristics(
+    #        np.array(zip(q,I)))
+    #    I_pre = guinier_porod(q,rg_pre,4,G_pre)
+    #    d['rg_precursor'] = rg_pre 
+    #    d['G_precursor'] = G_pre 
+
+    #if n_gp+n_sph > 1:
+    #    Ifunc = lambda x: x[0]*np.ones(n_q) \
+    #        + guinier_porod(q,rg_pre,4,x[1]) \
+    #        + x[2]*spherical_normal_saxs(q,r0_sphere,sigma_sphere) 
+    #    I_error = lambda x: np.sum( (np.log(Ifunc(x)[I_nz]) - np.log(I[I_nz]))**2 )
+    #    # NOTE: this fit is constrained to hold I(q=0) constant
+    #    res = scipimin(I_error,[0.0,G_pre,I_at_0],
+    #        bounds=[(0.0,None),(1E-6,None),(1E-6,None)],
+    #        constraints=[{'type':'eq','fun':lambda x:np.sum(x)-I_at_0}])
+    #    d['I0_floor'] = res.x[0]
+    #    d['G_precursor'] = res.x[1]
+    #    d['I0_sphere'] = res.x[2]
+    #elif f_pre:
+    #    d['I0_floor'] = 0
+    #elif f_form:
+    #    I0_floor = np.mean(I[int(n_q*0.9):])
+    #    d['I0_floor'] = I0_floor 
+    #    d['I0_sphere'] = I_at_0 - I0_floor
+
     return d
 
-def saxs_chi2log(flags,params,q_I):
-    saxs_fun = lambda q,x: compute_saxs_with_substitutions(q,flags,params,x)
-    q = q_I[:,0]
-    n_q = len(q)
-    I = q_I[:,1]
-    f_pre = flags['precursor_scattering']
-    f_form = flags['form_factor_scattering']
-    f_pks = flags['diffraction_peaks']
-    if f_pre and not f_form and not f_pks:
-        # if we are fitting only precursors,
-        # intensities should be relatively low,
-        # so low-q region can be problematic. 
-        # TODO: consider whether this special case is justified,
-        # or come up with a better way to filter high-error low-q points
-        idx_fit = ((I>0)&(np.arange(n_q)>n_q*1./4))
-    else:
-        idx_fit = (I>0)
-    q_fit = q[idx_fit]
-    logI_fit = np.log(I[idx_fit])
-    logImean_fit = np.mean(logI_fit)
-    logIstd_fit = np.std(logI_fit)
-    logIs_fit = (logI_fit-logImean_fit)/logIstd_fit
-    fit_obj = lambda x: compute_chi2(
-    (np.log(saxs_fun(q_fit,x))-logImean_fit)/logIstd_fit , logIs_fit)
-    return fit_obj
+class SaxsFitter(object):
+
+    def __init__(self,populations,params,q_I,q_range=None):
+        self.populations = populations
+        self.q = q_I[:,0]
+        self.I = q_I[:,1]
+        # taking the log may throw a warning- it's ok.
+        # any resulting zeros and nans will not be used.
+        self.logI = np.log(self.I)
+        self.q_range = q_range
+        # if we have relatively low intensity at low q,
+        # the objective may suffer from experimental errors
+        # dominating the low-q region of the spectrum.
+        #idx_lowq = (np.arange(n_q)<n_q*1./4)
+        #idx_hiq = (np.arange(n_q)>n_q*3./4) 
+        #if not np.mean(I[idx_lowq]) > 10.*np.mean(I[idx_hiq]):   
+        #    self.idx_fit = ((I>0)&np.invert(idx_lowq))
+        if self.q_range is not None:
+            self.idx_fit = ((self.I>0)
+                &(self.q>self.q_range[0])
+                &(self.q<self.q_range[1]))
+        else:
+            self.idx_fit = (I>0)
+
+    def evaluate(self,test_params):
+        param_dict = self.pack_params(test_params)
+        I_comp = compute_saxs(self.q,self.populations,param_dict)
+        chi2log_total = 0
+        for pkey in self.populations.keys():
+            if pkey == 'guinier_porod':
+                # weight the high-q region 
+                chi2log = compute_chi2(I_comp[self.idx_fit],self.logI[idx_fit],self.q)
+            if pkey == 'spherical_normal':
+                # weight the low-q region
+                chi2log = compute_chi2(I_comp[self.idx_fit],self.logI[idx_fit],self.q[::-1])
+            #if pkey == 'diffraction_peaks':
+            #    chi2log = 0
+            #    # window the region surrounding this peak
+            #    # idx_pk = ...
+            #    for ipk in range(int(self.populations['diffraction_peaks'])):
+            #        # get q range of the peak
+            #        # evaluate objective
+            #        chi2log += compute_chi2(I_comp[(idx_pk&idx_fit)],self.logI[(idx_pk&idx_fit)])
+            chi2log_total += chi2log
+        return chi2log 
+
+    def pack_params(self,param_array):
+        param_dict = OrderedDict()
+        param_dict['I0_floor'] = param_array[0]
+        idx = 1
+        for pkey in self.populations.keys():
+            param_dict[pkey] = []
+            for ipop in range(int(self.populations[pkey])):
+                param_dict['pkey'].append(param_array[idx])
+                idx += 1
+        return param_dict
+
+    def unpack_params(self,param_dict):
+        param_list = []
+        if 'I0_floor' in param_dict:
+            param_list.append(param_dict['I0_floor'])
+        for pkey in self.populations.keys():
+            if pkey in param_dict:
+                if not isinstance(param_dict[pkey],list):
+                    param_list.append(param_dict[pkey])
+                else:
+                    param_list.extend(param_dict[pkey])
+        return np.array(param_list)
+
+def saxs_chi2log(populations,params,q_I):
+    """Return a function that evaluates saxs intensity fit error.
+
+    Parameters
+    ----------
+    populations : dict
+        dict of the number of distinct populations 
+        for various scatterer types, 
+        similar to input of compute_saxs()
+    params : dict
+        dict of scattering equation parameters,
+        similar to the input of compute_saxs()
+    q_I : array
+        n-by-2 array of scattering vectors q (1/Angstrom)
+        and corresponding intensities (arbitrary units)
+        against which the computed intensity will be compared
+
+    Returns
+    -------
+    fit_obj : function
+        an anonymous function to be used 
+        as a saxs intensity fitting objective
+
+    See Also
+    --------
+    compute_saxs : computes the saxs intensity given `populations` and `params`
+    """
+    saxs_fitter = SaxsFitter(populations,params,q_I)
+    return saxs_fitter.evaluate
+
+    #n_q = q_I.shape[0]
+    #n_gp = populations['guinier_porod']
+    #n_sph = populations['spherical_normal']
+    #n_pks = populations['diffraction_peaks']
+    #saxs_fun = lambda q,x: compute_saxs_with_substitutions(q,populations,params,x)
+    #fit_objfuns = []
+    # for each population, set up an objective function,
+    # such that the parameters for that population
+    # are fit to a thoughtfully-chosen q-region 
+    #if n_gp:
+
+        # WORK STOPPED HERE Fri 11/17.
+        #----------------------------------------------------
+        # TODO:
+        # Think of a way to separate the input spaces
+        # for the nominally separate objective functions,
+        # probably by passing a list of (keys,index) tuples 
+        # to compute_saxs_with_substitutions
+        #q_fit = q_I[idx_fit,0]
+        #logI_fit = np.log(q_I[idx_fit,1])
+        #logImean_fit = np.mean(logI_fit)
+        #logIstd_fit = np.std(logI_fit)
+        #logIs_fit = (logI_fit-logImean_fit)/logIstd_fit
+
+        #fit_objfun = lambda x: compute_chi2(
+        #(np.log(saxs_fun(q_fit,x))-logImean_fit)/logIstd_fit , logIs_fit)
+        #fit_objfuns.append(fit_objfun)
+
+    #fit_obj = lambda x: sum([objf(x) for objf in fit_objfuns])
+    #return fit_obj
+
+
+    # choose a fitting region:
+    # if intensities are overall relatively low,
+    # experimental errors in the low-q region can 
+    # dominate the objective function.
+    # in such cases, the low-q region 
+    # should be weighed out of the fit. 
+    # TODO: consider whether this special case is justified,
+    # or come up with a better way to filter high-error low-q points
+        #rg_gp = params['rg_gp']
+        #G_gp = params['G_gp']
+        #D_gp = params['D_gp']
+        #if not isinstance(rg_gp,list): rg_gp = [rg_gp]
+        #if not isinstance(G_gp,list): G_gp = [G_gp]
+        #if not isinstance(D_gp,list): D_gp = [D_gp]
+        #for igp in range(n_gp):
+        #    q_splice = 1./rg_gp[igp] * np.sqrt(3./2*D_gp[igp])
+        #    #I_gp = guinier_porod(q,rg_gp[igp],D_gp[igp],G_gp[igp])
 
 def MC_anneal_fit(q_I,flags,params,stepsize,nsteps,T):
     """Perform a Metropolis-Hastings iteration for spectrum fit refinement.
@@ -720,11 +907,18 @@ def saxs_Iq4_metrics(q_I):
     #######
     return d
 
-def compute_saxs_with_substitutions(q,flags,params,new_vals):
-    p_sub = copy.deepcopy(params)
-    for k,v in zip(p_sub.keys(),new_vals):
-        p_sub[k] = v
-    return compute_saxs(q,flags,p_sub)
+#def compute_saxs_with_substitutions(q,populations,params,param_array):
+#    subs_params = copy.deepcopy(params)
+#    ipar = 0
+#    for k in subs_params.keys():
+#        if isinstance(subs_params[k],list):
+#            for ipop in range(len(subs_params[k])):
+#                subs_params[k][ipop] = param_array[ipar]
+#                ipar += 1
+#        else:
+#            subs_params[k] = param_array[ipar] 
+#            ipar += 1
+#    return compute_saxs(q,populations,subs_params)
 
 def compute_chi2(y1,y2,weights=None):
     """
