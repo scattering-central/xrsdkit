@@ -209,18 +209,37 @@ def profile_spectrum(q_I):
         The features are:
 
         - 'Imax_over_Imean': maximum over mean intensity on the full q-range
+
         - 'Imax_sharpness': maximum over mean intensity for q-values 
             from 0.9*q(Imax) to 1.1*q(Imax)
-        - 'logI_fluctuation':
-        - 'logI_max_over_std':
-        - 'r_fftIcentroid'
-        - 'r_fftImax'
-        - 'q_Icentroid'
-        - 'q_logIcentroid'
-        - 'pearson_q'
-        - 'pearson_q2'
-        - 'pearson_expq': q-value of the centroid of the intensity
-        - 'pearson_invexpq': q-value of the centroid of the log(intensity)
+
+        - 'I_fluctuation': sum of difference in I between adjacent points,
+            multiplied by q-width of each point,
+            divided by the intensity range (Imax minus Imin)
+
+        - 'logI_fluctuation': same as I_fluctuation,
+            but for log(I) and including only points where I>0
+
+        - 'logI_max_over_std': max(log(I)) divided by std(log(I)),
+            including only points with I>0
+
+        - 'r_fftIcentroid': real-space centroid of the magnitude squared
+            of the fourier transform of the scattering spectrum
+
+        - 'r_fftImax': real-space maximum of the magnitude squared
+            of the fourier transform of the scattering spectrum
+ 
+        - 'q_Icentroid': q-space centroid of the scattering intensity
+
+        - 'q_logIcentroid': q-space centroid of log(I)
+
+        - 'pearson_q': Pearson correlation between q and I(q)
+
+        - 'pearson_q2': Pearson correlation between q squared and I(q)
+
+        - 'pearson_expq': Pearson correlation between exp(q) and I(q)
+ 
+        - 'pearson_invexpq': Pearson correlation between exp(-q) and I(q) 
     """ 
     q = q_I[:,0]
     I = q_I[:,1]
@@ -264,8 +283,10 @@ def profile_spectrum(q_I):
     q_logIcentroid = qlogI_qint_nz / logI_qint_nz
 
     ### fluctuation analysis
-    # array of the difference between neighboring points:
-    nn_diff = logI_nz[1:]-logI_nz[:-1]
+    nn_diff = I[1:]-I[:-1]
+    I_fluctuation = np.sum(np.abs(nn_diff)*dq)/I_range
+    nn_logdiff = logI_nz[1:]-logI_nz[:-1]
+    logI_fluctuation = np.sum(np.abs(nn_logdiff)*dq_nz)/logI_range
     # keep indices where the sign of this difference changes.
     # also keep first index
     nn_diff_prod = nn_diff[1:]*nn_diff[:-1]
@@ -298,6 +319,7 @@ def profile_spectrum(q_I):
     features = OrderedDict()
     features['Imax_over_Imean'] = Imax_over_Imean
     features['Imax_sharpness'] = Imax_sharpness
+    features['I_fluctuation'] = I_fluctuation
     features['logI_fluctuation'] = logI_fluctuation
     features['logI_max_over_std'] = logI_max_over_std
     features['r_fftIcentroid'] = r_fftIcentroid
@@ -311,51 +333,69 @@ def profile_spectrum(q_I):
     return features 
 
 def fit_I0(q,I,order=4):
+    """Find an estimate for I(q=0) by polynomial fitting.
+    
+    Parameters
+    ----------
+    q : array
+        array of scattering vector magnitudes in 1/Angstrom
+    I : array
+        array of intensities corresponding to `q`
+
+    Returns
+    -------
+    I_at_0 : float
+        estimate of the intensity at q=0
+    p_I0 : array
+        polynomial coefficients for the polynomial 
+        that was fit to obtain `I_at_0` (numpy format)
     """
-    Find an estimate for I(q=0) by polynomial fitting.
-    All of the input q, I(q) values are used in the fitting.
-    """
-    #TODO: add a sign constraint, at least
+    #TODO: add a sign constraint such that I(q=0) > 0?
     I_mean = np.mean(I)
     I_std = np.std(I)
     q_mean = np.mean(q)
     q_std = np.std(q)
     I_s = (I-I_mean)/I_std
     q_s = (q-q_mean)/q_std
-    p = fit_with_slope_constraint(q_s,I_s,-1*q_mean/q_std,0,order) 
-    I_at_0 = np.polyval(p,-1*q_mean/q_std)*I_std+I_mean
+    p_I0 = fit_with_slope_constraint(q_s,I_s,-1*q_mean/q_std,0,order) 
+    I_at_0 = np.polyval(p_I0,-1*q_mean/q_std)*I_std+I_mean
 
-    #from matplotlib import pyplot as plt
-    #plt.plot(q,I,'bo')
-    #plt.plot([0.],[I_at_0],'ro')
-    #plt.plot(q,np.polyval(p,q_s)*I_std+I_mean)
-    #q_fill = np.arange(0.,q[-1],float(q[-1])/100)
-    #q_s_fill = (q_fill-q_mean)/q_std
-    #plt.plot(q_fill,np.polyval(p,q_s_fill)*I_std+I_mean)
-    #plt.show()
-
-    return I_at_0,p
+    return I_at_0,p_I0
 
 def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
-    """
-    Perform a polynomial fitting 
-    of the low-q region of the spectrum
-    with dI/dq(q=0) constrained to be zero.
+    """Fit scattering data to a polynomial with one slope constraint.
+
     This is performed by forming a Lagrangian 
     from a quadratic cost function 
     and the Lagrange-multiplied constraint function.
-    
-    TODO: Document cost function, constraints, Lagrangian.
-
     Inputs q and I are not standardized in this function,
     so they should be standardized beforehand 
     if standardized fitting is desired.
-    At the provided constraint point, q_cons, 
-    the returned polynomial will have slope dIdq_cons.
+    
+    TODO: Document cost function, constraints, Lagrangian.
 
-    Because of the form of the Lagrangian,
-    this constraint cannot be placed at exactly zero.
-    This would result in indefinite matrix elements.
+    Parameters
+    ----------
+    q : array
+        array of scattering vector magnitudes in 1/Angstrom
+    I : array
+        array of intensities corresponding to `q`
+    q_cons : float
+        q-value at which a slope constraint will be enforced-
+        because of the form of the Lagrangian,
+        this constraint cannot be placed at exactly zero
+        (it would result in indefinite matrix elements)
+    dIdq_cons : float
+        slope (dI/dq) that will be enforced at `q_cons`
+    order : int
+        order of the polynomial to fit
+    weights : array
+        array of weights for the fitting of `I`
+
+    Returns
+    -------
+    p_fit : array
+        polynomial coefficients for the fit of I(q) (numpy format)
     """
     Ap = np.zeros( (order+1,order+1),dtype=float )
     b = np.zeros(order+1,dtype=float)
@@ -371,26 +411,41 @@ def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
     p_fit = np.linalg.solve(Ap,b) 
     p_fit = p_fit[:-1]  # throw away Lagrange multiplier term 
     p_fit = p_fit[::-1] # reverse coefs to get np.polyfit format
-    #from matplotlib import pyplot as plt
-    #plt.figure(3)
-    #plt.plot(q,I)
-    #plt.plot(q,np.polyval(p_fit,q))
-    #plt.plot(np.arange(q_cons,q[-1],q[-1]/100),np.polyval(p_fit,np.arange(q_cons,q[-1],q[-1]/100)))
-    #plt.plot(q_cons,np.polyval(p_fit,q_cons),'ro')
-    #plt.show()
     return p_fit
 
 def compute_Rsquared(y1,y2):
-    """
-    Compute the coefficient of determination between input arrays y1 and y2.
+    """Compute the coefficient of determination.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+
+    Returns
+    -------
+    Rsquared : float
+        coefficient of determination between `y1` and `y2`
     """
     sum_var = np.sum( (y1-np.mean(y1))**2 )
     sum_res = np.sum( (y1-y2)**2 ) 
     return float(1)-float(sum_res)/sum_var
 
 def compute_pearson(y1,y2):
-    """
-    Compute the Pearson correlation coefficient between input arrays y1 and y2.
+    """Compute the Pearson correlation coefficient.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+
+    Returns
+    -------
+    pearson_r : float
+        Pearson's correlation coefficient between `y1` and `y2`
     """
     y1mean = np.mean(y1)
     y2mean = np.mean(y2)
@@ -399,8 +454,21 @@ def compute_pearson(y1,y2):
     return np.sum((y1-y1mean)*(y2-y2mean))/(np.sqrt(np.sum((y1-y1mean)**2))*np.sqrt(np.sum((y2-y2mean)**2)))
 
 def compute_chi2(y1,y2,weights=None):
-    """
-    Compute the sum of the difference squared between input arrays y1 and y2.
+    """Compute sum of difference squared between two arrays.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+    weights : array
+        array of weights to multiply each element of (`y2`-`y1`)**2 
+
+    Returns
+    -------
+    chi2 : float
+        sum of difference squared between `y1` and `y2`. 
     """
     if weights is None:
         return np.sum( (y1 - y2)**2 )
@@ -408,49 +476,41 @@ def compute_chi2(y1,y2,weights=None):
         weights = weights / np.sum(weights)
         return np.sum( (y1 - y2)**2*weights )
 
-def saxs_Iq4_metrics(q_I):
-    """
-    From an input spectrum q and I(q),
-    compute several properties of the I(q)*q^4 curve.
-    This was designed for spectra that are 
-    dominated by a dilute spherical form factor term.
-    The metrics extracted by this Operation
-    were originally intended as an intermediate step
-    for estimating size distribution parameters 
-    for a population of dilute spherical scatterers.
+def profile_form_factor_spectrum(q_I):
+    """Numerical profiling of a form factor scattering SAXS spectrum.
+    
+    Computes several properties of the I(q) and I(q)*q**4 curves.
 
-    Returns a dict of metrics.
-    Dict keys and meanings:
-    q_at_Iqqqq_min1: q value at first minimum of I*q^4
-    I_at_Iqqqq_min1: I value at first minimum of I*q^4
-    Iqqqq_min1: I*q^4 value at first minimum of I*q^4
-    pIqqqq_qwidth: Focal q-width of polynomial fit to I*q^4 near first minimum of I*q^4 
-    pIqqqq_Iqqqqfocus: Focal point of polynomial fit to I*q^4 near first minimum of I*q^4
-    pI_qvertex: q value of vertex of polynomial fit to I(q) near first minimum of I*q^4  
-    pI_Ivertex: I(q) at vertex of polynomial fit to I(q) near first minimum of I*q^4
-    pI_qwidth: Focal q-width of polynomial fit to I(q) near first minimum of I*q^4
-    pI_Iforcus: Focal point of polynomial fit to I(q) near first minimum of I*q^4
+    Parameters
+    ----------
+    q_I : array
+        n-by-2 array of scattering vector q and scattered intensity I
 
-    TODO: document the algorithm here.
+    Returns
+    -------
+    features : dict
+        Dictionary of metrics computed from input spectrum `q_I`.
+        The features are:
+
+        - 'q_at_Iqqqq_min1': q value at first minimum of I*q^4
+
+        - 'pIqqqq_qwidth': Focal q-width of polynomial fit to I*q^4 
+            near first minimum of I*q^4 
+
+        - 'pI_qvertex': q value of vertex of polynomial fit to I(q) 
+            near first minimum of I*q^4  
+
+        - 'pI_qwidth': Focal q-width of polynomial fit to I(q) 
+            near first minimum of I*q^4
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    d = {}
-    #if not dI:
-    #    # uniform weights
-    #    wt = np.ones(q.shape)   
-    #else:
-    #    # inverse error weights, 1/dI, 
-    #    # appropriate if dI represents
-    #    # Gaussian uncertainty with sigma=dI
-    #    wt = 1./dI
+    features = OrderedDict 
     #######
-    # Heuristics step 1: Find the first local max
+    # 1: Find the first local max
     # and subsequent local minimum of I*q**4 
     Iqqqq = I*q**4
-    # w is the number of adjacent points to consider 
-    # when examining the I*q^4 curve for local extrema.
-    # A greater value of w filters out smaller extrema.
+    # Window width for determining local extrema: 
     w = 10
     idxmax1, idxmin1 = 0,0
     stop_idx = len(q)-w-1
@@ -465,62 +525,35 @@ def saxs_Iq4_metrics(q_I):
     if idxmin1 == 0 or idxmax1 == 0:
         ex_msg = str('unable to find first maximum and minimum of I*q^4 '
         + 'by scanning for local extrema with a window width of {} points'.format(w))
-        d['message'] = ex_msg 
+        features['message'] = ex_msg 
         raise RuntimeError(ex_msg)
     #######
-    # Heuristics 2: Characterize I*q**4 around idxmin1, 
-    # by locally fitting a standardized polynomial.
-
-
+    # 2: Characterize I*q**4 around idxmin1. 
     idx_around_min1 = (q>0.9*q[idxmin1]) & (q<1.1*q[idxmin1])
-    # keep only the lower-q side, to encourage upward curvature
-    #idx_around_min1 = (q>0.8*q[idxmin1]) & (q<q[idxmin1])
-
-
     q_min1_mean = np.mean(q[idx_around_min1])
     q_min1_std = np.std(q[idx_around_min1])
     q_min1_s = (q[idx_around_min1]-q_min1_mean)/q_min1_std
     Iqqqq_min1_mean = np.mean(Iqqqq[idx_around_min1])
     Iqqqq_min1_std = np.std(Iqqqq[idx_around_min1])
     Iqqqq_min1_s = (Iqqqq[idx_around_min1]-Iqqqq_min1_mean)/Iqqqq_min1_std
-    #Iqqqq_min1_quad = lambda x: np.sum((x[0]*q_min1_s**2 + x[1]*q_min1_s + x[2] - Iqqqq_min1_s)**2)
-    #res = scipimin(Iqqqq_min1_quad,[1E-3,0,0],bounds=[(0,None),(None,None),(None,None)])
-    #p_min1 = res.x
     p_min1 = np.polyfit(q_min1_s,Iqqqq_min1_s,2,None,False,np.ones(len(q_min1_s)),False)
-    # polynomial vertex horizontal coord is -b/2a
+    # quadratic vertex horizontal coord is -b/2a
     qs_at_min1 = -1*p_min1[1]/(2*p_min1[0])
-    d['q_at_Iqqqq_min1'] = qs_at_min1*q_min1_std+q_min1_mean
-    # polynomial vertex vertical coord is poly(-b/2a)
-    Iqqqqs_at_min1 = np.polyval(p_min1,qs_at_min1)
-    d['Iqqqq_min1'] = Iqqqqs_at_min1*Iqqqq_min1_std+Iqqqq_min1_mean
-    d['I_at_Iqqqq_min1'] = d['Iqqqq_min1']*float(1)/(d['q_at_Iqqqq_min1']**4)
-    # The focal width of the parabola is 1/a 
+    features['q_at_Iqqqq_min1'] = qs_at_min1*q_min1_std+q_min1_mean
+    # quadratic focal width is 1/a 
     p_min1_fwidth = abs(1./p_min1[0])
-    d['pIqqqq_qwidth'] = p_min1_fwidth*q_min1_std
-    # The focal point is at -b/2a,poly(-b/2a)+1/(4a)
-    p_min1_fpoint = Iqqqqs_at_min1+float(1)/(4*p_min1[0])
-    d['pIqqqq_Iqqqqfocus'] = p_min1_fpoint*Iqqqq_min1_std+Iqqqq_min1_mean
+    features['pIqqqq_qwidth'] = p_min1_fwidth*q_min1_std
     #######
-    # Heuristics 2b: Characterize I(q) near min1 of I*q^4.
+    # 3: Characterize I(q) around idxmin1.
     I_min1_mean = np.mean(I[idx_around_min1])
     I_min1_std = np.std(I[idx_around_min1])
     I_min1_s = (I[idx_around_min1]-I_min1_mean)/I_min1_std
-    #I_min1_error = lambda x: np.sum((x[0]*q_min1_s**2 + x[1]*q_min1_s + x[2] - I_min1_s)**2)
-    #res = scipimin(I_min1_error,[0,0,0],bounds=[(0,None),(None,None),(None,None)])
-    #pI_min1 = res.x
     pI_min1 = np.polyfit(q_min1_s,I_min1_s,2,None,False,np.ones(len(q_min1_s)),False)
-    # polynomial vertex horizontal coord is -b/2a
+    # quadratic vertex horizontal coord is -b/2a
     qs_vertex = -1*pI_min1[1]/(2*pI_min1[0])
-    d['pI_qvertex'] = qs_vertex*q_min1_std+q_min1_mean
-    # polynomial vertex vertical coord is poly(-b/2a)
-    Is_vertex = np.polyval(pI_min1,qs_vertex)
-    d['pI_Ivertex'] = Is_vertex*I_min1_std+I_min1_mean
-    # The focal width of the parabola is 1/a 
+    features['pI_qvertex'] = qs_vertex*q_min1_std+q_min1_mean
+    # quadratic focal width is 1/a 
     pI_fwidth = abs(1./pI_min1[0])
-    d['pI_qwidth'] = pI_fwidth*q_min1_std
-    # The focal point is at -b/2a,poly(-b/2a)+1/(4a)
-    pI_fpoint = Is_vertex+float(1)/(4*pI_min1[0])
-    d['pI_Ifocus'] = pI_fpoint*I_min1_std+I_min1_mean
-    #######
-    return d
+    features['pI_qwidth'] = pI_fwidth*q_min1_std
+    return features 
 
