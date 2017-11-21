@@ -1,38 +1,38 @@
 """This module is for evaluating SAXS intensities and related quantities.
 
-SAXS spectra are described by an n-by-2 array
-of scattering vector magnitudes (1/Angstrom)
-and intensities (arbitrary units).
 Computing the theoretical SAXS spectrum requires a dictionary of populations
-(states number of distinct groups of each scatterer type)
+(specifying the number of distinct groups of each scatterer type)
 and a dictionary of parameters
-(a set of parameters is expected for each flagged population).
+(a set of parameters is expected for each population).
 
 The supported populations and associated parameters are:
 
-    - 'guinier_porod': number of Guinier-Porod scatterers 
+    - 'guinier_porod': scatterers described by the Guinier-Porod equations
 
       - 'G_gp': Guinier prefactor for Guinier-Porod scatterers 
       - 'rg_gp': radius of gyration for Guinier-Porod scatterers 
       - 'D_gp': Porod exponent for Guinier-Porod scatterers 
 
-    - 'spherical_normal': number of populations of spheres 
+    - 'spherical_normal': populations of spheres 
         with normal (Gaussian) size distribution 
 
       - 'I0_sphere': spherical form factor scattering intensity scaling factor
       - 'r0_sphere': mean sphere size (Angstrom) 
       - 'sigma_sphere': fractional standard deviation of sphere size 
 
-    - 'diffraction_peaks': number of Psuedo-Voigt 
-        diffraction peaks (not yet supported) 
+    - 'diffraction_peaks': Psuedo-Voigt diffraction peaks (not yet supported) 
 
-    - 'unidentified': if not zero, the scattering spectrum is unfamiliar. 
-        This causes all populations and parameters to be ignored.
+    - 'unidentified': if this population is indicated,
+        then the scattering spectrum is unfamiliar. 
+        This causes all other populations and parameters to be ignored.
 
     - Common parameters for all populations:
       
-      - 'I0_floor': magnitude of floor term, flat for all q. 
+      - 'I0_floor': magnitude of noise floor, flat for all q. 
+
 """
+from collections import OrderedDict
+
 import numpy as np
 
 def compute_saxs(q,populations,params):
@@ -186,12 +186,11 @@ def guinier_porod(q,r_g,porod_exponent,guinier_factor):
 def profile_spectrum(q_I):
     """Numerical profiling of a SAXS spectrum.
 
-    Profile a saxs spectrum (n-by-2 array q_I) 
-    by taking several fast numerical metrics 
-    from the measured data.
-    The metrics should be consistent for spectra
-    with different intensity scaling 
-    or different q domains.   
+    Profile a saxs spectrum (n-by-2 array `q_I`) 
+    by computing several relatively fast numerical metrics.
+    The metrics should be invariant with respect to intensity scaling,
+    and should not be strongly affected by minor details of the data
+    (e.g. the limits of the reported q-range or the q-resolution).
 
     This method should execute gracefully
     for any n-by-2 input array,
@@ -205,9 +204,23 @@ def profile_spectrum(q_I):
     
     Returns
     -------
-    params : dict
-        dictionary of scattering equation parameters,
-        for input to compute_saxs() 
+    features : dict
+        Dictionary of metrics computed from input spectrum `q_I`.
+        The features are:
+
+        - 'Imax_over_Imean': maximum over mean intensity on the full q-range
+        - 'Imax_sharpness': maximum over mean intensity for q-values 
+            from 0.9*q(Imax) to 1.1*q(Imax)
+        - 'logI_fluctuation':
+        - 'logI_max_over_std':
+        - 'r_fftIcentroid'
+        - 'r_fftImax'
+        - 'q_Icentroid'
+        - 'q_logIcentroid'
+        - 'pearson_q'
+        - 'pearson_q2'
+        - 'pearson_expq': q-value of the centroid of the intensity
+        - 'pearson_invexpq': q-value of the centroid of the log(intensity)
     """ 
     q = q_I[:,0]
     I = q_I[:,1]
@@ -218,7 +231,6 @@ def profile_spectrum(q_I):
     I_max = I[idxmax] 
     q_Imax = q[idxmax]
     I_range = I_max - I_min
-    #I_sum = np.sum(I)
     I_mean = np.mean(I)
     Imax_over_Imean = I_max/I_mean
     # log(I) metrics
@@ -236,6 +248,21 @@ def profile_spectrum(q_I):
     Imean_around_max = np.mean(I[idx_around_max])
     Imax_sharpness = I_max / Imean_around_max
 
+    ### integration and intensity centroid
+    dq = q[1:] - q[:-1]
+    qcenter = 0.5 * (q[1:] + q[:-1])
+    Itrap = 0.5 * (I[1:] + I[:-1])
+    I_qint = np.sum(dq*Itrap)
+    qI_qint = np.sum(qcenter*dq*Itrap)
+    q_Icentroid = qI_qint / I_qint
+    # same thing for log(I)
+    dq_nz = q_nz[1:] - q_nz[:-1]
+    qcenter_nz = 0.5 * (q_nz[1:] + q_nz[:-1])
+    logItrap_nz = 0.5 * (logI_nz[1:] + logI_nz[:-1])
+    logI_qint_nz = np.sum(dq_nz*logItrap_nz)
+    qlogI_qint_nz = np.sum(qcenter_nz*dq_nz*logItrap_nz)
+    q_logIcentroid = qlogI_qint_nz / logI_qint_nz
+
     ### fluctuation analysis
     # array of the difference between neighboring points:
     nn_diff = logI_nz[1:]-logI_nz[:-1]
@@ -246,15 +273,42 @@ def profile_spectrum(q_I):
     fluc = np.sum(np.abs(nn_diff[idx_keep]))
     logI_fluctuation = fluc/logI_range
 
-    # TODO: add correlative metrics.
+    ### correlation analysis
+    pearson_q = compute_pearson(q,I)
+    pearson_q2 = compute_pearson(q**2,I)
+    pearson_expq = compute_pearson(np.exp(q),I)
+    pearson_invexpq = compute_pearson(np.exp(-1*q),I)
 
-    params = OrderedDict()
-    params['q_Imax'] = q_Imax
-    params['Imax_over_Imean'] = Imax_over_Imean
-    params['Imax_sharpness'] = Imax_sharpness
-    params['logI_fluctuation'] = logI_fluctuation
-    params['logI_max_over_std'] = logI_max_over_std
-    return params 
+    ### fourier analysis
+    fftI = np.fft.fft(I)
+    fftampI = np.abs(fftI)
+    r = np.fft.fftfreq(q.shape[-1])
+    idx_rpos = (r>0)
+    r_pos = r[idx_rpos]
+    fftampI_rpos = fftampI[idx_rpos]
+    
+    dr_pos = r_pos[1:] - r_pos[:-1]
+    rcenter = 0.5 * (r_pos[1:] + r_pos[:-1])
+    fftItrap = 0.5 * (fftampI_rpos[1:] + fftampI_rpos[:-1])
+    fftI_rint = np.sum(dr_pos*fftItrap)
+    rfftI_rint = np.sum(rcenter*dr_pos*fftItrap)
+    r_fftIcentroid = rfftI_rint / fftI_rint 
+    r_fftImax = r_pos[np.argmax(fftampI_rpos)]
+
+    features = OrderedDict()
+    features['Imax_over_Imean'] = Imax_over_Imean
+    features['Imax_sharpness'] = Imax_sharpness
+    features['logI_fluctuation'] = logI_fluctuation
+    features['logI_max_over_std'] = logI_max_over_std
+    features['r_fftIcentroid'] = r_fftIcentroid
+    features['r_fftImax'] = r_fftImax
+    features['q_Icentroid'] = q_Icentroid
+    features['q_logIcentroid'] = q_logIcentroid
+    features['pearson_q'] = pearson_q 
+    features['pearson_q2'] = pearson_q2
+    features['pearson_expq'] = pearson_expq
+    features['pearson_invexpq'] = pearson_invexpq
+    return features 
 
 def fit_I0(q,I,order=4):
     """
