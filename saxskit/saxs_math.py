@@ -35,6 +35,46 @@ from collections import OrderedDict
 
 import numpy as np
 
+profile_docs = OrderedDict(
+    Imax_over_Imean='maximum over mean intensity on the full q-range',
+    Imax_sharpness='maximum over mean intensity '\
+        'for q from 0.9*q(Imax) to 1.1*q(Imax)',
+    I_fluctuation='sum of difference in I between adjacent points, '\
+        'multiplied by q-width of each point, '\
+        'divided by the intensity range (Imax minus Imin).',
+    logI_fluctuation='same as I_fluctuation, '\
+        'but for log(I), and only using points where I>0',
+    logI_max_over_std='max(log(I)) divided by std(log(I)), '\
+        'using only points with I>0',
+    r_fftIcentroid='real-space centroid of the magnitude squared '\
+        'of the fourier transform of the scattering spectrum',
+    r_fftImax='real-space maximum of the magnitude squared '\
+        'of the fourier transform of the scattering spectrum',
+    q_Icentroid='q-space centroid of the scattering intensity',
+    q_logIcentroid='q-space centroid of log(I)',
+    pearson_q='Pearson correlation between q and I(q)',
+    pearson_q2='Pearson correlation between q squared and I(q)',
+    pearson_expq='Pearson correlation between exp(q) and I(q)',
+    pearson_invexpq='Pearson correlation between exp(-q) and I(q)']
+
+population_docs = OrderedDict(
+    unidentified='if this population is indicated, '\
+        'then the scattering spectrum is unfamiliar. '\
+        'This causes all other populations and parameters to be ignored.',
+    guinier_porod='scatterers described by the Guinier-Porod equations',
+    spherical_normal='populations of spheres '\
+        'with normal (Gaussian) size distribution',
+    diffraction_peaks='Psuedo-Voigt diffraction peaks')
+
+parameter_docs = OrderedDict(
+    G_gp='Guinier prefactor for Guinier-Porod scatterers', 
+    rg_gp='radius of gyration for Guinier-Porod scatterers',
+    D_gp='Porod exponent for Guinier-Porod scatterers', 
+    I0_sphere='spherical form factor scattering intensity scaling factor',
+    r0_sphere='mean sphere radius (Angstrom)',
+    sigma_sphere='fractional standard deviation of sphere radius', 
+    I0_floor='magnitude of noise floor, flat for all q')
+ 
 def compute_saxs(q,populations,params):
     """Compute a SAXS intensity spectrum.
 
@@ -316,7 +356,7 @@ def profile_spectrum(q_I):
     r_fftIcentroid = rfftI_rint / fftI_rint 
     r_fftImax = r_pos[np.argmax(fftampI_rpos)]
 
-    features = OrderedDict()
+    features = OrderedDict.fromkeys(profile_keys)
     features['Imax_over_Imean'] = Imax_over_Imean
     features['Imax_sharpness'] = Imax_sharpness
     features['I_fluctuation'] = I_fluctuation
