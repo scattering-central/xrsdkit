@@ -55,7 +55,7 @@ profile_docs = OrderedDict(
     pearson_q='Pearson correlation between q and I(q)',
     pearson_q2='Pearson correlation between q squared and I(q)',
     pearson_expq='Pearson correlation between exp(q) and I(q)',
-    pearson_invexpq='Pearson correlation between exp(-q) and I(q)']
+    pearson_invexpq='Pearson correlation between exp(-q) and I(q)')
 
 population_docs = OrderedDict(
     unidentified='if this population is indicated, '\
@@ -356,7 +356,7 @@ def profile_spectrum(q_I):
     r_fftIcentroid = rfftI_rint / fftI_rint 
     r_fftImax = r_pos[np.argmax(fftampI_rpos)]
 
-    features = OrderedDict.fromkeys(profile_keys)
+    features = OrderedDict.fromkeys(profile_docs.keys())
     features['Imax_over_Imean'] = Imax_over_Imean
     features['Imax_sharpness'] = Imax_sharpness
     features['I_fluctuation'] = I_fluctuation
