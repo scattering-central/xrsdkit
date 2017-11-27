@@ -364,8 +364,8 @@ def testing_by_experiments(df, label, features, alpha, l1_ratio, penalty):
             scaler.fit(tr[features])
             logsgdc = linear_model.SGDClassifier(
                 alpha=alpha, loss='log', l1_ratio=l1_ratio, penalty=penalty)
-            log.fit(scaler.transform(tr[features]), tr[label])
-            test_score = log.score(
+            logsgdc.fit(scaler.transform(tr[features]), tr[label])
+            test_score = logsgdc.score(
                 scaler.transform(test[features]), test[label])
             test_scores_by_ex.append(test_score)
             count +=1
