@@ -401,14 +401,6 @@ def get_data_from_Citrination(client, dataset_id_list):
                     equal=dataset))))
 
         all_hits = []
-        while len(all_hits) < 1200: # max for one dataset
-            current_result = client.search(query)
-            if current_result.hits is None:
-                break
-            all_hits.extend(current_result.hits)
-            query.from_index += len(current_result.hits)
-
-        all_hits = []
         #n_hits = 0
         current_result = client.search(query)
         while current_result.hits is not None:
