@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-from saxskit import saxs_math, saxs_fit, saxs_classify
+from saxskit import saxs_math, saxs_fit, saxs_classify, saxs_regression
 
 def test_guinier_porod():
     qvals = np.arange(0.01,1.,0.01)

@@ -1,9 +1,6 @@
 from collections import OrderedDict
 
 import yaml
-import sklearn
-from sklearn import preprocessing,linear_model
-from collections import OrderedDict
 import os
 
 class SaxsRegressor(object):
@@ -31,7 +28,7 @@ def parameterize_spectrum(q_I,populations):
     q_I : array
         n-by-2 array of q (scattering vector in 1/A) and I (intensity)
     populations : dict
-        dictionary of populations, similar to input of compute_saxs()
+        dictionary of populations, similar to input of saxs_math.compute_saxs()
 
     Returns
     -------

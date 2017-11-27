@@ -51,7 +51,7 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
         models=models, 
         accuracy=accuracy)
     #features = ['q_Imax', 'Imax_over_Imean', 'Imax_sharpness','logI_fluctuation', 'logI_max_over_std']
-    features = saxs_math.profile_docs.keys()
+    features = saxs_math.profile_keys
     possible_models = check_labels(all_data)
 
     # using leaveTwoGroupOut makes sense when we have at least 5 groups
@@ -428,9 +428,9 @@ def get_data_from_Citrination(client, dataset_id_list):
     # TODO: make sure the column names are in the right order,
     # i.e. in the same order as the columns in `data`.
     colnames = ['experiment_id']
-    colnames.extend(saxs_math.profile_docs.keys())
-    colnames.extend(saxs_math.population_docs.keys())
-    colnames.extend(saxs_math.parameter_docs.keys())
+    colnames.extend(saxs_math.profile_keys)
+    colnames.extend(saxs_math.population_keys)
+    colnames.extend(saxs_math.parameter_keys)
     d = pd.DataFrame(data=data, columns=colnames) 
     shuffled_rows = np.random.permutation(d.index)
     df_work = d.loc[shuffled_rows]
@@ -531,7 +531,7 @@ def unpack_pif(pp):
             q_I = np.array(zip(q,I))
         elif prop.name[-5:] == '_flag' and prop.data_type == 'EXPERIMENTAL':
             pops[prop.name[:-5]] = bool(float(prop.scalars[0].value))
-        elif prop.name in saxs_math.parameter_docs.keys():
+        elif prop.name in saxs_math.parameter_keys:
             par[prop.name] = float(prop.scalars[0].value)
         elif prop.tags is not None:
             if 'spectrum fitting quantity' in prop.tags:
