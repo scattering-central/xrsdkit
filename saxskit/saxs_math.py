@@ -36,7 +36,7 @@ from collections import OrderedDict
 import numpy as np
 
 profile_keys = [\
-    'Imax_over_Imean'\
+    'Imax_over_Imean',\
     'Imax_sharpness',\
     'I_fluctuation',\
     'logI_fluctuation',\

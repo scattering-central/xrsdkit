@@ -3,6 +3,8 @@ import numpy as np
 from pypif.pif import dumps
 import json
 
+from collections import OrderedDict
+
 import sklearn
 from sklearn.model_selection import cross_val_score
 from sklearn import preprocessing
@@ -408,13 +410,13 @@ def get_data_from_Citrination(client, dataset_id_list):
             n_current_hits = len(current_result.hits)
             #n_hits += n_current_hits
             query.from_index += n_current_hits 
-            current_result = c.search(query)
+            current_result = client.search(query)
 
         pifs = [x.system for x in all_hits]
 
         for pp in pifs:
             expt_id,q_I,temp,feats,pops,par,rpt = unpack_pif(pp)
-            data_row = [expt_id]+feats.values()+pops.values()+par.values()
+            data_row = [expt_id]+list(feats.values())+list(pops.values())+list(par.values())
             data.append(data_row)
 
     # TODO: make sure the column names are in the right order,
