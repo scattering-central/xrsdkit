@@ -523,8 +523,8 @@ def unpack_pif(pp):
                 if val.name == 'temperature':
                     temp = float(val.scalars[0].value)
             q_I = np.array(zip(q,I))
-        elif prop.name[-5:] == '_flag' and prop.data_type == 'EXPERIMENTAL':
-            pops[prop.name[:-5]] = bool(float(prop.scalars[0].value))
+        elif prop.name in saxs_math.population_keys:
+            pops[prop.name] = bool(float(prop.scalars[0].value))
         elif prop.name in saxs_math.parameter_keys:
             par[prop.name] = float(prop.scalars[0].value)
         elif prop.tags is not None:
