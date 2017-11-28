@@ -1,11 +1,11 @@
 from collections import OrderedDict
+import os
 
-import yaml
+import numpy as np
 import sklearn
 from sklearn import preprocessing,linear_model
-from collections import OrderedDict
-import os
-import numpy as np
+import yaml
+
 from . import saxs_math
 
 class SaxsClassifier(object):
