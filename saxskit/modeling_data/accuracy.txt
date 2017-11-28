@@ -1,1 +1,1 @@
-{'bad_data': 0.96678662704919671, 'form_factor_scattering': 0.97878679004947478, 'precursor_scattering': 0.75658703247961667, 'diffraction_peaks': 0.97523623363514778}
+{'unidentified': 0.98857723549798959, 'spherical_normal': 0.98776362335566459, 'guinier_porod': 0.82131581744045867, 'diffraction_peaks': 0.97876529333527418}

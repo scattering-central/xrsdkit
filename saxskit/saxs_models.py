@@ -203,8 +203,8 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
 
     # TODO: Is this not already saved in scalers_and_models.yml?
     # save accuracy
-    #with open (accuracy_txt, 'w') as txt_file:
-    #    txt_file.write(str(accuracy))
+    with open (accuracy_txt, 'w') as txt_file:
+        txt_file.write(str(accuracy))
 
 def train_regressors(dataframe, yaml_filename=None):
     """Train and save SAXS regression models as a YAML file.
