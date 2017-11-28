@@ -425,7 +425,8 @@ def get_data_from_Citrination(client, dataset_id_list):
     colnames.extend(saxs_math.profile_keys)
     colnames.extend(saxs_math.population_keys)
     colnames.extend(saxs_math.parameter_keys)
-    d = pd.DataFrame(data=data, columns=colnames) 
+    d = pd.DataFrame(data=data, columns=colnames)
+    d = d.where((pd.notnull(d)), None) # replace all NaN by None
     shuffled_rows = np.random.permutation(d.index)
     df_work = d.loc[shuffled_rows]
 
@@ -510,9 +511,10 @@ def unpack_pif(pp):
     expt_id = None
     q_I = None
     temp = None
-    feats = OrderedDict()
-    pops = OrderedDict() 
-    par = OrderedDict() 
+    feats = OrderedDict.fromkeys(saxs_math.profile_keys)
+    pops = OrderedDict.fromkeys(saxs_math.population_keys)
+    par = OrderedDict.fromkeys(saxs_math.parameter_keys)
+
     rpt = OrderedDict() 
     for prop in pp.properties:
         if prop.name == 'SAXS intensity':
@@ -524,7 +526,7 @@ def unpack_pif(pp):
                     temp = float(val.scalars[0].value)
             q_I = np.array(zip(q,I))
         elif prop.name in saxs_math.population_keys:
-            pops[prop.name] = bool(float(prop.scalars[0].value))
+            pops[prop.name] = int(prop.scalars[0].value)
         elif prop.name in saxs_math.parameter_keys:
             par[prop.name] = float(prop.scalars[0].value)
         elif prop.tags is not None:
