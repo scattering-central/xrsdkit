@@ -121,7 +121,7 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
         logsgdc.fit(transformed_data, all_data['spherical_normal'])
 
         scalers['spherical_normal'] = scaler.__dict__
-        models['sperical_normal'] = logsgdc.__dict__
+        models['spherical_normal'] = logsgdc.__dict__
         if leaveTwoGroupOut:
             accuracy['spherical_normal'] = testing_by_experiments(
                 all_data, 'spherical_normal', features, alpha, l1_ratio, penalty)

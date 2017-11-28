@@ -6,6 +6,7 @@ from sklearn import preprocessing,linear_model
 from collections import OrderedDict
 import os
 import numpy as np
+from . import saxs_math
 
 class SaxsClassifier(object):
     """A set of classifiers to be used on SAXS spectra"""
@@ -20,7 +21,7 @@ class SaxsClassifier(object):
         s_and_m = yaml.load(s_and_m_file)
 
         # dict of classification model parameters
-        classifier_dict = s_and_m['models'] 
+        classifier_dict = s_and_m['models']
         # dict of scaler parameters
         scalers_dict = s_and_m['scalers'] 
 
