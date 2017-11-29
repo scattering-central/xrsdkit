@@ -11,5 +11,6 @@ pip-selfcheck.json
 .idea
 *.cache
 *.pyc
+*.swp
 *__pycache__
 *.egg-info
