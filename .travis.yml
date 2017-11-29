@@ -5,7 +5,7 @@ python:
 - '3.5'
 - '3.6'
 script:
-- PYTHONPATH=`pwd` pytest ./tests
+- PYTHONPATH=`pwd` pytest -s ./tests
 deploy:
   provider: pypi
   user: lensonp

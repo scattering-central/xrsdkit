@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='saxskit',
-    version='0.0.3',
+    version='0.0.4',
     url='https://github.com/scattering-central/saxskit.git',
     description='Data-driven SAXS analysis',
     author='SSRL',
