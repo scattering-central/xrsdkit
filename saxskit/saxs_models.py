@@ -1,24 +1,12 @@
-import pandas as pd
-import numpy as np
-from pypif.pif import dumps
-import json
-
 from collections import OrderedDict
-
-import sklearn
-from sklearn.model_selection import cross_val_score
-from sklearn import preprocessing
-from sklearn import linear_model
-import yaml
 import os
 
-from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import LeavePGroupsOut
-
-from citrination_client import PifSystemReturningQuery
-from citrination_client import DatasetQuery
-from citrination_client import DataQuery
-from citrination_client import Filter
+import pandas as pd
+import numpy as np
+import sklearn
+import yaml
+from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
+from sklearn import model_selection, preprocessing, linear_model
 
 from . import saxs_math
 
@@ -249,12 +237,13 @@ def hyperparameters_search(data_features, data_labels, group_by, leaveTwoGroupOu
              'l1_ratio': [0, 0.15, 0.5, 0.85, 1.0]} #using with elasticnet only; default 0.15
 
     if leaveTwoGroupOut == True:
-        cv=LeavePGroupsOut(n_groups=2).split(data_features, np.ravel(data_labels), groups=group_by)
+        cv=model_selection.LeavePGroupsOut(n_groups=2).split(
+            data_features, np.ravel(data_labels), groups=group_by)
     else:
         cv = 5 # five folders cross validation
 
     svc = linear_model.SGDClassifier(loss='log')
-    clf = GridSearchCV(svc, parameters, cv=cv)
+    clf = model_selection.GridSearchCV(svc, parameters, cv=cv)
     clf.fit(data_features, np.ravel(data_labels))
 
     penalty = clf.best_params_['penalty']
@@ -327,7 +316,7 @@ def testing_using_crossvalidation(df, label, features, alpha, l1_ratio, penalty)
     scaler.fit(df[features])
     logsgdc = linear_model.SGDClassifier(
         alpha=alpha, loss='log', l1_ratio=l1_ratio, penalty=penalty)
-    scores = cross_val_score(
+    scores = model_selection.cross_val_score(
         logsgdc, scaler.transform(df[features]), df[label], cv=5)
     return scores.mean()
 
@@ -415,7 +404,13 @@ def get_data_from_Citrination(client, dataset_id_list):
         pifs = [x.system for x in all_hits]
 
         for pp in pifs:
-            expt_id,q_I,temp,feats,pops,par,rpt = unpack_pif(pp)
+            feats = OrderedDict.fromkeys(saxs_math.profile_keys)
+            pops = OrderedDict.fromkeys(saxs_math.population_keys)
+            par = OrderedDict.fromkeys(saxs_math.parameter_keys)
+            expt_id,q_I,temp,pif_feats,pif_pops,pif_par,rpt = unpack_pif(pp)
+            feats.update(pif_feats)
+            pops.update(pif_pops)
+            par.update(pif_par)
             data_row = [expt_id]+list(feats.values())+list(pops.values())+list(par.values())
             data.append(data_row)
 
@@ -431,112 +426,4 @@ def get_data_from_Citrination(client, dataset_id_list):
     df_work = d.loc[shuffled_rows]
 
     return df_work
-
-            
-        # TODO: use the pif records directly. 
-        # Should not need to dump them to strings.
-        #for line in all_hits: # every line of pifs is one sample; we need to extract labels and features from it
-        #    try:
-        #        my_str = dumps(line)
-        #        obj = json.loads(my_str) # to transform the string to dictionary
-
-        #        # default values for labels
-        #        bad_data = False
-        #        form = False
-        #        precursor = False
-        #        structure = False
-
-        #        ro_sphere = None
-        #        sigma_sphere = None
-        #        g_precursor = None
-        #        rg_precursor = None
-
-        #        experiment_id = None
-
-        #        for i in obj['system']['ids']:
-        #            if i['name'] == 'EXPERIMENT_ID':
-        #                experiment_id = i['value']
-
-        #        for pr in obj['system']['properties']:
-
-        #            # extract features
-        #            if pr['name'] == 'q_Imax':
-        #                q_Imax = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'Imax_over_Imean':
-        #                Imax_over_Imean = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'Imax_sharpness':
-        #                Imax_sharpness = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'logI_fluctuation':
-        #                logI_fluctuation = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'logI_max_over_std':
-        #                logI_max_over_std = np.float32(pr['scalars'][0]['value'])
-
-        #            # extract labels
-        #            if pr['name'] == 'bad_data_flag':
-        #                bad_data = np.float32(pr['scalars'][0]['value'])
-        #                if bad_data == True:
-        #                    continue
-        #            if pr['name'] == 'form_factor_scattering_flag':
-        #                form = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'diffraction_peaks_flag':
-        #                structure = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'precursor_scattering_flag':
-        #                precursor = np.float32(pr['scalars'][0]['value'])
-
-        #            if pr['name'] == 'r0_sphere':
-        #                ro_sphere = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'sigma_sphere':
-        #                sigma_sphere = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'G_precursor':
-        #                g_precursor = np.float32(pr['scalars'][0]['value'])
-        #            if pr['name'] == 'rg_precursor':
-        #                rg_precursor = np.float32(pr['scalars'][0]['value'])
-
-        #        data.append([experiment_id, q_Imax, Imax_over_Imean, Imax_sharpness, logI_fluctuation,
-        #                                   logI_max_over_std, bad_data, form, precursor, structure,
-        #                              ro_sphere, sigma_sphere, g_precursor, rg_precursor])
-        #    except:
-        #        # May be in PAWS we need to put a custom exeption here
-        #        my_str = dumps(line)
-        #        obj = json.loads(my_str) # to transform the string to dictionary
-        #        print(obj)
-        #        continue
-
-    #['experiment_id', 'q_Imax', 'Imax_over_Imean', 
-    #'Imax_sharpness','logI_fluctuation', 'logI_max_over_std', 
-    #'bad_data', 'form', 'precursor', 'structure',
-    #'ro_shpere', 'sigma_sphere', 'g_precursor', 'rg_precursor'])
-
-def unpack_pif(pp):
-    expt_id = None
-    q_I = None
-    temp = None
-    feats = OrderedDict.fromkeys(saxs_math.profile_keys)
-    pops = OrderedDict.fromkeys(saxs_math.population_keys)
-    par = OrderedDict.fromkeys(saxs_math.parameter_keys)
-
-    rpt = OrderedDict() 
-    for prop in pp.properties:
-        if prop.name == 'SAXS intensity':
-            I = [float(sca.value) for sca in prop.scalars]
-            for val in prop.conditions:
-                if val.name == 'scattering vector':
-                    q = [float(sca.value) for sca in val.scalars]
-                if val.name == 'temperature':
-                    temp = float(val.scalars[0].value)
-            q_I = np.array(zip(q,I))
-        elif prop.name in saxs_math.population_keys:
-            pops[prop.name] = int(prop.scalars[0].value)
-        elif prop.name in saxs_math.parameter_keys:
-            par[prop.name] = float(prop.scalars[0].value)
-        elif prop.tags is not None:
-            if 'spectrum fitting quantity' in prop.tags:
-                rpt[prop.name] = float(prop.scalars[0].value)
-            if 'spectrum profiling quantity' in prop.tags:
-                feats[prop.name] = float(prop.scalars[0].value) 
-    for iidd in pp.ids:
-        if iidd.name == 'EXPERIMENT_ID':
-            expt_id = iidd.value
-    return expt_id,q_I,temp,feats,pops,par,rpt
-
 
