@@ -72,7 +72,7 @@ def test_profile_spectrum():
     pop_profs = saxs_math.population_profiles(q_I_tot,pops,params)
 
 def test_classifier():
-    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','models_test.yml')
+    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
     sxc = saxs_classify.SaxsClassifier(model_file_path)
     for data_type in ['precursors','spheres']:
         data_path = os.path.join(os.getcwd(),'tests','test_data','solution_saxs',data_type)
