@@ -115,7 +115,7 @@ def saxs_properties(q_I,temp_C,populations,params,report):
             qcomp = np.arange(0.,q_I[-1,0],0.001)
             I_computed = saxs_math.compute_saxs(qcomp,populations,params)
             pI_computed = q_I_property(
-                np.array(qcomp,I_computed]).T,
+                np.array(qcomp,I_computed).T,
                 propname='computed SAXS intensity')
             props.append(pI_computed)
 
