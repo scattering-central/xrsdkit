@@ -9,6 +9,7 @@ from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery,
 from sklearn import model_selection, preprocessing, linear_model
 
 from . import saxs_math
+from . import saxs_piftools
 
 def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=False):
     """Train and save SAXS classification models as a YAML file.
@@ -404,10 +405,11 @@ def get_data_from_Citrination(client, dataset_id_list):
         pifs = [x.system for x in all_hits]
 
         for pp in pifs:
-            feats = OrderedDict.fromkeys(saxs_math.profile_keys)
+            feats = OrderedDict.fromkeys(saxs_math.profile_keys+saxs_math.form_factor_profile_keys)
             pops = OrderedDict.fromkeys(saxs_math.population_keys)
             par = OrderedDict.fromkeys(saxs_math.parameter_keys)
-            expt_id,q_I,temp,pif_feats,pif_pops,pif_par,rpt = unpack_pif(pp)
+            expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
+
             feats.update(pif_feats)
             pops.update(pif_pops)
             par.update(pif_par)
@@ -418,12 +420,13 @@ def get_data_from_Citrination(client, dataset_id_list):
     # i.e. in the same order as the columns in `data`.
     colnames = ['experiment_id']
     colnames.extend(saxs_math.profile_keys)
+    colnames.extend(saxs_math.form_factor_profile_keys)
     colnames.extend(saxs_math.population_keys)
     colnames.extend(saxs_math.parameter_keys)
+
     d = pd.DataFrame(data=data, columns=colnames)
     d = d.where((pd.notnull(d)), None) # replace all NaN by None
     shuffled_rows = np.random.permutation(d.index)
     df_work = d.loc[shuffled_rows]
 
     return df_work
-
