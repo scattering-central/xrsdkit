@@ -50,6 +50,13 @@ profile_keys = [\
     'pearson_expq',\
     'pearson_invexpq']
 
+# additional profile keys for form factor scatterers
+form_factor_profile_keys = [\
+    'q_at_Iq4_min1',\
+    'pIq4_qwidth',\
+    'pI_qvertex',\
+    'pI_qwidth']
+
 population_keys = [\
     'unidentified',\
     'guinier_porod',\
@@ -57,13 +64,13 @@ population_keys = [\
     'diffraction_peaks']
 
 parameter_keys = [\
+    'I0_floor',\
     'G_gp',\
     'rg_gp',\
     'D_gp',\
     'I0_sphere',\
     'r0_sphere',\
-    'sigma_sphere',\
-    'I0_floor']
+    'sigma_sphere']
  
 def compute_saxs(q,populations,params):
     """Compute a SAXS intensity spectrum.
@@ -535,7 +542,7 @@ def profile_form_factor_spectrum(q_I):
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    features = OrderedDict 
+    features = OrderedDict.fromkeys(form_factor_profile_keys)
     #######
     # 1: Find the first local max
     # and subsequent local minimum of I*q**4 
@@ -569,10 +576,10 @@ def profile_form_factor_spectrum(q_I):
     p_min1 = np.polyfit(q_min1_s,Iqqqq_min1_s,2,None,False,np.ones(len(q_min1_s)),False)
     # quadratic vertex horizontal coord is -b/2a
     qs_at_min1 = -1*p_min1[1]/(2*p_min1[0])
-    features['q_at_Iqqqq_min1'] = qs_at_min1*q_min1_std+q_min1_mean
+    features['q_at_Iq4_min1'] = qs_at_min1*q_min1_std+q_min1_mean
     # quadratic focal width is 1/a 
     p_min1_fwidth = abs(1./p_min1[0])
-    features['pIqqqq_qwidth'] = p_min1_fwidth*q_min1_std
+    features['pIq4_qwidth'] = p_min1_fwidth*q_min1_std
     #######
     # 3: Characterize I(q) around idxmin1.
     I_min1_mean = np.mean(I[idx_around_min1])

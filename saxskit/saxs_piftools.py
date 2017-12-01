@@ -3,7 +3,7 @@ from collections import OrderedDict
 import numpy as np
 import pypif.obj as pifobj
 
-from . import saxs_math, saxs_classify
+from . import saxs_math, saxs_fit, saxs_classify
 
 parameter_description = OrderedDict.fromkeys(saxs_math.parameter_keys)
 parameter_description['I0_floor'] = 'flat background intensity'
@@ -23,7 +23,7 @@ parameter_units['I0_sphere'] = 'arb'
 parameter_units['r0_sphere'] = 'Angstrom'
 parameter_units['sigma_sphere'] = 'unitless'
 
-def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None,params=None,report=None):
+def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None,params=None):
     """Make a pypif.obj.ChemicalSystem object describing a SAXS experiment.
 
     Parameters
@@ -42,9 +42,6 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None,p
         dict that counts scatterer populations
     params : dict
         dict of parameters corresponding to all entries in `populations`
-    report : dict
-        dict describing the fit objectives and SNR
-        between measured `q_I` and the computed intensity from `params`
 
     Returns
     -------
@@ -59,7 +56,7 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None,p
         csys.ids.append(id_tag('EXPERIMENT_ID',expt_id))
     if t_utc is not None:
         csys.tags.append('time (utc): '+str(int(t_utc)))
-    csys.properties = saxs_properties(q_I,temp_C,populations,params,report)
+    csys.properties = saxs_properties(q_I,temp_C,populations,params)
     return csys
 
 def unpack_pif(pp):
@@ -98,7 +95,7 @@ def unpack_pif(pp):
             t_utc = float(ttgg.replace('time (utc): ',''))
     return expt_id,t_utc,q_I,temp,feats,pops,par,rpt
 
-def saxs_properties(q_I,temp_C,populations,params,report):
+def saxs_properties(q_I,temp_C,populations,params):
     props = []
 
     if q_I is not None:
@@ -118,12 +115,25 @@ def saxs_properties(q_I,temp_C,populations,params,report):
                 np.array([qcomp,I_computed]).T,
                 propname='computed SAXS intensity')
             props.append(pI_computed)
+            # add properties for the fit report
+            sxf = saxs_fit.SaxsFitter(q_I,populations)
+            report = sxf.fit_report(params) 
+            rprops = fitreport_properties(report)
+            props.extend(rprops)
 
     if q_I is not None:
         # featurization of measured spectrum
         prof = saxs_math.profile_spectrum(q_I)
         prof_props = profile_properties(prof)
         props.extend(prof_props)
+        if populations is not None:
+            # population-specific featurizations
+            if bool(populations['spherical_normal']) \
+            and not bool(populations['unidentified']) \
+            and not bool(populations['diffraction_peaks']):
+                spher_prof = saxs_math.profile_form_factor_spectrum(q_I)
+                spher_prof_props = profile_properties(spher_prof)
+                props.extend(spher_prof_props)
         # ML flags for this featurization
         sxc = saxs_classify.SaxsClassifier()
         ml_pops = sxc.classify(np.array(list(prof.values())).reshape(1,-1))
@@ -133,12 +143,11 @@ def saxs_properties(q_I,temp_C,populations,params,report):
     if populations is not None:
         fprops = ground_truth_population_properties(populations)
         props.extend(fprops)
+
     if params is not None:
         pprops = param_properties(params)
         props.extend(pprops)
-    if report is not None:
-        rprops = fitreport_properties(report)
-        props.extend(rprops)
+
     return props
 
 def id_tag(idname,idval,tags=None):
