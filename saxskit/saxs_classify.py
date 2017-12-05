@@ -79,7 +79,7 @@ class SaxsClassifier(object):
                 if not k == 'unidentified':
                     if self.scalers[k] != None:
                         xk = self.scalers[k].transform(sample_params)
-                        fk = self.models[k].predict(xk)
+                        fk = self.models[k].predict(xk)[0]
                         pk = self.models[k].predict_proba(xk)[0,int(fk)]
                         flags[k] = (fk,pk)
                     else:
