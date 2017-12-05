@@ -35,6 +35,7 @@ from collections import OrderedDict
 
 import numpy as np
 
+# features for profiling all spectra
 profile_keys = [\
     'Imax_over_Imean',\
     'Imax_sharpness',\
@@ -50,19 +51,25 @@ profile_keys = [\
     'pearson_expq',\
     'pearson_invexpq']
 
-# additional profile keys for form factor scatterers
-form_factor_profile_keys = [\
+# additional features for profiling specific scatterer populations 
+spherical_normal_profile_keys = [\
     'q_at_Iq4_min1',\
     'pIq4_qwidth',\
     'pI_qvertex',\
     'pI_qwidth']
 
+guinier_porod_profile_keys = [\
+    'I_at_0',\
+    'q_at_half_I0']
+
+# supported population types
 population_keys = [\
     'unidentified',\
     'guinier_porod',\
     'spherical_normal',\
     'diffraction_peaks']
 
+# supported scattering parameters
 parameter_keys = [\
     'I0_floor',\
     'G_gp',\
@@ -220,6 +227,150 @@ def guinier_porod(q,r_g,porod_exponent,guinier_factor):
         I[idx_porod] = porod_factor * 1./(q[idx_porod]**porod_exponent)
     return I
 
+def fit_I0(q,I,order=4):
+    """Find an estimate for I(q=0) by polynomial fitting.
+    
+    Parameters
+    ----------
+    q : array
+        array of scattering vector magnitudes in 1/Angstrom
+    I : array
+        array of intensities corresponding to `q`
+
+    Returns
+    -------
+    I_at_0 : float
+        estimate of the intensity at q=0
+    p_I0 : array
+        polynomial coefficients for the polynomial 
+        that was fit to obtain `I_at_0` (numpy format)
+    """
+    #TODO: add a sign constraint such that I(q=0) > 0?
+    I_mean = np.mean(I)
+    I_std = np.std(I)
+    q_mean = np.mean(q)
+    q_std = np.std(q)
+    I_s = (I-I_mean)/I_std
+    q_s = (q-q_mean)/q_std
+    p_I0 = fit_with_slope_constraint(q_s,I_s,-1*q_mean/q_std,0,order) 
+    I_at_0 = np.polyval(p_I0,-1*q_mean/q_std)*I_std+I_mean
+
+    return I_at_0,p_I0
+
+def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
+    """Fit scattering data to a polynomial with one slope constraint.
+
+    This is performed by forming a Lagrangian 
+    from a quadratic cost function 
+    and the Lagrange-multiplied constraint function.
+    Inputs q and I are not standardized in this function,
+    so they should be standardized beforehand 
+    if standardized fitting is desired.
+    
+    TODO: Document cost function, constraints, Lagrangian.
+
+    Parameters
+    ----------
+    q : array
+        array of scattering vector magnitudes in 1/Angstrom
+    I : array
+        array of intensities corresponding to `q`
+    q_cons : float
+        q-value at which a slope constraint will be enforced-
+        because of the form of the Lagrangian,
+        this constraint cannot be placed at exactly zero
+        (it would result in indefinite matrix elements)
+    dIdq_cons : float
+        slope (dI/dq) that will be enforced at `q_cons`
+    order : int
+        order of the polynomial to fit
+    weights : array
+        array of weights for the fitting of `I`
+
+    Returns
+    -------
+    p_fit : array
+        polynomial coefficients for the fit of I(q) (numpy format)
+    """
+    Ap = np.zeros( (order+1,order+1),dtype=float )
+    b = np.zeros(order+1,dtype=float)
+    # TODO: vectorize the construction of Ap
+    for i in range(0,order):
+        for j in range(0,order):
+            Ap[i,j] = np.sum( q**j * q**i )
+        Ap[i,order] = -1*i*q_cons**(i-1)
+    for j in range(0,order):
+        Ap[order,j] = j*q_cons**(j-1)
+        b[j] = np.sum(I*q**j)
+    b[order] = dIdq_cons
+    p_fit = np.linalg.solve(Ap,b) 
+    p_fit = p_fit[:-1]  # throw away Lagrange multiplier term 
+    p_fit = p_fit[::-1] # reverse coefs to get np.polyfit format
+    return p_fit
+
+def compute_Rsquared(y1,y2):
+    """Compute the coefficient of determination.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+
+    Returns
+    -------
+    Rsquared : float
+        coefficient of determination between `y1` and `y2`
+    """
+    sum_var = np.sum( (y1-np.mean(y1))**2 )
+    sum_res = np.sum( (y1-y2)**2 ) 
+    return float(1)-float(sum_res)/sum_var
+
+def compute_pearson(y1,y2):
+    """Compute the Pearson correlation coefficient.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+
+    Returns
+    -------
+    pearson_r : float
+        Pearson's correlation coefficient between `y1` and `y2`
+    """
+    y1mean = np.mean(y1)
+    y2mean = np.mean(y2)
+    y1std = np.std(y1)
+    y2std = np.std(y2)
+    return np.sum((y1-y1mean)*(y2-y2mean))/(np.sqrt(np.sum((y1-y1mean)**2))*np.sqrt(np.sum((y2-y2mean)**2)))
+
+def compute_chi2(y1,y2,weights=None):
+    """Compute sum of difference squared between two arrays.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+    weights : array
+        array of weights to multiply each element of (`y2`-`y1`)**2 
+
+    Returns
+    -------
+    chi2 : float
+        sum of difference squared between `y1` and `y2`. 
+    """
+    if weights is None:
+        return np.sum( (y1 - y2)**2 )
+    else:
+        weights = weights / np.sum(weights)
+        return np.sum( (y1 - y2)**2*weights )
+
 def profile_spectrum(q_I):
     """Numerical profiling of a SAXS spectrum.
 
@@ -369,152 +520,41 @@ def profile_spectrum(q_I):
     features['pearson_invexpq'] = pearson_invexpq
     return features 
 
-def fit_I0(q,I,order=4):
-    """Find an estimate for I(q=0) by polynomial fitting.
-    
-    Parameters
-    ----------
-    q : array
-        array of scattering vector magnitudes in 1/Angstrom
-    I : array
-        array of intensities corresponding to `q`
 
-    Returns
-    -------
-    I_at_0 : float
-        estimate of the intensity at q=0
-    p_I0 : array
-        polynomial coefficients for the polynomial 
-        that was fit to obtain `I_at_0` (numpy format)
-    """
-    #TODO: add a sign constraint such that I(q=0) > 0?
-    I_mean = np.mean(I)
-    I_std = np.std(I)
-    q_mean = np.mean(q)
-    q_std = np.std(q)
-    I_s = (I-I_mean)/I_std
-    q_s = (q-q_mean)/q_std
-    p_I0 = fit_with_slope_constraint(q_s,I_s,-1*q_mean/q_std,0,order) 
-    I_at_0 = np.polyval(p_I0,-1*q_mean/q_std)*I_std+I_mean
+def guinier_porod_profile(q_I):
+    """Numerical profiling of guinier_porod scattering intensities.
 
-    return I_at_0,p_I0
-
-def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
-    """Fit scattering data to a polynomial with one slope constraint.
-
-    This is performed by forming a Lagrangian 
-    from a quadratic cost function 
-    and the Lagrange-multiplied constraint function.
-    Inputs q and I are not standardized in this function,
-    so they should be standardized beforehand 
-    if standardized fitting is desired.
-    
-    TODO: Document cost function, constraints, Lagrangian.
+    Computes the intensity at q=0 and the q value 
+    at which the intensity drops to half of I(q=0).
 
     Parameters
     ----------
-    q : array
-        array of scattering vector magnitudes in 1/Angstrom
-    I : array
-        array of intensities corresponding to `q`
-    q_cons : float
-        q-value at which a slope constraint will be enforced-
-        because of the form of the Lagrangian,
-        this constraint cannot be placed at exactly zero
-        (it would result in indefinite matrix elements)
-    dIdq_cons : float
-        slope (dI/dq) that will be enforced at `q_cons`
-    order : int
-        order of the polynomial to fit
-    weights : array
-        array of weights for the fitting of `I`
+    q_I : array
+        n-by-2 array of scattering vector q and scattered intensity I
 
     Returns
     -------
-    p_fit : array
-        polynomial coefficients for the fit of I(q) (numpy format)
+    features : dict
+        Dictionary of metrics computed from input spectrum `q_I`.
+        The features are:
+
+        - 'I_at_0': intensity at q=0, obtained by polynomial fitting
+            with the slope at q=0 constrained to be 0. 
+
+        - 'q_at_half_I0': q-value at which the intensity
+            first drops to half of I(q=0)
     """
-    Ap = np.zeros( (order+1,order+1),dtype=float )
-    b = np.zeros(order+1,dtype=float)
-    # TODO: vectorize the construction of Ap
-    for i in range(0,order):
-        for j in range(0,order):
-            Ap[i,j] = np.sum( q**j * q**i )
-        Ap[i,order] = -1*i*q_cons**(i-1)
-    for j in range(0,order):
-        Ap[order,j] = j*q_cons**(j-1)
-        b[j] = np.sum(I*q**j)
-    b[order] = dIdq_cons
-    p_fit = np.linalg.solve(Ap,b) 
-    p_fit = p_fit[:-1]  # throw away Lagrange multiplier term 
-    p_fit = p_fit[::-1] # reverse coefs to get np.polyfit format
-    return p_fit
+    q = q_I[:,0]
+    I = q_I[:,1]
+    features = OrderedDict.fromkeys(guinier_porod_profile_keys)
+    I_at_0, p_I0 = fit_I0(q,I,3)
+    features['I_at_0'] = I_at_0
+    idx_half_I0 = np.min(np.where(I<0.5*I_at_0))
+    features['q_at_half_I0'] = q[idx_half_I0]
+    return features
 
-def compute_Rsquared(y1,y2):
-    """Compute the coefficient of determination.
-
-    Parameters
-    ----------
-    y1 : array
-        an array of floats
-    y2 : array
-        an array of floats
-
-    Returns
-    -------
-    Rsquared : float
-        coefficient of determination between `y1` and `y2`
-    """
-    sum_var = np.sum( (y1-np.mean(y1))**2 )
-    sum_res = np.sum( (y1-y2)**2 ) 
-    return float(1)-float(sum_res)/sum_var
-
-def compute_pearson(y1,y2):
-    """Compute the Pearson correlation coefficient.
-
-    Parameters
-    ----------
-    y1 : array
-        an array of floats
-    y2 : array
-        an array of floats
-
-    Returns
-    -------
-    pearson_r : float
-        Pearson's correlation coefficient between `y1` and `y2`
-    """
-    y1mean = np.mean(y1)
-    y2mean = np.mean(y2)
-    y1std = np.std(y1)
-    y2std = np.std(y2)
-    return np.sum((y1-y1mean)*(y2-y2mean))/(np.sqrt(np.sum((y1-y1mean)**2))*np.sqrt(np.sum((y2-y2mean)**2)))
-
-def compute_chi2(y1,y2,weights=None):
-    """Compute sum of difference squared between two arrays.
-
-    Parameters
-    ----------
-    y1 : array
-        an array of floats
-    y2 : array
-        an array of floats
-    weights : array
-        array of weights to multiply each element of (`y2`-`y1`)**2 
-
-    Returns
-    -------
-    chi2 : float
-        sum of difference squared between `y1` and `y2`. 
-    """
-    if weights is None:
-        return np.sum( (y1 - y2)**2 )
-    else:
-        weights = weights / np.sum(weights)
-        return np.sum( (y1 - y2)**2*weights )
-
-def profile_form_factor_spectrum(q_I):
-    """Numerical profiling of a form factor scattering SAXS spectrum.
+def spherical_normal_profile(q_I):
+    """Numerical profiling of spherical_normal scattering intensities.
     
     Computes several properties of the I(q) and I(q)*q**4 curves.
 
@@ -542,7 +582,7 @@ def profile_form_factor_spectrum(q_I):
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    features = OrderedDict.fromkeys(form_factor_profile_keys)
+    features = OrderedDict.fromkeys(spherical_normal_profile_keys)
     #######
     # 1: Find the first local max
     # and subsequent local minimum of I*q**4 
@@ -593,4 +633,42 @@ def profile_form_factor_spectrum(q_I):
     pI_fwidth = abs(1./pI_min1[0])
     features['pI_qwidth'] = pI_fwidth*q_min1_std
     return features 
+
+def population_profiles(q_I,populations,params):
+    profs = OrderedDict()
+
+    if bool(populations['unidentified']) \
+    or bool(populations['diffraction_peaks']):
+        return profs 
+
+    if bool(populations['spherical_normal']):
+        q_I_sph = q_I
+        if bool(populations['guinier_porod']):
+            pop_gp = OrderedDict.fromkeys(population_keys)
+            params_gp = OrderedDict.fromkeys(parameter_keys)
+            pop_gp['guinier_porod'] = populations['guinier_porod']
+            params_gp['G_gp'] = params['G_gp']
+            params_gp['rg_gp'] = params['rg_gp']
+            params_gp['D_gp'] = params['D_gp']
+            q_I_gp = compute_saxs(q_I[:,0],pop_gp,params_gp)
+            q_I_sph = q_I_sph - q_I_gp
+        sph_prof = spherical_normal_profile(q_I_sph)
+        profs.update(sph_prof)
+
+    if bool(populations['guinier_porod']):
+        q_I_gp = q_I
+        if bool(populations['spherical_normal']):
+            pop_sph = OrderedDict.fromkeys(population_keys)
+            params_sph = OrderedDict.fromkeys(parameter_keys)
+            pop_sph['spherical_normal'] = populations['spherical_normal']
+            params_sph['I0_sphere'] = params['I0_sphere']
+            params_sph['r0_sphere'] = params['r0_sphere']
+            params_sph['sigma_sphere'] = params['sigma_sphere']
+            q_I_sph = compute_saxs(q_I[:,0],pop_sph,params_sph)
+            q_I_gp = q_I_gp - q_I_sph
+        gp_prof = guinier_porod_profile(q_I_gp)
+        profs.update(gp_prof)
+    
+    return profs
+
 

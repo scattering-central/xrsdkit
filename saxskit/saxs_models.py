@@ -405,12 +405,16 @@ def get_data_from_Citrination(client, dataset_id_list):
         pifs = [x.system for x in all_hits]
 
         for pp in pifs:
-            feats = OrderedDict.fromkeys(saxs_math.profile_keys+saxs_math.form_factor_profile_keys)
+            feats = OrderedDict.fromkeys(saxs_math.profile_keys
+                +saxs_math.spherical_normal_profile_keys
+                +saxs_math.guinier_porod_profile_keys)
             pops = OrderedDict.fromkeys(saxs_math.population_keys)
             par = OrderedDict.fromkeys(saxs_math.parameter_keys)
             expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
 
-            feats.update(pif_feats)
+            #feats.update(pif_feats)
+            feats.update(saxs_math.profile_spectrum(q_I))
+            feats.update(saxs_math.population_profiles(q_I,pif_pops,pif_par))
             pops.update(pif_pops)
             par.update(pif_par)
             data_row = [expt_id]+list(feats.values())+list(pops.values())+list(par.values())
