@@ -228,52 +228,37 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     possible_models = check_labels_regression(all_data)
 
-    # unidentified scatterer population model
+    # r0_sphere model
     if possible_models['r0_sphere'] == True:
         features = saxs_math.profile_keys
-        data = all_data[all_data['r0_sphere'].isnull() == False]
-        if len(data.experiment_id.unique()) > 4:
-            leaveNGroupOut = True
-        else:
-            leaveNGroupOut = False
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(data[features])
-        data[features] = scaler.transform(data[features])
-        if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio, loss, \
-            epsilon = hyperparameters_search_regression(data[features],
-                data['r0_sphere'], data['experiment_id'], leaveNGroupOut, 1)
-        else:
-            penalty = 'l1'
-            alpha = 0.001
-            l1_ratio = 1.0
-            loss = 'squared_loss'
-            epsilon = 0
 
-        reg = linear_model.SGDRegressor(alpha= alpha, loss= loss,
-                                        penalty = penalty,l1_ratio = l1_ratio,
-                                        epsilon = epsilon, max_iter=1000)
-        reg.fit(data[features], data['r0_sphere'])
+        scaler, reg, acc = train(all_data, features, 'r0_sphere', hyper_parameters_search)
 
-        # save the scaler and model for "r0_sphere"
         scalers['r0_sphere'] = scaler.__dict__
         models['r0_sphere'] = reg.__dict__
-
-        # save the accuracy
-        label_std = data['r0_sphere'].std()
-        if leaveNGroupOut:
-            accuracy['r0_sphere'] = testing_by_experiments(
-                data, 'r0_sphere', features, alpha, l1_ratio, penalty, loss,
-                epsilon, label_std)
-        else:
-            accuracy['r0_sphere'] = testing_using_crossvalidation(
-                data, 'r0_sphere', features, alpha, l1_ratio, penalty)
+        accuracy['r0_sphere'] = acc
     else:
         scalers['r0_sphere'] = None
         models['r0_sphere'] = None
         accuracy['r0_sphere'] = None
 
-    # 3 other models
+
+    # sigma_shpere model
+    if possible_models['sigma_sphere'] == True:
+        features = saxs_math.profile_keys
+        features.extend(saxs_math.form_factor_profile_keys)
+
+        scaler, reg, acc = train(all_data, features, 'sigma_sphere', hyper_parameters_search)
+
+        scalers['sigma_sphere'] = scaler.__dict__
+        models['sigma_sphere'] = reg.__dict__
+        accuracy['sigma_sphere'] = acc
+    else:
+        scalers['sigma_sphere'] = None
+        models['sigma_sphere'] = None
+        accuracy['sigma_sphere'] = None
+
+    # 2 other models
 
 
 
@@ -286,7 +271,43 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
     with open (accuracy_txt, 'w') as txt_file:
         txt_file.write(str(accuracy))
 
+def train(all_data, features, target, hyper_parameters_search):
+    d = all_data[all_data[target].isnull() == False]
+    data = d.dropna(subset=features)
+    if len(data.experiment_id.unique()) > 4:
+        leaveNGroupOut = True
+    else:
+        leaveNGroupOut = False
+    scaler = preprocessing.StandardScaler()
+    scaler.fit(data[features])
+    data.loc[ : , features] = scaler.transform(data[features])
+    if hyper_parameters_search == True:
+        penalty, alpha, l1_ratio, loss, \
+        epsilon = hyperparameters_search_regression(data[features],
+            data[target], data['experiment_id'], leaveNGroupOut, 1)
+    else:
+        penalty = 'l1'
+        alpha = 0.001
+        l1_ratio = 1.0
+        loss = 'squared_loss'
+        epsilon = 0
 
+    reg = linear_model.SGDRegressor(alpha= alpha, loss= loss,
+                                        penalty = penalty,l1_ratio = l1_ratio,
+                                        epsilon = epsilon, max_iter=1000)
+    reg.fit(data[features], data[target])
+
+    # accuracy
+    label_std = data[target].std()
+    if leaveNGroupOut:
+        acc = testing_by_experiments_regression(
+            data, target, features, alpha, l1_ratio, penalty, loss,
+            epsilon, label_std)
+    else:
+        acc = testing_using_crossvalidation_regression(
+            data, target, features,   alpha, l1_ratio, penalty,  loss, epsilon, label_std)
+
+    return scaler, reg, acc
 
 
 def hyperparameters_search(data_features, data_labels, group_by, leaveNGroupOut, n):
