@@ -81,8 +81,7 @@ def unpack_pif(pp):
         elif prop.name in saxs_math.population_keys:
             pops[prop.name] = int(prop.scalars[0].value)
         elif prop.name in saxs_math.parameter_keys:
-            #par[prop.name] = [float(s.value) for s in prop.scalars]
-            par[prop.name] = float(prop.scalars[0].value) # we cannot use list as label
+            par[prop.name] = [float(s.value) for s in prop.scalars]
         elif prop.tags is not None:
             if 'spectrum fitting quantity' in prop.tags:
                 rpt[prop.name] = float(prop.scalars[0].value)
