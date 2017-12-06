@@ -102,7 +102,7 @@ class SaxsFitter(object):
                     idx += 1
         return param_list,param_names,param_idx
 
-    def fit(self,params,fixed_params=None,objective='chi2log'):
+    def fit(self,params=None,fixed_params=None,objective='chi2log'):
         """Fit the SAXS spectrum, optionally holding some parameters fixed.
     
         Parameters
@@ -110,13 +110,17 @@ class SaxsFitter(object):
         params : dict
             Dict of scattering equation parameters (initial guess).
             See saxs_math module documentation.
+            If not provided, some defaults are chosen.
         fixed_params : dict, optional
-            Dict of booleans indicating which entries in `params`
-            should be held constant during fitting.
-            The structure of this dict must constitute
+            Dict of floats giving values in `params`
+            that should be held constant during fitting.
+            The structure of this dict should constitute
             a subset of the structure of the `params` dict.
-            To specify a `params` entry to be fixed,
-            the corresponding value in `fixed_params` must be set to True.
+            Entries in `fixed_params` take precedence 
+            over the corresponding entries in `params`, so that the 
+            initial condition does not violate the constraint.
+            Entries in `fixed_params` that are outside 
+            the structure of the `params` dict will be ignored.
         objective : string
             Choice of objective function 
             (currently the only option is 'chi2log').
@@ -130,9 +134,14 @@ class SaxsFitter(object):
             Dict reporting quantities of interest
             pertaining to the fit result.
         """
+
         if bool(self.populations['unidentified']) \
         or bool(self.populations['diffraction_peaks']):
-            return params,OrderedDict()
+            return OrderedDict(),OrderedDict()
+
+        if params is None:
+            params = self.default_params()
+
         x_init,x_keys,param_idx = self.unpack_params(params) 
         x_bounds = [] 
         for k in x_keys:
@@ -141,10 +150,11 @@ class SaxsFitter(object):
         # --- constraints --- 
         c = []
         if fixed_params is not None:
-            for pk,fixp in fixed_params.items():
+            for pk,pvals in fixed_params.items():
                 if pk in params.keys():
-                    for idx,flag in enumerate(fixp):
-                        if flag == True:
+                    for idx,val in enumerate(pvals):
+                        if idx < len(params[pk]):
+                            params[pk][idx] = val
                             fix_idx = param_idx[pk][idx]
                             cfun = lambda x: x[fix_idx] - x_init[fix_idx]
                             c.append({'type':'eq','fun':cfun})
@@ -165,6 +175,39 @@ class SaxsFitter(object):
         p_opt = self.pack_params(res.x,x_keys) 
         rpt = self.fit_report(p_opt)
         return p_opt,rpt
+
+    def default_params(self):
+        pars = OrderedDict()
+        defaults = OrderedDict(
+            I0_floor = 0.0001,
+            G_gp = 0.01,
+            rg_gp = 1.,
+            D_gp = 4.,
+            I0_sphere = 1.,
+            r0_sphere = 10.,
+            sigma_sphere = 0.1)
+        pars['I0_floor'] = [defaults['I0_floor']]
+        if 'guinier_porod' in self.populations:
+            n_gp = self.populations['guinier_porod']
+            if bool(n_gp):
+                pars['G_gp'] = []
+                pars['rg_gp'] = []
+                pars['D_gp'] = []
+                for igp in range(n_gp):
+                    pars['G_gp'].append(defaults['G_gp'])
+                    pars['rg_gp'].append(defaults['rg_gp'])
+                    pars['D_gp'].append(defaults['D_gp'])
+        if 'spherical_normal' in self.populations:
+            n_sn = self.populations['spherical_normal']
+            if bool(n_sn):
+                pars['I0_sphere'] = []
+                pars['r0_sphere'] = []
+                pars['sigma_sphere'] = []
+                for isn in range(n_sn):
+                    pars['I0_sphere'].append(defaults['I0_sphere'])
+                    pars['r0_sphere'].append(defaults['r0_sphere'])
+                    pars['sigma_sphere'].append(defaults['sigma_sphere'])
+        return pars
 
     def fit_report(self,params):
         rpt = OrderedDict()
@@ -192,7 +235,8 @@ class SaxsFitter(object):
         T : float
             Temperature employed in Metropolis acceptance decisions.
         fixed_params : dict 
-            Dict indicating which parameters to hold fixed during optimization.
+            Dict indicating fixed values for `params`.
+            See documentation of SaxsFitter.fit().
 
         Returns
         -------
@@ -206,6 +250,14 @@ class SaxsFitter(object):
         u_flag = bool(self.populations['unidentified'])
         pks_flag = bool(self.populations['diffraction_peaks'])
         if u_flag or pks_flag: return OrderedDict(),OrderedDict(),OrderedDict()
+
+        # replace any params with the corresponding fixed_params
+        if fixed_params is not None:
+            for pname,pvals in fixed_params.items():
+                if pname in params.keys():
+                    for idx,val in enumerate(pvals):
+                        if idx < len(params[pname]):
+                            params[pname][idx] = val
 
         fit_obj = self.evaluate
         p_init = copy.deepcopy(params) 
@@ -223,10 +275,11 @@ class SaxsFitter(object):
             x_new,x_keys,param_idx = self.unpack_params(p_new) 
             for idx in range(len(x_new)):
                 pfix = False
+                pkey = x_keys[idx]
                 if fixed_params is not None:
-                    if x_keys[idx] in fixed_params.keys():
-                        paridx = x_keys[:idx].count(x_keys[idx])
-                        if fixed_params[x_keys[idx]][paridx]:
+                    if pkey in fixed_params.keys():
+                        paridx = x_keys[:idx].count(pkey)
+                        if paridx < len(fixed_params[pkey]):
                             pfix = True
                 if not pfix:
                     xi = x_new[idx]

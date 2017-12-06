@@ -126,14 +126,11 @@ def saxs_properties(q_I,temp_C,populations,params):
         prof = saxs_math.profile_spectrum(q_I)
         prof_props = profile_properties(prof)
         props.extend(prof_props)
-        if populations is not None:
+        if populations is not None and params is not None:
             # population-specific featurizations
-            if bool(populations['spherical_normal']) \
-            and not bool(populations['unidentified']) \
-            and not bool(populations['diffraction_peaks']):
-                spher_prof = saxs_math.profile_form_factor_spectrum(q_I)
-                spher_prof_props = profile_properties(spher_prof)
-                props.extend(spher_prof_props)
+            pop_profiles = saxs_math.population_profiles(q_I,populations,params)
+            pop_profile_props = profile_properties(pop_profiles)
+            props.extend(pop_profile_props)
         # ML flags for this featurization
         sxc = saxs_classify.SaxsClassifier()
         ml_pops = sxc.classify(np.array(list(prof.values())).reshape(1,-1))

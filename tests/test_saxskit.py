@@ -41,7 +41,6 @@ def test_classifier():
             for pk,pop in pops.items():
                 print('\t{} populations: {} ({} certainty)'.format(pk,pop[0],pop[1]))
 
-#if __name__ == '__main__':
-#    test_guinier_porod()
-#    test_spherical_normal_saxs()
+# TODO: next, test_regressions()
+# TODO: then, test_population_profiles()
 
