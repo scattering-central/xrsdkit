@@ -77,7 +77,7 @@ def unpack_pif(pp):
                     q = [float(sca.value) for sca in val.scalars]
                 if val.name == 'temperature':
                     temp = float(val.scalars[0].value)
-            q_I = np.array(zip(q,I))
+            q_I = np.vstack([q,I]).T
         elif prop.name in saxs_math.population_keys:
             pops[prop.name] = int(prop.scalars[0].value)
         elif prop.name in saxs_math.parameter_keys:
