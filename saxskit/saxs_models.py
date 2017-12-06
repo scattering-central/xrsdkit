@@ -424,7 +424,8 @@ def get_data_from_Citrination(client, dataset_id_list):
     # i.e. in the same order as the columns in `data`.
     colnames = ['experiment_id']
     colnames.extend(saxs_math.profile_keys)
-    colnames.extend(saxs_math.form_factor_profile_keys)
+    colnames.extend(saxs_math.spherical_normal_profile_keys)
+    colnames.extend(saxs_math.guinier_porod_profile_keys)
     colnames.extend(saxs_math.population_keys)
     colnames.extend(saxs_math.parameter_keys)
 
