@@ -417,8 +417,15 @@ def get_data_from_Citrination(client, dataset_id_list):
             feats.update(saxs_math.population_profiles(q_I,pif_pops,pif_par))
             pops.update(pif_pops)
             par.update(pif_par)
-            param_list = [par[k][0] for k in par.keys()]
-            data_row = [expt_id]+list(feats.values())+list(pops.values())+param_list)
+            #param_list = [par[k][0] for k in par.keys()]
+            param_list = []
+            for k in par.keys():
+                if par[k] is not None:
+                    val = par[k][0]
+                else:
+                    val = None
+                param_list.append(val)
+            data_row = [expt_id]+list(feats.values())+list(pops.values())+param_list
             data.append(data_row)
 
     # TODO: make sure the column names are in the right order,
