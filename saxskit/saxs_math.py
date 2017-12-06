@@ -591,14 +591,12 @@ def spherical_normal_profile(q_I):
     w = 10
     idxmax1, idxmin1 = 0,0
     stop_idx = len(q)-w-1
-    test_range = iter(range(w,stop_idx))
-    idx = test_range.next() 
-    while any([idxmax1==0,idxmin1==0]) and idx < stop_idx-1:
+    test_range = np.arange(w,stop_idx)
+    for idx in test_range:
         if np.argmax(Iqqqq[idx-w:idx+w+1]) == w and idxmax1 == 0:
             idxmax1 = idx
         if np.argmin(Iqqqq[idx-w:idx+w+1]) == w and idxmin1 == 0 and not idxmax1 == 0:
             idxmin1 = idx
-        idx = test_range.next()
     if idxmin1 == 0 or idxmax1 == 0:
         ex_msg = str('unable to find first maximum and minimum of I*q^4 '
         + 'by scanning for local extrema with a window width of {} points'.format(w))

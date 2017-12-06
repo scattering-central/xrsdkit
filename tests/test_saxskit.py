@@ -38,6 +38,10 @@ def test_classifier():
             q_I = np.loadtxt(fpath,delimiter=',')
             prof = saxs_math.profile_spectrum(q_I)
             pops = sxc.run_classifier(prof)
+            if data_type == 'spheres':
+                sph_prof = saxs_math.spherical_normal_profile(q_I)
+            if data_type == 'precursors':
+                gp_prof = saxs_math.guinier_porod_profile(q_I)
             for pk,pop in pops.items():
                 print('\t{} populations: {} ({} certainty)'.format(pk,pop[0],pop[1]))
 
