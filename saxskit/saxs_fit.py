@@ -158,6 +158,8 @@ class SaxsFitter(object):
                             fix_idx = param_idx[pk][idx]
                             cfun = lambda x: x[fix_idx] - x_init[fix_idx]
                             c.append({'type':'eq','fun':cfun})
+        # TODO: inequality constraint on I0_floor, G_gp, and I0_sphere,
+        # to prevent amplitudes from going to zero
         #if objective in ['chi2log_fixI0']:
         #    if len(I_idx) > 0:
         #        # Set up a constraint to keep I(q=0) fixed
@@ -274,6 +276,8 @@ class SaxsFitter(object):
             p_new = copy.deepcopy(p_current)
             x_new,x_keys,param_idx = self.unpack_params(p_new) 
             for idx in range(len(x_new)):
+                # TODO: check I0_floor, G_gp, and I0_sphere,
+                # to prevent amplitudes from going to zero
                 pfix = False
                 pkey = x_keys[idx]
                 if fixed_params is not None:

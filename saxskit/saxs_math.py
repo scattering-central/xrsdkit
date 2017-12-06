@@ -136,6 +136,43 @@ def compute_saxs(q,populations,params):
 
     return I
 
+def g_of_r(q_I):
+    """Compute g(r) and the maximum characteristic scatterer length.
+
+    Parameters
+    ----------
+    q_I : array
+        n-by-2 array of q values and intensities
+
+    Returns
+    -------
+    g_of_r : array
+        n-by-2 array of r values and g(r) magnitudes
+    r_max : float
+        maximum scatterer length- the integral of g(r) from zero to r_max
+        is 0.99 times the full integral of g(r)
+    """
+    q = q_I[:,0]
+    I = q_I[:,1]
+    fftI = np.fft.fft(I)
+    fftampI = np.abs(fftI)
+    r = np.fft.fftfreq(q.shape[-1])
+    idx_rpos = (r>=0)
+    r_pos = r[idx_rpos]
+    nr_pos = len(r_pos)
+    fftampI_rpos = fftampI[idx_rpos]
+    dr_pos = r_pos[1:]-r_pos[:-1] 
+    fftI_trapz = (fftampI_rpos[1:]+fftampI_rpos[:-1])*0.5 
+    fftI_dr = dr_pos * fftI_trapz
+    fft_tot = np.sum(fftI_dr)
+    idx = 0
+    fftsum = fftI_dr[idx]
+    while fftsum < 0.99*fft_tot:
+        idx += 1
+        fftsum += fftI_dr[idx]
+    r_max = r_pos[idx]
+    return np.vstack([r_pos,fftampI_rpos]).T,r_max
+
 def spherical_normal_saxs(q,r0,sigma):
     """Compute SAXS intensity of a normally-distributed sphere population.
 
@@ -519,7 +556,6 @@ def profile_spectrum(q_I):
     features['pearson_expq'] = pearson_expq
     features['pearson_invexpq'] = pearson_invexpq
     return features 
-
 
 def guinier_porod_profile(q_I):
     """Numerical profiling of guinier_porod scattering intensities.

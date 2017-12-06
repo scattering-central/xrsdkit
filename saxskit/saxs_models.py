@@ -403,7 +403,6 @@ def get_data_from_Citrination(client, dataset_id_list):
             current_result = client.search(query)
 
         pifs = [x.system for x in all_hits]
-
         for pp in pifs:
             feats = OrderedDict.fromkeys(saxs_math.profile_keys
                 +saxs_math.spherical_normal_profile_keys
