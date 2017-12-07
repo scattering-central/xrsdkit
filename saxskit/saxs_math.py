@@ -59,7 +59,7 @@ spherical_normal_profile_keys = [\
     'pI_qwidth']
 
 guinier_porod_profile_keys = [\
-    'I_at_0',\
+    'I0_over_Imean',\
     'q_at_half_I0']
 
 # supported population types
@@ -574,8 +574,9 @@ def guinier_porod_profile(q_I):
         Dictionary of metrics computed from input spectrum `q_I`.
         The features are:
 
-        - 'I_at_0': intensity at q=0, obtained by polynomial fitting
-            with the slope at q=0 constrained to be 0. 
+        - 'I0_over_Imean': intensity at q=0, obtained by polynomial fitting
+            with the slope at q=0 constrained to be 0,
+            divided by the average intensity. 
 
         - 'q_at_half_I0': q-value at which the intensity
             first drops to half of I(q=0)
@@ -583,8 +584,9 @@ def guinier_porod_profile(q_I):
     q = q_I[:,0]
     I = q_I[:,1]
     features = OrderedDict.fromkeys(guinier_porod_profile_keys)
-    I_at_0, p_I0 = fit_I0(q,I,3)
-    features['I_at_0'] = I_at_0
+    I_at_0, p_I0 = fit_I0(q,I,4)
+    I_mean = np.mean(I)
+    features['I0_over_Imean'] = I_at_0/I_mean
     idx_half_I0 = np.min(np.where(I<0.5*I_at_0))
     features['q_at_half_I0'] = q[idx_half_I0]
     return features
