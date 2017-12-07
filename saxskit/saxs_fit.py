@@ -12,11 +12,11 @@ from scipy.optimize import minimize as scipimin
 
 # parameter limits for fit_spectrum() and MC_anneal_fit():
 param_limits = OrderedDict(
-    I0_floor = (0.,10.),
-    G_gp = (0.,1.E4),
+    I0_floor = (0.,1.E3),
+    G_gp = (0.,1.E6),
     rg_gp = (1E-6,1.E3),
     D_gp = (0.,4.),
-    I0_sphere = (0.,1.E4),
+    I0_sphere = (0.,1.E6),
     r0_sphere = (1E-6,1.E3),
     sigma_sphere = (0.,0.5))
 
