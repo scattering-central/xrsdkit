@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 import glob
+from collections import OrderedDict
 
 import numpy as np
 
@@ -22,10 +23,31 @@ def test_profile_spectrum():
     datapath = os.path.join(os.path.dirname(__file__),
         'test_data','solution_saxs','precursors','precursors_0.csv')
     test_data = open(datapath,'r')
-    q_I = np.loadtxt(test_data,dtype=float,delimiter=',')
-    assert isinstance(q_I,np.ndarray) 
-    prof = saxs_math.profile_spectrum(q_I)
-    assert isinstance(prof,dict)
+    q_I_gp = np.loadtxt(test_data,dtype=float,delimiter=',')
+    prof = saxs_math.profile_spectrum(q_I_gp)
+    gp_prof = saxs_math.guinier_porod_profile(q_I_gp)
+
+    datapath = os.path.join(os.path.dirname(__file__),
+        'test_data','solution_saxs','spheres','spheres_0.csv')
+    test_data = open(datapath,'r')
+    q_I_sph = np.loadtxt(test_data,dtype=float,delimiter=',')
+    prof = saxs_math.profile_spectrum(q_I_sph)
+    sph_prof = saxs_math.spherical_normal_profile(q_I_sph)
+    #assert isinstance(prof,dict)
+
+    pops = OrderedDict.fromkeys(saxs_math.population_keys)
+    pops.update(dict(guinier_porod=1,spherical_normal=1))
+    I_tot = q_I_gp[:,1] + q_I_sph[:,1]
+    q_I_tot = np.vstack([q_I_gp[:,1],I_tot]).T
+    sxf = saxs_fit.SaxsFitter(q_I_tot,pops)
+    print('Initial fit ...')
+    params,rpt = sxf.fit()
+    print('MC anneal ...')
+    better_params,last_params,rpt = sxf.MC_anneal_fit(params,0.01,100,0.2)
+    print('Final fit ...')
+    final_params,rpt = sxf.fit(better_params)
+    print('Population-specific profiling ...')
+    pop_profs = saxs_math.population_profiles(q_I_tot,pops,better_params)
 
 def test_classifier():
     model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','models_test.yml')
@@ -46,5 +68,4 @@ def test_classifier():
                 print('\t{} populations: {} ({} certainty)'.format(pk,pop[0],pop[1]))
 
 # TODO: next, test_regressions()
-# TODO: then, test_population_profiles()
 
