@@ -7,6 +7,7 @@ import sklearn
 import yaml
 from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
 from sklearn import model_selection, preprocessing, linear_model
+from sklearn.metrics import mean_absolute_error
 
 from . import saxs_math
 from . import saxs_piftools
@@ -224,158 +225,68 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
         scalers=scalers,
         models=models,
         accuracy=accuracy)
-    features = saxs_math.profile_keys
+
     possible_models = check_labels_regression(all_data)
 
-    # using leaveNGroupOut makes sense when we have at least 5 groups
-    if len(all_data.experiment_id.unique()) > 4:
-        leaveNGroupOut = True
-    else:
-        # use 5-fold cross validation
-        leaveNGroupOut = False
-
     # unidentified scatterer population model
-    if possible_models['unidentified'] == True:
+    if possible_models['r0_sphere'] == True:
+        features = saxs_math.profile_keys
+        data = all_data[all_data['r0_sphere'].isnull() == False]
+        if len(data.experiment_id.unique()) > 4:
+            leaveNGroupOut = True
+        else:
+            leaveNGroupOut = False
         scaler = preprocessing.StandardScaler()
-        scaler.fit(all_data[features])
-        transformed_data = scaler.transform(all_data[features])
+        scaler.fit(data[features])
+        data[features] = scaler.transform(data[features])
         if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['unidentified']],
-                all_data['experiment_id'], leaveNGroupOut, 2)
+            penalty, alpha, l1_ratio, loss, \
+            epsilon = hyperparameters_search_regression(data[features],
+                data['r0_sphere'], data['experiment_id'], leaveNGroupOut, 1)
         else:
             penalty = 'l1'
             alpha = 0.001
             l1_ratio = 1.0
+            loss = 'squared_loss'
+            epsilon = 0
 
-        logsgdc = linear_model.SGDClassifier(
-            alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['unidentified'])
+        reg = linear_model.SGDRegressor(alpha= alpha, loss= loss,
+                                        penalty = penalty,l1_ratio = l1_ratio,
+                                        epsilon = epsilon, max_iter=1000)
+        reg.fit(data[features], data['r0_sphere'])
 
-        # save the scaler and model for "bad_data"
-        scalers['unidentified'] = scaler.__dict__
-        models['unidentified'] = logsgdc.__dict__
+        # save the scaler and model for "r0_sphere"
+        scalers['r0_sphere'] = scaler.__dict__
+        models['r0_sphere'] = reg.__dict__
 
         # save the accuracy
+        label_std = data['r0_sphere'].std()
         if leaveNGroupOut:
-            accuracy['unidentified'] = testing_by_experiments(
-                all_data, 'unidentified', features, alpha, l1_ratio, penalty)
+            accuracy['r0_sphere'] = testing_by_experiments(
+                data, 'r0_sphere', features, alpha, l1_ratio, penalty, loss,
+                epsilon, label_std)
         else:
-            accuracy['unidentified'] = testing_using_crossvalidation(
-                all_data, 'unidentified', features, alpha, l1_ratio, penalty)
+            accuracy['r0_sphere'] = testing_using_crossvalidation(
+                data, 'r0_sphere', features, alpha, l1_ratio, penalty)
     else:
-        scalers['unidentified'] = None
-        models['unidentified'] = None
-        accuracy['unidentified'] = None
+        scalers['r0_sphere'] = None
+        models['r0_sphere'] = None
+        accuracy['r0_sphere'] = None
 
-    # For the rest of the models,
-    # we will use only data with
-    # identifiable scattering populations
-    all_data = all_data[all_data['unidentified']==False]
+    # 3 other models
 
-    # spherical_normal scatterer population model
-    if possible_models['spherical_normal'] == True:
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(all_data[features])
-        transformed_data = scaler.transform(all_data[features])
-        if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['spherical_normal']],
-                all_data['experiment_id'], leaveNGroupOut, 2)
-        else:
-            penalty = 'l1'
-            alpha = 0.001
-            l1_ratio = 1.0
 
-        logsgdc = linear_model.SGDClassifier(
-            alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['spherical_normal'])
 
-        scalers['spherical_normal'] = scaler.__dict__
-        models['spherical_normal'] = logsgdc.__dict__
-        if leaveNGroupOut:
-            accuracy['spherical_normal'] = testing_by_experiments(
-                all_data, 'spherical_normal', features, alpha, l1_ratio, penalty)
-        else:
-            accuracy['spherical_normal'] = testing_using_crossvalidation(
-                all_data, 'spherical_normal', features, alpha, l1_ratio, penalty)
-    else:
-        scalers['spherical_normal'] = None
-        models['spherical_normal'] = None
-        accuracy['spherical_normal'] = None
-
-    # guinier_porod scatterer population model
-    if possible_models['guinier_porod'] == True:
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(all_data[features])
-        transformed_data = scaler.transform(all_data[features])
-
-        if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['guinier_porod']],
-                all_data['experiment_id'], leaveNGroupOut, 2)
-        else:
-            penalty = 'elasticnet'
-            alpha = 0.01
-            l1_ratio = 0.85
-
-        logsgdc = linear_model.SGDClassifier(
-            alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['guinier_porod'])
-
-        scalers['guinier_porod'] = scaler.__dict__
-        models['guinier_porod'] = logsgdc.__dict__
-        if leaveNGroupOut:
-            accuracy['guinier_porod'] = testing_by_experiments(
-                all_data, 'guinier_porod', features, alpha, l1_ratio, penalty)
-        else:
-            accuracy['guinier_porod'] = testing_using_crossvalidation(
-                all_data, 'guinier_porod', features, alpha, l1_ratio, penalty)
-    else:
-        scalers['guinier_porod'] = None
-        models['guinier_porod'] = None
-        accuracy['guinier_porod'] = None
-
-    # diffraction peak population model
-    if possible_models['diffraction_peaks'] == True:
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(all_data[features])
-        transformed_data = scaler.transform(all_data[features])
-
-        if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['diffraction_peaks']],
-                all_data['experiment_id'], leaveNGroupOut, 2)
-        else:
-            penalty = 'elasticnet'
-            alpha = 0.001
-            l1_ratio = 0.85
-
-        logsgdc = linear_model.SGDClassifier(
-            alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['diffraction_peaks'])
-
-        scalers['diffraction_peaks'] = scaler.__dict__
-        models['diffraction_peaks'] = logsgdc.__dict__
-        if leaveNGroupOut:
-            accuracy['diffraction_peaks'] = testing_by_experiments(
-                all_data,'diffraction_peaks',features, alpha, l1_ratio, penalty)
-        else:
-            accuracy['diffraction_peaks'] = testing_using_crossvalidation(
-                all_data,'diffraction_peaks', features, alpha, l1_ratio, penalty)
-    else:
-        scalers['diffraction_peaks'] = None
-        models['diffraction_peaks'] = None
-        accuracy['diffraction_peaks'] = None
 
     # save scalers and models
     with open(yaml_filename, 'w') as yaml_file:
         yaml.dump(scalers_and_models, yaml_file)
 
-    # TODO: Is this not already saved in scalers_and_models.yml?
     # save accuracy
     with open (accuracy_txt, 'w') as txt_file:
         txt_file.write(str(accuracy))
+
+
 
 
 def hyperparameters_search(data_features, data_labels, group_by, leaveNGroupOut, n):
@@ -585,8 +496,40 @@ def testing_using_crossvalidation(df, label, features, alpha, l1_ratio, penalty)
         logsgdc, scaler.transform(df[features]), df[label], cv=5)
     return scores.mean()
 
+
+def testing_using_crossvalidation_regression(df, label, features, alpha,
+                                    l1_ratio, penalty, loss, epsilon, label_std):
+    """Fit a model, then test it using 5-fold crossvalidation
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        pandas dataframe of features and labels
+    features : list of strings
+        list of feature labels to use in model training
+    alpha : float
+        weighting of the regularization term
+    l1_ratio : float
+        the Elastic Net mixing parameter, 0 <= l1_ratio <= 1
+        l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1
+    penalty : string
+        penalty specification, 'none', 'l2', 'l1', or 'elasticnet'
+
+    Returns
+    -------
+    float
+        average crossvalidation score (accuracy)
+    """
+    reg = linear_model.SGDRegressor(alpha= alpha, loss= loss,
+                                        penalty = penalty,l1_ratio = l1_ratio,
+                                        epsilon = epsilon, max_iter=1000)
+    scores = model_selection.cross_val_score(
+        reg, df[features], df[label], cv=5)
+    return scores.mean()
+
+
 def testing_by_experiments(df, label, features, alpha, l1_ratio, penalty):
-    """Fit a model, then test it by leaveTwoGroupsOut cross-validation 
+    """Fit a model, then test it by leaveTwoGroupsOut cross-validation
 
     Parameters
     ----------
@@ -594,7 +537,7 @@ def testing_by_experiments(df, label, features, alpha, l1_ratio, penalty):
         pandas dataframe of features and labels
     features : list of strings
         specifies which features to use
-    alpha : float 
+    alpha : float
         weighting of the regularization term
     l1_ratio : float
         the Elastic Net mixing parameter, 0 <= l1_ratio <= 1
@@ -628,6 +571,7 @@ def testing_by_experiments(df, label, features, alpha, l1_ratio, penalty):
     acc =  sum(test_scores_by_ex)/count
     return acc
 
+
 def get_pifs_from_Citrination(client, dataset_id_list):
     all_hits = []
     for dataset in dataset_id_list:
@@ -649,6 +593,51 @@ def get_pifs_from_Citrination(client, dataset_id_list):
 
     pifs = [x.system for x in all_hits]
     return pifs
+
+def testing_by_experiments_regression(df, label, features, alpha, l1_ratio,
+                                      penalty, loss, epsilon, label_std):
+    """Fit a model, then test it by leaveTwoGroupsOut cross-validation
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        pandas dataframe of features and labels
+    features : list of strings
+        specifies which features to use
+    alpha : float
+        weighting of the regularization term
+    l1_ratio : float
+        the Elastic Net mixing parameter, 0 <= l1_ratio <= 1
+        l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1
+    penalty : string
+        penalty specification, 'none', 'l2', 'l1', or 'elasticnet'
+
+    Returns
+    -------
+    float
+        average crossvalidation score (accuracy)
+    """
+    experiments = df.experiment_id.unique()# we have at least 5 experiments
+    test_scores_by_ex = []
+    count = 0
+    for i in range(len(experiments)):
+        for j in range(i+1, len(experiments)):
+            tr = df[(df['experiment_id']!= experiments[i]) \
+                & (df['experiment_id']!= experiments[j])]
+            test = df[(df['experiment_id']== experiments[i]) \
+                | (df['experiment_id']== experiments[j])]
+
+            reg = linear_model.SGDRegressor(alpha= alpha, loss= loss,
+                                        penalty = penalty,l1_ratio = l1_ratio,
+                                        epsilon = epsilon, max_iter=1000)
+            reg.fit(tr[features], tr[label])
+            pr = reg.predict(test[features])
+            test_score = mean_absolute_error(pr, test[label])
+            test_scores_by_ex.append(test_score/label_std)
+            count +=1
+    normalized_error =  sum(test_scores_by_ex)/count
+    return normalized_error
+
 
 def get_data_from_Citrination(client, dataset_id_list):
     """Get data from Citrination and create a dataframe
