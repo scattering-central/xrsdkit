@@ -165,26 +165,30 @@ def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='SAXS intensity')
 def profile_properties(prof):
     props = []
     for fnm,fval in prof.items():
-        props.append(scalar_property(
-        fnm,fval,'spectrum profiling quantity'))
+        if fval is not None:
+            props.append(scalar_property(
+            fnm,fval,'spectrum profiling quantity'))
     return props
 
 def ml_population_properties(ml_pops):
     props = []
     for popname,pop in ml_pops.items():
-        props.append(scalar_property(
-            popname+'_ML',int(pop[0]),
-            'number of {} populations by ML'.format(popname),
-            'MACHINE_LEARNING'))
-        props.append(scalar_property(
-            popname+'_ML_certainty',float(pop[1]),
-            'certainty in number of {} populations by ML'.format(popname),
-            'MACHINE_LEARNING'))
+        if pop is not None:
+            props.append(scalar_property(
+                popname+'_ML',int(pop[0]),
+                'number of {} populations by ML'.format(popname),
+                'MACHINE_LEARNING'))
+            props.append(scalar_property(
+                popname+'_ML_certainty',float(pop[1]),
+                'certainty in number of {} populations by ML'.format(popname),
+                'MACHINE_LEARNING'))
     return props
 
 def ground_truth_population_properties(populations):
     props = []
     for popname,pop in populations.items():
+        if not bool(pop):
+            pop = 0
         props.append(scalar_property(
             popname,int(pop),'number of {} populations'.format(popname),
             'EXPERIMENTAL'))
@@ -193,17 +197,20 @@ def ground_truth_population_properties(populations):
 def param_properties(params):
     props = []
     for pname,pvals in params.items():
-        props.append(scalar_property(
-        pname,pvals,parameter_description[pname],
-        'FIT',parameter_units[pname]))
+        if pvals is not None:
+            if any(pvals):
+                props.append(scalar_property(
+                pname,pvals,parameter_description[pname],
+                'FIT',parameter_units[pname]))
     return props
 
 def fitreport_properties(rpt):
     props = []
     for rptnm,rptval in rpt.items():
-        #if isinstance(rptval,float):
-        props.append(scalar_property(
-        rptnm,rptval,'spectrum fitting quantity','FIT'))
+        if rptval is not None:
+            #if isinstance(rptval,float):
+            props.append(scalar_property(
+            rptnm,rptval,'spectrum fitting quantity','FIT'))
     return props
 
 def scalar_property(fname,fval,desc=None,data_type=None,funits=None):
