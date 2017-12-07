@@ -69,30 +69,37 @@ def unpack_pif(pp):
     pops = OrderedDict()
     par = OrderedDict()
     rpt = OrderedDict() 
-    for prop in pp.properties:
-        if prop.name == 'SAXS intensity':
-            I = [float(sca.value) for sca in prop.scalars]
-            for val in prop.conditions:
-                if val.name == 'scattering vector':
-                    q = [float(sca.value) for sca in val.scalars]
-                if val.name == 'temperature':
-                    temp = float(val.scalars[0].value)
-            q_I = np.vstack([q,I]).T
-        elif prop.name in saxs_math.population_keys:
-            pops[prop.name] = int(prop.scalars[0].value)
-        elif prop.name in saxs_math.parameter_keys:
-            par[prop.name] = [float(s.value) for s in prop.scalars]
-        elif prop.tags is not None:
-            if 'spectrum fitting quantity' in prop.tags:
-                rpt[prop.name] = float(prop.scalars[0].value)
-            if 'spectrum profiling quantity' in prop.tags:
-                feats[prop.name] = float(prop.scalars[0].value) 
-    for iidd in pp.ids:
-        if iidd.name == 'EXPERIMENT_ID':
-            expt_id = iidd.value
-    for ttgg in pp.tags:
-        if 'time (utc): ' in ttgg:
-            t_utc = float(ttgg.replace('time (utc): ',''))
+
+    if pp.properties is not None:
+        for prop in pp.properties:
+            if prop.name == 'SAXS intensity':
+                I = [float(sca.value) for sca in prop.scalars]
+                for val in prop.conditions:
+                    if val.name == 'scattering vector':
+                        q = [float(sca.value) for sca in val.scalars]
+                    if val.name == 'temperature':
+                        temp = float(val.scalars[0].value)
+                q_I = np.vstack([q,I]).T
+            elif prop.name in saxs_math.population_keys:
+                pops[prop.name] = int(prop.scalars[0].value)
+            elif prop.name in saxs_math.parameter_keys:
+                par[prop.name] = [float(s.value) for s in prop.scalars]
+            elif prop.tags is not None:
+                if 'spectrum fitting quantity' in prop.tags:
+                    rpt[prop.name] = float(prop.scalars[0].value)
+                if 'spectrum profiling quantity' in prop.tags:
+                    feats[prop.name] = float(prop.scalars[0].value) 
+
+    if pp.ids is not None:
+        for iidd in pp.ids:
+            if iidd.name == 'EXPERIMENT_ID':
+                expt_id = iidd.value
+
+    if pp.tags is not None:
+        for ttgg in pp.tags:
+            if 'time (utc): ' in ttgg:
+                t_utc = float(ttgg.replace('time (utc): ',''))
+
     return expt_id,t_utc,q_I,temp,feats,pops,par,rpt
 
 def saxs_properties(q_I,temp_C,populations,params):

@@ -405,7 +405,7 @@ def get_data_from_Citrination(client, dataset_id_list):
     """
     data = []
 
-    pifs = get_pifs_from_Citrination(dataset_id_list)
+    pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
         feats = OrderedDict.fromkeys(saxs_math.profile_keys
@@ -414,13 +414,18 @@ def get_data_from_Citrination(client, dataset_id_list):
         pops = OrderedDict.fromkeys(saxs_math.population_keys)
         par = OrderedDict.fromkeys(saxs_math.parameter_keys)
         expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
-
-        #feats.update(pif_feats)
         feats.update(saxs_math.profile_spectrum(q_I))
         feats.update(saxs_math.population_profiles(q_I,pif_pops,pif_par))
         pops.update(pif_pops)
         par.update(pif_par)
-        data_row = [expt_id]+list(feats.values())+list(pops.values())+list(par.values())
+        param_list = []
+        for k in par.keys():
+            if par[k] is not None:
+                val = par[k][0]
+            else:
+                val = None
+            param_list.append(val)
+        data_row = [expt_id]+list(feats.values())+list(pops.values())+param_list
         data.append(data_row)
 
     # TODO: make sure the column names are in the right order,
