@@ -405,7 +405,7 @@ def get_data_from_Citrination(client, dataset_id_list):
     """
     data = []
 
-    pifs = get_pifs_from_Citrination(dataset_id_list)
+    pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
         feats = OrderedDict.fromkeys(saxs_math.profile_keys
