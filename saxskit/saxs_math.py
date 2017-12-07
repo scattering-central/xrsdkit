@@ -59,7 +59,8 @@ spherical_normal_profile_keys = [\
     'pI_qwidth']
 
 guinier_porod_profile_keys = [\
-    'I_at_0',\
+    'I0_over_Imean',\
+    'I0_curvature',\
     'q_at_half_I0']
 
 # supported population types
@@ -283,16 +284,17 @@ def fit_I0(q,I,order=4):
         that was fit to obtain `I_at_0` (numpy format)
     """
     #TODO: add a sign constraint such that I(q=0) > 0?
-    I_mean = np.mean(I)
-    I_std = np.std(I)
-    q_mean = np.mean(q)
-    q_std = np.std(q)
-    I_s = (I-I_mean)/I_std
-    q_s = (q-q_mean)/q_std
+    q_s,q_mean,q_std = standardize_array(q)
+    I_s,I_mean,I_std = standardize_array(I)
     p_I0 = fit_with_slope_constraint(q_s,I_s,-1*q_mean/q_std,0,order) 
     I_at_0 = np.polyval(p_I0,-1*q_mean/q_std)*I_std+I_mean
-
     return I_at_0,p_I0
+
+def standardize_array(data):
+    d_mean = np.mean(data)
+    d_std = np.std(data)
+    d_s = (data-d_mean)/d_std
+    return d_s,d_mean,d_std 
 
 def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
     """Fit scattering data to a polynomial with one slope constraint.
@@ -574,8 +576,12 @@ def guinier_porod_profile(q_I):
         Dictionary of metrics computed from input spectrum `q_I`.
         The features are:
 
-        - 'I_at_0': intensity at q=0, obtained by polynomial fitting
-            with the slope at q=0 constrained to be 0. 
+        - 'I0_over_Imean': intensity at q=0, obtained by polynomial fitting
+            with the slope at q=0 constrained to be 0,
+            divided by the average intensity. 
+
+        - 'I0_curvature': curvature of the polynomial used in 'I0_over_Imean',
+            evaluated at q=0, normalized by the mean intensity.
 
         - 'q_at_half_I0': q-value at which the intensity
             first drops to half of I(q=0)
@@ -583,10 +589,17 @@ def guinier_porod_profile(q_I):
     q = q_I[:,0]
     I = q_I[:,1]
     features = OrderedDict.fromkeys(guinier_porod_profile_keys)
-    I_at_0, p_I0 = fit_I0(q,I,3)
-    features['I_at_0'] = I_at_0
+    q_s,q_mean,q_std = standardize_array(q)
+    I_s,I_mean,I_std = standardize_array(q)
+    I_at_0, p_I0 = fit_I0(q,I,4)
+    dpdq = np.polyder(p_I0)
+    d2pdq2 = np.polyder(dpdq)
+    I0_curv = (np.polyval(d2pdq2,-1*q_mean/q_std)*I_std+I_mean)/I_mean
+    
+    features['I0_over_Imean'] = I_at_0/I_mean
     idx_half_I0 = np.min(np.where(I<0.5*I_at_0))
     features['q_at_half_I0'] = q[idx_half_I0]
+    features['I0_curvature'] = I0_curv 
     return features
 
 def spherical_normal_profile(q_I):
