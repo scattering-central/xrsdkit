@@ -258,7 +258,23 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
         models['sigma_sphere'] = None
         accuracy['sigma_sphere'] = None
 
-    # 2 other models
+    # G_gp model
+    if possible_models['G_gp'] == True:
+        features = saxs_math.profile_keys
+        features.extend(saxs_math.guinier_porod_profile_keys)
+
+        scaler, reg, acc = train(all_data, features, 'G_gp', hyper_parameters_search)
+
+        scalers['G_gp'] = scaler.__dict__
+        models['G_gp'] = reg.__dict__
+        accuracy['G_gp'] = acc
+    else:
+        scalers['G_gp'] = None
+        models['G_gp'] = None
+        accuracy['G_gp'] = None
+
+
+    # 1 other models
 
 
 
