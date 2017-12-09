@@ -689,33 +689,11 @@ def population_profiles(q_I,populations,params):
         return profs 
 
     if bool(populations['spherical_normal']):
-        q_I_sph = q_I
-        if bool(populations['guinier_porod']):
-            pop_gp = OrderedDict.fromkeys(population_keys)
-            params_gp = OrderedDict.fromkeys(parameter_keys)
-            pop_gp['guinier_porod'] = populations['guinier_porod']
-            params_gp['I0_floor'] = params['I0_floor']
-            params_gp['G_gp'] = params['G_gp']
-            params_gp['rg_gp'] = params['rg_gp']
-            params_gp['D_gp'] = params['D_gp']
-            I_gp = compute_saxs(q_I[:,0],pop_gp,params_gp)
-            q_I_sph[:,1] = q_I_sph[:,1] - I_gp
-        sph_prof = spherical_normal_profile(q_I_sph)
+        sph_prof = spherical_normal_profile(q_I)
         profs.update(sph_prof)
 
     if bool(populations['guinier_porod']):
-        q_I_gp = q_I
-        if bool(populations['spherical_normal']):
-            pop_sph = OrderedDict.fromkeys(population_keys)
-            params_sph = OrderedDict.fromkeys(parameter_keys)
-            pop_sph['spherical_normal'] = populations['spherical_normal']
-            params_sph['I0_floor'] = params['I0_floor']
-            params_sph['I0_sphere'] = params['I0_sphere']
-            params_sph['r0_sphere'] = params['r0_sphere']
-            params_sph['sigma_sphere'] = params['sigma_sphere']
-            I_sph = compute_saxs(q_I[:,0],pop_sph,params_sph)
-            q_I_gp[:,1] = q_I_gp[:,1] - I_sph
-        gp_prof = guinier_porod_profile(q_I_gp)
+        gp_prof = guinier_porod_profile(q_I)
         profs.update(gp_prof)
     
     return profs
