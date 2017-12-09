@@ -205,7 +205,7 @@ def param_properties(params):
     props = []
     for pname,pvals in params.items():
         if pvals is not None:
-            if any(pvals):
+            if len(pvals)>0:
                 props.append(scalar_property(
                 pname,pvals,parameter_description[pname],
                 'FIT',parameter_units[pname]))
