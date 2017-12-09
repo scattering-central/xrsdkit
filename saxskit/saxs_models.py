@@ -246,7 +246,7 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
         features = saxs_math.profile_keys
-        features.extend(saxs_math.form_factor_profile_keys)
+        features.extend(saxs_math.spherical_normal_profile_keys)
 
         scaler, reg, acc = train(all_data, features, 'sigma_sphere', hyper_parameters_search)
 
@@ -258,26 +258,23 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
         models['sigma_sphere'] = None
         accuracy['sigma_sphere'] = None
 
-    # G_gp model
-    if possible_models['G_gp'] == True:
+    # rg_gp model
+    if possible_models['rg_gp'] == True:
         features = saxs_math.profile_keys
         features.extend(saxs_math.guinier_porod_profile_keys)
 
-        scaler, reg, acc = train(all_data, features, 'G_gp', hyper_parameters_search)
+        scaler, reg, acc = train(all_data, features, 'rg_gp', hyper_parameters_search)
 
-        scalers['G_gp'] = scaler.__dict__
-        models['G_gp'] = reg.__dict__
-        accuracy['G_gp'] = acc
+        scalers['rg_gp'] = scaler.__dict__
+        models['rg_gp'] = reg.__dict__
+        accuracy['rg_gp'] = acc
     else:
-        scalers['G_gp'] = None
-        models['G_gp'] = None
-        accuracy['G_gp'] = None
+        scalers['rg_gp'] = None
+        models['rg_gp'] = None
+        accuracy['rg_gp'] = None
 
 
-    # 1 other models
-
-
-
+    print(str(accuracy))
 
     # save scalers and models
     with open(yaml_filename, 'w') as yaml_file:
@@ -678,14 +675,12 @@ def testing_by_experiments_regression(df, label, features, alpha, l1_ratio,
 
 def get_data_from_Citrination(client, dataset_id_list):
     """Get data from Citrination and create a dataframe
-
     Parameters
     ----------
     client : citrination_client.CitrinationClient
         A python Citrination client for fetching data
     dataset_id_list : list of int
         List of dataset ids (integers) for fetching SAXS records
-
     Returns
     -------
     df_work : pandas.DataFrame
