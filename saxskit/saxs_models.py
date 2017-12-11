@@ -230,7 +230,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
-        features = saxs_math.profile_keys
+        features = []
+        features.extend(saxs_math.profile_keys)
 
         scaler, reg, acc = train(all_data, features, 'r0_sphere', hyper_parameters_search)
 
@@ -245,7 +246,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
-        features = saxs_math.profile_keys
+        features = []
+        features.extend(saxs_math.profile_keys)
         features.extend(saxs_math.spherical_normal_profile_keys)
 
         scaler, reg, acc = train(all_data, features, 'sigma_sphere', hyper_parameters_search)
@@ -260,10 +262,11 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
-        features = saxs_math.profile_keys
-        features.extend(saxs_math.guinier_porod_profile_keys)
+        gr_features = []
+        gr_features.extend(saxs_math.profile_keys)
+        gr_features.extend(saxs_math.guinier_porod_profile_keys)
 
-        scaler, reg, acc = train(all_data, features, 'rg_gp', hyper_parameters_search)
+        scaler, reg, acc = train(all_data, gr_features, 'rg_gp', hyper_parameters_search)
 
         scalers['rg_gp'] = scaler.__dict__
         models['rg_gp'] = reg.__dict__
