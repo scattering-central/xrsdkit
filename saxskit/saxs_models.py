@@ -298,12 +298,12 @@ def train(all_data, features, target, hyper_parameters_search):
         penalty, alpha, l1_ratio, loss, \
         epsilon = hyperparameters_search_regression(data[features],
             data[target], data['experiment_id'], leaveNGroupOut, 1)
-    else:
-        penalty = 'l1'
-        alpha = 0.001
-        l1_ratio = 1.0
+    else: # default parametrs from sklern
+        penalty = 'l2'
+        alpha = 0.0001
+        l1_ratio = 0.15
         loss = 'squared_loss'
-        epsilon = 0
+        epsilon = 0.1
 
     reg = linear_model.SGDRegressor(alpha= alpha, loss= loss,
                                         penalty = penalty,l1_ratio = l1_ratio,
