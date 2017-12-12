@@ -44,9 +44,21 @@ class SaxsRegressor(object):
                 setattr(m_s, k, v)
 
     def predict_params(self,populations,features, q_I):
+        """Apply self.models and self.scalers to features.
+
+        Parameters
+        ----------
+        features : dictionary
+            dictionary of features and their values of a test sample
+
+        Returns
+        -------
+        flags : dict
+            dictionary of with predicted parameters
+        """
         features = np.array(list(features.values())).reshape(1,-1)
         flags = OrderedDict.fromkeys(saxs_math.parameter_keys)
-        if populations['unidentified'] == 0:
+        if populations['unidentified'][0] == 1:
             return flags # all flags are "None"
 
         if populations['spherical_normal'][0] == 1:

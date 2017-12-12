@@ -288,6 +288,28 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
         txt_file.write(str(accuracy))
 
 def train(all_data, features, target, hyper_parameters_search):
+    """search hyperparameters and train a model
+
+    Parameters
+    ----------
+    all_data : pandas.DataFrame
+        dataframe containing features and labels
+    features : list of str
+        list of columns to use as features
+    target : str
+        name of target column
+    hyper_parameters_search : bool
+        if "false", we will use default parameters
+
+    Returns
+    -------
+    scaler : StandardScaler
+        scaler used to scale the data
+    reg : model SGDRegressor
+        trained model
+    accuracy : float
+        average crossvalidation score
+    """
     d = all_data[all_data[target].isnull() == False]
     data = d.dropna(subset=features)
     if len(data.experiment_id.unique()) > 4:
