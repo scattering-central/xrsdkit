@@ -89,5 +89,21 @@ def test_classifier():
             for pk,pop in pops.items():
                 print('\t{} populations: {} ({} certainty)'.format(pk,pop[0],pop[1]))
 
-# TODO: next, test_regressions()
+def test_regressions():
+    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
+    model_file_path_reg = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models_regression.yml')
+    sxc = saxs_classify.SaxsClassifier(model_file_path)
+    sxr = saxs_regression.SaxsRegressor(model_file_path_reg)
+    for data_type in ['precursors','spheres']:
+        data_path = os.path.join(os.getcwd(),'tests','test_data','solution_saxs',data_type)
+        data_files = glob.glob(os.path.join(data_path,'*.csv'))
+        for fpath in data_files:
+            print('testing regression on {}'.format(fpath))
+            q_I = np.loadtxt(fpath,delimiter=',')
+            prof = saxs_math.profile_spectrum(q_I)
+            pops = sxc.run_classifier(prof)
+            reg_prediction = sxr.predict_params(pops,prof,q_I)
+            for k, v in reg_prediction.items():
+                print('\t{} parameter: {} '.format(k,v))
+
 
