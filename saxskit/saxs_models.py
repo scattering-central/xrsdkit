@@ -586,8 +586,8 @@ def testing_using_crossvalidation_regression(df, label, features, alpha,
                                         penalty = penalty,l1_ratio = l1_ratio,
                                         epsilon = epsilon, max_iter=1000)
     scores = model_selection.cross_val_score(
-        reg, df[features], df[label], cv=5)
-    return scores.mean()
+        reg, df[features], df[label], cv=5, scoring = 'neg_mean_absolute_error')
+    return -1.0 * scores.mean()/label_std
 
 
 def testing_by_experiments(df, label, features, alpha, l1_ratio, penalty):
@@ -756,3 +756,120 @@ def get_data_from_Citrination(client, dataset_id_list):
     df_work = d.loc[shuffled_rows]
 
     return df_work
+
+def train_regressors_partial(all_data, yaml_filename=None):
+    """Train and save SAXS classification models as a YAML file.
+
+    Parameters
+    ----------
+    all_data : pandas.DataFrame
+        dataframe containing features and labels
+    yaml_filename : str
+        File where scalers and models was and will be saved.
+        If None, the default file is used.
+    """
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(p)
+    if yaml_filename is None:
+        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')
+    else:
+        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
+
+    s_and_m_file = open(yaml_filename,'rb')
+    s_and_m = yaml.load(s_and_m_file)
+
+    reg_models_dict = s_and_m['models']
+    scalers_dict = s_and_m['scalers']
+
+    accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
+
+    possible_models = check_labels_regression(all_data)
+
+    # r0_sphere model
+    if possible_models['r0_sphere'] == True:
+        features = []
+        features.extend(saxs_math.profile_keys)
+
+        scaler, model, acc = train_partial(all_data, features, 'r0_sphere', reg_models_dict, scalers_dict)
+
+        if scaler:
+            s_and_m['scalers']['r0_sphere'] = scaler.__dict__
+        if model:
+            s_and_m['models']['r0_sphere'] = model.__dict__
+        if acc:
+            s_and_m['accuracy']['r0_sphere'] = acc
+
+
+    # sigma_shpere model
+    if possible_models['sigma_sphere'] == True:
+        features = []
+        features.extend(saxs_math.profile_keys)
+        features.extend(saxs_math.spherical_normal_profile_keys)
+
+        scaler, model, acc = train_partial(all_data, features, 'sigma_sphere', reg_models_dict, scalers_dict)
+
+        if scaler:
+            s_and_m['scalers']['sigma_sphere'] = scaler.__dict__
+        if model:
+            s_and_m['models']['sigma_sphere'] = model.__dict__
+        if acc:
+            s_and_m['accuracy']['sigma_sphere'] = acc
+
+    # rg_gp model
+    if possible_models['rg_gp'] == True:
+        gr_features = []
+        gr_features.extend(saxs_math.profile_keys)
+        gr_features.extend(saxs_math.guinier_porod_profile_keys)
+
+        scaler, model, acc = train_partial(all_data, features, 'rg_gp', reg_models_dict, scalers_dict)
+
+        if scaler:
+            s_and_m['scalers']['rg_gp'] = scaler.__dict__
+        if model:
+            s_and_m['models']['rg_gp'] = model.__dict__
+        if acc:
+            s_and_m['accuracy']['rg_gp'] = acc
+
+
+    print(str(s_and_m['accuracy']))
+
+    # save scalers and models
+    with open(yaml_filename, 'w') as yaml_file:
+        yaml.dump(s_and_m, yaml_file)
+
+    # save accuracy
+    with open (accuracy_txt, 'w') as txt_file:
+        txt_file.write(str(s_and_m['accuracy']))
+
+
+# helper function - to set parametrs for scalers and models
+def set_param(m_s, param):
+        for k, v in param.items():
+            if isinstance(v, list):
+                setattr(m_s, k, np.array(v))
+            else:
+                setattr(m_s, k, v)
+
+def train_partial(all_data, features, target, reg_models_dict, scalers_dict):
+    model_params = reg_models_dict[target]
+    scaler_params = scalers_dict[target]
+
+    if scaler_params is not None:# the model exist
+        scaler = preprocessing.StandardScaler()
+        set_param(scaler,scaler_params)
+        model = linear_model.SGDRegressor()
+        set_param(model,model_params)
+        d = all_data[all_data[target].isnull() == False]
+        data = d.dropna(subset=features)
+        scaler.fit(data[features])
+        data.loc[ : , features] = scaler.transform(data[features])
+        model.partial_fit(data[features], data[target])
+        accuracy = 'Partial fit was used'
+
+    else:
+        scaler = None
+        model = None
+        accuracy = None
+
+    return scaler, model, accuracy
+
