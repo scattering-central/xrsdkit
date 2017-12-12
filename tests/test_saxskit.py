@@ -98,12 +98,11 @@ def test_regressions():
         data_path = os.path.join(os.getcwd(),'tests','test_data','solution_saxs',data_type)
         data_files = glob.glob(os.path.join(data_path,'*.csv'))
         for fpath in data_files:
-            print('testing classifier on {}'.format(fpath))
+            print('testing regression on {}'.format(fpath))
             q_I = np.loadtxt(fpath,delimiter=',')
             prof = saxs_math.profile_spectrum(q_I)
             pops = sxc.run_classifier(prof)
-            reg_prediction = sxr.predict_params(pops,prof, q_I)
-
+            reg_prediction = sxr.predict_params(pops,prof,q_I)
             for k, v in reg_prediction.items():
                 print('\t{} parameter: {} '.format(k,v))
 

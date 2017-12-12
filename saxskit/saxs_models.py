@@ -206,6 +206,9 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
     yaml_filename : str
         File where scalers and models will be saved.
         If None, the default file is used.
+    hyper_parameters_search : bool
+        If true, grid-search model hyperparameters
+        to seek high cross-validation accuracy.
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
@@ -362,7 +365,7 @@ def hyperparameters_search(data_features, data_labels, group_by, leaveNGroupOut,
     leaveNGroupOut: boolean
         Indicated whether or not we have enough experimental data
         to cross-validate by the leave-two-groups-out approach
-    n: interer
+    n: integer
         number of groups to leave out
 
     Returns
