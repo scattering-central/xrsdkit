@@ -40,6 +40,8 @@ from collections import OrderedDict
 
 import numpy as np
 
+from . import peakskit
+
 # supported population types
 population_keys = [\
     'unidentified',\
@@ -122,12 +124,12 @@ def compute_saxs(q,populations,params):
     I : array
         Array of scattering intensities for each of the input q values
     """
-    u_flag = bool(populations['unidentified'])
-    pks_flag = bool(populations['diffraction_peaks'])
+    u_flag = 
     I = np.zeros(len(q))
-    if not u_flag and not pks_flag:
+    if not bool(populations['unidentified']):
         n_gp = populations['guinier_porod']
         n_sph = populations['spherical_normal']
+        n_pks = populations['diffraction_peaks']
 
         I0_floor = params['I0_floor'] 
         I = I0_floor*np.ones(len(q))
@@ -136,9 +138,6 @@ def compute_saxs(q,populations,params):
             rg_gp = params['rg_gp']
             G_gp = params['G_gp']
             D_gp = params['D_gp']
-            if not isinstance(rg_gp,list): rg_gp = [rg_gp]
-            if not isinstance(G_gp,list): G_gp = [G_gp]
-            if not isinstance(D_gp,list): D_gp = [D_gp]
             for igp in range(n_gp):
                 I_gp = guinier_porod(q,rg_gp[igp],D_gp[igp],G_gp[igp])
                 I += I_gp
@@ -147,12 +146,17 @@ def compute_saxs(q,populations,params):
             I0_sph = params['I0_sphere']
             r0_sph = params['r0_sphere']
             sigma_sph = params['sigma_sphere']
-            if not isinstance(I0_sph,list): I0_sph = [I0_sph]
-            if not isinstance(r0_sph,list): r0_sph = [r0_sph]
-            if not isinstance(sigma_sph,list): sigma_sph = [sigma_sph]
             for isph in range(n_sph):
                 I_sph = spherical_normal_saxs(q,r0_sph[isph],sigma_sph[isph])
                 I += I0_sph[isph]*I_sph
+
+        if n_pks:
+            I_pk = params['I_pkcenter']
+            q_pk = params['q_pkcenter']
+            pk_hwhm = params['pk_hwhm']
+        for ipk in range(n_pks):
+            I_pseudovoigt = peakskit.peaks_math.pseudo_voigt(q-q_pk[ipk],pk_hwhm,pk_hwhm)
+            I += I_pk[ipk]*I_pseudovoigt
 
     return I
 
