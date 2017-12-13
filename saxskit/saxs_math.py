@@ -154,7 +154,7 @@ def compute_saxs(q,populations,params):
             q_pk = params['q_pkcenter']
             pk_hwhm = params['pk_hwhm']
         for ipk in range(n_pks):
-            I_pseudovoigt = peakskit.peaks_math.pseudo_voigt(q-q_pk[ipk],pk_hwhm,pk_hwhm)
+            I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk[ipk],pk_hwhm,pk_hwhm)
             I += I_pk[ipk]*I_pseudovoigt
 
     return I
