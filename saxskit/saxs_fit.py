@@ -75,8 +75,6 @@ class SaxsFitter(object):
         chi2log_total = saxs_math.compute_chi2(
                     np.log(I_comp[self.idx_fit]),
                     self.logI[self.idx_fit])
-        #if 'diffraction_peaks' in self.populations.keys():
-        #    # add fit terms for the region about the peak
         return chi2log_total 
 
     def pack_params(self,param_array,param_names):
@@ -92,7 +90,7 @@ class SaxsFitter(object):
         param_names = []
         param_idx = OrderedDict.fromkeys(param_dict)
         idx=0
-        for pkey in saxs_math.parameter_keys:
+        for pkey in saxs_math.all_parameter_keys:
             if pkey in param_dict:
                 param_list.extend(param_dict[pkey])
                 param_idx[pkey] = []
@@ -135,8 +133,7 @@ class SaxsFitter(object):
             pertaining to the fit result.
         """
 
-        if bool(self.populations['unidentified']) \
-        or bool(self.populations['diffraction_peaks']):
+        if bool(self.populations['unidentified']):
             return OrderedDict(),OrderedDict()
 
         if params is None:
