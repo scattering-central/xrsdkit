@@ -124,7 +124,6 @@ def compute_saxs(q,populations,params):
     I : array
         Array of scattering intensities for each of the input q values
     """
-    u_flag = 
     I = np.zeros(len(q))
     if not bool(populations['unidentified']):
         n_gp = populations['guinier_porod']
