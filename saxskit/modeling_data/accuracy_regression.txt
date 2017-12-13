@@ -1,1 +1,1 @@
-{'r0_sphere': 'Partial fit was used', 'rg_gp': 0.4050273747394546, 'sigma_sphere': 'Partial fit was used'}
+{'r0_sphere': 'Partial fit was used', 'rg_gp': 'Partial fit was used', 'sigma_sphere': 'Partial fit was used'}

@@ -30,7 +30,6 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
     else:
         yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
 
-    # TODO: Put model accuracy in the .yml file?
     accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
     current_version = list(map(int,sklearn.__version__.split('.')))
 
@@ -42,8 +41,10 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
         scalers=scalers, 
         models=models, 
         accuracy=accuracy)
-    #features = ['q_Imax', 'Imax_over_Imean', 'Imax_sharpness','logI_fluctuation', 'logI_max_over_std']
+
     features = saxs_math.profile_keys
+    print(len(features))
+    print(features)
     possible_models = check_labels(all_data)
 
     # using leaveTwoGroupOut makes sense when we have at least 5 groups
@@ -757,8 +758,8 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     return df_work
 
-def train_regressors_partial(all_data, yaml_filename=None):
-    """Train and save SAXS classification models as a YAML file.
+def train_classifiers_partial(all_data, yaml_filename=None):
+    """update and save SAXS classification models as a YAML file.
 
     Parameters
     ----------
@@ -771,7 +772,78 @@ def train_regressors_partial(all_data, yaml_filename=None):
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
     if yaml_filename is None:
-        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')
+        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
+    else:
+        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
+
+    s_and_m_file = open(yaml_filename,'rb')
+    s_and_m = yaml.load(s_and_m_file)
+
+    reg_models_dict = s_and_m['models']
+    scalers_dict = s_and_m['scalers']
+
+    accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
+
+    possible_models = check_labels(all_data)
+    features = saxs_math.profile_keys
+
+    print(len(features))
+    print(features)
+
+    # unidentified scatterer population model
+    if possible_models['unidentified'] == True:
+        scaler, model, acc = train_partial(True, all_data, features, 'unidentified',
+                                           reg_models_dict, scalers_dict)
+
+        if scaler:
+            s_and_m['scalers']['unidentified'] = scaler.__dict__
+        if model:
+            s_and_m['models']['unidentified'] = model.__dict__
+        if acc:
+            s_and_m['accuracy']['unidentified'] = acc
+
+    # For the rest of the models,
+    # we will use only data with
+    # identifiable scattering populations
+    all_data = all_data[all_data['unidentified']==False]
+
+    for k, v in possible_models.items():
+        if v == True and k != 'unidentified':
+            scaler, model, acc = train_partial(True, all_data, features, k,
+                                           reg_models_dict, scalers_dict)
+            if scaler:
+                s_and_m['scalers'][k] = scaler.__dict__
+            if model:
+                s_and_m['models'][k] = model.__dict__
+            if acc:
+                s_and_m['accuracy'][k] = acc
+
+    print(str(s_and_m['accuracy']))
+
+    # save scalers and models
+    with open(yaml_filename, 'w') as yaml_file:
+        yaml.dump(s_and_m, yaml_file)
+
+    # save accuracy
+    with open (accuracy_txt, 'w') as txt_file:
+        txt_file.write(str(s_and_m['accuracy']))
+
+def train_regressors_partial(all_data, yaml_filename=None):
+    """Update and save SAXS regression models as a YAML file.
+
+    Parameters
+    ----------
+    all_data : pandas.DataFrame
+        dataframe containing features and labels
+    yaml_filename : str
+        File where scalers and models was and will be saved.
+        If None, the default file is used.
+    """
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(p)
+    if yaml_filename is None:
+        yaml_filename = os.path.join(d,'modeling_data',
+                                     'scalers_and_models_regression.yml')
     else:
         yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
 
@@ -790,7 +862,8 @@ def train_regressors_partial(all_data, yaml_filename=None):
         features = []
         features.extend(saxs_math.profile_keys)
 
-        scaler, model, acc = train_partial(all_data, features, 'r0_sphere', reg_models_dict, scalers_dict)
+        scaler, model, acc = train_partial(False, all_data, features, 'r0_sphere',
+                                           reg_models_dict, scalers_dict)
 
         if scaler:
             s_and_m['scalers']['r0_sphere'] = scaler.__dict__
@@ -806,7 +879,8 @@ def train_regressors_partial(all_data, yaml_filename=None):
         features.extend(saxs_math.profile_keys)
         features.extend(saxs_math.spherical_normal_profile_keys)
 
-        scaler, model, acc = train_partial(all_data, features, 'sigma_sphere', reg_models_dict, scalers_dict)
+        scaler, model, acc = train_partial(False, all_data, features, 'sigma_sphere',
+                                           reg_models_dict, scalers_dict)
 
         if scaler:
             s_and_m['scalers']['sigma_sphere'] = scaler.__dict__
@@ -821,7 +895,8 @@ def train_regressors_partial(all_data, yaml_filename=None):
         gr_features.extend(saxs_math.profile_keys)
         gr_features.extend(saxs_math.guinier_porod_profile_keys)
 
-        scaler, model, acc = train_partial(all_data, features, 'rg_gp', reg_models_dict, scalers_dict)
+        scaler, model, acc = train_partial(False, all_data, gr_features, 'rg_gp',
+                                           reg_models_dict, scalers_dict)
 
         if scaler:
             s_and_m['scalers']['rg_gp'] = scaler.__dict__
@@ -850,14 +925,17 @@ def set_param(m_s, param):
             else:
                 setattr(m_s, k, v)
 
-def train_partial(all_data, features, target, reg_models_dict, scalers_dict):
+def train_partial(classifier, all_data, features, target, reg_models_dict, scalers_dict):
     model_params = reg_models_dict[target]
     scaler_params = scalers_dict[target]
 
     if scaler_params is not None:# the model exist
         scaler = preprocessing.StandardScaler()
         set_param(scaler,scaler_params)
-        model = linear_model.SGDRegressor()
+        if classifier == True:
+            model = linear_model.SGDClassifier()
+        else:
+            model = linear_model.SGDRegressor()
         set_param(model,model_params)
         d = all_data[all_data[target].isnull() == False]
         data = d.dropna(subset=features)
