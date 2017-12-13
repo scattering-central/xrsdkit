@@ -1,1 +1,1 @@
-{'unidentified': 0.97689132392646205, 'spherical_normal': 0.98155161497783538, 'guinier_porod': 0.78837282199501268, 'diffraction_peaks': 0.97994242452830838}
+{'diffraction_peaks': 'Partial fit was used', 'guinier_porod': 'Partial fit was used', 'spherical_normal': 'Partial fit was used', 'unidentified': 'Partial fit was used'}
