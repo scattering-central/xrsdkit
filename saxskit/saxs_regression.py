@@ -21,8 +21,8 @@ class SaxsRegressor(object):
         reg_models_dict = s_and_m['models']
         scalers_dict = s_and_m['scalers']
 
-        self.models = OrderedDict.fromkeys(saxs_math.parameter_keys)
-        self.scalers = OrderedDict.fromkeys(saxs_math.parameter_keys)
+        self.models = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
+        self.scalers = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
         reg_models = reg_models_dict.keys()
         for model_name in reg_models:
             model_params = reg_models_dict[model_name]
@@ -61,8 +61,10 @@ class SaxsRegressor(object):
             dictionary of with predicted parameters
         """
         features = np.array(list(features.values())).reshape(1,-1)
-        params = OrderedDict.fromkeys(saxs_math.parameter_keys)
+        params = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
+
         if populations['unidentified'][0] == 1:
+            # TODO: we could still use a fit to 'predict' I0_floor...
             return params # all params are "None"
 
         if populations['spherical_normal'][0] == 1:
