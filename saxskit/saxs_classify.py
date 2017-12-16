@@ -8,6 +8,8 @@ import yaml
 
 from . import saxs_math
 
+from citrination_client import CitrinationClient
+
 class SaxsClassifier(object):
     """A set of classifiers to be used on SAXS spectra"""
 
@@ -87,19 +89,57 @@ class SaxsClassifier(object):
         return flags
 
     def run_classifier(self, sample_params):
-        """Apply self.models and self.scalers to sample_params.
 
-        Parameters
-        ----------
-        sample_params : OrderedDict
-            OrderedDict of features with their values
-
-        Returns
-        -------
-        flags : dict
-            dictionary of boolean flags indicating sample populations
-        """
         flags = self.classify(np.array(list(sample_params.values())).reshape(1,-1))
         return flags
 
 
+    def citrination_setup(self,address,api_key_file):
+        """sets up a CitrinationClient
+        Parameters
+        ----------
+        address : string
+            address of Citrination page
+        api_key_file : string
+            path to the file with Citrination api_key
+        """
+        with open(api_key_file, "r") as g:
+            api_key = g.readline()
+        a_key = api_key.strip()
+
+        self.client = CitrinationClient(site = address, api_key=a_key)
+
+
+    def citrination_predict(self,sample_params):
+        """Apply self.models and self.scalers to sample_params.
+
+        Parameters
+        ----------
+        sample_params : ordered dictionary
+            ordered dictionary of floats representing features of test sample
+
+        Returns
+        -------
+        flags : dict
+            dictionary of (boolean,float) tuples,
+            where the first item is the flag
+            and the second is the probability,
+            for each of the potential scattering populations
+        """
+        if self.client == None:
+            print("Client has not been set up")
+            return None
+
+        inputs = {}
+        for k,v in sample_params.items():
+            k = "Property " + k
+            inputs[k] = v
+
+        flags = OrderedDict()
+        resp = self.client.predict("24", inputs) # "24" is ID of dataview on Citrination
+        flags['unidentified'] = resp['candidates'][0]['Property unidentified']
+        flags['guinier_porod'] = resp['candidates'][0]['Property guinier_porod']
+        flags['spherical_normal'] = resp['candidates'][0]['Property spherical_normal']
+        flags['diffraction_peaks'] = resp['candidates'][0]['Property diffraction_peaks']
+
+        return flags

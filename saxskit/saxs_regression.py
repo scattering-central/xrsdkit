@@ -67,7 +67,7 @@ class SaxsRegressor(object):
             # TODO: we could still use a fit to 'predict' I0_floor...
             return params # all params are "None"
 
-        if populations['spherical_normal'][0] == 1:
+        if populations['spherical_normal'][0] == 1 and populations['diffraction_peaks'] == 0:
             if self.scalers['r0_sphere'] != None:
                 x = self.scalers['r0_sphere'].transform(features)
                 r0sph = self.models['r0_sphere'].predict(x)
@@ -91,4 +91,3 @@ class SaxsRegressor(object):
                 params['rg_gp'] = rg 
 
         return params
-
