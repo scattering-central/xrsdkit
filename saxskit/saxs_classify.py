@@ -87,6 +87,16 @@ class SaxsClassifier(object):
         return flags
 
     def run_classifier(self, sample_params):
+        """Apply self.models and self.scalers to sample_params.
+        Parameters
+        ----------
+        sample_params : OrderedDict
+            OrderedDict of features with their values
+        Returns
+        -------
+        flags : dict
+            dictionary of boolean flags indicating sample populations
+        """
 
         flags = self.classify(np.array(list(sample_params.values())).reshape(1,-1))
         return flags

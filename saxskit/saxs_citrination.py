@@ -4,7 +4,7 @@ from . import saxs_math
 
 from citrination_client import CitrinationClient
 
-class SaxsCitrination(object):
+class CitrinationSaxsClassifer(object):
     """A set of classifiers to be used on SAXS spectra"""
 
     def __init__(self, address, api_key_file):
@@ -30,9 +30,6 @@ class SaxsCitrination(object):
             and the second is the probability,
             for each of the potential scattering populations
         """
-        if self.client == None:
-            print("Client has not been set up")
-            return None
 
         inputs = self.append_str_property(sample_params)
 
@@ -71,9 +68,6 @@ class SaxsCitrination(object):
             and the second is the probability,
             for each of the potential scattering populations
         """
-        if self.client == None:
-            print("Client has not been set up")
-            return None
 
         features = self.append_str_property(sample_params)
 
