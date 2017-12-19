@@ -621,7 +621,7 @@ def guinier_porod_profile(q_I):
     features['I0_over_Imean'] = I_at_0/I_mean
     idx_half_I0 = np.min(np.where(I<0.5*I_at_0))
     features['q_at_half_I0'] = q[idx_half_I0]
-    features['I0_curvature'] = I0_curv 
+    features['I0_curvature'] = I0_curv
     return features
 
 def spherical_normal_profile(q_I):
@@ -713,14 +713,14 @@ def detailed_profile(q_I,populations):
     try:
         gp_prof = guinier_porod_profile(q_I)
     except:
-        gp_prof = OrderedDict.fromkeys(saxs_math.parameter_keys['guinier_porod'])
+        gp_prof = OrderedDict.fromkeys(parameter_keys['guinier_porod'])
     profs.update(gp_prof)
 
     #if bool(populations['spherical_normal']):
     try:
         sph_prof = spherical_normal_profile(q_I)
     except:
-        sph_prof = OrderedDict.fromkeys(saxs_math.parameter_keys['spherical_normal'])
+        sph_prof = OrderedDict.fromkeys(parameter_keys['spherical_normal'])
     profs.update(sph_prof)
 
     #if bool(populations['diffraction_peaks']):

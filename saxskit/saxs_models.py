@@ -717,6 +717,8 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     for pp in pifs:
         feats = OrderedDict.fromkeys(saxs_math.all_profile_keys)
+        if len(feats) == 38:
+            print(feats.keys())
         pops = OrderedDict.fromkeys(saxs_math.population_keys)
         par = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
         expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
@@ -731,13 +733,21 @@ def get_data_from_Citrination(client, dataset_id_list):
             else:
                 val = None
             param_list.append(val)
+
         data_row = [expt_id]+list(feats.values())+list(pops.values())+param_list
+        if len(data_row) != 35:
+            print(len(data_row))
+            print(pif_pops)
+            print(feats.keys()) # 20
+            print()
         data.append(data_row)
 
     colnames = ['experiment_id']
     colnames.extend(saxs_math.all_profile_keys)
     colnames.extend(saxs_math.population_keys)
     colnames.extend(saxs_math.all_parameter_keys)
+
+    print(colnames)
 
     d = pd.DataFrame(data=data, columns=colnames)
     d = d.where((pd.notnull(d)), None) # replace all NaN by None
