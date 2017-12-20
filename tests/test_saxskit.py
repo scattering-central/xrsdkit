@@ -102,4 +102,20 @@ def test_regressions():
             for k, v in reg_prediction.items():
                 print('\t{} parameter: {} '.format(k,v))
 
+'''
+def test_citrination_classifier(address,api_key_file):
+    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
+    sxc = saxs_classify.SaxsClassifier(model_file_path)
+    sxc.citrination_setup(address,api_key_file)
+    for data_type in ['precursors','spheres','peaks']:
+        data_path = os.path.join(os.getcwd(),'tests','test_data','solution_saxs',data_type)
+        data_files = glob.glob(os.path.join(data_path,'*.csv'))
+        for fpath in data_files:
+            print('testing classifier on {}'.format(fpath))
+            q_I = np.loadtxt(fpath,delimiter=',')
+            prof = saxs_math.profile_spectrum(q_I)
+            pops = sxc.citrination_predict(prof)
+            for popk,pop in pops.items():
+                print('\t{} populations: {} ({} certainty)'.format(popk,pop[0],pop[1]))
 
+'''

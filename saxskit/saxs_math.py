@@ -621,7 +621,7 @@ def guinier_porod_profile(q_I):
     features['I0_over_Imean'] = I_at_0/I_mean
     idx_half_I0 = np.min(np.where(I<0.5*I_at_0))
     features['q_at_half_I0'] = q[idx_half_I0]
-    features['I0_curvature'] = I0_curv 
+    features['I0_curvature'] = I0_curv
     return features
 
 def spherical_normal_profile(q_I):

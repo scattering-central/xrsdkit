@@ -731,6 +731,7 @@ def get_data_from_Citrination(client, dataset_id_list):
             else:
                 val = None
             param_list.append(val)
+
         data_row = [expt_id]+list(feats.values())+list(pops.values())+param_list
         data.append(data_row)
 
@@ -775,9 +776,6 @@ def train_classifiers_partial(all_data, yaml_filename=None):
     possible_models = check_labels(all_data)
     features = saxs_math.profile_keys
 
-    print(len(features))
-    print(features)
-
     # unidentified scatterer population model
     if possible_models['unidentified'] == True:
         scaler, model, acc = train_partial(True, all_data, features, 'unidentified',
@@ -806,7 +804,6 @@ def train_classifiers_partial(all_data, yaml_filename=None):
             if acc:
                 s_and_m['accuracy'][k] = acc
 
-    print(str(s_and_m['accuracy']))
 
     # save scalers and models
     with open(yaml_filename, 'w') as yaml_file:
@@ -893,8 +890,6 @@ def train_regressors_partial(all_data, yaml_filename=None):
         if acc:
             s_and_m['accuracy']['rg_gp'] = acc
 
-
-    print(str(s_and_m['accuracy']))
 
     # save scalers and models
     with open(yaml_filename, 'w') as yaml_file:
