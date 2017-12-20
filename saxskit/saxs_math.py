@@ -713,14 +713,14 @@ def detailed_profile(q_I,populations):
     try:
         gp_prof = guinier_porod_profile(q_I)
     except:
-        gp_prof = OrderedDict.fromkeys(parameter_keys['guinier_porod'])
+        gp_prof = OrderedDict.fromkeys(profile_keys['guinier_porod'])
     profs.update(gp_prof)
 
     #if bool(populations['spherical_normal']):
     try:
         sph_prof = spherical_normal_profile(q_I)
     except:
-        sph_prof = OrderedDict.fromkeys(parameter_keys['spherical_normal'])
+        sph_prof = OrderedDict.fromkeys(profile_keys['spherical_normal'])
     profs.update(sph_prof)
 
     #if bool(populations['diffraction_peaks']):
