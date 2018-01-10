@@ -20,11 +20,16 @@ The supported populations and associated parameters are:
       - 'r0_sphere': mean sphere size (Angstrom) 
       - 'sigma_sphere': fractional standard deviation of sphere size 
 
-    - 'diffraction_peaks': Psuedo-Voigt diffraction peaks (not yet supported) 
+    - 'diffraction_peaks': Psuedo-Voigt diffraction peaks 
+
+      - 'I_pkcenter': spherical form factor scattering intensity scaling factor
+      - 'q_pkcenter': mean sphere size (Angstrom) 
+      - 'pk_hwhm': fractional standard deviation of sphere size 
 
     - 'unidentified': if this population is indicated,
         then the scattering spectrum is unfamiliar. 
         This causes all other populations and parameters to be ignored.
+        TODO: unidentified scattering could still yield a flat I(q=0).
 
     - Common parameters for all populations:
       
@@ -35,33 +40,7 @@ from collections import OrderedDict
 
 import numpy as np
 
-# features for profiling all spectra
-profile_keys = [\
-    'Imax_over_Imean',\
-    'Imax_sharpness',\
-    'I_fluctuation',\
-    'logI_fluctuation',\
-    'logI_max_over_std',\
-    'r_fftIcentroid',\
-    'r_fftImax',\
-    'q_Icentroid',\
-    'q_logIcentroid',\
-    'pearson_q',\
-    'pearson_q2',\
-    'pearson_expq',\
-    'pearson_invexpq']
-
-# additional features for profiling specific scatterer populations 
-spherical_normal_profile_keys = [\
-    'q_at_Iq4_min1',\
-    'pIq4_qwidth',\
-    'pI_qvertex',\
-    'pI_qwidth']
-
-guinier_porod_profile_keys = [\
-    'I0_over_Imean',\
-    'I0_curvature',\
-    'q_at_half_I0']
+from . import peakskit
 
 # supported population types
 population_keys = [\
@@ -70,15 +49,57 @@ population_keys = [\
     'spherical_normal',\
     'diffraction_peaks']
 
+# features for profiling spectra
+profile_keys = OrderedDict.fromkeys(population_keys)
+profile_keys.update(dict(
+    unidentified=[
+        'Imax_over_Imean',
+        'Imax_sharpness',
+        'I_fluctuation',
+        'logI_fluctuation',
+        'logI_max_over_std',
+        'r_fftIcentroid',
+        'r_fftImax',
+        'q_Icentroid',
+        'q_logIcentroid',
+        'pearson_q',
+        'pearson_q2',
+        'pearson_expq',
+        'pearson_invexpq'],
+    guinier_porod = [
+        'I0_over_Imean',
+        'I0_curvature',
+        'q_at_half_I0'],
+    spherical_normal=[
+        'q_at_Iq4_min1',
+        'pIq4_qwidth',
+        'pI_qvertex',
+        'pI_qwidth'],
+    diffraction_peaks=[]))
+all_profile_keys = []
+for popk,profks in profile_keys.items():
+    all_profile_keys.extend(profks)
+
 # supported scattering parameters
-parameter_keys = [\
-    'I0_floor',\
-    'G_gp',\
-    'rg_gp',\
-    'D_gp',\
-    'I0_sphere',\
-    'r0_sphere',\
-    'sigma_sphere']
+parameter_keys = OrderedDict.fromkeys(population_keys)
+parameter_keys.update(dict(
+    unidentified = [
+        'I0_floor'],
+    guinier_porod = [
+        'G_gp',
+        'rg_gp',
+        'D_gp'],
+    spherical_normal = [
+        'I0_sphere',
+        'r0_sphere',
+        'sigma_sphere'],
+    diffraction_peaks = [
+        'I_pkcenter',
+        'q_pkcenter',
+        'pk_hwhm']))
+all_parameter_keys = []
+for popk,parmks in parameter_keys.items():
+    all_parameter_keys.extend(parmks)
  
 def compute_saxs(q,populations,params):
     """Compute a SAXS intensity spectrum.
@@ -103,12 +124,11 @@ def compute_saxs(q,populations,params):
     I : array
         Array of scattering intensities for each of the input q values
     """
-    u_flag = bool(populations['unidentified'])
-    pks_flag = bool(populations['diffraction_peaks'])
     I = np.zeros(len(q))
-    if not u_flag and not pks_flag:
+    if not bool(populations['unidentified']):
         n_gp = populations['guinier_porod']
         n_sph = populations['spherical_normal']
+        n_pks = populations['diffraction_peaks']
 
         I0_floor = params['I0_floor'] 
         I = I0_floor*np.ones(len(q))
@@ -117,9 +137,6 @@ def compute_saxs(q,populations,params):
             rg_gp = params['rg_gp']
             G_gp = params['G_gp']
             D_gp = params['D_gp']
-            if not isinstance(rg_gp,list): rg_gp = [rg_gp]
-            if not isinstance(G_gp,list): G_gp = [G_gp]
-            if not isinstance(D_gp,list): D_gp = [D_gp]
             for igp in range(n_gp):
                 I_gp = guinier_porod(q,rg_gp[igp],D_gp[igp],G_gp[igp])
                 I += I_gp
@@ -128,12 +145,17 @@ def compute_saxs(q,populations,params):
             I0_sph = params['I0_sphere']
             r0_sph = params['r0_sphere']
             sigma_sph = params['sigma_sphere']
-            if not isinstance(I0_sph,list): I0_sph = [I0_sph]
-            if not isinstance(r0_sph,list): r0_sph = [r0_sph]
-            if not isinstance(sigma_sph,list): sigma_sph = [sigma_sph]
             for isph in range(n_sph):
                 I_sph = spherical_normal_saxs(q,r0_sph[isph],sigma_sph[isph])
                 I += I0_sph[isph]*I_sph
+
+        if n_pks:
+            I_pk = params['I_pkcenter']
+            q_pk = params['q_pkcenter']
+            pk_hwhm = params['pk_hwhm']
+        for ipk in range(n_pks):
+            I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk[ipk],pk_hwhm,pk_hwhm)
+            I += I_pk[ipk]*I_pseudovoigt
 
     return I
 
@@ -543,7 +565,7 @@ def profile_spectrum(q_I):
     r_fftIcentroid = rfftI_rint / fftI_rint 
     r_fftImax = r_pos[np.argmax(fftampI_rpos)]
 
-    features = OrderedDict.fromkeys(profile_keys)
+    features = OrderedDict.fromkeys(profile_keys['unidentified'])
     features['Imax_over_Imean'] = Imax_over_Imean
     features['Imax_sharpness'] = Imax_sharpness
     features['I_fluctuation'] = I_fluctuation
@@ -588,7 +610,7 @@ def guinier_porod_profile(q_I):
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    features = OrderedDict.fromkeys(guinier_porod_profile_keys)
+    features = OrderedDict.fromkeys(profile_keys['guinier_porod'])
     q_s,q_mean,q_std = standardize_array(q)
     I_s,I_mean,I_std = standardize_array(q)
     I_at_0, p_I0 = fit_I0(q,I,4)
@@ -599,7 +621,7 @@ def guinier_porod_profile(q_I):
     features['I0_over_Imean'] = I_at_0/I_mean
     idx_half_I0 = np.min(np.where(I<0.5*I_at_0))
     features['q_at_half_I0'] = q[idx_half_I0]
-    features['I0_curvature'] = I0_curv 
+    features['I0_curvature'] = I0_curv
     return features
 
 def spherical_normal_profile(q_I):
@@ -631,7 +653,7 @@ def spherical_normal_profile(q_I):
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    features = OrderedDict.fromkeys(spherical_normal_profile_keys)
+    features = OrderedDict.fromkeys(profile_keys['spherical_normal'])
     #######
     # 1: Find the first local max
     # and subsequent local minimum of I*q**4 
@@ -681,43 +703,29 @@ def spherical_normal_profile(q_I):
     features['pI_qwidth'] = pI_fwidth*q_min1_std
     return features 
 
-def population_profiles(q_I,populations,params):
+def detailed_profile(q_I,populations):
     profs = OrderedDict()
 
-    if bool(populations['unidentified']) \
-    or bool(populations['diffraction_peaks']):
+    if bool(populations['unidentified']):
         return profs 
 
-    if bool(populations['spherical_normal']):
-        q_I_sph = q_I
-        if bool(populations['guinier_porod']):
-            pop_gp = OrderedDict.fromkeys(population_keys)
-            params_gp = OrderedDict.fromkeys(parameter_keys)
-            pop_gp['guinier_porod'] = populations['guinier_porod']
-            params_gp['I0_floor'] = params['I0_floor']
-            params_gp['G_gp'] = params['G_gp']
-            params_gp['rg_gp'] = params['rg_gp']
-            params_gp['D_gp'] = params['D_gp']
-            I_gp = compute_saxs(q_I[:,0],pop_gp,params_gp)
-            q_I_sph[:,1] = q_I_sph[:,1] - I_gp
-        sph_prof = spherical_normal_profile(q_I_sph)
-        profs.update(sph_prof)
+    #if bool(populations['guinier_porod']):
+    try:
+        gp_prof = guinier_porod_profile(q_I)
+    except:
+        gp_prof = OrderedDict.fromkeys(profile_keys['guinier_porod'])
+    profs.update(gp_prof)
 
-    if bool(populations['guinier_porod']):
-        q_I_gp = q_I
-        if bool(populations['spherical_normal']):
-            pop_sph = OrderedDict.fromkeys(population_keys)
-            params_sph = OrderedDict.fromkeys(parameter_keys)
-            pop_sph['spherical_normal'] = populations['spherical_normal']
-            params_sph['I0_floor'] = params['I0_floor']
-            params_sph['I0_sphere'] = params['I0_sphere']
-            params_sph['r0_sphere'] = params['r0_sphere']
-            params_sph['sigma_sphere'] = params['sigma_sphere']
-            I_sph = compute_saxs(q_I[:,0],pop_sph,params_sph)
-            q_I_gp[:,1] = q_I_gp[:,1] - I_sph
-        gp_prof = guinier_porod_profile(q_I_gp)
-        profs.update(gp_prof)
-    
+    #if bool(populations['spherical_normal']):
+    try:
+        sph_prof = spherical_normal_profile(q_I)
+    except:
+        sph_prof = OrderedDict.fromkeys(profile_keys['spherical_normal'])
+    profs.update(sph_prof)
+
+    #if bool(populations['diffraction_peaks']):
+    #   diffraction-specific profiling should go here
+ 
     return profs
 
 
