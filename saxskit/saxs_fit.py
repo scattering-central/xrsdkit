@@ -88,15 +88,22 @@ class SaxsFitter(object):
     def unpack_params(self,param_dict):
         param_list = []
         param_names = []
-        param_idx = OrderedDict.fromkeys(param_dict)
+        param_idx = OrderedDict.fromkeys(param_dict.keys())
         idx=0
         for pkey in saxs_math.all_parameter_keys:
-            if pkey in param_dict:
-                param_list.extend(param_dict[pkey])
-                param_idx[pkey] = []
-                for i in range(len(param_dict[pkey])):
+            if pkey in param_dict.keys():
+                pval = param_dict[pkey]
+                if isinstance(pval,list):
+                    param_list.extend(pval)
+                    param_idx[pkey] = []
+                    for i in range(len(pval)):
+                        param_names.append(pkey)
+                        param_idx[pkey].append(idx)
+                        idx += 1
+                else:
                     param_names.append(pkey)
-                    param_idx[pkey].append(idx)
+                    param_list.append(pval)
+                    param_idx[pkey] = [idx]
                     idx += 1
         return param_list,param_names,param_idx
 
@@ -138,9 +145,10 @@ class SaxsFitter(object):
 
         if params is None:
             params = self.default_params()
-
+        
         x_init,x_keys,param_idx = self.unpack_params(params) 
         x_bounds = [] 
+        
         for k in x_keys:
             x_bounds.append(param_limits[k])
    
@@ -177,15 +185,7 @@ class SaxsFitter(object):
 
     def default_params(self):
         pars = OrderedDict()
-        defaults = OrderedDict(
-            I0_floor = 0.0001,
-            G_gp = 0.01,
-            rg_gp = 1.,
-            D_gp = 4.,
-            I0_sphere = 1.,
-            r0_sphere = 10.,
-            sigma_sphere = 0.1)
-        pars['I0_floor'] = [defaults['I0_floor']]
+        pars['I0_floor'] = [saxs_math.param_defaults['I0_floor']]
         if 'guinier_porod' in self.populations:
             n_gp = self.populations['guinier_porod']
             if bool(n_gp):
@@ -193,9 +193,9 @@ class SaxsFitter(object):
                 pars['rg_gp'] = []
                 pars['D_gp'] = []
                 for igp in range(n_gp):
-                    pars['G_gp'].append(defaults['G_gp'])
-                    pars['rg_gp'].append(defaults['rg_gp'])
-                    pars['D_gp'].append(defaults['D_gp'])
+                    pars['G_gp'].append(saxs_math.param_defaults['G_gp'])
+                    pars['rg_gp'].append(saxs_math.param_defaults['rg_gp'])
+                    pars['D_gp'].append(saxs_math.param_defaults['D_gp'])
         if 'spherical_normal' in self.populations:
             n_sn = self.populations['spherical_normal']
             if bool(n_sn):
@@ -203,9 +203,9 @@ class SaxsFitter(object):
                 pars['r0_sphere'] = []
                 pars['sigma_sphere'] = []
                 for isn in range(n_sn):
-                    pars['I0_sphere'].append(defaults['I0_sphere'])
-                    pars['r0_sphere'].append(defaults['r0_sphere'])
-                    pars['sigma_sphere'].append(defaults['sigma_sphere'])
+                    pars['I0_sphere'].append(saxs_math.param_defaults['I0_sphere'])
+                    pars['r0_sphere'].append(saxs_math.param_defaults['r0_sphere'])
+                    pars['sigma_sphere'].append(saxs_math.param_defaults['sigma_sphere'])
         return pars
 
     def fit_report(self,params):

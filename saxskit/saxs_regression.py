@@ -35,7 +35,7 @@ class SaxsRegressor(object):
             self.models[model_name] = m
             self.scalers[model_name] = s
 
-    # helper function - to set parametrs for scalers and models
+    # helper function - to set parameters for scalers and models
     def set_param(self, m_s, param):
         for k, v in param.items():
             if isinstance(v, list):
@@ -43,7 +43,7 @@ class SaxsRegressor(object):
             else:
                 setattr(m_s, k, v)
 
-    def predict_params(self,populations,features, q_I):
+    def predict_params(self,populations,features,q_I):
         """Apply self.models and self.scalers to features.
 
         Parameters
@@ -61,34 +61,49 @@ class SaxsRegressor(object):
             dictionary of with predicted parameters
         """
         features = np.array(list(features.values())).reshape(1,-1)
-        params = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
 
-        if populations['unidentified'][0] == 1:
+        for popname in saxs_math.population_keys:
+            if not popname in populations.keys():
+                populations[popname] = 0
+
+        params = OrderedDict()    
+        params['I0_floor'] = 0.
+        if bool(populations['unidentified']):
             # TODO: we could still use a fit to 'predict' I0_floor...
-            return params # all params are "None"
+            return params 
 
-        if populations['spherical_normal'][0] == 1 and populations['diffraction_peaks'] == 0:
-            if self.scalers['r0_sphere'] != None:
-                x = self.scalers['r0_sphere'].transform(features)
-                r0sph = self.models['r0_sphere'].predict(x)
-                params['r0_sphere'] = r0sph 
+        if bool(populations['spherical_normal']) and not bool(populations['diffraction_peaks']):
+            #if self.scalers['r0_sphere'] != None:
+            x = self.scalers['r0_sphere'].transform(features)
+            r0sph = self.models['r0_sphere'].predict(x)
+            params['r0_sphere'] = r0sph 
 
-            if self.scalers['sigma_sphere'] != None:
-                additional_features = saxs_math.spherical_normal_profile(q_I)
-                additional_features = np.array(list(additional_features.values())).reshape(1,-1)
-                ss_features = np.append(features, additional_features)
-                x = self.scalers['sigma_sphere'].transform(ss_features.reshape(1, -1))
-                sigsph = self.models['sigma_sphere'].predict(x)
-                params['sigma_sphere'] = sigsph 
+            #if self.scalers['sigma_sphere'] != None:
+            additional_features = saxs_math.spherical_normal_profile(q_I)
+            additional_features = np.array(list(additional_features.values())).reshape(1,-1)
+            ss_features = np.append(features, additional_features)
+            x = self.scalers['sigma_sphere'].transform(ss_features.reshape(1, -1))
+            sigsph = self.models['sigma_sphere'].predict(x)
+            params['sigma_sphere'] = sigsph 
 
-        if populations['guinier_porod'][0] == 1:
-            if self.scalers['rg_gp'] != None:
-                additional_features = saxs_math.guinier_porod_profile(q_I)
-                additional_features = np.array(list(additional_features.values())).reshape(1,-1)
-                rg_features = np.append(features, additional_features)
-                x = self.scalers['rg_gp'].transform(rg_features.reshape(1, -1))
-                rg = self.models['rg_gp'].predict(x)
-                params['rg_gp'] = rg 
+            params['I0_sphere'] = 1
+
+        if bool(populations['guinier_porod']):
+            #if self.scalers['rg_gp'] != None:
+            additional_features = saxs_math.guinier_porod_profile(q_I)
+            additional_features = np.array(list(additional_features.values())).reshape(1,-1)
+            rg_features = np.append(features, additional_features)
+            x = self.scalers['rg_gp'].transform(rg_features.reshape(1, -1))
+            rg = self.models['rg_gp'].predict(x)
+            params['rg_gp'] = rg 
+
+            # TODO: model this, after the dataset exists for it.
+            params['D_gp'] = 4
+
+            params['G_gp'] = 1
+
+        # TODO: fix params except intensity factors, 
+        # and fit the intensity factors least-squares to q_I
 
         return params
 
