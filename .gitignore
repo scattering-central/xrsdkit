@@ -14,3 +14,4 @@ pip-selfcheck.json
 *.swp
 *__pycache__
 *.egg-info
+*.ipynb-checkpoints
