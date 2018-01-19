@@ -1,1 +1,1 @@
-{'unidentified': 0.98675754531960758, 'spherical_normal': 0.98964136696103577, 'guinier_porod': 0.82311473695779758, 'diffraction_peaks': 0.98292264701891208}
+{'unidentified': 0.98554867024859583, 'spherical_normal': 0.99219479026744606, 'guinier_porod': 0.82328980152709197, 'diffraction_peaks': 0.96349829924719155}
