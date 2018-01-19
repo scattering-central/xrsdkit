@@ -63,6 +63,7 @@ class SaxsRegressor(object):
         params : dict
             dictionary of with predicted parameters
         """
+<<<<<<< baa87823b417ee66efffec53f90381dd669abcb7
         feature_array = np.array(list(features.values())).reshape(1,-1)
 
         params = OrderedDict()    
