@@ -198,7 +198,6 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
 
 def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False):
     """Train and save SAXS classification models as a YAML file.
-
     Parameters
     ----------
     all_data : pandas.DataFrame
@@ -248,7 +247,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
-        features = saxs_math.profile_keys['unidentified']
+        features = []
+        features.extend(saxs_math.profile_keys['unidentified'])
         features.extend(saxs_math.profile_keys['spherical_normal'])
 
         scaler, reg, acc = train(all_data, features, 'sigma_sphere', hyper_parameters_search)
@@ -263,7 +263,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
-        features = saxs_math.profile_keys['unidentified']
+        features = []
+        features.extend(saxs_math.profile_keys['unidentified'])
         features.extend(saxs_math.profile_keys['guinier_porod'])
 
         scaler, reg, acc = train(all_data, features, 'rg_gp', hyper_parameters_search)
@@ -870,7 +871,8 @@ def train_regressors_partial(new_data, yaml_filename=None, all_training_data = N
 
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
-        features = saxs_math.profile_keys['unidentified']
+        features = []
+        features.extend(saxs_math.profile_keys['unidentified'])
         features.extend(saxs_math.profile_keys['spherical_normal'])
 
 
@@ -886,7 +888,8 @@ def train_regressors_partial(new_data, yaml_filename=None, all_training_data = N
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
-        features = saxs_math.profile_keys['unidentified']
+        features = []
+        features.extend(saxs_math.profile_keys['unidentified'])
         features.extend(saxs_math.profile_keys['guinier_porod'])
 
         scaler, model, acc = train_partial(False, new_data, features, 'rg_gp',
