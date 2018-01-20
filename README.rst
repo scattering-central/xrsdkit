@@ -29,7 +29,34 @@ This example profiles, parameterizes,
 and optimizes the fit of a scattering equation
 to a measured saxs spectrum.
 
-TODO: fill out example. 
+```python
+
+import pandas as pd
+import numpy as np
+import warnings
+warnings.filterwarnings("ignore")
+
+import saxskit
+
+from saxskit.saxskit.saxs_classify import SaxsClassifier
+from saxskit.saxskit.saxs_regression import SaxsRegressor
+from saxskit.saxskit.saxs_math import profile_spectrum
+
+q_i = np.genfromtxt ('my_data/sample_0.csv', delimiter=",")
+
+features = profile_spectrum(q_i)
+
+m = SaxsClassifier()
+
+flags = m.run_classifier(features)
+print(flags)
+
+r = SaxsRegressor()
+
+population_keys = r.predict_params(flags,features, q_i)
+print(population_keys)
+
+```
 
 
 Installation
