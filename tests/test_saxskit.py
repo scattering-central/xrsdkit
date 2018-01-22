@@ -54,19 +54,6 @@ def test_profile_spectrum():
     pops.update(sph_pops)
     pops.update(pks_pops)
 
-    params = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
-    params.update(dict(
-        I0_floor=[13.854987111947105],
-        G_gp=[0.15633292606854013],
-        rg_gp=[2.1217098827006495],
-        D_gp=[4.0],
-        I0_sphere=[69.738299480524972],
-        r0_sphere=[9.9309300490573076],
-        sigma_sphere=[0.0],
-        I_pkcenter=[1182.],
-        q_pkcenter=[0.084],
-        pk_hwhm=[0.005]))
-
     I_tot = q_I_gp[:,1] + q_I_sph[:,1] + q_I_pks[:,1]
     q_I_tot = np.vstack([q_I_gp[:,1],I_tot]).T
     pop_profs = saxs_math.detailed_profile(q_I_tot,pops)
@@ -81,9 +68,9 @@ def test_classifier():
             print('testing classifier on {}'.format(fpath))
             q_I = np.loadtxt(fpath,delimiter=',')
             prof = saxs_math.profile_spectrum(q_I)
-            pops = sxc.run_classifier(prof)
-            for popk,pop in pops.items():
-                print('\t{} populations: {} ({} certainty)'.format(popk,pop[0],pop[1]))
+            pops,certs = sxc.classify(prof)
+            for popk in pops.keys():
+                print('\t{} populations: {} ({} certainty)'.format(popk,pops[popk],certs[popk]))
 
 def test_regressions():
     model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
@@ -97,7 +84,7 @@ def test_regressions():
             print('testing regression on {}'.format(fpath))
             q_I = np.loadtxt(fpath,delimiter=',')
             prof = saxs_math.profile_spectrum(q_I)
-            pops = sxc.run_classifier(prof)
+            pops,certs = sxc.classify(prof)
             reg_prediction = sxr.predict_params(pops,prof,q_I)
             for k, v in reg_prediction.items():
                 print('\t{} parameter: {} '.format(k,v))

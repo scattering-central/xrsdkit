@@ -65,14 +65,17 @@ class SaxsClassifier(object):
             dictionary, similar to `populations`,
             but containing the certainty of the prediction
         """
-        return self.evaluate(np.array(list(sample_params.values())).reshape(1,-1))
+        return self._evaluate(np.array(list(sample_features.values())).reshape(1,-1))
 
-    def evaluate(self, sample_params):
+    def _evaluate(self, feature_array):
         """Apply self.models and self.scalers to sample_params.
+
+        This is intended for use as a subroutine
+        for SaxsClassifier.classify().
 
         Parameters
         ----------
-        sample_params : array
+        feature_array : array
             array of floats representing features of test sample
 
         Returns
@@ -89,7 +92,7 @@ class SaxsClassifier(object):
         populations = OrderedDict()
         certainties = OrderedDict()
 
-        x = self.scalers['unidentified'].transform(sample_params)
+        x = self.scalers['unidentified'].transform(feature_array)
         pop = self.models['unidentified'].predict(x)[0]
         cert = self.models['unidentified'].predict_proba(x)[0,int(pop)]
         populations['unidentified'] = pop 
@@ -98,7 +101,7 @@ class SaxsClassifier(object):
         if not populations['unidentified']: 
             for k in saxs_math.population_keys:
                 if not k == 'unidentified':
-                    x = self.scalers[k].transform(sample_params)
+                    x = self.scalers[k].transform(feature_array)
                     pop = self.models[k].predict(x)[0]
                     cert = self.models[k].predict_proba(x)[0,int(pop)]
                     populations[k] = pop 
