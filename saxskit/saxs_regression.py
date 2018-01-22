@@ -72,11 +72,11 @@ class SaxsRegressor(object):
             # TODO: we could still use a fit to 'predict' I0_floor...
             return params 
 
-        if bool(populations['spherical_normal']) and not bool(populations['diffraction_peaks']):
+        if bool(populations['spherical_normal']):
             #if self.scalers['r0_sphere'] != None:
             x = self.scalers['r0_sphere'].transform(features)
             r0sph = self.models['r0_sphere'].predict(x)
-            params['r0_sphere'] = r0sph 
+            params['r0_sphere'] = r0sph[0]
 
             #if self.scalers['sigma_sphere'] != None:
             additional_features = saxs_math.spherical_normal_profile(q_I)
@@ -84,7 +84,7 @@ class SaxsRegressor(object):
             ss_features = np.append(features, additional_features)
             x = self.scalers['sigma_sphere'].transform(ss_features.reshape(1, -1))
             sigsph = self.models['sigma_sphere'].predict(x)
-            params['sigma_sphere'] = sigsph 
+            params['sigma_sphere'] = sigsph[0] 
 
             params['I0_sphere'] = 1
 
@@ -95,12 +95,16 @@ class SaxsRegressor(object):
             rg_features = np.append(features, additional_features)
             x = self.scalers['rg_gp'].transform(rg_features.reshape(1, -1))
             rg = self.models['rg_gp'].predict(x)
-            params['rg_gp'] = rg 
+            params['rg_gp'] = rg[0]
 
             # TODO: model this, after the dataset exists for it.
             params['D_gp'] = 4
 
             params['G_gp'] = 1
+        
+        # TODO: handle diffraction peaks
+        #if bool(populations['diffraction_peaks']):
+
 
         # TODO: fix params except intensity factors, 
         # and fit the intensity factors least-squares to q_I

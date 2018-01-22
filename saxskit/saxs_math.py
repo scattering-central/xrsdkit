@@ -165,18 +165,20 @@ def compute_saxs(q,populations,params):
             else:
                 I_sph = spherical_normal_saxs(q,r0_sph,sigma_sph)
                 I += I0_sph*I_sph
-                
-        if n_pks:
-            I_pk = params['I_pkcenter']
-            q_pk = params['q_pkcenter']
-            pk_hwhm = params['pk_hwhm']
-            if n_pks > 1 or isinstance(q_pk,list):
-                for ipk in range(n_pks):
-                    I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk[ipk],pk_hwhm[ipk],pk_hwhm[ipk])
-                    I += I_pk[ipk]*I_pseudovoigt
-            else:
-                I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk,pk_hwhm,pk_hwhm)
-                I += I_pk*I_pseudovoigt
+
+        # TODO: add diffraction peak support                
+        #if n_pks:
+        #    I_pk = params['I_pkcenter']
+        #    q_pk = params['q_pkcenter']
+        #    pk_hwhm = params['pk_hwhm']
+        #    if n_pks > 1 or isinstance(q_pk,list):
+        #        for ipk in range(n_pks):
+        #            I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk[ipk],pk_hwhm[ipk],pk_hwhm[ipk])
+        #            I += I_pk[ipk]*I_pseudovoigt
+        #    else:
+        #        I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk,pk_hwhm,pk_hwhm)
+        #        I += I_pk*I_pseudovoigt
+
     return I
 
 def g_of_r(q_I):
