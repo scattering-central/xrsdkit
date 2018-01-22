@@ -65,30 +65,8 @@ class SaxsClassifier(object):
             dictionary, similar to `populations`,
             but containing the certainty of the prediction
         """
-        return self._evaluate(np.array(list(sample_features.values())).reshape(1,-1))
+        feature_array = np.array(list(sample_features.values())).reshape(1,-1)  
 
-    def _evaluate(self, feature_array):
-        """Apply self.models and self.scalers to sample_params.
-
-        This is intended for use as a subroutine
-        for SaxsClassifier.classify().
-
-        Parameters
-        ----------
-        feature_array : array
-            array of floats representing features of test sample
-
-        Returns
-        -------
-        populations : dict
-            dictionary of integers, where each key is a population name
-            (from saxskit.saxs_math.population_keys),
-            and each value is the number of distinct populations
-            corresponding to that population key.
-        certainties : dict
-            dictionary, similar to `populations`,
-            but containing the certainty of the prediction
-        """ 
         populations = OrderedDict()
         certainties = OrderedDict()
 
