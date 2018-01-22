@@ -5,6 +5,7 @@ import os
 import numpy as np
 
 from . import saxs_math
+from . import saxs_fit
 
 class SaxsRegressor(object):
     """A set of regression models to be used on SAXS spectra"""
@@ -65,17 +66,29 @@ class SaxsRegressor(object):
         feature_array = np.array(list(features.values())).reshape(1,-1)
 
         params = OrderedDict()    
+        fixed_params = OrderedDict()    
         params['I0_floor'] = 0.
         if bool(populations['unidentified']):
             # fill in the mean intensity as the noise floor
             params['I0_floor'] = np.mean(q_I[:,1]) 
             return params 
 
+        # TODO: The rest of these predictions need to handle the possibility
+        # of multiple distinct populations that share the same key
+
+        # TODO: handle diffraction peaks
+        #if bool(populations['diffraction_peaks']):
+
+        # TODO: fix params except intensity factors, 
+        # and least_squares fit the intensity factors to q_I
+
         if bool(populations['spherical_normal']):
+            params.update(OrderedDict.fromkeys(saxs_math.parameter_keys['spherical_normal']))
             #if self.scalers['r0_sphere'] != None:
             x = self.scalers['r0_sphere'].transform(feature_array)
             r0sph = self.models['r0_sphere'].predict(x)
             params['r0_sphere'] = r0sph[0]
+            fixed_params['r0_sphere'] = r0sph[0]
 
             #if self.scalers['sigma_sphere'] != None:
             additional_features = saxs_math.spherical_normal_profile(q_I)
@@ -83,6 +96,9 @@ class SaxsRegressor(object):
             x = self.scalers['sigma_sphere'].transform(ss_features)
             sigsph = self.models['sigma_sphere'].predict(x)
             params['sigma_sphere'] = sigsph[0] 
+            fixed_params['sigma_sphere'] = sigsph[0]
+
+            params['I0_sphere'] = 1E-6 
 
         if bool(populations['guinier_porod']):
             #if self.scalers['rg_gp'] != None:
@@ -91,12 +107,17 @@ class SaxsRegressor(object):
             x = self.scalers['rg_gp'].transform(rg_features)
             rg = self.models['rg_gp'].predict(x)
             params['rg_gp'] = rg[0]
+            fixed_params['rg_gp'] = rg[0]
 
-        # TODO: handle diffraction peaks
-        #if bool(populations['diffraction_peaks']):
+            params['D_gp'] = 4.
+            fixed_params['D_gp'] = 4.
 
-        # TODO: fix params except intensity factors, 
-        # and least_squares fit the intensity factors to q_I
+            params['G_gp'] = 1E-6 
 
-        return params
+        # this last step holds the predicted parameters fixed,
+        # while fitting all the parameters that scale the intensity
+        sxf = saxs_fit.SaxsFitter(q_I,populations)
+        params_opt,rpt = sxf.fit(params,fixed_params)
+
+        return params_opt
 

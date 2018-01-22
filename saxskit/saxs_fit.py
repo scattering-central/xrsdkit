@@ -151,20 +151,32 @@ class SaxsFitter(object):
         
         for k in x_keys:
             x_bounds.append(param_limits[k])
-   
+
         # --- constraints --- 
         c = []
         if fixed_params is not None:
-            for pk,pvals in fixed_params.items():
+            for pk,pval in fixed_params.items():
+                # only fix the param if it exists in `params`
                 if pk in params.keys():
-                    for idx,val in enumerate(pvals):
-                        if idx < len(params[pk]):
-                            params[pk][idx] = val
+                    if not isinstance(pval,list):
+                        pval = [pval]
+                    for idx,val in enumerate(pval):
+                        if isinstance(params[pk],list):
+                            if idx < len(params[pk]):
+                                params[pk][idx] = val
+                                fix_idx = param_idx[pk][idx]
+                                #cfun = lambda x: x[fix_idx] - x_init[fix_idx]
+                                cfun = partial(self._param_diff,fix_idx,x_init) 
+                                c.append({'type':'eq','fun':cfun})
+                        else:
+                            params[pk] = val
                             fix_idx = param_idx[pk][idx]
-                            cfun = lambda x: x[fix_idx] - x_init[fix_idx]
+                            #cfun = lambda x: x[fix_idx] - x_init[fix_idx]
+                            cfun = partial(self._param_diff,fix_idx,x_init) 
                             c.append({'type':'eq','fun':cfun})
+
         # TODO: inequality constraint on I0_floor, G_gp, and I0_sphere,
-        # to prevent amplitudes from going to zero
+        # to prevent amplitudes from going negative 
         #if objective in ['chi2log_fixI0']:
         #    if len(I_idx) > 0:
         #        # Set up a constraint to keep I(q=0) fixed
@@ -175,13 +187,19 @@ class SaxsFitter(object):
 
         fit_obj = self.fit_objfun(params)
         #fit_obj = saxs_chi2log(flags,params,q_I)
+
         res = scipimin(fit_obj,x_init,
             bounds=x_bounds,
-            options={'ftol':1E-3},
+            options={'ftol':1E-2},
+            method='SLSQP',
             constraints=c)
         p_opt = self.pack_params(res.x,x_keys) 
         rpt = self.fit_report(p_opt)
+
         return p_opt,rpt
+
+    def _param_diff(self,param_idx,x1,x2):
+        return x1[param_idx] - x2[param_idx]
 
     def default_params(self):
         pars = OrderedDict()
