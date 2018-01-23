@@ -85,8 +85,8 @@ def test_regressions():
             q_I = np.loadtxt(fpath,delimiter=',')
             prof = saxs_math.profile_spectrum(q_I)
             pops,certs = sxc.classify(prof)
-            reg_prediction = sxr.predict_params(pops,prof,q_I)
-            for k, v in reg_prediction.items():
+            params = sxr.predict_params(pops,prof,q_I)
+            for k, v in params.items():
                 print('\t{} parameter: {} '.format(k,v))
 
 '''

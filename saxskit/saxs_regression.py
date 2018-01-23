@@ -79,6 +79,8 @@ class SaxsRegressor(object):
         # TODO: fix params except intensity factors, 
         # and least_squares fit the intensity factors to q_I
 
+        params['I0_floor'] = 0.
+
         if bool(populations['spherical_normal']):
             params.update(OrderedDict.fromkeys(saxs_math.parameter_keys['spherical_normal']))
             #if self.scalers['r0_sphere'] != None:
@@ -95,7 +97,7 @@ class SaxsRegressor(object):
             params['sigma_sphere'] = sigsph[0] 
             fixed_params['sigma_sphere'] = sigsph[0]
 
-            params['I0_sphere'] = 1E-6 
+            params['I0_sphere'] = 0. 
 
         if bool(populations['guinier_porod']):
             #if self.scalers['rg_gp'] != None:
@@ -109,12 +111,7 @@ class SaxsRegressor(object):
             params['D_gp'] = 4.
             fixed_params['D_gp'] = 4.
 
-            params['G_gp'] = 1E-6 
+            params['G_gp'] = 0. 
 
-        # this last step holds the predicted parameters fixed,
-        # while fitting all the parameters that scale the intensity
-        sxf = saxs_fit.SaxsFitter(q_I,populations)
-        params_opt,rpt = sxf.fit(params,fixed_params)
-
-        return params_opt
+        return params
 
