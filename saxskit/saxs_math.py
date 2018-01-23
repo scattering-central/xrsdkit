@@ -100,6 +100,15 @@ parameter_keys.update(dict(
 all_parameter_keys = []
 for popk,parmks in parameter_keys.items():
     all_parameter_keys.extend(parmks)
+        
+param_defaults = OrderedDict(
+    I0_floor = 0.0001,
+    G_gp = 0.01,
+    rg_gp = 1.,
+    D_gp = 4.,
+    I0_sphere = 1.,
+    r0_sphere = 10.,
+    sigma_sphere = 0.1)
  
 def compute_saxs(q,populations,params):
     """Compute a SAXS intensity spectrum.
@@ -137,25 +146,38 @@ def compute_saxs(q,populations,params):
             rg_gp = params['rg_gp']
             G_gp = params['G_gp']
             D_gp = params['D_gp']
-            for igp in range(n_gp):
-                I_gp = guinier_porod(q,rg_gp[igp],D_gp[igp],G_gp[igp])
+            if n_gp > 1 or isinstance(rg_gp,list):
+                for igp in range(n_gp):
+                    I_gp = guinier_porod(q,rg_gp[igp],D_gp[igp],G_gp[igp])
+                    I += I_gp
+            else:
+                I_gp = guinier_porod(q,rg_gp,D_gp,G_gp)
                 I += I_gp
 
         if n_sph:
             I0_sph = params['I0_sphere']
             r0_sph = params['r0_sphere']
             sigma_sph = params['sigma_sphere']
-            for isph in range(n_sph):
-                I_sph = spherical_normal_saxs(q,r0_sph[isph],sigma_sph[isph])
-                I += I0_sph[isph]*I_sph
+            if n_sph > 1 or isinstance(r0_sph,list):
+                for isph in range(n_sph):
+                    I_sph = spherical_normal_saxs(q,r0_sph[isph],sigma_sph[isph])
+                    I += I0_sph[isph]*I_sph
+            else:
+                I_sph = spherical_normal_saxs(q,r0_sph,sigma_sph)
+                I += I0_sph*I_sph
 
-        if n_pks:
-            I_pk = params['I_pkcenter']
-            q_pk = params['q_pkcenter']
-            pk_hwhm = params['pk_hwhm']
-        for ipk in range(n_pks):
-            I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk[ipk],pk_hwhm,pk_hwhm)
-            I += I_pk[ipk]*I_pseudovoigt
+        # TODO: add diffraction peak support                
+        #if n_pks:
+        #    I_pk = params['I_pkcenter']
+        #    q_pk = params['q_pkcenter']
+        #    pk_hwhm = params['pk_hwhm']
+        #    if n_pks > 1 or isinstance(q_pk,list):
+        #        for ipk in range(n_pks):
+        #            I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk[ipk],pk_hwhm[ipk],pk_hwhm[ipk])
+        #            I += I_pk[ipk]*I_pseudovoigt
+        #    else:
+        #        I_pseudovoigt = peakskit.peak_math.pseudo_voigt(q-q_pk,pk_hwhm,pk_hwhm)
+        #        I += I_pk*I_pseudovoigt
 
     return I
 

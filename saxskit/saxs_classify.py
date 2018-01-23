@@ -9,7 +9,7 @@ import yaml
 from . import saxs_math
 
 class SaxsClassifier(object):
-    """A set of classifiers to be used on SAXS spectra"""
+    """A classifier to determine scatterer populations from SAXS spectra"""
 
     def __init__(self,yml_file=None):
         if yml_file is None:
@@ -46,57 +46,44 @@ class SaxsClassifier(object):
             else:
                 setattr(m_s, k, v)
 
-    def classify(self, sample_params):
-        """Apply self.models and self.scalers to sample_params.
+    def classify(self, sample_features):
+        """Classify a sample from its features dict.
 
         Parameters
         ----------
-        sample_params : array
-            array of floats representing features of test sample
+        sample_features : OrderedDict
+            OrderedDict of features with their values,
+            similar to output of saxs_math.profile_spectrum()
 
         Returns
         -------
-        flags : dict
-            dictionary of (boolean,float) tuples,
-            where the first item is the flag 
-            and the second is the probability,
-            for each of the potential scattering populations
-        """ 
-        flags = OrderedDict()
-        if self.scalers['unidentified'] != None:
-            x_bd = self.scalers['unidentified'].transform(sample_params)
-            f_bd = self.models['unidentified'].predict(x_bd)[0]
-            p_bd = self.models['unidentified'].predict_proba(x_bd)[0,int(f_bd)]
-            flags['unidentified'] = (f_bd,p_bd)
-        else:
-            flags['unidentified'] = (None, None)
-            # when we do not have a model for bad_data,
-            # we can still try predictions for others labels
-            f_bd = False 
-
-        if not f_bd: 
-            for k in self.models.keys():
-                if not k == 'unidentified':
-                    if self.scalers[k] != None:
-                        xk = self.scalers[k].transform(sample_params)
-                        fk = self.models[k].predict(xk)[0]
-                        pk = self.models[k].predict_proba(xk)[0,int(fk)]
-                        flags[k] = (fk,pk)
-                    else:
-                        flags[k] = (None, None)
-        return flags
-
-    def run_classifier(self, sample_params):
-        """Apply self.models and self.scalers to sample_params.
-        Parameters
-        ----------
-        sample_params : OrderedDict
-            OrderedDict of features with their values
-        Returns
-        -------
-        flags : dict
-            dictionary of boolean flags indicating sample populations
+        populations : dict
+            dictionary of integers 
+            counting predicted scatterer populations
+            for all populations in saxs_math.population_keys.
+        certainties : dict
+            dictionary, similar to `populations`,
+            but containing the certainty of the prediction
         """
+        feature_array = np.array(list(sample_features.values())).reshape(1,-1)  
 
-        flags = self.classify(np.array(list(sample_params.values())).reshape(1,-1))
-        return flags
+        populations = OrderedDict()
+        certainties = OrderedDict()
+
+        x = self.scalers['unidentified'].transform(feature_array)
+        pop = self.models['unidentified'].predict(x)[0]
+        cert = self.models['unidentified'].predict_proba(x)[0,int(pop)]
+        populations['unidentified'] = pop 
+        certainties['unidentified'] = cert 
+
+        if not populations['unidentified']: 
+            for k in saxs_math.population_keys:
+                if not k == 'unidentified':
+                    x = self.scalers[k].transform(feature_array)
+                    pop = self.models[k].predict(x)[0]
+                    cert = self.models[k].predict_proba(x)[0,int(pop)]
+                    populations[k] = pop 
+                    certainties[k] = cert 
+
+        return populations, certainties
+
