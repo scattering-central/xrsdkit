@@ -67,10 +67,7 @@ class SaxsRegressor(object):
 
         params = OrderedDict()    
         fixed_params = OrderedDict()    
-        params['I0_floor'] = 0.
         if bool(populations['unidentified']):
-            # fill in the mean intensity as the noise floor
-            params['I0_floor'] = np.mean(q_I[:,1]) 
             return params 
 
         # TODO: The rest of these predictions need to handle the possibility

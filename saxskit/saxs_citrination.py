@@ -4,10 +4,17 @@ from . import saxs_math
 
 from citrination_client import CitrinationClient
 
-class CitrinationSaxsClassifer(object):
-    """A set of classifiers to be used on SAXS spectra"""
+class CitrinationSaxsModels(object):
+    """A set of models that uses Citrination to evaluate SAXS spectra.
 
-    def __init__(self, address, api_key_file):
+    Use of this class requires a Citrination api key.
+    You can get one by making an account on Citrination.
+    The api key should be copy/pasted into a file,
+    and the path to the file should be provided
+    as an instantiation argument. 
+    """
+
+    def __init__(self, api_key_file, address='https://citrination.com/'):
         with open(api_key_file, "r") as g:
             api_key = g.readline()
         a_key = api_key.strip()
@@ -15,7 +22,7 @@ class CitrinationSaxsClassifer(object):
         self.client = CitrinationClient(site = address, api_key=a_key)
 
 
-    def citrination_classify(self,sample_params):
+    def classify(self,sample_params):
         """
         Parameters
         ----------
@@ -24,23 +31,27 @@ class CitrinationSaxsClassifer(object):
 
         Returns
         -------
-        flags : dict
-            dictionary of (boolean,float) tuples,
-            where the first item is the flag
-            and the second is the probability,
-            for each of the potential scattering populations
+        Returns
+        -------
+        populations : dict
+            dictionary of integers 
+            counting predicted scatterer populations
+            for all populations in saxs_math.population_keys.
+        uncertainties : dict
+            dictionary, similar to `populations`,
+            but containing the uncertainty of the prediction
         """
 
         inputs = self.append_str_property(sample_params)
 
-        flags = OrderedDict()
+        populations = OrderedDict()
+        uncertainties = OrderedDict()
         resp = self.client.predict("24", inputs) # "24" is ID of dataview on Citrination
-        flags['unidentified'] = resp['candidates'][0]['Property unidentified']
-        flags['guinier_porod'] = resp['candidates'][0]['Property guinier_porod']
-        flags['spherical_normal'] = resp['candidates'][0]['Property spherical_normal']
-        flags['diffraction_peaks'] = resp['candidates'][0]['Property diffraction_peaks']
-
-        return flags
+        for popname in saxs_math.population_keys:
+            populations[popname] = int(resp['candidates'][0]['Property '+popname][0])
+            uncertainties[popname] = float(resp['candidates'][0]['Property '+popname][1])
+        
+        return populations, uncertainties 
 
 
     # helper function
@@ -52,48 +63,58 @@ class CitrinationSaxsClassifer(object):
         return inputs
 
 
-    def citrination_predict(self, populations, sample_params, q_I):
-        """Apply self.models and self.scalers to sample_params.
+    def predict_params(self,populations,features,q_I):
+        """Use Citrination to predict the scattering parameters.
 
         Parameters
         ----------
-        sample_params : ordered dictionary
-            ordered dictionary of floats representing features of test sample
+        populations : dict
+            dictionary counting scatterer populations,
+            similar to output of self.classify()
+        features : dict
+            dictionary of sample numerical features,
+            similar to output of saxs_math.profile_spectrum().
+        q_I : array 
+            n-by-2 array of scattering vector (1/Angstrom) and intensities. 
 
         Returns
         -------
-        flags : dict
-            dictionary of (boolean,float) tuples,
-            where the first item is the flag
-            and the second is the probability,
-            for each of the potential scattering populations
+        Returns
+        -------
+        params : dict
+            dictionary of predicted scattering parameters
         """
 
-        features = self.append_str_property(sample_params)
+        features = self.append_str_property(features)
 
-        params = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
+        params = OrderedDict()
+        uncertainties = OrderedDict()
+        if bool(populations['unidentified']):
+            return params, uncertainties
 
-        if populations['unidentified'][0] == '1':
-            # TODO: we could still use a fit to 'predict' I0_floor...
-            return params # all params are "None"
-
-        if populations['spherical_normal'][0] == '1' and populations['diffraction_peaks'][0] == '0':
+        if bool(populations['spherical_normal']) \
+        and not bool(populations['diffraction_peaks']):
             resp = self.client.predict("27", features) # "27" is ID of dataview on Citrination
-            params['r0_sphere'] = resp['candidates'][0]['Property r0_sphere']
+            params['r0_sphere'] = float(resp['candidates'][0]['Property r0_sphere'][0])
+            uncertainties['r0_sphere'] = float(resp['candidates'][0]['Property r0_sphere'][1])
 
             additional_features = saxs_math.spherical_normal_profile(q_I)
             additional_features = self.append_str_property(additional_features)
             ss_features = dict(features)
             ss_features.update(additional_features)
             resp = self.client.predict("28", ss_features)
-            params['sigma_sphere'] = resp['candidates'][0]['Property sigma_sphere']
+            params['sigma_sphere'] = float(resp['candidates'][0]['Property sigma_sphere'][0])
+            uncertainties['sigma_sphere'] = float(resp['candidates'][0]['Property sigma_sphere'][1])
 
-        if populations['guinier_porod'][0] == '1':
+        if bool(populations['guinier_porod']):
             additional_features = saxs_math.guinier_porod_profile(q_I)
             additional_features = self.append_str_property(additional_features)
             rg_features = dict(features)
             rg_features.update(additional_features)
             resp =self.client.predict("29", rg_features)
-            params['rg_gp'] = resp['candidates'][0]['Property rg_gp']
+            params['rg_gp'] = float(resp['candidates'][0]['Property rg_gp'][0])
+            uncertainties['rg_gp'] = float(resp['candidates'][0]['Property rg_gp'][0])
 
-        return params
+        return params,uncertainties
+
+
