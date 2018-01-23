@@ -113,10 +113,5 @@ class SaxsRegressor(object):
 
             params['G_gp'] = 0. 
 
-        # this last step holds the predicted parameters fixed,
-        # while fitting all the parameters that scale the intensity
-        sxf = saxs_fit.SaxsFitter(q_I,populations)
-        params_opt,rpt = sxf.fit(params,fixed_params)
-
-        return params_opt
+        return params
 
