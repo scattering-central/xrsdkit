@@ -218,16 +218,18 @@ def g_of_r(q_I):
     r_max = r_pos[idx]
     return np.vstack([r_pos,fftampI_rpos]).T,r_max
 
-def spherical_normal_saxs(q,r0,sigma):
+def spherical_normal_saxs(q,r0,sigma,sampling_width=3.5,sampling_step=0.25):
     """Compute SAXS intensity of a normally-distributed sphere population.
 
     The returned intensity is normalized 
     such that I(q=0) is equal to 1.
     The current version samples the distribution 
-    from r0*(1-5*sigma) to r0*(1+5*sigma) 
-    in steps of 0.02*sigma*r0.
+    from r0*(1-sampling_width*sigma) to r0*(1+sampling_width*sigma)
+    in steps of sampling_step*sigma*r0
+    Additional info about sampling_width and sampling_step:
+    https://github.com/scattering-central/saxskit/blob/adding_examples/examples/spherical_normal_saxs_benchmark.ipynb
+
     Originally contributed by Amanda Fournier.
-    TODO: test distribution sampling, speed up if possible.
 
     Parameters
     ----------
@@ -237,6 +239,11 @@ def spherical_normal_saxs(q,r0,sigma):
         mean radius of the sphere population
     sigma : float
         fractional standard deviation of the sphere population radii
+    sampling_width : float
+        number of standard deviations of radius for sampling
+    sampling_step : float
+        fraction of standard deviation to use as sampling step size    
+
 
     Returns
     -------
@@ -253,9 +260,9 @@ def spherical_normal_saxs(q,r0,sigma):
         I_zero = V_r0**2 
     else:
         sigma_r = sigma*r0
-        dr = sigma_r*0.02
-        rmin = np.max([r0-5*sigma_r,dr])
-        rmax = r0+5*sigma_r
+        dr = sigma_r*sampling_step
+        rmin = np.max([r0-sampling_width*sigma_r,dr])
+        rmax = r0+sampling_width*sigma_r
         I_zero = 0
         for ri in np.arange(rmin,rmax,dr):
             xi = q*ri
