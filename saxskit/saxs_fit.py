@@ -147,14 +147,14 @@ class SaxsFitter(object):
         print(p_opt)
         print('obj_opt: {}'.format(obj_opt))
         ####
-        I_init = saxs_math.compute_saxs(self.q,self.populations,params)
-        I_opt = saxs_math.compute_saxs(self.q,self.populations,p_opt)
-        from matplotlib import pyplot as plt
-        plt.figure(1)
-        plt.semilogy(self.q,self.I)
-        plt.semilogy(self.q,I_init,'r-')
-        plt.semilogy(self.q,I_opt,'g-')
-        plt.show()
+        #I_init = saxs_math.compute_saxs(self.q,self.populations,params)
+        #I_opt = saxs_math.compute_saxs(self.q,self.populations,p_opt)
+        #from matplotlib import pyplot as plt
+        #plt.figure(1)
+        #plt.semilogy(self.q,self.I)
+        #plt.semilogy(self.q,I_init,'r-')
+        #plt.semilogy(self.q,I_opt,'g-')
+        #plt.show()
 
         return p_opt,rpt
 

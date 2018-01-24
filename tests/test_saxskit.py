@@ -6,23 +6,7 @@ from collections import OrderedDict
 import numpy as np
 
 from saxskit import saxs_math, saxs_fit, saxs_classify, saxs_regression
-from saxskit.peakskit import peak_math
-
-def test_fit_module():
-    datapath = os.path.join(os.path.dirname(__file__),
-        'test_data','solution_saxs','peaks','peaks_0.csv')
-    test_data = open(datapath,'r')
-    q_I = np.loadtxt(test_data,dtype=float,delimiter=',')
-    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
-    sxc = saxs_classify.SaxsClassifier(model_file_path)
-    prof = saxs_math.profile_spectrum(q_I)
-    pops,certs = sxc.classify(prof)
-    sxf = saxs_fit.SaxsFitter(q_I,pops)
-    p = sxf.default_params()
-    lmp = sxf.lmfit_params(p)
-    sxkp = sxf.saxskit_params(lmp)
-    p_opt,rpt = sxf.fit()
-    I_opt = saxs_math.compute_saxs(q_I[:,0],pops,p_opt)
+from saxskit import peak_math
 
 def test_guinier_porod():
     qvals = np.arange(0.01,1.,0.01)
@@ -35,7 +19,7 @@ def test_spherical_normal_saxs():
 
 def test_diffraction_peaks():
     qvals = np.arange(0.01,1.,0.01)
-    Ivals = peak_math.pseudo_voigt(qvals-0.5,0.05,0.05)
+    Ivals = peak_math.voigt(qvals-0.5,0.05,0.05)
 
 def test_profile_spectrum():
     datapath = os.path.join(os.path.dirname(__file__),
@@ -104,6 +88,25 @@ def test_regressions():
             params = sxr.predict_params(pops,prof,q_I)
             for k, v in params.items():
                 print('\t{} parameter: {} '.format(k,v))
+
+def test_fitter():
+    datapath = os.path.join(os.path.dirname(__file__),
+        'test_data','solution_saxs','spheres','spheres_0.csv')
+    #datapath = os.path.join(os.path.dirname(__file__),
+    #    'test_data','solution_saxs','peaks','peaks_0.csv')
+    test_data = open(datapath,'r')
+    q_I = np.loadtxt(test_data,dtype=float,delimiter=',')
+    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
+    sxc = saxs_classify.SaxsClassifier(model_file_path)
+    prof = saxs_math.profile_spectrum(q_I)
+    pops,certs = sxc.classify(prof)
+    sxf = saxs_fit.SaxsFitter(q_I,pops)
+    p = sxf.default_params()
+    lmp = sxf.lmfit_params(p)
+    sxkp = sxf.saxskit_params(lmp)
+    p_opt,rpt = sxf.fit()
+    I_opt = saxs_math.compute_saxs(q_I[:,0],pops,p_opt)
+
 
 '''
 def test_citrination_classifier(address,api_key_file):
