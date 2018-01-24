@@ -189,13 +189,12 @@ class SaxsFitter(object):
         rpt = self.lmf_fitreport(lmf_res)
         print(p_opt)
         
-        import pdb; pdb.set_trace()
         I_opt = saxs_math.compute_saxs(self.q,self.populations,p_opt)
-        from matplotlib import pyplot as plt
-        plt.figure(1)
-        plt.plot(self.q,self.I)
-        plt.plot(self.q,I_opt,'r-')
-        plt.show()
+        #from matplotlib import pyplot as plt
+        #plt.figure(1)
+        #plt.plot(self.q,self.I)
+        #plt.plot(self.q,I_opt,'r-')
+        #plt.show()
 
         return p_opt,rpt
 
