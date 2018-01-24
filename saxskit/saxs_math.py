@@ -40,38 +40,9 @@ from collections import OrderedDict
 
 import numpy as np
 
-from . import peak_math, saxs_fit
+from . import peak_math
+from . import profile_keys
 
-profile_keys = OrderedDict.fromkeys(saxs_fit.population_keys)
-profile_keys.update(dict(
-    unidentified=[
-        'Imax_over_Imean',
-        'Imax_sharpness',
-        'I_fluctuation',
-        'logI_fluctuation',
-        'logI_max_over_std',
-        'r_fftIcentroid',
-        'r_fftImax',
-        'q_Icentroid',
-        'q_logIcentroid',
-        'pearson_q',
-        'pearson_q2',
-        'pearson_expq',
-        'pearson_invexpq'],
-    guinier_porod = [
-        'I0_over_Imean',
-        'I0_curvature',
-        'q_at_half_I0'],
-    spherical_normal=[
-        'q_at_Iq4_min1',
-        'pIq4_qwidth',
-        'pI_qvertex',
-        'pI_qwidth'],
-    diffraction_peaks=[]))
-all_profile_keys = []
-for popk,profks in profile_keys.items():
-    all_profile_keys.extend(profks)
- 
 def compute_saxs(q,populations,params):
     """Compute a SAXS intensity spectrum.
 
@@ -120,8 +91,8 @@ def compute_saxs(q,populations,params):
             q_pk = params['q_pkcenter']
             pk_hwhm = params['pk_hwhm']
             for ipk in range(populations['diffraction_peaks']):
-                I_pseudovoigt = peak_math.voigt(q-q_pk[ipk],pk_hwhm[ipk],pk_hwhm[ipk])
-                I += I_pk[ipk]*I_pseudovoigt
+                I_voigt = peak_math.voigt(q-q_pk[ipk],pk_hwhm[ipk],pk_hwhm[ipk])
+                I += I_pk[ipk]*I_voigt
 
     return I
 

@@ -10,55 +10,8 @@ from . import saxs_math
 import numpy as np
 import lmfit
 
-population_keys = [\
-    'unidentified',\
-    'guinier_porod',\
-    'spherical_normal',\
-    'diffraction_peaks']
-
-parameter_keys = OrderedDict.fromkeys(population_keys)
-parameter_keys.update(dict(
-    unidentified = [
-        'I0_floor'],
-    guinier_porod = [
-        'G_gp',
-        'rg_gp',
-        'D_gp'],
-    spherical_normal = [
-        'I0_sphere',
-        'r0_sphere',
-        'sigma_sphere'],
-    diffraction_peaks = [
-        'I_pkcenter',
-        'q_pkcenter',
-        'pk_hwhm']))
-all_parameter_keys = []
-for popk,parmks in parameter_keys.items():
-    all_parameter_keys.extend(parmks)
-
-param_defaults = OrderedDict(
-    I0_floor = 1.E-4,
-    G_gp = 1.,
-    rg_gp = 10.,
-    D_gp = 4.,
-    I0_sphere = 1.,
-    r0_sphere = 10.,
-    sigma_sphere = 0.05,
-    q_pkcenter=0.1,
-    I_pkcenter=1000.,
-    pk_hwhm = 0.01)
-
-param_limits = OrderedDict(
-    I0_floor = (0.,None),
-    G_gp = (0.,None),
-    rg_gp = (1.E-6,1.E6),
-    D_gp = (0.,4.),
-    I0_sphere = (0.,None),
-    r0_sphere = (1.E-6,1.E6),
-    sigma_sphere = (0.,0.5),
-    q_pkcenter = (0.,1.),
-    I_pkcenter = (0.,None),
-    pk_hwhm = (1.E-6,0.1))
+from . import population_keys, parameter_keys
+from . import param_defaults, param_limits 
 
 class SaxsFitter(object):
     """Container for handling SAXS spectrum parameter fitting."""
@@ -184,17 +137,24 @@ class SaxsFitter(object):
 
         lmf_params = self.lmfit_params(params) 
         lmf_res = lmfit.minimize(self.lmf_evaluate,lmf_params,method='slsqp')
-        print(params)
         p_opt = self.saxskit_params(lmf_res.params) 
         rpt = self.lmf_fitreport(lmf_res)
-        print(p_opt)
         
+        obj_init = self.evaluate(params)
+        obj_opt = self.evaluate(p_opt)
+        print(params)
+        print('obj_init: {}'.format(obj_init))
+        print(p_opt)
+        print('obj_opt: {}'.format(obj_opt))
+        ####
+        I_init = saxs_math.compute_saxs(self.q,self.populations,params)
         I_opt = saxs_math.compute_saxs(self.q,self.populations,p_opt)
-        #from matplotlib import pyplot as plt
-        #plt.figure(1)
-        #plt.plot(self.q,self.I)
-        #plt.plot(self.q,I_opt,'r-')
-        #plt.show()
+        from matplotlib import pyplot as plt
+        plt.figure(1)
+        plt.semilogy(self.q,self.I)
+        plt.semilogy(self.q,I_init,'r-')
+        plt.semilogy(self.q,I_opt,'g-')
+        plt.show()
 
         return p_opt,rpt
 

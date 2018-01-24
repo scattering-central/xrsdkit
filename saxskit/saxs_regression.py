@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 from . import saxs_math
-from . import saxs_fit
+from . import parameter_keys, all_parameter_keys 
 
 class SaxsRegressor(object):
     """A set of regression models to be used on SAXS spectra"""
@@ -22,8 +22,8 @@ class SaxsRegressor(object):
         reg_models_dict = s_and_m['models']
         scalers_dict = s_and_m['scalers']
 
-        self.models = OrderedDict.fromkeys(saxs_fit.all_parameter_keys)
-        self.scalers = OrderedDict.fromkeys(saxs_fit.all_parameter_keys)
+        self.models = OrderedDict.fromkeys(all_parameter_keys)
+        self.scalers = OrderedDict.fromkeys(all_parameter_keys)
         reg_models = reg_models_dict.keys()
         for model_name in reg_models:
             model_params = reg_models_dict[model_name]
@@ -82,7 +82,7 @@ class SaxsRegressor(object):
         params['I0_floor'] = 0.
 
         if bool(populations['spherical_normal']):
-            params.update(OrderedDict.fromkeys(saxs_fit.parameter_keys['spherical_normal']))
+            params.update(OrderedDict.fromkeys(parameter_keys['spherical_normal']))
             #if self.scalers['r0_sphere'] != None:
             x = self.scalers['r0_sphere'].transform(feature_array)
             r0sph = self.models['r0_sphere'].predict(x)

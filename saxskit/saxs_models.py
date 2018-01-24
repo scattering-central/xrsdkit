@@ -11,6 +11,8 @@ from sklearn.metrics import mean_absolute_error
 
 from . import saxs_math
 from . import saxs_piftools
+from . import population_keys, parameter_keys, profile_keys
+from . import all_profile_keys, all_parameter_keys
 
 def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=False):
     """Train and save SAXS classification models as a YAML file.
@@ -43,7 +45,7 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
         accuracy=accuracy)
 
     # use the "unidentified" profiling for all classification models 
-    features = saxs_math.profile_keys['unidentified']
+    features = profile_keys['unidentified']
     possible_models = check_labels(all_data)
 
     # using leaveTwoGroupOut makes sense when we have at least 5 groups
@@ -233,7 +235,7 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
-        features = saxs_math.profile_keys['unidentified']
+        features = profile_keys['unidentified']
 
         scaler, reg, acc = train(all_data, features, 'r0_sphere', hyper_parameters_search)
 
@@ -248,8 +250,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
-        features = saxs_math.profile_keys['unidentified']
-        features.extend(saxs_math.profile_keys['spherical_normal'])
+        features = profile_keys['unidentified']
+        features.extend(profile_keys['spherical_normal'])
 
         scaler, reg, acc = train(all_data, features, 'sigma_sphere', hyper_parameters_search)
 
@@ -263,8 +265,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
-        features = saxs_math.profile_keys['unidentified']
-        features.extend(saxs_math.profile_keys['guinier_porod'])
+        features = profile_keys['unidentified']
+        features.extend(profile_keys['guinier_porod'])
 
         scaler, reg, acc = train(all_data, features, 'rg_gp', hyper_parameters_search)
 
@@ -512,7 +514,7 @@ def check_labels_regression(dataframe):
         True and False labels were found
         for each of the possible models.
     """
-    model_names = saxs_fit.all_parameter_keys
+    model_names = all_parameter_keys
     possible_models = {}
     for mnm in model_names:
         data = dataframe[dataframe[mnm].isnull() == False]
@@ -716,9 +718,9 @@ def get_data_from_Citrination(client, dataset_id_list):
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
-        feats = OrderedDict.fromkeys(saxs_fit.all_profile_keys)
-        pops = OrderedDict.fromkeys(saxs_fit.population_keys)
-        par = OrderedDict.fromkeys(saxs_fit.all_parameter_keys)
+        feats = OrderedDict.fromkeys(all_profile_keys)
+        pops = OrderedDict.fromkeys(population_keys)
+        par = OrderedDict.fromkeys(all_parameter_keys)
         expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
         feats.update(saxs_math.profile_spectrum(q_I))
         feats.update(saxs_math.detailed_profile(q_I,pif_pops))
@@ -736,9 +738,9 @@ def get_data_from_Citrination(client, dataset_id_list):
         data.append(data_row)
 
     colnames = ['experiment_id']
-    colnames.extend(saxs_fit.all_profile_keys)
-    colnames.extend(saxs_fit.population_keys)
-    colnames.extend(saxs_fit.all_parameter_keys)
+    colnames.extend(all_profile_keys)
+    colnames.extend(population_keys)
+    colnames.extend(all_parameter_keys)
 
     d = pd.DataFrame(data=data, columns=colnames)
     d = d.where((pd.notnull(d)), None) # replace all NaN by None
@@ -774,7 +776,7 @@ def train_classifiers_partial(all_data, yaml_filename=None):
     accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
 
     possible_models = check_labels(all_data)
-    features = saxs_math.profile_keys
+    features = profile_keys
 
     # unidentified scatterer population model
     if possible_models['unidentified'] == True:
@@ -845,7 +847,7 @@ def train_regressors_partial(all_data, yaml_filename=None):
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
         features = []
-        features.extend(saxs_math.profile_keys)
+        features.extend(profile_keys)
 
         scaler, model, acc = train_partial(False, all_data, features, 'r0_sphere',
                                            reg_models_dict, scalers_dict)
@@ -861,8 +863,8 @@ def train_regressors_partial(all_data, yaml_filename=None):
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
         features = []
-        features.extend(saxs_math.profile_keys)
-        features.extend(saxs_math.spherical_normal_profile_keys)
+        features.extend(profile_keys)
+        features.extend(spherical_normal_profile_keys)
 
         scaler, model, acc = train_partial(False, all_data, features, 'sigma_sphere',
                                            reg_models_dict, scalers_dict)
@@ -877,8 +879,8 @@ def train_regressors_partial(all_data, yaml_filename=None):
     # rg_gp model
     if possible_models['rg_gp'] == True:
         gr_features = []
-        gr_features.extend(saxs_math.profile_keys)
-        gr_features.extend(saxs_math.guinier_porod_profile_keys)
+        gr_features.extend(profile_keys)
+        gr_features.extend(guinier_porod_profile_keys)
 
         scaler, model, acc = train_partial(False, all_data, gr_features, 'rg_gp',
                                            reg_models_dict, scalers_dict)
