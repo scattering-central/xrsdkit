@@ -52,6 +52,7 @@ def voigt(x, hwhm_g, hwhm_l):
     and a lorentzian with hwhm hwhm_l
     """
     sigma = hwhm_g / np.sqrt(2 * np.log(2))
-    return np.real(wofz((x+1j*hwhm_l)/sigma/np.sqrt(2))) / sigma / np.sqrt(2*np.pi)
+    v0 = np.real(wofz((1j*hwhm_l)/sigma/np.sqrt(2))) / sigma / np.sqrt(2*np.pi)
+    return np.real(wofz((x+1j*hwhm_l)/sigma/np.sqrt(2))) / sigma / np.sqrt(2*np.pi) / v0
 
 
