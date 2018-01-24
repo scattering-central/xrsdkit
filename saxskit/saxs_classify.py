@@ -6,7 +6,7 @@ import sklearn
 from sklearn import preprocessing,linear_model
 import yaml
 
-from . import saxs_math
+from . import saxs_fit
 
 class SaxsClassifier(object):
     """A classifier to determine scatterer populations from SAXS spectra"""
@@ -25,9 +25,9 @@ class SaxsClassifier(object):
         # dict of scaler parameters
         scalers_dict = s_and_m['scalers'] 
 
-        self.models = OrderedDict.fromkeys(saxs_math.population_keys)
-        self.scalers = OrderedDict.fromkeys(saxs_math.population_keys)
-        for model_name in saxs_math.population_keys:
+        self.models = OrderedDict.fromkeys(saxs_fit.population_keys)
+        self.scalers = OrderedDict.fromkeys(saxs_fit.population_keys)
+        for model_name in saxs_fit.population_keys:
             model_params = classifier_dict[model_name]
             scaler_params = scalers_dict[model_name] 
             if scaler_params is not None:
@@ -60,7 +60,7 @@ class SaxsClassifier(object):
         populations : dict
             dictionary of integers 
             counting predicted scatterer populations
-            for all populations in saxs_math.population_keys.
+            for all populations in saxs_fit.population_keys.
         certainties : dict
             dictionary, similar to `populations`,
             but containing the certainty of the prediction
@@ -77,7 +77,7 @@ class SaxsClassifier(object):
         certainties['unidentified'] = cert 
 
         if not populations['unidentified']: 
-            for k in saxs_math.population_keys:
+            for k in saxs_fit.population_keys:
                 if not k == 'unidentified':
                     x = self.scalers[k].transform(feature_array)
                     pop = self.models[k].predict(x)[0]

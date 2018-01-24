@@ -36,7 +36,7 @@ class CitrinationSaxsModels(object):
         populations : dict
             dictionary of integers 
             counting predicted scatterer populations
-            for all populations in saxs_math.population_keys.
+            for all populations in saxs_fit.population_keys.
         uncertainties : dict
             dictionary, similar to `populations`,
             but containing the uncertainty of the prediction
@@ -47,7 +47,7 @@ class CitrinationSaxsModels(object):
         populations = OrderedDict()
         uncertainties = OrderedDict()
         resp = self.client.predict("24", inputs) # "24" is ID of dataview on Citrination
-        for popname in saxs_math.population_keys:
+        for popname in saxs_fit.population_keys:
             populations[popname] = int(resp['candidates'][0]['Property '+popname][0])
             uncertainties[popname] = float(resp['candidates'][0]['Property '+popname][1])
         

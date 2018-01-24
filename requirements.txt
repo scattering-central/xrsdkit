@@ -2,4 +2,5 @@ pyyaml
 numpy
 scipy
 pandas
+lmfit
 scikit-learn>0.19.0

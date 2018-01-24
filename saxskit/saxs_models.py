@@ -512,7 +512,7 @@ def check_labels_regression(dataframe):
         True and False labels were found
         for each of the possible models.
     """
-    model_names = saxs_math.all_parameter_keys
+    model_names = saxs_fit.all_parameter_keys
     possible_models = {}
     for mnm in model_names:
         data = dataframe[dataframe[mnm].isnull() == False]
@@ -716,9 +716,9 @@ def get_data_from_Citrination(client, dataset_id_list):
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
-        feats = OrderedDict.fromkeys(saxs_math.all_profile_keys)
-        pops = OrderedDict.fromkeys(saxs_math.population_keys)
-        par = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
+        feats = OrderedDict.fromkeys(saxs_fit.all_profile_keys)
+        pops = OrderedDict.fromkeys(saxs_fit.population_keys)
+        par = OrderedDict.fromkeys(saxs_fit.all_parameter_keys)
         expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
         feats.update(saxs_math.profile_spectrum(q_I))
         feats.update(saxs_math.detailed_profile(q_I,pif_pops))
@@ -736,9 +736,9 @@ def get_data_from_Citrination(client, dataset_id_list):
         data.append(data_row)
 
     colnames = ['experiment_id']
-    colnames.extend(saxs_math.all_profile_keys)
-    colnames.extend(saxs_math.population_keys)
-    colnames.extend(saxs_math.all_parameter_keys)
+    colnames.extend(saxs_fit.all_profile_keys)
+    colnames.extend(saxs_fit.population_keys)
+    colnames.extend(saxs_fit.all_parameter_keys)
 
     d = pd.DataFrame(data=data, columns=colnames)
     d = d.where((pd.notnull(d)), None) # replace all NaN by None

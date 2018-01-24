@@ -8,17 +8,57 @@ import copy
 from . import saxs_math
 
 import numpy as np
-from scipy.optimize import minimize as scipimin
+import lmfit
 
-# parameter limits for fit_spectrum() and MC_anneal_fit():
+population_keys = [\
+    'unidentified',\
+    'guinier_porod',\
+    'spherical_normal',\
+    'diffraction_peaks']
+
+parameter_keys = OrderedDict.fromkeys(population_keys)
+parameter_keys.update(dict(
+    unidentified = [
+        'I0_floor'],
+    guinier_porod = [
+        'G_gp',
+        'rg_gp',
+        'D_gp'],
+    spherical_normal = [
+        'I0_sphere',
+        'r0_sphere',
+        'sigma_sphere'],
+    diffraction_peaks = [
+        'I_pkcenter',
+        'q_pkcenter',
+        'pk_hwhm']))
+all_parameter_keys = []
+for popk,parmks in parameter_keys.items():
+    all_parameter_keys.extend(parmks)
+
+param_defaults = OrderedDict(
+    I0_floor = 1.E-4,
+    G_gp = 1.,
+    rg_gp = 10.,
+    D_gp = 4.,
+    I0_sphere = 1.,
+    r0_sphere = 10.,
+    sigma_sphere = 0.05,
+    q_pkcenter=0.1,
+    I_pkcenter=1000.,
+    pk_hwhm = 0.01)
+
 param_limits = OrderedDict(
-    I0_floor = (0.,1.E3),
-    G_gp = (0.,1.E6),
-    rg_gp = (1E-6,1.E3),
+    I0_floor = (0.,None),
+    G_gp = (0.,None),
+    rg_gp = (1.E-6,1.E6),
     D_gp = (0.,4.),
-    I0_sphere = (0.,1.E6),
-    r0_sphere = (1E-6,1.E3),
-    sigma_sphere = (0.,0.5))
+    I0_sphere = (0.,None),
+    r0_sphere = (1.E-6,1.E6),
+    sigma_sphere = (0.,0.5),
+    q_pkcenter = (0.,1.),
+    I_pkcenter = (0.,None),
+    pk_hwhm = (1.E-6,0.1))
 
 class SaxsFitter(object):
     """Container for handling SAXS spectrum parameter fitting."""
@@ -40,20 +80,26 @@ class SaxsFitter(object):
         self.populations = populations
         self.q = q_I[:,0]
         self.I = q_I[:,1]
-        # the following log operation may throw a warning- it's ok.
-        # any resulting zeros and nans will not be used.
         self.idx_fit = (self.I>0)
         self.logI = np.empty(self.I.shape)
         self.logI.fill(np.nan)
         self.logI[self.idx_fit] = np.log(self.I[self.idx_fit])
-        
-    def evaluate_as_array(self,param_keys,param_array):
-        param_dict = self.pack_params(param_array,param_keys)
-        return self.evaluate(param_dict)
 
-    def fit_objfun(self,params):
-        x_init,x_keys,param_idx = self.unpack_params(params) 
-        return partial(self.evaluate_as_array,x_keys) 
+    def default_params(self):
+        pkeys = []
+        pd = OrderedDict()
+        if bool(self.populations['unidentified']):
+            return pd
+        pd['I0_floor'] = [float(param_defaults['I0_floor'])]
+        for p,v in self.populations.items():
+            if bool(v):
+                pkeys.extend(parameter_keys[p]) 
+                for pk in parameter_keys[p]:
+                    pd[pk] = [float(param_defaults[pk]) for i in range(v)]
+        return pd
+
+    def lmf_evaluate(self,lmf_params):
+        return self.evaluate(self.saxskit_params(lmf_params))
 
     def evaluate(self,params):
         """Evaluate the objective for a given dict of params.
@@ -62,7 +108,6 @@ class SaxsFitter(object):
         ----------
         params : dict
             Dict of scattering equation parameters.
-            See saxs_math module documentation.
 
         Returns
         -------
@@ -77,35 +122,27 @@ class SaxsFitter(object):
                     self.logI[self.idx_fit])
         return chi2log_total 
 
-    def pack_params(self,param_array,param_names):
-        param_dict = OrderedDict()
-        for pkey,pval in zip(param_names,param_array):
-            if not pkey in param_dict.keys():
-                param_dict[pkey] = []
-            param_dict[pkey].append(pval)
-        return param_dict
+    def lmfit_params(self,params=None,fixed_params=None):
+        if params is None:
+            params = self.default_params()
+        if fixed_params is None:
+            fixed_params = self.default_params()
+            for k,v in fixed_params.items():
+                for idx in range(len(v)):
+                    v[idx] = False
+        p = lmfit.Parameters()
+        for pkey,pvals in params.items():
+            for validx,val in enumerate(pvals):
+                p.add(pkey+str(validx),value=val,vary=not fixed_params[pkey][validx],
+                min=param_limits[pkey][0],max=param_limits[pkey][1])
+        return p
 
-    def unpack_params(self,param_dict):
-        param_list = []
-        param_names = []
-        param_idx = OrderedDict.fromkeys(param_dict.keys())
-        idx=0
-        for pkey in saxs_math.all_parameter_keys:
-            if pkey in param_dict.keys():
-                pval = param_dict[pkey]
-                if isinstance(pval,list):
-                    param_list.extend(pval)
-                    param_idx[pkey] = []
-                    for i in range(len(pval)):
-                        param_names.append(pkey)
-                        param_idx[pkey].append(idx)
-                        idx += 1
-                else:
-                    param_names.append(pkey)
-                    param_list.append(pval)
-                    param_idx[pkey] = [idx]
-                    idx += 1
-        return param_list,param_names,param_idx
+    def saxskit_params(self,lmfit_params):
+        p = self.default_params()
+        for pkey,pvals in p.items():
+            for validx,val in enumerate(pvals):
+                p[pkey][validx] = lmfit_params[pkey+str(validx)].value
+        return p
 
     def fit(self,params=None,fixed_params=None,objective='chi2log'):
         """Fit the SAXS spectrum, optionally holding some parameters fixed.
@@ -114,7 +151,6 @@ class SaxsFitter(object):
         ----------
         params : dict
             Dict of scattering equation parameters (initial guess).
-            See saxs_math module documentation.
             If not provided, some defaults are chosen.
         fixed_params : dict, optional
             Dict of floats giving values in `params`
@@ -137,7 +173,7 @@ class SaxsFitter(object):
             with the same shape as the input `params`.
         rpt : dict
             Dict reporting quantities of interest
-            pertaining to the fit result.
+            about the fit result.
         """
 
         if bool(self.populations['unidentified']):
@@ -145,97 +181,37 @@ class SaxsFitter(object):
 
         if params is None:
             params = self.default_params()
+
+        lmf_params = self.lmfit_params(params) 
+        lmf_res = lmfit.minimize(self.lmf_evaluate,lmf_params,method='slsqp')
+        print(params)
+        p_opt = self.saxskit_params(lmf_res.params) 
+        rpt = self.lmf_fitreport(lmf_res)
+        print(p_opt)
         
-        x_init,x_keys,param_idx = self.unpack_params(params) 
-        x_bounds = [] 
-        
-        for k in x_keys:
-            x_bounds.append(param_limits[k])
-
-        # --- constraints --- 
-        c = []
-        if fixed_params is not None:
-            for pk,pval in fixed_params.items():
-                # only fix the param if it exists in `params`
-                if pk in params.keys():
-                    if not isinstance(pval,list):
-                        pval = [pval]
-                    for idx,val in enumerate(pval):
-                        if isinstance(params[pk],list):
-                            if idx < len(params[pk]):
-                                params[pk][idx] = val
-                                fix_idx = param_idx[pk][idx]
-                                #cfun = lambda x: x[fix_idx] - x_init[fix_idx]
-                                cfun = partial(self._param_diff,fix_idx,x_init) 
-                                c.append({'type':'eq','fun':cfun})
-                        else:
-                            params[pk] = val
-                            fix_idx = param_idx[pk][idx]
-                            #cfun = lambda x: x[fix_idx] - x_init[fix_idx]
-                            cfun = partial(self._param_diff,fix_idx,x_init) 
-                            c.append({'type':'eq','fun':cfun})
-
-        # TODO: inequality constraint on I0_floor, G_gp, and I0_sphere,
-        # to prevent amplitudes from going negative 
-        #if objective in ['chi2log_fixI0']:
-        #    if len(I_idx) > 0:
-        #        # Set up a constraint to keep I(q=0) fixed
-        #        I0_init = np.sum([x_init[i] for i in I_idx.values()])
-        #        cfun = lambda x: np.sum([x[I_idx[k]] for k in I_idx.keys()]) - I0_init
-        #        c.append({'type':'eq','fun':cfun})
-        # --- end constraints ---
-
-        fit_obj = self.fit_objfun(params)
-        #fit_obj = saxs_chi2log(flags,params,q_I)
-
-        res = scipimin(fit_obj,x_init,
-            bounds=x_bounds,
-            options={'ftol':1E-2},
-            method='SLSQP',
-            constraints=c)
-        p_opt = self.pack_params(res.x,x_keys) 
-        rpt = self.fit_report(p_opt)
+        import pdb; pdb.set_trace()
+        I_opt = saxs_math.compute_saxs(self.q,self.populations,p_opt)
+        from matplotlib import pyplot as plt
+        plt.figure(1)
+        plt.plot(self.q,self.I)
+        plt.plot(self.q,I_opt,'r-')
+        plt.show()
 
         return p_opt,rpt
 
-    def _param_diff(self,param_idx,x1,x2):
-        return x1[param_idx] - x2[param_idx]
-
-    def default_params(self):
-        pars = OrderedDict()
-        pars['I0_floor'] = [saxs_math.param_defaults['I0_floor']]
-        if 'guinier_porod' in self.populations:
-            n_gp = self.populations['guinier_porod']
-            if bool(n_gp):
-                pars['G_gp'] = []
-                pars['rg_gp'] = []
-                pars['D_gp'] = []
-                for igp in range(n_gp):
-                    pars['G_gp'].append(saxs_math.param_defaults['G_gp'])
-                    pars['rg_gp'].append(saxs_math.param_defaults['rg_gp'])
-                    pars['D_gp'].append(saxs_math.param_defaults['D_gp'])
-        if 'spherical_normal' in self.populations:
-            n_sn = self.populations['spherical_normal']
-            if bool(n_sn):
-                pars['I0_sphere'] = []
-                pars['r0_sphere'] = []
-                pars['sigma_sphere'] = []
-                for isn in range(n_sn):
-                    pars['I0_sphere'].append(saxs_math.param_defaults['I0_sphere'])
-                    pars['r0_sphere'].append(saxs_math.param_defaults['r0_sphere'])
-                    pars['sigma_sphere'].append(saxs_math.param_defaults['sigma_sphere'])
-        return pars
-
-    def fit_report(self,params):
+    def lmf_fitreport(self,lmf_result):
         rpt = OrderedDict()
-        fit_obj = self.fit_objfun(params)
-        param_array,param_names,param_idx = self.unpack_params(params) 
-        rpt['objective_value'] = fit_obj(param_array)
-        I_opt = saxs_math.compute_saxs(self.q,self.populations,params) 
+        rpt['success'] = lmf_result.success
+        fit_obj = self.lmf_evaluate(lmf_result.params)
+        rpt['objective_value'] = fit_obj
+        I_opt = saxs_math.compute_saxs(self.q,self.populations,
+            self.saxskit_params(lmf_result.params)) 
         I_bg = self.I - I_opt
         snr = np.mean(I_opt)/np.std(I_bg) 
         rpt['fit_snr'] = snr
         return rpt 
+
+
 
     def MC_anneal_fit(self,params,stepsize,nsteps,T,fixed_params=None):
         """Perform a Metropolis-Hastings anneal for spectrum fit refinement.
