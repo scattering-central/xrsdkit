@@ -47,14 +47,11 @@ To predict scatters populations we can use SAXSKIT models (built on Sklearn) or 
 
 **Using SAXSKIT models:**
 
-Initialize SaxsClassifier and predicted scatterer populations: ::
+* Initialize SaxsClassifier and predicted scatterer populations: ::
 
     from saxskit.saxskit.saxs_classify import SaxsClassifier
-
     m = SaxsClassifier()
-
     flags, propability = m.classify(features)
-
     print(flags)
 
 OrderedDict([('unidentified', 0), ('guinier_porod', 1), ('spherical_normal', 1), ('diffraction_peaks', 0)]) ::
@@ -64,14 +61,11 @@ OrderedDict([('unidentified', 0), ('guinier_porod', 1), ('spherical_normal', 1),
 OrderedDict([('unidentified', 0.99110040176950032), ('guinier_porod', 0.55612076431031976), ('spherical_normal', 0.74962303617945247), ('diffraction_peaks', 0.99999999999999989)])
 
 
-Initialize SaxsRegressor and predict counting scatterer populations: ::
+* Initialize SaxsRegressor and predict counting scatterer populations: ::
 
     from saxskit.saxskit.saxs_regression import SaxsRegressor
-
     r = SaxsRegressor()
-
     population_keys = r.predict_params(flags,features, q_i)
-
     print(population_keys)
 
 OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 11.041806824106182), ('sigma_sphere', 0.048352866927024042), ('rg_gp', 4.5950722385040859), ('D_gp', 4.0), ('G_gp', 0.0)])
