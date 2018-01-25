@@ -106,7 +106,7 @@ The full version of code:
 https://github.com/scattering-central/saxskit/blob/examples/examples/predict.py
 
 Output:
-.. image:: /examples/output_predict.png
+.. image:: https://github.com/scattering-central/saxskit/blob/examples/examples/output_predict.png
 
 Installation
 ------------
