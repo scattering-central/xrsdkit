@@ -52,31 +52,30 @@ To predict scatters populations we can use SAXSKIT models (built on Sklearn) or 
     from saxskit.saxskit.saxs_classify import SaxsClassifier
     m = SaxsClassifier()
     flags, propability = m.classify(features)
-    print(flags)
+    print(flags, '\n')
 
-OrderedDict([('unidentified', 0), ('guinier_porod', 1), ('spherical_normal', 1), ('diffraction_peaks', 0)]) ::
+OrderedDict([('unidentified', 0), ('guinier_porod', 0), ('spherical_normal', 1), ('diffraction_peaks', 0)])  ::
 
     print(propability)
 
-OrderedDict([('unidentified', 0.99110040176950032), ('guinier_porod', 0.55612076431031976), ('spherical_normal', 0.74962303617945247), ('diffraction_peaks', 0.99999999999999989)])
+OrderedDict([('unidentified', 0.98434783933093362), ('guinier_porod', 0.77155300517387915), ('spherical_normal', 0.99507546483900045), ('diffraction_peaks', 0.99636914340613381)])
 
 
-* Initialize SaxsRegressor and **predict counting scatterer populations**: ::
+* Initialize SaxsRegressor and **predict counting scatterer parameters**: ::
 
     from saxskit.saxskit.saxs_regression import SaxsRegressor
     r = SaxsRegressor()
-    population_keys = r.predict_params(flags,features, q_i)
-    print(population_keys)
+    param = r.predict_params(flags,features, q_i)
+    print(param)
 
-OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 11.041806824106182), ('sigma_sphere', 0.048352866927024042), ('rg_gp', 4.5950722385040859), ('D_gp', 4.0), ('G_gp', 0.0)])
+OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 26.770631802929802), ('sigma_sphere', 0.048352866927024042)])
 
 
 **Using Citrination models:**
 
 *  Create SaxsCitrination using Citrination credentials: ::
 
-    from citrination_client import CitrinationClient
-    from saxskit.saxs_citrination import CitrinationSaxsModels
+    from saxskit.saxskit.saxs_citrination import CitrinationSaxsModels
 
     api_key_file = '../../api_key.txt'
     saxs_models = CitrinationSaxsModels(api_key_file,'https://slac.citrination.com')
@@ -86,13 +85,13 @@ OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 11.04180682410
     flags, uncertainties = saxs_models.classify(features)
     print(flags)
 
-OrderedDict([('unidentified', 0),('guinier_porod', 0),('spherical_normal', 1),('diffraction_peaks', 0)]) ::
+OrderedDict([('unidentified', 0), ('guinier_porod', 0), ('spherical_normal', 1), ('diffraction_peaks', 0)]) ::
 
     print(uncertainties)
 
-OrderedDict([('unidentified', 0.007825454281763955),('guinier_porod', 0.05050983018934078),('spherical_normal', 0.008604491365074463),('diffraction_peaks', 0.006164954858187079)])
+OrderedDict([('unidentified', 0.007825454281763955), ('guinier_porod', 0.05050983018934078), ('spherical_normal', 0.008604491365074463), ('diffraction_peaks', 0.006164954858187079)])
 
-* Predict scattering parameters: ::
+* Predict counting scatterer parameters: ::
 
     params,uncertainties = saxs_models.predict_params(flags, features, q_i)
     print(params)
@@ -101,7 +100,7 @@ OrderedDict([('r0_sphere', 27.928580936639083), ('sigma_sphere', 0.0990738329622
 
     print(uncertainties)
 
-OrderedDict([('r0_sphere', 0.7889737778699067),('sigma_sphere', 0.09215120039782715)])
+OrderedDict([('r0_sphere', 0.7889737778699067), ('sigma_sphere', 0.09215120039782715)])
 
 Installation
 ------------
