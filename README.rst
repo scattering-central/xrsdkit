@@ -86,17 +86,11 @@ OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 11.04180682410
     flags, uncertainties = saxs_models.classify(features)
     print(flags)
 
-OrderedDict([('unidentified', 0),
-             ('guinier_porod', 0),
-             ('spherical_normal', 1),
-             ('diffraction_peaks', 0)]) ::
+OrderedDict([('unidentified', 0),('guinier_porod', 0),('spherical_normal', 1),('diffraction_peaks', 0)]) ::
 
     print(uncertainties)
 
-OrderedDict([('unidentified', 0.007825454281763955),
-             ('guinier_porod', 0.05050983018934078),
-             ('spherical_normal', 0.008604491365074463),
-             ('diffraction_peaks', 0.006164954858187079)])
+OrderedDict([('unidentified', 0.007825454281763955),('guinier_porod', 0.05050983018934078),('spherical_normal', 0.008604491365074463),('diffraction_peaks', 0.006164954858187079)])
 
 * Predict scattering parameters: ::
 
