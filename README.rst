@@ -56,13 +56,13 @@ Initialize SaxsClassifier and predicted scatterer populations: ::
 
     flags, propability = m.classify(features)
 
-Output flags:::
+Output flags::
 
     print(flags)
 
 OrderedDict([('unidentified', 0), ('guinier_porod', 1), ('spherical_normal', 1), ('diffraction_peaks', 0)])
 
-Output propability:::
+Output propability::
 
     print(propability)
 
@@ -75,7 +75,7 @@ Initialize SaxsRegressor and predict counting scatterer populations: ::
     r = SaxsRegressor()
     population_keys = r.predict_params(flags,features, q_i)
 
-Output counting scatterer populations:::
+Output counting scatterer populations::
 
     print(population_keys)
 
