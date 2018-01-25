@@ -35,7 +35,7 @@ Read intensivity n-by-2 array `q_I` from a csv file: ::
     q_i = np.genfromtxt ('my_data/sample_0.csv', delimiter=",")
 
 
-Now we can import saxskit: ::
+Import saxskit: ::
 
     import saxskit
 
@@ -45,8 +45,7 @@ Profile a saxs spectrum: ::
     features = profile_spectrum(q_i)
 To predict scatters populations we can use SAXSKIT models (built on Sklearn) or Citrination models.
 
-Using SAXSKIT models:
-~~~~~~~~~~~~~~~~~~~~~
+**Using SAXSKIT models:**
 
 Initialize SaxsClassifier and predicted scatterer populations: ::
 
@@ -56,13 +55,9 @@ Initialize SaxsClassifier and predicted scatterer populations: ::
 
     flags, propability = m.classify(features)
 
-Output flags::
-
     print(flags)
 
-OrderedDict([('unidentified', 0), ('guinier_porod', 1), ('spherical_normal', 1), ('diffraction_peaks', 0)])
-
-Output propability::
+OrderedDict([('unidentified', 0), ('guinier_porod', 1), ('spherical_normal', 1), ('diffraction_peaks', 0)]) ::
 
     print(propability)
 
@@ -72,13 +67,12 @@ OrderedDict([('unidentified', 0.99110040176950032), ('guinier_porod', 0.55612076
 Initialize SaxsRegressor and predict counting scatterer populations: ::
 
     from saxskit.saxskit.saxs_regression import SaxsRegressor
+
     r = SaxsRegressor()
+
     population_keys = r.predict_params(flags,features, q_i)
 
-Output counting scatterer populations::
-
     print(population_keys)
-
 
 OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 11.041806824106182), ('sigma_sphere', 0.048352866927024042), ('rg_gp', 4.5950722385040859), ('D_gp', 4.0), ('G_gp', 0.0)])
 
