@@ -102,6 +102,9 @@ OrderedDict([('r0_sphere', 27.928580936639083), ('sigma_sphere', 0.0990738329622
 
 OrderedDict([('r0_sphere', 0.7889737778699067), ('sigma_sphere', 0.09215120039782715)])
 
+The full version of code:
+https://github.com/scattering-central/saxskit/blob/examples/examples/predict.py
+
 Installation
 ------------
 
