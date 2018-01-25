@@ -29,17 +29,17 @@ This example profiles, parameterizes,
 and optimizes the fit of a scattering equation
 to a measured saxs spectrum.
 
-Read intensivity n-by-2 array `q_I` from a csv file: ::
+**Read intensivity n-by-2 array `q_I` from a csv file:** ::
 
     import numpy as np
     q_i = np.genfromtxt ('my_data/sample_0.csv', delimiter=",")
 
 
-Import saxskit: ::
+**Import saxskit:** ::
 
     import saxskit
 
-Profile a saxs spectrum: ::
+**Profile a saxs spectrum:** ::
 
     from saxskit.saxskit.saxs_math import profile_spectrum
     features = profile_spectrum(q_i)
