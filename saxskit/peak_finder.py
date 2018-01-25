@@ -1,9 +1,9 @@
 import numpy as np
 
-def peaks_by_window(x,y,windowsize=10,thr=0.):
-    """Find peaks in x,y data by a window-scanning numerical argument.
+def peaks_by_window(x,y,w=10,thr=0.):
+    """Find peaks in x,y data by a window-scanning.
 
-    
+    TODO: introduce window shapes and make use of the x-values.
 
     Parameters
     ----------
@@ -11,7 +11,7 @@ def peaks_by_window(x,y,windowsize=10,thr=0.):
         array of x-axis values
     y : array
         array of y-axis values
-    windowsize : int
+    w : int
         half-width of window- each point is analyzed
         with the help of this many points in either direction
     thr : float
@@ -20,16 +20,33 @@ def peaks_by_window(x,y,windowsize=10,thr=0.):
 
     Returns
     -------
-    pk_idx : list of indices where peaks were found
+    pk_idx : list of int
+        list of indices where peaks were found
+    pk_confidence : list of float
+        confidence in peak labeling for each peak found 
     """
     pk_idx = []
+    pk_confidence = []
     for idx in range(w,len(y)-w-1):
         pkflag = False
         ywin = y[idx-w:idx+w+1]
         if np.argmax(ywin) == w:
-            pkflag = ywin[w]/np.mean(ywin)-1. > thr
+            conf = ywin[w]/np.mean(ywin)-1.
+            pkflag = conf > thr
         if pkflag:
             pk_idx.append(idx)
-    return pk_idx
+            pk_confidence.append(conf)
+
+    #from matplotlib import pyplot as plt
+    #plt.figure(2)
+    #plt.plot(x,y)
+    #for ipk,cpk in zip(pk_idx,pk_confidence):
+    #    qpk = x[ipk]
+    #    Ipk = y[ipk]
+    #    print('q: {}, I: {}, confidence: {}'.format(qpk,Ipk,cpk))
+    #    plt.plot(qpk,Ipk,'ro')
+    #plt.show()
+
+    return pk_idx,pk_confidence
     
 

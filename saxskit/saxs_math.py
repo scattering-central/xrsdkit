@@ -256,12 +256,6 @@ def fit_I0(q,I,order=4):
     I_at_0 = np.polyval(p_I0,-1*q_mean/q_std)*I_std+I_mean
     return I_at_0,p_I0
 
-def standardize_array(data):
-    d_mean = np.mean(data)
-    d_std = np.std(data)
-    d_s = (data-d_mean)/d_std
-    return d_s,d_mean,d_std 
-
 def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
     """Fit scattering data to a polynomial with one slope constraint.
 
@@ -646,6 +640,12 @@ def spherical_normal_profile(q_I):
     pI_fwidth = abs(1./pI_min1[0])
     features['pI_qwidth'] = pI_fwidth*q_min1_std
     return features 
+
+def standardize_array(x):
+    xmean = np.mean(x)
+    xstd = np.std(x)
+    xs = (x-xmean)/xstd
+    return xs, xmean, xstd
 
 def detailed_profile(q_I,populations):
     profs = OrderedDict()
