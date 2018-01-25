@@ -4,8 +4,9 @@ import numpy as np
 import pypif.obj as pifobj
 
 from . import saxs_math, saxs_fit, saxs_classify
+from . import all_parameter_keys
 
-parameter_description = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
+parameter_description = OrderedDict.fromkeys(all_parameter_keys)
 parameter_description['I0_floor'] = 'flat background intensity'
 parameter_description['G_gp'] = 'guinier_porod Guinier factor'
 parameter_description['rg_gp'] = 'guinier_porod radius of gyration'
@@ -17,7 +18,7 @@ parameter_description['I_pkcenter'] = 'diffraction peak center intensity'
 parameter_description['q_pkcenter'] = 'diffraction peak center in q'
 parameter_description['pk_hwhm'] = 'diffraction peak half-width at half-max'
 
-parameter_units = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
+parameter_units = OrderedDict.fromkeys(all_parameter_keys)
 parameter_units['I0_floor'] = 'arb'
 parameter_units['G_gp'] = 'arb'
 parameter_units['rg_gp'] = 'Angstrom'
@@ -86,9 +87,9 @@ def unpack_pif(pp):
                     if val.name == 'temperature':
                         temp = float(val.scalars[0].value)
                 q_I = np.vstack([q,I]).T
-            elif prop.name in saxs_math.population_keys:
+            elif prop.name in saxs_fit.population_keys:
                 pops[prop.name] = int(prop.scalars[0].value)
-            elif prop.name in saxs_math.all_parameter_keys:
+            elif prop.name in all_parameter_keys:
                 par[prop.name] = [float(s.value) for s in prop.scalars]
             elif prop.tags is not None:
                 if 'spectrum fitting quantity' in prop.tags:

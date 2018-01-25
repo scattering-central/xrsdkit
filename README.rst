@@ -29,8 +29,84 @@ This example profiles, parameterizes,
 and optimizes the fit of a scattering equation
 to a measured saxs spectrum.
 
-TODO: fill out example. 
+**Read intensivity n-by-2 array `q_I` from a csv file:** ::
 
+    import numpy as np
+    q_i = np.genfromtxt ('my_data/sample_0.csv', delimiter=",")
+
+
+**Import saxskit:** ::
+
+    import saxskit
+
+**Profile a saxs spectrum:** ::
+
+    from saxskit.saxskit.saxs_math import profile_spectrum
+    features = profile_spectrum(q_i)
+To predict scatters populations we can use SAXSKIT models (built on Sklearn) or Citrination models.
+
+**Using SAXSKIT models:**
+
+* Initialize SaxsClassifier and **predicted scatterer populations**: ::
+
+    from saxskit.saxskit.saxs_classify import SaxsClassifier
+    m = SaxsClassifier()
+    flags, propability = m.classify(features)
+    print(flags, '\n')
+
+OrderedDict([('unidentified', 0), ('guinier_porod', 0), ('spherical_normal', 1), ('diffraction_peaks', 0)])  ::
+
+    print(propability)
+
+OrderedDict([('unidentified', 0.98434783933093362), ('guinier_porod', 0.77155300517387915), ('spherical_normal', 0.99507546483900045), ('diffraction_peaks', 0.99636914340613381)])
+
+
+* Initialize SaxsRegressor and **predict counting scatterer parameters**: ::
+
+    from saxskit.saxskit.saxs_regression import SaxsRegressor
+    r = SaxsRegressor()
+    param = r.predict_params(flags,features, q_i)
+    print(param)
+
+OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 26.770631802929802), ('sigma_sphere', 0.048352866927024042)])
+
+
+**Using Citrination models:**
+
+*  Create SaxsCitrination using Citrination credentials: ::
+
+    from saxskit.saxskit.saxs_citrination import CitrinationSaxsModels
+
+    api_key_file = '../../api_key.txt'
+    saxs_models = CitrinationSaxsModels(api_key_file,'https://slac.citrination.com')
+
+* Predict scatterer populations::
+
+    flags, uncertainties = saxs_models.classify(features)
+    print(flags)
+
+OrderedDict([('unidentified', 0), ('guinier_porod', 0), ('spherical_normal', 1), ('diffraction_peaks', 0)]) ::
+
+    print(uncertainties)
+
+OrderedDict([('unidentified', 0.007825454281763955), ('guinier_porod', 0.05050983018934078), ('spherical_normal', 0.008604491365074463), ('diffraction_peaks', 0.006164954858187079)])
+
+* Predict counting scatterer parameters: ::
+
+    params,uncertainties = saxs_models.predict_params(flags, features, q_i)
+    print(params)
+
+OrderedDict([('r0_sphere', 27.928580936639083), ('sigma_sphere', 0.09907383296227086)]) ::
+
+    print(uncertainties)
+
+OrderedDict([('r0_sphere', 0.7889737778699067), ('sigma_sphere', 0.09215120039782715)])
+
+The full version of code:
+https://github.com/scattering-central/saxskit/blob/examples/examples/predict.py
+
+Output:
+.. image:: /examples/output_predict.png
 
 Installation
 ------------

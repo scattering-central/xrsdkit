@@ -11,6 +11,8 @@ from sklearn.metrics import mean_absolute_error
 
 from . import saxs_math
 from . import saxs_piftools
+from . import population_keys, parameter_keys, profile_keys
+from . import all_profile_keys, all_parameter_keys
 
 def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=False):
     """Train and save SAXS classification models as a YAML file.
@@ -43,7 +45,7 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
         accuracy=accuracy)
 
     # use the "unidentified" profiling for all classification models 
-    features = saxs_math.profile_keys['unidentified']
+    features = profile_keys['unidentified']
     possible_models = check_labels(all_data)
 
     # using leaveTwoGroupOut makes sense when we have at least 5 groups
@@ -198,7 +200,6 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
 
 def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False):
     """Train and save SAXS classification models as a YAML file.
-
     Parameters
     ----------
     all_data : pandas.DataFrame
@@ -233,7 +234,7 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
-        features = saxs_math.profile_keys['unidentified']
+        features = profile_keys['unidentified']
 
         scaler, reg, acc = train(all_data, features, 'r0_sphere', hyper_parameters_search)
 
@@ -248,8 +249,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
-        features = saxs_math.profile_keys['unidentified']
-        features.extend(saxs_math.profile_keys['spherical_normal'])
+        features = profile_keys['unidentified']
+        features.extend(profile_keys['spherical_normal'])
 
         scaler, reg, acc = train(all_data, features, 'sigma_sphere', hyper_parameters_search)
 
@@ -263,8 +264,9 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
-        features = saxs_math.profile_keys['unidentified']
-        features.extend(saxs_math.profile_keys['guinier_porod'])
+
+        features = profile_keys['unidentified']
+        features.extend(profile_keys['guinier_porod'])
 
         scaler, reg, acc = train(all_data, features, 'rg_gp', hyper_parameters_search)
 
@@ -340,7 +342,7 @@ def train(all_data, features, target, hyper_parameters_search):
             epsilon, label_std)
     else:
         acc = testing_using_crossvalidation_regression(
-            data, target, features,   alpha, l1_ratio, penalty,  loss, epsilon, label_std)
+            data, target, features, alpha, l1_ratio, penalty,  loss, epsilon, label_std)
 
     return scaler, reg, acc
 
@@ -512,7 +514,7 @@ def check_labels_regression(dataframe):
         True and False labels were found
         for each of the possible models.
     """
-    model_names = saxs_math.all_parameter_keys
+    model_names = all_parameter_keys
     possible_models = {}
     for mnm in model_names:
         data = dataframe[dataframe[mnm].isnull() == False]
@@ -673,6 +675,7 @@ def testing_by_experiments_regression(df, label, features, alpha, l1_ratio,
     float
         average crossvalidation score (accuracy)
     """
+
     experiments = df.experiment_id.unique()# we have at least 5 experiments
     test_scores_by_ex = []
     count = 0
@@ -716,9 +719,9 @@ def get_data_from_Citrination(client, dataset_id_list):
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
-        feats = OrderedDict.fromkeys(saxs_math.all_profile_keys)
-        pops = OrderedDict.fromkeys(saxs_math.population_keys)
-        par = OrderedDict.fromkeys(saxs_math.all_parameter_keys)
+        feats = OrderedDict.fromkeys(all_profile_keys)
+        pops = OrderedDict.fromkeys(population_keys)
+        par = OrderedDict.fromkeys(all_parameter_keys)
         expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
         feats.update(saxs_math.profile_spectrum(q_I))
         feats.update(saxs_math.detailed_profile(q_I,pif_pops))
@@ -736,9 +739,9 @@ def get_data_from_Citrination(client, dataset_id_list):
         data.append(data_row)
 
     colnames = ['experiment_id']
-    colnames.extend(saxs_math.all_profile_keys)
-    colnames.extend(saxs_math.population_keys)
-    colnames.extend(saxs_math.all_parameter_keys)
+    colnames.extend(all_profile_keys)
+    colnames.extend(population_keys)
+    colnames.extend(all_parameter_keys)
 
     d = pd.DataFrame(data=data, columns=colnames)
     d = d.where((pd.notnull(d)), None) # replace all NaN by None
@@ -747,16 +750,18 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     return df_work
 
-def train_classifiers_partial(all_data, yaml_filename=None):
+def train_classifiers_partial(new_data, yaml_filename=None, all_training_data = None):
     """update and save SAXS classification models as a YAML file.
 
     Parameters
     ----------
-    all_data : pandas.DataFrame
-        dataframe containing features and labels
+    new_data : pandas.DataFrame
+        dataframe containing features and labels for updating models
     yaml_filename : str
         File where scalers and models was and will be saved.
         If None, the default file is used.
+    all_training_data : pandas.DataFrame
+        dataframe containing features and labels for testing models
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
@@ -768,18 +773,19 @@ def train_classifiers_partial(all_data, yaml_filename=None):
     s_and_m_file = open(yaml_filename,'rb')
     s_and_m = yaml.load(s_and_m_file)
 
-    reg_models_dict = s_and_m['models']
+    models_dict = s_and_m['models']
     scalers_dict = s_and_m['scalers']
 
     accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
 
     possible_models = check_labels(all_data)
-    features = saxs_math.profile_keys
+    features = profile_keys
+
 
     # unidentified scatterer population model
     if possible_models['unidentified'] == True:
-        scaler, model, acc = train_partial(True, all_data, features, 'unidentified',
-                                           reg_models_dict, scalers_dict)
+        scaler, model, acc = train_partial(True, new_data, features, 'unidentified',
+                                           models_dict, scalers_dict, all_training_data)
 
         if scaler:
             s_and_m['scalers']['unidentified'] = scaler.__dict__
@@ -791,12 +797,12 @@ def train_classifiers_partial(all_data, yaml_filename=None):
     # For the rest of the models,
     # we will use only data with
     # identifiable scattering populations
-    all_data = all_data[all_data['unidentified']==False]
+    new_data = new_data[new_data['unidentified']==False]
 
     for k, v in possible_models.items():
         if v == True and k != 'unidentified':
-            scaler, model, acc = train_partial(True, all_data, features, k,
-                                           reg_models_dict, scalers_dict)
+            scaler, model, acc = train_partial(True, new_data, features, k,
+                                           models_dict, scalers_dict, all_training_data)
             if scaler:
                 s_and_m['scalers'][k] = scaler.__dict__
             if model:
@@ -810,19 +816,27 @@ def train_classifiers_partial(all_data, yaml_filename=None):
         yaml.dump(s_and_m, yaml_file)
 
     # save accuracy
+    if all_training_data is None:
+        with open("saxskit/saxskit/modeling_data/accuracy.txt", "r") as g:
+            old_accuracy = g.readline()
+            accuracy = 'Accuracy was not updated after using partia_fit: ' + old_accuracy
+    else:
+        accuracy = str(s_and_m['accuracy'])
     with open (accuracy_txt, 'w') as txt_file:
-        txt_file.write(str(s_and_m['accuracy']))
+        txt_file.write(accuracy)
 
-def train_regressors_partial(all_data, yaml_filename=None):
+def train_regressors_partial(new_data, yaml_filename=None, all_training_data = None):
     """Update and save SAXS regression models as a YAML file.
 
     Parameters
     ----------
-    all_data : pandas.DataFrame
-        dataframe containing features and labels
+    data : pandas.DataFrame
+        dataframe containing features and labels for updating models
     yaml_filename : str
         File where scalers and models was and will be saved.
         If None, the default file is used.
+    all_training_data : pandas.DataFrame
+        dataframe containing features and labels for testing models
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
@@ -840,16 +854,15 @@ def train_regressors_partial(all_data, yaml_filename=None):
 
     accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
 
-    possible_models = check_labels_regression(all_data)
+    possible_models = check_labels_regression(new_data)
 
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
         features = []
-        features.extend(saxs_math.profile_keys)
+        features.extend(profile_keys)
 
-        scaler, model, acc = train_partial(False, all_data, features, 'r0_sphere',
-                                           reg_models_dict, scalers_dict)
-
+        scaler, model, acc = train_partial(False, new_data, features, 'r0_sphere',
+                                           reg_models_dict, scalers_dict, all_training_data)
         if scaler:
             s_and_m['scalers']['r0_sphere'] = scaler.__dict__
         if model:
@@ -861,11 +874,14 @@ def train_regressors_partial(all_data, yaml_filename=None):
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
         features = []
-        features.extend(saxs_math.profile_keys)
-        features.extend(saxs_math.spherical_normal_profile_keys)
 
-        scaler, model, acc = train_partial(False, all_data, features, 'sigma_sphere',
-                                           reg_models_dict, scalers_dict)
+        features.extend(saxs_math.profile_keys['unidentified'])
+        features.extend(saxs_math.profile_keys['spherical_normal'])
+
+
+
+        scaler, model, acc = train_partial(False, new_data, features, 'sigma_sphere',
+                                           reg_models_dict, scalers_dict, all_training_data)
 
         if scaler:
             s_and_m['scalers']['sigma_sphere'] = scaler.__dict__
@@ -876,12 +892,13 @@ def train_regressors_partial(all_data, yaml_filename=None):
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
-        gr_features = []
-        gr_features.extend(saxs_math.profile_keys)
-        gr_features.extend(saxs_math.guinier_porod_profile_keys)
 
-        scaler, model, acc = train_partial(False, all_data, gr_features, 'rg_gp',
-                                           reg_models_dict, scalers_dict)
+        gr_features = []
+        gr_features.extend(profile_keys)
+        gr_features.extend(guinier_porod_profile_keys)
+
+        scaler, model, acc = train_partial(False, new_data, features, 'rg_gp',
+                                           reg_models_dict, scalers_dict, all_training_data)
 
         if scaler:
             s_and_m['scalers']['rg_gp'] = scaler.__dict__
@@ -896,8 +913,14 @@ def train_regressors_partial(all_data, yaml_filename=None):
         yaml.dump(s_and_m, yaml_file)
 
     # save accuracy
+    if all_training_data is None:
+        with open("saxskit/saxskit/modeling_data/accuracy_regression.txt", "r") as g:
+            old_accuracy = g.readline()
+            accuracy = 'Accuracy was not updated after using partia_fit: ' + old_accuracy
+    else:
+        accuracy = str(s_and_m['accuracy'])
     with open (accuracy_txt, 'w') as txt_file:
-        txt_file.write(str(s_and_m['accuracy']))
+        txt_file.write(accuracy)
 
 
 # helper function - to set parametrs for scalers and models
@@ -908,7 +931,7 @@ def set_param(m_s, param):
             else:
                 setattr(m_s, k, v)
 
-def train_partial(classifier, all_data, features, target, reg_models_dict, scalers_dict):
+def train_partial(classifier, data, features, target, reg_models_dict, scalers_dict, testing_data):
     model_params = reg_models_dict[target]
     scaler_params = scalers_dict[target]
 
@@ -920,12 +943,41 @@ def train_partial(classifier, all_data, features, target, reg_models_dict, scale
         else:
             model = linear_model.SGDRegressor()
         set_param(model,model_params)
-        d = all_data[all_data[target].isnull() == False]
-        data = d.dropna(subset=features)
-        scaler.fit(data[features])
-        data.loc[ : , features] = scaler.transform(data[features])
-        model.partial_fit(data[features], data[target])
-        accuracy = 'Partial fit was used'
+        d = data[data[target].isnull() == False]
+        data2 = d.dropna(subset=features)
+        scaler.fit(data2[features])
+        data2.loc[ : , features] = scaler.transform(data2[features])
+        model.partial_fit(data2[features], data2[target])
+        if testing_data is None:
+            accuracy = None
+        else: # calculate training accuracy using all provided data
+            d = testing_data[testing_data[target].isnull() == False]
+            data = d.dropna(subset=features)
+            if len(data.experiment_id.unique()) > 4:
+                leaveNGroupOut = True
+            else:
+                leaveNGroupOut = False
+            label_std = data[target].std()
+            if leaveNGroupOut:
+                if classifier == True:
+                    accuracy = testing_by_experiments(
+                        data, target, features, model_params['alpha'], model_params['l1_ratio'],
+                        model_params['penalty'])
+                else:
+                    accuracy = testing_by_experiments_regression(
+                        data, target, features, model_params['alpha'], model_params['l1_ratio'],
+                        model_params['penalty'], model_params['loss'],
+                        model_params['epsilon'], label_std)
+            else:
+                if classifier == True:
+                    accuracy = testing_using_crossvalidation(
+                        data, target, features,  model_params['alpha'], model_params['l1_ratio'],
+                        model_params['penalty'])
+                else:
+                    accuracy = testing_using_crossvalidation_regression(
+                        data, target, features,  model_params['alpha'], model_params['l1_ratio'],
+                        model_params['penalty'], model_params['loss'],
+                        model_params['epsilon'], label_std)
 
     else:
         scaler = None
