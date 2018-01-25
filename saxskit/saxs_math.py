@@ -159,7 +159,6 @@ def spherical_normal_saxs(q,r0,sigma,sampling_width=3.5,sampling_step=0.25):
     sampling_step : float
         fraction of standard deviation to use as sampling step size    
 
-
     Returns
     -------
     I : array
