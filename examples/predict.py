@@ -1,4 +1,5 @@
-# output for predict.py is in output_predict.png
+# output for predict.py:
+# https://github.com/scattering-central/saxskit/blob/examples/examples/output_predict.png
 
 import os
 import numpy as np
