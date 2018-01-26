@@ -68,6 +68,71 @@ class SaxsFitter(object):
         self.logI.fill(np.nan)
         self.logI[self.idx_fit] = np.log(self.I[self.idx_fit])
 
+    def fit(self,params=None,fixed_params=None,param_limits=None,objective='chi2log'):
+        """Fit the SAXS spectrum, optionally holding some parameters fixed.
+    
+        Parameters
+        ----------
+        params : dict
+            Dict of scattering equation parameters (initial guess).
+            If not provided, some defaults are chosen.
+        fixed_params : dict, optional
+            Dict of floats giving values in `params`
+            that should be held constant during fitting.
+            The structure of this dict should constitute
+            a subset of the structure of the `params` dict.
+            Entries in `fixed_params` take precedence 
+            over the corresponding entries in `params`, so that the 
+            initial condition does not violate the constraint.
+            Entries in `fixed_params` that are outside 
+            the structure of the `params` dict will be ignored.
+        param_limits : dict, optional
+            Like `fixed_params`, but containing tuples that define
+            the upper and lower limits for fitting each parameter.
+        objective : string
+            Choice of objective function 
+            (currently the only option is 'chi2log').
+
+        Returns
+        -------
+        p_opt : dict
+            Dict of optimized SAXS equation parameters,
+            with the same shape as the input `params`.
+        rpt : dict
+            Dict reporting quantities of interest
+            about the fit result.
+        """
+
+        if bool(self.populations['unidentified']):
+            return OrderedDict(),OrderedDict()
+
+        if params is None:
+            params = self.default_params()
+
+        #obj_init = self.evaluate(params)
+        #print('obj_init: {}'.format(obj_init))
+
+        lmf_params = self.lmfit_params(params,fixed_params,param_limits) 
+        lmf_res = lmfit.minimize(self.lmf_evaluate,lmf_params,method='nelder-mead')
+        p_opt = self.saxskit_params(lmf_res.params) 
+        rpt = self.lmf_fitreport(lmf_res)
+        
+        obj_opt = self.evaluate(p_opt)
+        #print(p_opt)
+        #print('obj_opt: {}'.format(obj_opt))
+
+        ####
+        #I_init = saxs_math.compute_saxs(self.q,self.populations,params)
+        #I_opt = saxs_math.compute_saxs(self.q,self.populations,p_opt)
+        #from matplotlib import pyplot as plt
+        #plt.figure(1)
+        #plt.semilogy(self.q,self.I)
+        #plt.semilogy(self.q,I_init,'r-')
+        #plt.semilogy(self.q,I_opt,'g-')
+        #plt.show()
+
+        return p_opt,rpt
+
     def default_params(self):
         pkeys = []
         pd = OrderedDict()
@@ -100,12 +165,11 @@ class SaxsFitter(object):
             intensity computed from `param_dict`.
         """
         I_comp = saxs_math.compute_saxs(
-            self.q[self.idx_fit],self.populations,params)
-        I_comp[I_comp<0.] = 1.E-12
+            self.q,self.populations,params)
+        #I_comp[I_comp<0.] = 1.E-12
         chi2log_total = saxs_math.compute_chi2(
-                    np.log(I_comp),
+                    np.log(I_comp[self.idx_fit]),
                     self.logI[self.idx_fit])
-
         #print('params: {}'.format(params))
         #print('chi2log: {}'.format(chi2log_total))
         #from matplotlib import pyplot as plt
@@ -161,68 +225,6 @@ class SaxsFitter(object):
                     v[idx] = True
         return self.fit(params,fp)
 
-    def fit(self,params=None,fixed_params=None,param_limits=None,objective='chi2log'):
-        """Fit the SAXS spectrum, optionally holding some parameters fixed.
-    
-        Parameters
-        ----------
-        params : dict
-            Dict of scattering equation parameters (initial guess).
-            If not provided, some defaults are chosen.
-        fixed_params : dict, optional
-            Dict of floats giving values in `params`
-            that should be held constant during fitting.
-            The structure of this dict should constitute
-            a subset of the structure of the `params` dict.
-            Entries in `fixed_params` take precedence 
-            over the corresponding entries in `params`, so that the 
-            initial condition does not violate the constraint.
-            Entries in `fixed_params` that are outside 
-            the structure of the `params` dict will be ignored.
-        param_limits : dict, optional
-            Like `fixed_params`, but containing tuples that define
-            the upper and lower limits for fitting each parameter.
-        objective : string
-            Choice of objective function 
-            (currently the only option is 'chi2log').
-
-        Returns
-        -------
-        p_opt : dict
-            Dict of optimized SAXS equation parameters,
-            with the same shape as the input `params`.
-        rpt : dict
-            Dict reporting quantities of interest
-            about the fit result.
-        """
-
-        if bool(self.populations['unidentified']):
-            return OrderedDict(),OrderedDict()
-
-        if params is None:
-            params = self.default_params()
-
-        lmf_params = self.lmfit_params(params,fixed_params,param_limits) 
-        lmf_res = lmfit.minimize(self.lmf_evaluate,lmf_params,method='slsqp')
-        p_opt = self.saxskit_params(lmf_res.params) 
-        rpt = self.lmf_fitreport(lmf_res)
-        
-        obj_init = self.evaluate(params)
-        obj_opt = self.evaluate(p_opt)
-        #print(params)
-        #print('obj_init: {}'.format(obj_init))
-        #print(p_opt)
-        #print('obj_opt: {}'.format(obj_opt))
-        ####
-        #I_init = saxs_math.compute_saxs(self.q,self.populations,params)
-        #I_opt = saxs_math.compute_saxs(self.q,self.populations,p_opt)
-        #from matplotlib import pyplot as plt
-        #plt.figure(1)
-        #plt.semilogy(self.q,self.I)
-        #plt.semilogy(self.q,I_init,'r-')
-        #plt.semilogy(self.q,I_opt,'g-')
-        #plt.show()
-        return p_opt,rpt
 
     def lmf_fitreport(self,lmf_result):
         rpt = OrderedDict()
