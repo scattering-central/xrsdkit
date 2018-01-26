@@ -102,7 +102,7 @@ class SaxsRegressor(object):
             x = self.scalers['rg_gp'].transform(rg_features)
             rg = self.models['rg_gp'].predict(x)
             params['rg_gp'] = [rg[0]]
-            params['D_gp'] = [4.]
+            params['D_gp'] = [saxs_fit.param_defaults['D_gp']]
             params['G_gp'] = [saxs_fit.param_defaults['G_gp']]
 
         if bool(populations['diffraction_peaks']):
