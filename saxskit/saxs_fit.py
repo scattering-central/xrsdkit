@@ -170,8 +170,8 @@ class SaxsFitter(object):
         chi2log_total = saxs_math.compute_chi2(
                     np.log(I_comp[self.idx_fit]),
                     self.logI[self.idx_fit])
-        print('params: {}'.format(params))
-        print('chi2log: {}'.format(chi2log_total))
+        #print('params: {}'.format(params))
+        #print('chi2log: {}'.format(chi2log_total))
         #from matplotlib import pyplot as plt
         #plt.figure(1)
         #plt.semilogy(self.q,self.logI)
