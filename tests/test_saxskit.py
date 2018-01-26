@@ -73,8 +73,10 @@ def test_classifier():
                 print('\t{} populations: {} ({} certainty)'.format(popk,pops[popk],certs[popk]))
 
 def test_regressions():
-    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
-    model_file_path_reg = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models_regression.yml')
+    model_file_path = os.path.join(os.getcwd(),'saxskit',
+        'modeling_data','scalers_and_models.yml')
+    model_file_path_reg = os.path.join(os.getcwd(),'saxskit',
+        'modeling_data','scalers_and_models_regression.yml')
     sxc = saxs_classify.SaxsClassifier(model_file_path)
     sxr = saxs_regression.SaxsRegressor(model_file_path_reg)
     for data_type in ['precursors','spheres','peaks']:
@@ -92,20 +94,27 @@ def test_regressions():
 def test_fitter():
     datapath = os.path.join(os.path.dirname(__file__),
         'test_data','solution_saxs','spheres','spheres_0.csv')
+    print('testing SaxsFitter on {}'.format(datapath))
     #datapath = os.path.join(os.path.dirname(__file__),
     #    'test_data','solution_saxs','peaks','peaks_0.csv')
     test_data = open(datapath,'r')
     q_I = np.loadtxt(test_data,dtype=float,delimiter=',')
-    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
+    model_file_path = os.path.join(os.getcwd(),'saxskit',
+        'modeling_data','scalers_and_models.yml')
+    model_file_path_reg = os.path.join(os.getcwd(),'saxskit',
+        'modeling_data','scalers_and_models_regression.yml')
     sxc = saxs_classify.SaxsClassifier(model_file_path)
     prof = saxs_math.profile_spectrum(q_I)
     pops,certs = sxc.classify(prof)
+    sxr = saxs_regression.SaxsRegressor(model_file_path_reg)
+    params = sxr.predict_params(pops,prof,q_I)
     sxf = saxs_fit.SaxsFitter(q_I,pops)
-    p = sxf.default_params()
-    lmp = sxf.lmfit_params(p)
-    sxkp = sxf.saxskit_params(lmp)
-    p_opt,rpt = sxf.fit()
-    I_opt = saxs_math.compute_saxs(q_I[:,0],pops,p_opt)
+    p_opt,rpt = sxf.fit(params)
+    obj_init = sxf.evaluate(params)
+    obj_opt = sxf.evaluate(p_opt)
+    print('optimization objective: {} --> {}'.format(obj_init,obj_opt))
+    for k, v in params.items():
+        print('\t{}: {} --> {}'.format(k,v,p_opt[k]))
 
 
 '''
