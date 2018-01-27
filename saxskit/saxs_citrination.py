@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from . import saxs_math
+from . import saxs_math, saxs_fit
 
 from citrination_client import CitrinationClient
 
@@ -11,7 +11,7 @@ class CitrinationSaxsModels(object):
     You can get one by making an account on Citrination.
     The api key should be copy/pasted into a file,
     and the path to the file should be provided
-    as an instantiation argument. 
+    as an instantiation argument.
     """
 
     def __init__(self, api_key_file, address='https://citrination.com/'):
@@ -34,7 +34,7 @@ class CitrinationSaxsModels(object):
         Returns
         -------
         populations : dict
-            dictionary of integers 
+            dictionary of integers
             counting predicted scatterer populations
             for all populations in saxs_fit.population_keys.
         uncertainties : dict
@@ -50,8 +50,8 @@ class CitrinationSaxsModels(object):
         for popname in saxs_fit.population_keys:
             populations[popname] = int(resp['candidates'][0]['Property '+popname][0])
             uncertainties[popname] = float(resp['candidates'][0]['Property '+popname][1])
-        
-        return populations, uncertainties 
+
+        return populations, uncertainties
 
 
     # helper function
@@ -63,7 +63,7 @@ class CitrinationSaxsModels(object):
         return inputs
 
 
-    def predict_params(self,populations,features,q_I):
+    def predict_params(self,populations,features,q_I, predict_intens_params = True):
         """Use Citrination to predict the scattering parameters.
 
         Parameters
@@ -74,15 +74,19 @@ class CitrinationSaxsModels(object):
         features : dict
             dictionary of sample numerical features,
             similar to output of saxs_math.profile_spectrum().
-        q_I : array 
-            n-by-2 array of scattering vector (1/Angstrom) and intensities. 
+        q_I : array
+            n-by-2 array of scattering vector (1/Angstrom) and intensities.
+        predict_intens_params : bool
+            if True, intensivity parameters are calculated using SaxsFitter
 
         Returns
         -------
         Returns
         -------
         params : dict
-            dictionary of predicted scattering parameters
+            dictionary of predicted and calculated scattering parameters:
+            r0_sphere, sigma_sphere, and rg_gp are predicted using Citrinaion models
+            IO_floor and IO_sphere are calculated using SaxsFitter
         """
 
         features = self.append_str_property(features)
@@ -92,10 +96,18 @@ class CitrinationSaxsModels(object):
         if bool(populations['unidentified']):
             return params, uncertainties
 
+        if predict_intens_params:
+            params['I0_floor'] = [saxs_fit.param_defaults['I0_floor']]
+            uncertainties['I0_floor'] = None
+
         if bool(populations['spherical_normal']) \
         and not bool(populations['diffraction_peaks']):
+            if predict_intens_params:
+                params['I0_sphere'] = [saxs_fit.param_defaults['I0_sphere']]
+                uncertainties['I0_sphere'] = None
+
             resp = self.client.predict("27", features) # "27" is ID of dataview on Citrination
-            params['r0_sphere'] = float(resp['candidates'][0]['Property r0_sphere'][0])
+            params['r0_sphere'] = [float(resp['candidates'][0]['Property r0_sphere'][0])]
             uncertainties['r0_sphere'] = float(resp['candidates'][0]['Property r0_sphere'][1])
 
             additional_features = saxs_math.spherical_normal_profile(q_I)
@@ -103,8 +115,10 @@ class CitrinationSaxsModels(object):
             ss_features = dict(features)
             ss_features.update(additional_features)
             resp = self.client.predict("28", ss_features)
-            params['sigma_sphere'] = float(resp['candidates'][0]['Property sigma_sphere'][0])
+            params['sigma_sphere'] = [float(resp['candidates'][0]['Property sigma_sphere'][0])]
             uncertainties['sigma_sphere'] = float(resp['candidates'][0]['Property sigma_sphere'][1])
+
+
 
         if bool(populations['guinier_porod']):
             additional_features = saxs_math.guinier_porod_profile(q_I)
@@ -112,9 +126,12 @@ class CitrinationSaxsModels(object):
             rg_features = dict(features)
             rg_features.update(additional_features)
             resp =self.client.predict("29", rg_features)
-            params['rg_gp'] = float(resp['candidates'][0]['Property rg_gp'][0])
+            params['rg_gp'] = [float(resp['candidates'][0]['Property rg_gp'][0])]
             uncertainties['rg_gp'] = float(resp['candidates'][0]['Property rg_gp'][0])
 
+        if predict_intens_params:
+            sxf = saxs_fit.SaxsFitter(q_I,populations)
+            p_fit, rpt = sxf.fit_intensity_params(params)
+            params = saxs_fit.update_params(params,p_fit)
+
         return params,uncertainties
-
-
