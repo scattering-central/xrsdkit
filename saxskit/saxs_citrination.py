@@ -96,20 +96,10 @@ class CitrinationSaxsModels(object):
         if bool(populations['unidentified']):
             return params, uncertainties
 
-        if predict_intens_params:
-            params['I0_floor'] = [saxs_fit.param_defaults['I0_floor']]
-            uncertainties['I0_floor'] = None
-
-        if bool(populations['spherical_normal']) \
-        and not bool(populations['diffraction_peaks']):
-            if predict_intens_params:
-                params['I0_sphere'] = [saxs_fit.param_defaults['I0_sphere']]
-                uncertainties['I0_sphere'] = None
-
+        if bool(populations['spherical_normal']):
             resp = self.client.predict("27", features) # "27" is ID of dataview on Citrination
             params['r0_sphere'] = [float(resp['candidates'][0]['Property r0_sphere'][0])]
             uncertainties['r0_sphere'] = float(resp['candidates'][0]['Property r0_sphere'][1])
-
             additional_features = saxs_math.spherical_normal_profile(q_I)
             additional_features = self.append_str_property(additional_features)
             ss_features = dict(features)
@@ -117,8 +107,6 @@ class CitrinationSaxsModels(object):
             resp = self.client.predict("28", ss_features)
             params['sigma_sphere'] = [float(resp['candidates'][0]['Property sigma_sphere'][0])]
             uncertainties['sigma_sphere'] = float(resp['candidates'][0]['Property sigma_sphere'][1])
-
-
 
         if bool(populations['guinier_porod']):
             additional_features = saxs_math.guinier_porod_profile(q_I)
@@ -130,6 +118,17 @@ class CitrinationSaxsModels(object):
             uncertainties['rg_gp'] = float(resp['candidates'][0]['Property rg_gp'][0])
 
         if predict_intens_params:
+            params['I0_floor'] = [saxs_fit.param_defaults['I0_floor']]
+            uncertainties['I0_floor'] = None
+            if bool(populations['spherical_normal]):
+                params['I0_sphere'] = [saxs_fit.param_defaults['I0_sphere']]
+                uncertainties['I0_sphere'] = None
+            if bool(populations['guinier_porod']):
+                params['G_gp'] = [saxs_fit.param_defaults['G_gp']]
+                uncertainties['G_gp'] = None
+            if bool(populations['diffraction_peaks']):
+                params['I_pkcenter'] = [saxs_fit.param_defaults['I_pkcenter']]
+                uncertainties['G_gp'] = None
             sxf = saxs_fit.SaxsFitter(q_I,populations)
             p_fit, rpt = sxf.fit_intensity_params(params)
             params = saxs_fit.update_params(params,p_fit)
