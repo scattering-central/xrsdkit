@@ -41,9 +41,9 @@ from collections import OrderedDict
 import numpy as np
 
 from . import peak_math
-from . import profile_keys
+from . import profile_keys, parameter_keys
 
-def compute_saxs(q,populations,params):
+def compute_saxs(q,populations,params,check_params=True):
     """Compute a SAXS intensity spectrum.
 
     TODO: Document the equation.
@@ -59,6 +59,9 @@ def compute_saxs(q,populations,params):
         Scattering equation parameters. 
         Each entry is a list with one item for each 
         of the corresponding populations.
+    check_params : bool
+        Whether or not to check `params` for consistency with `populations`.
+        Default is True. Turn this to False when speed is needed. 
 
     Returns
     ------- 
@@ -66,10 +69,11 @@ def compute_saxs(q,populations,params):
         Array of scattering intensities for each of the input q values
     """
     I = np.zeros(len(q))
+    if bool(check_params):
+        _check_params(populations,params)
     if not bool(populations['unidentified']):
         I0_floor = params['I0_floor'] 
         I = I0_floor*np.ones(len(q))
-
         if bool(populations['guinier_porod']):
             rg_gp = params['rg_gp']
             G_gp = params['G_gp']
@@ -77,7 +81,6 @@ def compute_saxs(q,populations,params):
             for igp in range(populations['guinier_porod']):
                 I_gp = guinier_porod(q,rg_gp[igp],D_gp[igp],G_gp[igp])
                 I += I_gp
-
         if bool(populations['spherical_normal']):
             I0_sph = params['I0_sphere']
             r0_sph = params['r0_sphere']
@@ -85,7 +88,6 @@ def compute_saxs(q,populations,params):
             for isph in range(populations['spherical_normal']):
                 I_sph = spherical_normal_saxs(q,r0_sph[isph],sigma_sph[isph])
                 I += I0_sph[isph]*I_sph
-
         if bool(populations['diffraction_peaks']):
             I_pk = params['I_pkcenter']
             q_pk = params['q_pkcenter']
@@ -93,8 +95,38 @@ def compute_saxs(q,populations,params):
             for ipk in range(populations['diffraction_peaks']):
                 I_voigt = peak_math.voigt(q-q_pk[ipk],pk_hwhm[ipk],pk_hwhm[ipk])
                 I += I_pk[ipk]*I_voigt
-
     return I
+
+def _check_params(populations,params):
+    """Ensure params are consistent with populations, else raise Exception."""
+    for pop_key, npop in populations.items():
+        if pop_key == 'unidentified':
+            # check for sane I0_floor parameter
+            msg = 'Parameter I0_floor should be a list containing one float. '\
+                'The provided value was {}'.format(params['I0_floor'])
+            if not isinstance(params['I0_floor'],list):
+                raise RuntimeError(msg)
+            elif not len(params['I0_floor']) == 1:
+                raise RuntimeError(msg)
+            elif not isinstance(params['I0_floor'][0],float):
+                raise RuntimeError(msg)
+        elif bool(populations[pop_key]):
+            # check all parameters for this population
+            for param_key in parameter_keys[pop_key]:
+                if not isinstance(params[param_key],list):
+                    msg = 'Parameter {} was not provided as a list'\
+                    .format(param_key)
+                    raise(RuntimeError(msg))
+                elif not len(params[param_key]) == npop:
+                    msg = 'Population {} is {}, '\
+                    .format(pop_key,npop)\
+                    + 'but {} values were provided for parameter {}.'\
+                    .format(len(params[param_key]),param_key)
+                    raise(RuntimeError(msg))
+                elif any([p is None for p in params[param_key]]):
+                    msg = 'Found None entries for parameter {}'\
+                    .format(param_key)
+                    raise(RuntimeError(msg))
 
 def g_of_r(q_I):
     """Compute g(r) and the maximum characteristic scatterer length.
