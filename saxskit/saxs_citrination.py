@@ -62,8 +62,7 @@ class CitrinationSaxsModels(object):
             inputs[k] = v
         return inputs
 
-
-    def predict_params(self,populations,features,q_I, predict_intens_params = True):
+    def predict_params(self,populations,features,q_I):
         """Use Citrination to predict the scattering parameters.
 
         Parameters
@@ -76,18 +75,17 @@ class CitrinationSaxsModels(object):
             similar to output of saxs_math.profile_spectrum().
         q_I : array
             n-by-2 array of scattering vector (1/Angstrom) and intensities.
-        predict_intens_params : bool
-            if True, intensivity parameters are calculated using SaxsFitter
 
-        Returns
-        -------
         Returns
         -------
         params : dict
             dictionary of predicted and calculated scattering parameters:
-            r0_sphere, sigma_sphere, and rg_gp are predicted using Citrinaion models
-            IO_floor and IO_sphere are calculated using SaxsFitter
+            r0_sphere, sigma_sphere, and rg_gp 
+            are predicted using Citrination models.
         """
+        # TODO: The predictions need to handle 
+        # multiple populations of the same type:
+        # include this once we have training data
 
         features = self.append_str_property(features)
 
@@ -102,7 +100,7 @@ class CitrinationSaxsModels(object):
             uncertainties['r0_sphere'] = float(resp['candidates'][0]['Property r0_sphere'][1])
             additional_features = saxs_math.spherical_normal_profile(q_I)
             additional_features = self.append_str_property(additional_features)
-            ss_features = dict(features)
+            ss_features = OrderedDict(features)
             ss_features.update(additional_features)
             resp = self.client.predict("28", ss_features)
             params['sigma_sphere'] = [float(resp['candidates'][0]['Property sigma_sphere'][0])]
@@ -115,22 +113,6 @@ class CitrinationSaxsModels(object):
             rg_features.update(additional_features)
             resp =self.client.predict("29", rg_features)
             params['rg_gp'] = [float(resp['candidates'][0]['Property rg_gp'][0])]
-            uncertainties['rg_gp'] = float(resp['candidates'][0]['Property rg_gp'][0])
-
-        if predict_intens_params:
-            params['I0_floor'] = [saxs_fit.param_defaults['I0_floor']]
-            uncertainties['I0_floor'] = None
-            if bool(populations['spherical_normal']):
-                params['I0_sphere'] = [saxs_fit.param_defaults['I0_sphere']]
-                uncertainties['I0_sphere'] = None
-            if bool(populations['guinier_porod']):
-                params['G_gp'] = [saxs_fit.param_defaults['G_gp']]
-                uncertainties['G_gp'] = None
-            if bool(populations['diffraction_peaks']):
-                params['I_pkcenter'] = [saxs_fit.param_defaults['I_pkcenter']]
-                uncertainties['G_gp'] = None
-            sxf = saxs_fit.SaxsFitter(q_I,populations)
-            p_fit, rpt = sxf.fit_intensity_params(params)
-            params = saxs_fit.update_params(params,p_fit)
+            uncertainties['rg_gp'] = float(resp['candidates'][0]['Property rg_gp'][1])
 
         return params,uncertainties

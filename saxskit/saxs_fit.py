@@ -43,6 +43,9 @@ def update_params(p_old,p_new):
                 p_old[k][i] = val
     return p_old
 
+
+
+
 class SaxsFitter(object):
     """Container for handling SAXS spectrum parameter fitting."""
 
@@ -225,6 +228,40 @@ class SaxsFitter(object):
                     v[idx] = True
         return self.fit(params,fp)
 
+    def estimate_peak_params(self,params=None):
+        if params is None:
+            params = self.default_params()
+        if bool(self.populations['diffraction_peaks']):
+            # 1) walk the spectrum, collect best diff. pk. candidates
+            pk_idx, pk_conf = peak_finder.peaks_by_window(self.q,self.I,20.,0.)
+            conf_idx = np.argsort(pk_conf)[::-1]
+            params['q_pkcenter'] = []
+            params['I_pkcenter'] = []
+            params['pk_hwhm'] = []
+            npk = 0
+            # 2) for each peak (from best candidate to worst),
+            for idx in conf_idx:
+                if npk < self.populations['diffraction_peaks']:
+                    # a) record the q value
+                    q_pk = q_I[:,0][pk_idx[idx]]
+                    # b) estimate the intensity
+                    I_at_qpk = q_I[:,1][pk_idx[idx]]
+                    I_pk = I_at_qpk * 0.1
+                    #I_pk = I_at_qpk - I_nopeaks[pk_idx[idx]] 
+                    # c) estimate the width
+                    idx_around_pk = (q_I[:,0]>0.95*q_pk) & (q_I[:,0]<1.05*q_pk)
+                    qs,qmean,qstd = saxs_math.standardize_array(q_I[idx_around_pk,0])
+                    Is,Imean,Istd = saxs_math.standardize_array(q_I[idx_around_pk,1])
+                    p_pk = np.polyfit(qs,Is,2,None,False,np.ones(len(qs)),False)
+                    # quadratic vertex horizontal coord is -b/2a
+                    #qpk_quad = -1*p_pk[1]/(2*p_pk[0])
+                    # quadratic focal width is 1/a 
+                    p_pk_fwidth = abs(1./p_pk[0])*qstd
+                    params['q_pkcenter'].append(q_pk)
+                    params['I_pkcenter'].append(I_pk)
+                    params['pk_hwhm'].append(p_pk_fwidth*0.5)
+                    npk += 1    
+        return params
 
     def lmf_fitreport(self,lmf_result):
         rpt = OrderedDict()
