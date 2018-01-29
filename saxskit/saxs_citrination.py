@@ -120,7 +120,7 @@ class CitrinationSaxsModels(object):
         if predict_intens_params:
             params['I0_floor'] = [saxs_fit.param_defaults['I0_floor']]
             uncertainties['I0_floor'] = None
-            if bool(populations['spherical_normal]):
+            if bool(populations['spherical_normal']):
                 params['I0_sphere'] = [saxs_fit.param_defaults['I0_sphere']]
                 uncertainties['I0_sphere'] = None
             if bool(populations['guinier_porod']):
