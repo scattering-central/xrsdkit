@@ -50,15 +50,16 @@ To predict scatters populations we can use SAXSKIT models (built on Sklearn) or 
 * Initialize SaxsClassifier and **predicted scatterer populations**: ::
 
     from saxskit.saxskit.saxs_classify import SaxsClassifier
-    m = SaxsClassifier()
-    flags, propability = m.classify(features)
-    print(flags, '\n')
+    populations, propability = m.classify(features)
+    print("scatterer populations: ")
+    for k,v in populations.items():
+        print(k, ":", v, "  with propability: %1.3f" % (propability[k]))
+    print()
 
-OrderedDict([('unidentified', 0), ('guinier_porod', 0), ('spherical_normal', 1), ('diffraction_peaks', 0)])  ::
-
-    print(propability)
-
-OrderedDict([('unidentified', 0.98434783933093362), ('guinier_porod', 0.77155300517387915), ('spherical_normal', 0.99507546483900045), ('diffraction_peaks', 0.99636914340613381)])
+| unidentified : 0 with propability: 0.984
+| guinier_porod : 0 with propability: 0.772
+| spherical_normal : 1 with propability: 0.995
+| diffraction_peaks : 0 with propability: 0.996
 
 
 * Initialize SaxsRegressor and **predict counting scatterer parameters**: ::
@@ -66,9 +67,25 @@ OrderedDict([('unidentified', 0.98434783933093362), ('guinier_porod', 0.77155300
     from saxskit.saxskit.saxs_regression import SaxsRegressor
     r = SaxsRegressor()
     param = r.predict_params(flags,features, q_i)
-    print(param)
 
-OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 26.770631802929802), ('sigma_sphere', 0.048352866927024042)])
+
+* Initialize SaxsFitter and **update scatterer parameters with intensity parametes**: ::
+
+    from saxskit import saxs_fit
+    sxf = saxs_fit.SaxsFitter(q_i,populations)
+    params, report = sxf.fit_intensity_params(params)
+    print("scattering and intensity parameters: ")
+    for k,v in params.items():
+        print(k, ":", end="")
+        for n in v:
+            print(" %10.3f" % (n))
+    print()
+
+| I0_floor :      0.618
+| I0_sphere :   2427.587
+| r0_sphere :     26.771
+| sigma_sphere :      0.048
+|
 
 
 **Using Citrination models:**
@@ -83,30 +100,50 @@ OrderedDict([('I0_floor', 0.0), ('I0_sphere', 0.0), ('r0_sphere', 26.77063180292
 * Predict scatterer populations::
 
     flags, uncertainties = saxs_models.classify(features)
-    print(flags)
+    for k,v in flags.items():
+        print(k, ":", v, "  with uncertainties: %1.3f" % (uncertainties[k]))
 
-OrderedDict([('unidentified', 0), ('guinier_porod', 0), ('spherical_normal', 1), ('diffraction_peaks', 0)]) ::
+| unidentified : 0 with uncertainties: 0.008
+| guinier_porod : 0 with uncertainties: 0.051
+| spherical_normal : 1 with uncertainties: 0.009
+| diffraction_peaks : 0 with uncertainties: 0.006
 
-    print(uncertainties)
-
-OrderedDict([('unidentified', 0.007825454281763955), ('guinier_porod', 0.05050983018934078), ('spherical_normal', 0.008604491365074463), ('diffraction_peaks', 0.006164954858187079)])
 
 * Predict counting scatterer parameters: ::
 
     params,uncertainties = saxs_models.predict_params(flags, features, q_i)
-    print(params)
 
-OrderedDict([('r0_sphere', 27.928580936639083), ('sigma_sphere', 0.09907383296227086)]) ::
+* Initialize SaxsFitter and **update scatterer parameters with intensity parametes**: ::
 
-    print(uncertainties)
+    sxf = saxs_fit.SaxsFitter(q_i,populations)
+    params, report = sxf.fit_intensity_params(params)
+    print("scattering and intensity parameters: ")
+    for k,v in params.items():
+        print(k, ":", end="")
+        for n in range(len(v)):
+            print(" %10.3f" % (v[n]))
+    print()
 
-OrderedDict([('r0_sphere', 0.7889737778699067), ('sigma_sphere', 0.09215120039782715)])
+| I0_floor :      0.545
+| I0_sphere :   3022.984
+| r0_sphere :     27.929
+| sigma_sphere :      0.099
 
-The full version of code:
+::
+
+    for k,v in uncertainties.items():
+        print(k, ": %1.3f" % (v))
+
+| r0_sphere : 0.789
+| sigma_sphere : 0.092
+|
+
+
+The full version of this code:
 https://github.com/scattering-central/saxskit/blob/examples/examples/predict.py
 
 Output:
-.. image:: /examples/output_predict.png
+https://github.com/scattering-central/saxskit/blob/examples/examples/output.png
 
 Installation
 ------------
