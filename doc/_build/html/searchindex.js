@@ -1,0 +1,1 @@
+Search.setIndex({docnames:["index"],envversion:53,filenames:["index.rst"],objects:{},objnames:{},objtypes:{},terms:{index:0,modul:[],page:0,search:0},titles:["saxskit: Python modules for small angle x-ray scattering data analysis"],titleterms:{analysi:0,angl:0,data:0,document:[],indic:0,modul:0,python:0,rai:0,saxskit:0,scatter:0,small:0,tabl:0,welcom:[]}})
