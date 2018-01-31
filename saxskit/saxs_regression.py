@@ -78,10 +78,13 @@ class SaxsRegressor(object):
             r0sph = self.models['r0_sphere'].predict(x)
             params['r0_sphere'] = [float(r0sph[0])]
             additional_features = saxs_math.spherical_normal_profile(q_I)
-            ss_features = np.append(feature_array, np.array(list(additional_features.values()))).reshape(1,-1)
-            x = self.scalers['sigma_sphere'].transform(ss_features)
-            sigsph = self.models['sigma_sphere'].predict(x)
-            params['sigma_sphere'] = [float(sigsph[0])]
+            if None in additional_features.values():
+                params['sigma_sphere'] = [float(saxs_fit.param_defaults['sigma_sphere'])]
+            else:
+                ss_features = np.append(feature_array, np.array(list(additional_features.values()))).reshape(1,-1)
+                x = self.scalers['sigma_sphere'].transform(ss_features)
+                sigsph = self.models['sigma_sphere'].predict(x)
+                params['sigma_sphere'] = [float(sigsph[0])]
 
         if bool(populations['guinier_porod']):
             additional_features = saxs_math.guinier_porod_profile(q_I)

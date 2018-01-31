@@ -638,8 +638,7 @@ def spherical_normal_profile(q_I):
         if np.argmin(Iqqqq[idx-w:idx+w+1]) == w and idxmin1 == 0 and not idxmax1 == 0:
             idxmin1 = idx
     if idxmin1 == 0 or idxmax1 == 0:
-        # try characterizing the center of the q-range.
-        idxmin1 = int(len(q)/2)    
+        return features 
     #######
     # 2: Characterize I*q**4 around idxmin1. 
     idx_around_min1 = (q>0.9*q[idxmin1]) & (q<1.1*q[idxmin1])
