@@ -26,7 +26,7 @@ param_defaults = OrderedDict(
 param_limits = OrderedDict(
     I0_floor = (0.,10.),
     G_gp = (0.,1.E4),
-    rg_gp = (1.E-6,1000.),
+    rg_gp = (1.E-1,1000.),
     D_gp = (0.,4.),
     I0_sphere = (0.,1.E4),
     r0_sphere = (1.,1000.),
@@ -42,9 +42,6 @@ def update_params(p_old,p_new):
             if i < npar:
                 p_old[k][i] = val
     return p_old
-
-
-
 
 class SaxsFitter(object):
     """Container for handling SAXS spectrum parameter fitting."""
@@ -109,16 +106,20 @@ class SaxsFitter(object):
         if bool(self.populations['unidentified']):
             return OrderedDict(),OrderedDict()
 
+        dp = self.default_params()
         if params is None:
-            params = self.default_params()
+            params = dp
+        else:
+            params = update_params(dp,params)
 
-        #obj_init = self.evaluate(params)
+        obj_init = self.evaluate(params)
         #print('obj_init: {}'.format(obj_init))
 
         lmf_params = self.lmfit_params(params,fixed_params,param_limits) 
         lmf_res = lmfit.minimize(self.lmf_evaluate,lmf_params,method='nelder-mead')
         p_opt = self.saxskit_params(lmf_res.params) 
         rpt = self.lmf_fitreport(lmf_res)
+        rpt['initial_objective'] = obj_init 
         
         obj_opt = self.evaluate(p_opt)
         #print(p_opt)
@@ -213,7 +214,7 @@ class SaxsFitter(object):
         p = self.default_params()
         for pkey,pvals in p.items():
             for validx,val in enumerate(pvals):
-                p[pkey][validx] = lmfit_params[pkey+str(validx)].value
+                p[pkey][validx] = float(lmfit_params[pkey+str(validx)].value)
         return p
 
     def fit_intensity_params(self,params):
@@ -257,9 +258,9 @@ class SaxsFitter(object):
                     #qpk_quad = -1*p_pk[1]/(2*p_pk[0])
                     # quadratic focal width is 1/a 
                     p_pk_fwidth = abs(1./p_pk[0])*qstd
-                    params['q_pkcenter'].append(q_pk)
-                    params['I_pkcenter'].append(I_pk)
-                    params['pk_hwhm'].append(p_pk_fwidth*0.5)
+                    params['q_pkcenter'].append(float(q_pk))
+                    params['I_pkcenter'].append(float(I_pk))
+                    params['pk_hwhm'].append(float(p_pk_fwidth*0.5))
                     npk += 1    
         return params
 
@@ -267,7 +268,7 @@ class SaxsFitter(object):
         rpt = OrderedDict()
         rpt['success'] = lmf_result.success
         fit_obj = self.lmf_evaluate(lmf_result.params)
-        rpt['objective_value'] = fit_obj
+        rpt['final_objective'] = fit_obj
         I_opt = saxs_math.compute_saxs(self.q,self.populations,
             self.saxskit_params(lmf_result.params)) 
         I_bg = self.I - I_opt

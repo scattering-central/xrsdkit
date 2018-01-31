@@ -638,10 +638,7 @@ def spherical_normal_profile(q_I):
         if np.argmin(Iqqqq[idx-w:idx+w+1]) == w and idxmin1 == 0 and not idxmax1 == 0:
             idxmin1 = idx
     if idxmin1 == 0 or idxmax1 == 0:
-        ex_msg = str('unable to find first maximum and minimum of I*q^4 '
-        + 'by scanning for local extrema with a window width of {} points'.format(w))
-        features['message'] = ex_msg 
-        raise RuntimeError(ex_msg)
+        return features 
     #######
     # 2: Characterize I*q**4 around idxmin1. 
     idx_around_min1 = (q>0.9*q[idxmin1]) & (q<1.1*q[idxmin1])

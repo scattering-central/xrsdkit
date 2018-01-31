@@ -71,8 +71,8 @@ class SaxsClassifier(object):
         certainties = OrderedDict()
 
         x = self.scalers['unidentified'].transform(feature_array)
-        pop = self.models['unidentified'].predict(x)[0]
-        cert = self.models['unidentified'].predict_proba(x)[0,int(pop)]
+        pop = int(self.models['unidentified'].predict(x)[0])
+        cert = self.models['unidentified'].predict_proba(x)[0,pop]
         populations['unidentified'] = pop 
         certainties['unidentified'] = cert 
 
@@ -80,8 +80,8 @@ class SaxsClassifier(object):
             for k in saxs_fit.population_keys:
                 if not k == 'unidentified':
                     x = self.scalers[k].transform(feature_array)
-                    pop = self.models[k].predict(x)[0]
-                    cert = self.models[k].predict_proba(x)[0,int(pop)]
+                    pop = int(self.models[k].predict(x)[0])
+                    cert = self.models[k].predict_proba(x)[0,pop]
                     populations[k] = pop 
                     certainties[k] = cert 
 
