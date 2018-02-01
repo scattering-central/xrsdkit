@@ -5,9 +5,16 @@
 saxskit: Python modules for small angle x-ray scattering data analysis
 ======================================================================
 
+Contents:
+
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 3
+
+   description
+   installation
+   usage
+   packagedoc
+
 
 
 
