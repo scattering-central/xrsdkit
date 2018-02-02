@@ -165,7 +165,7 @@ def g_of_r(q_I):
     r_max = r_pos[idx]
     return np.vstack([r_pos,fftampI_rpos]).T,r_max
 
-def spherical_normal_saxs(q,r0,sigma,sampling_width=3.5,sampling_step=0.25):
+def spherical_normal_saxs(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):
     """Compute SAXS intensity of a normally-distributed sphere population.
 
     The returned intensity is normalized 

@@ -8,7 +8,7 @@ import copy
 import numpy as np
 import lmfit
 
-from . import saxs_math
+from . import saxs_math, peak_finder
 from . import population_keys, parameter_keys
 
 param_defaults = OrderedDict(
@@ -24,15 +24,15 @@ param_defaults = OrderedDict(
     pk_hwhm = 0.001)
 
 param_limits = OrderedDict(
-    I0_floor = (0.,10.),
-    G_gp = (0.,1.E4),
+    I0_floor = (0.,100.),
+    G_gp = (0.,None),
     rg_gp = (1.E-1,1000.),
     D_gp = (0.,4.),
-    I0_sphere = (0.,1.E4),
+    I0_sphere = (0.,None),
     r0_sphere = (1.,1000.),
     sigma_sphere = (0.,0.5),
     q_pkcenter = (0.,1.),
-    I_pkcenter = (0.,1.E5),
+    I_pkcenter = (0.,None),
     pk_hwhm = (1.E-6,1.E-1))
 
 def update_params(p_old,p_new):
@@ -46,7 +46,7 @@ def update_params(p_old,p_new):
 class SaxsFitter(object):
     """Container for handling SAXS spectrum parameter fitting."""
 
-    def __init__(self,q_I,populations):
+    def __init__(self,q_I,populations,dI=None):
         """Initialize a SaxsFitter.
 
         Parameters
@@ -58,7 +58,13 @@ class SaxsFitter(object):
         populations : dict
             dict of the number of distinct populations 
             for each of the various scatterer types. 
-            See saxs_math module documentation. 
+            See saxs_math module documentation.
+        dI : array
+            1-dimensional array of error estimates
+            for scattering intensities (optional).
+            If not provided, error-weighted fitting
+            is performed using the square root of the intensity
+            as the error estimate. 
         """
         self.populations = populations
         self.q = q_I[:,0]
@@ -67,13 +73,19 @@ class SaxsFitter(object):
         self.logI = np.empty(self.I.shape)
         self.logI.fill(np.nan)
         self.logI[self.idx_fit] = np.log(self.I[self.idx_fit])
+        if dI is not None:
+            self.dI = dI
+        else:
+            self.dI = np.empty(self.I.shape)
+            self.dI.fill(np.nan)
+            self.dI[self.idx_fit] = np.sqrt(self.I[self.idx_fit])
 
-    def fit(self,params=None,fixed_params=None,param_limits=None,objective='chi2log'):
+    def fit(self,params=None,fixed_params=None,param_limits=None,error_weighted=True,objective='chi2log'):
         """Fit the SAXS spectrum, optionally holding some parameters fixed.
     
         Parameters
         ----------
-        params : dict
+        params : dict, optional
             Dict of scattering equation parameters (initial guess).
             If not provided, some defaults are chosen.
         fixed_params : dict, optional
@@ -89,6 +101,9 @@ class SaxsFitter(object):
         param_limits : dict, optional
             Like `fixed_params`, but containing tuples that define
             the upper and lower limits for fitting each parameter.
+        error_weighted : bool
+            Flag for whether or not the fit 
+            should be weighted by the intensity error estimates.
         objective : string
             Choice of objective function 
             (currently the only option is 'chi2log').
@@ -112,16 +127,26 @@ class SaxsFitter(object):
         else:
             params = update_params(dp,params)
 
-        obj_init = self.evaluate(params)
+        obj_init = self.evaluate(params,error_weighted)
         #print('obj_init: {}'.format(obj_init))
 
         lmf_params = self.lmfit_params(params,fixed_params,param_limits) 
-        lmf_res = lmfit.minimize(self.lmf_evaluate,lmf_params,method='nelder-mead')
+        lmf_res = lmfit.minimize(self.lmf_evaluate,
+            lmf_params,method='nelder-mead',
+            kws={'error_weighted':error_weighted})
         p_opt = self.saxskit_params(lmf_res.params) 
-        rpt = self.lmf_fitreport(lmf_res)
+
+        rpt = OrderedDict()
+        rpt['success'] = lmf_res.success
         rpt['initial_objective'] = obj_init 
-        
-        obj_opt = self.evaluate(p_opt)
+        fit_obj = self.lmf_evaluate(lmf_res.params,error_weighted)
+        rpt['final_objective'] = fit_obj 
+        I_opt = saxs_math.compute_saxs(self.q,self.populations,
+            self.saxskit_params(lmf_res.params)) 
+        I_bg = self.I - I_opt
+        snr = np.mean(I_opt)/np.std(I_bg) 
+        rpt['fit_snr'] = snr
+
         #print(p_opt)
         #print('obj_opt: {}'.format(obj_opt))
 
@@ -150,28 +175,35 @@ class SaxsFitter(object):
                     pd[pk] = [float(param_defaults[pk]) for i in range(v)]
         return pd
 
-    def lmf_evaluate(self,lmf_params):
-        return self.evaluate(self.saxskit_params(lmf_params))
+    def lmf_evaluate(self,lmf_params,error_weighted=True):
+        return self.evaluate(self.saxskit_params(lmf_params),error_weighted)
 
-    def evaluate(self,params):
+    def evaluate(self,params,error_weighted=True):
         """Evaluate the objective for a given dict of params.
 
         Parameters
         ----------
         params : dict
             Dict of scattering equation parameters.
+        error_weighted : bool
+            Flag for whether or not to weight the fit
+            by the intensity error estimate.
 
         Returns
         -------
-        chi2log : float
-            sum of difference squared of log(I) 
-            between measured intensity and the 
-            intensity computed from `param_dict`.
+        objective : float
+            Value of the fitting objective for `param_dict`.
         """
         I_comp = saxs_math.compute_saxs(
             self.q,self.populations,params)
         #I_comp[I_comp<0.] = 1.E-12
-        chi2log_total = saxs_math.compute_chi2(
+        if error_weighted:
+            obj = saxs_math.compute_chi2(
+                    np.log(I_comp[self.idx_fit]),
+                    self.logI[self.idx_fit],
+                    self.dI[self.idx_fit])
+        else:
+            obj = saxs_math.compute_chi2(
                     np.log(I_comp[self.idx_fit]),
                     self.logI[self.idx_fit])
         #print('params: {}'.format(params))
@@ -181,7 +213,7 @@ class SaxsFitter(object):
         #plt.semilogy(self.q,self.logI)
         #plt.semilogy(self.q,I_comp,'r-')
         #plt.show()
-        return chi2log_total 
+        return obj 
 
     def lmfit_params(self,params=None,fixed_params=None,param_bounds=None):
         # params
@@ -234,7 +266,7 @@ class SaxsFitter(object):
             params = self.default_params()
         if bool(self.populations['diffraction_peaks']):
             # 1) walk the spectrum, collect best diff. pk. candidates
-            pk_idx, pk_conf = peak_finder.peaks_by_window(self.q,self.I,20.,0.)
+            pk_idx, pk_conf = peak_finder.peaks_by_window(self.q,self.I,20,0.)
             conf_idx = np.argsort(pk_conf)[::-1]
             params['q_pkcenter'] = []
             params['I_pkcenter'] = []
@@ -244,15 +276,15 @@ class SaxsFitter(object):
             for idx in conf_idx:
                 if npk < self.populations['diffraction_peaks']:
                     # a) record the q value
-                    q_pk = q_I[:,0][pk_idx[idx]]
+                    q_pk = self.q[pk_idx[idx]]
                     # b) estimate the intensity
-                    I_at_qpk = q_I[:,1][pk_idx[idx]]
+                    I_at_qpk = self.I[pk_idx[idx]]
                     I_pk = I_at_qpk * 0.1
                     #I_pk = I_at_qpk - I_nopeaks[pk_idx[idx]] 
                     # c) estimate the width
-                    idx_around_pk = (q_I[:,0]>0.95*q_pk) & (q_I[:,0]<1.05*q_pk)
-                    qs,qmean,qstd = saxs_math.standardize_array(q_I[idx_around_pk,0])
-                    Is,Imean,Istd = saxs_math.standardize_array(q_I[idx_around_pk,1])
+                    idx_around_pk = (self.q>0.95*q_pk) & (self.q<1.05*q_pk)
+                    qs,qmean,qstd = saxs_math.standardize_array(self.q[idx_around_pk])
+                    Is,Imean,Istd = saxs_math.standardize_array(self.I[idx_around_pk])
                     p_pk = np.polyfit(qs,Is,2,None,False,np.ones(len(qs)),False)
                     # quadratic vertex horizontal coord is -b/2a
                     #qpk_quad = -1*p_pk[1]/(2*p_pk[0])
@@ -263,18 +295,6 @@ class SaxsFitter(object):
                     params['pk_hwhm'].append(float(p_pk_fwidth*0.5))
                     npk += 1    
         return params
-
-    def lmf_fitreport(self,lmf_result):
-        rpt = OrderedDict()
-        rpt['success'] = lmf_result.success
-        fit_obj = self.lmf_evaluate(lmf_result.params)
-        rpt['final_objective'] = fit_obj
-        I_opt = saxs_math.compute_saxs(self.q,self.populations,
-            self.saxskit_params(lmf_result.params)) 
-        I_bg = self.I - I_opt
-        snr = np.mean(I_opt)/np.std(I_bg) 
-        rpt['fit_snr'] = snr
-        return rpt 
 
 
 ## TODO: refactor this to new api.
