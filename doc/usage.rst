@@ -228,6 +228,10 @@ Step 3. Train Regression models ::
 
 For the regression models, "Leave N Group Out" technique is also used. The accuracy is calculated as absolute mean error divided by standard derivation.
 
+The full version of this code:
+https://github.com/scattering-central/saxskit/blob/doc/examples/train.py
+
+
 Updating the models
 '''''''''''''''''''
 
@@ -241,4 +245,36 @@ Assume that we got a new dataset and now we want to update our models using new 
     from saxskit.saxskit.saxs_models import train_classifiers_partial, train_regressors_partial
 
 Step 1. Get data from Citrination using Citrination credentials ::
+
+    path = os.getcwd()
+    api_key_file = path + '/citrination_api_key_ssrl.txt'
+
+    with open(api_key_file, "r") as g:
+        a_key = g.readline().strip()
+    cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
+
+    new_data = get_data_from_Citrination(client = cl, dataset_id_list= [16]) # [16] is a list of datasets ids
+
+Step 2 (optional). Get all available data from Citrination ::
+
+    all_data = get_data_from_Citrination(client = cl, dataset_id_list= [1,15,16])
+
+Step 3. Update Classifiers ::
+
+    train_classifiers_partial(new_data, yaml_filename = None, all_training_data = all_data)
+
+Step 4. Update rergession models ::
+
+    train_regressors_partial(new_data, yaml_filename = None, all_training_data = all_data)
+
+The full version of this code:
+https://github.com/scattering-central/saxskit/blob/doc/examples/update_models.py
+
+
+Step 5. Compare accuracy and re-train models if it is needed
+If new accuracy is worth than accuracy we had before updating, it is recommended to retrain the models from scratch using all available data: ::
+
+    from saxskit.saxskit.saxs_models import train_classifiers, train_regressors
+    train_classifiers(all_data,  hyper_parameters_search = True)
+    train_regressors(all_data,  hyper_parameters_search = True)
 
