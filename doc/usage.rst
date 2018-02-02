@@ -240,3 +240,5 @@ Assume that we got a new dataset and now we want to update our models using new 
     from saxskit.saxskit.saxs_models import get_data_from_Citrination
     from saxskit.saxskit.saxs_models import train_classifiers_partial, train_regressors_partial
 
+Step 1. Get data from Citrination using Citrination credentials ::
+
