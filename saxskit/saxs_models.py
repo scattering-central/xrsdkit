@@ -14,7 +14,7 @@ from . import saxs_piftools
 from . import population_keys, parameter_keys, profile_keys
 from . import all_profile_keys, all_parameter_keys
 
-def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=False):
+def train_classifiers(all_data, yaml_filename=None, accuracy_file=None, hyper_parameters_search=False):
     """Train and save SAXS classification models as a YAML file.
 
     Parameters
@@ -24,6 +24,9 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
     yaml_filename : str
         File where scalers and models will be saved.
         If None, the default file is used.
+    accuracy_file : str
+        File where accuracy will be saved.
+        If None, the default file is used.
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
@@ -32,7 +35,11 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
     else:
         yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
 
-    accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
+    if accuracy_file is None:
+        accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
+    else:
+        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
+
     current_version = list(map(int,sklearn.__version__.split('.')))
 
     scalers = {}
@@ -198,7 +205,7 @@ def train_classifiers(all_data, yaml_filename=None, hyper_parameters_search=Fals
     with open (accuracy_txt, 'w') as txt_file:
         txt_file.write(str(accuracy))
 
-def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False):
+def train_regressors(all_data, yaml_filename=None, accuracy_file=None, hyper_parameters_search=False):
     """Train and save SAXS classification models as a YAML file.
     Parameters
     ----------
@@ -206,6 +213,9 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
         dataframe containing features and labels
     yaml_filename : str
         File where scalers and models will be saved.
+        If None, the default file is used.
+    accuracy_file : str
+        File where accuracy will be saved.
         If None, the default file is used.
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
@@ -218,7 +228,11 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
     else:
         yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
 
-    accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
+    if accuracy_file is None:
+        accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
+    else:
+        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
+
     current_version = list(map(int,sklearn.__version__.split('.')))
 
     scalers = {}
@@ -249,7 +263,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
 
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
-        features = profile_keys['unidentified']
+        features = []
+        features.extend(profile_keys['unidentified'])
         features.extend(profile_keys['spherical_normal'])
 
         scaler, reg, acc = train(all_data, features, 'sigma_sphere', hyper_parameters_search)
@@ -265,7 +280,8 @@ def train_regressors(all_data, yaml_filename=None, hyper_parameters_search=False
     # rg_gp model
     if possible_models['rg_gp'] == True:
 
-        features = profile_keys['unidentified']
+        features = []
+        features.extend(profile_keys['unidentified'])
         features.extend(profile_keys['guinier_porod'])
 
         scaler, reg, acc = train(all_data, features, 'rg_gp', hyper_parameters_search)
@@ -366,11 +382,11 @@ def hyperparameters_search(data_features, data_labels, group_by, leaveNGroupOut,
 
     Returns
     -------
-    penalty : string ‘none’, ‘l2’, ‘l1’, or ‘elasticnet’
+    penalty : string 'none', 'l2', 'l1', or 'elasticnet'
         The penalty (aka regularization term) to be used.
     alpha : float
         Constant that multiplies the regularization term.
-        Defaults to 0.0001 Also used to compute learning_rate when set to ‘optimal’.
+        Defaults to 0.0001 Also used to compute learning_rate when set to 'optimal'.
     l1_ratio : string
         The Elastic Net mixing parameter, with 0 <= l1_ratio <= 1.
         l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1. Defaults to 0.15.
@@ -415,18 +431,18 @@ def hyperparameters_search_regression(data_features, data_labels, group_by, leav
 
     Returns
     -------
-    penalty : string ‘none’, ‘l2’, ‘l1’, or ‘elasticnet’
+    penalty : string 'none', 'l2', 'l1', or 'elasticnet'
         The penalty (aka regularization term) to be used.
     alpha : float
         Constant that multiplies the regularization term.
-        Defaults to 0.0001 Also used to compute learning_rate when set to ‘optimal’.
+        Defaults to 0.0001 Also used to compute learning_rate when set to 'optimal'.
     l1_ratio : string
         The Elastic Net mixing parameter, with 0 <= l1_ratio <= 1.
         l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1. Defaults to 0.15.
     loss: string 'huber' or 'squared_loss'
         The loss function to be used.
     epsilon: float
-        For ‘huber’ loss, epsilon determines the threshold at which it becomes less
+        For 'huber' loss, epsilon determines the threshold at which it becomes less
         important to get the prediction exactly right.
     """
 
@@ -617,6 +633,11 @@ def testing_by_experiments(df, label, features, alpha, l1_ratio, penalty):
                 & (df['experiment_id']!= experiments[j])]
             test = df[(df['experiment_id']== experiments[i]) \
                 | (df['experiment_id']== experiments[j])]
+
+            # The number of class labels must be greater than one
+            if len(tr[label].unique()) < 2:
+                continue
+
             scaler = preprocessing.StandardScaler()
             scaler.fit(tr[features])
             logsgdc = linear_model.SGDClassifier(
@@ -750,15 +771,17 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     return df_work
 
-def train_classifiers_partial(new_data, yaml_filename=None, all_training_data = None):
+def train_classifiers_partial(new_data, yaml_filename=None, accuracy_file=None, all_training_data = None):
     """update and save SAXS classification models as a YAML file.
-
     Parameters
     ----------
     new_data : pandas.DataFrame
         dataframe containing features and labels for updating models
     yaml_filename : str
         File where scalers and models was and will be saved.
+        If None, the default file is used.
+    accuracy_file : str
+        File where accuracy will be saved.
         If None, the default file is used.
     all_training_data : pandas.DataFrame
         dataframe containing features and labels for testing models
@@ -776,10 +799,13 @@ def train_classifiers_partial(new_data, yaml_filename=None, all_training_data = 
     models_dict = s_and_m['models']
     scalers_dict = s_and_m['scalers']
 
-    accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
+    if accuracy_file is None:
+        accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
+    else:
+        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
 
-    possible_models = check_labels(all_data)
-    features = profile_keys
+    possible_models = check_labels(all_training_data)
+    features = profile_keys['unidentified']
 
 
     # unidentified scatterer population model
@@ -825,15 +851,17 @@ def train_classifiers_partial(new_data, yaml_filename=None, all_training_data = 
     with open (accuracy_txt, 'w') as txt_file:
         txt_file.write(accuracy)
 
-def train_regressors_partial(new_data, yaml_filename=None, all_training_data = None):
+def train_regressors_partial(new_data, yaml_filename=None, accuracy_file=None, all_training_data = None):
     """Update and save SAXS regression models as a YAML file.
-
     Parameters
     ----------
     data : pandas.DataFrame
         dataframe containing features and labels for updating models
     yaml_filename : str
         File where scalers and models was and will be saved.
+        If None, the default file is used.
+    accuracy_file : str
+        File where accuracy will be saved.
         If None, the default file is used.
     all_training_data : pandas.DataFrame
         dataframe containing features and labels for testing models
@@ -852,14 +880,17 @@ def train_regressors_partial(new_data, yaml_filename=None, all_training_data = N
     reg_models_dict = s_and_m['models']
     scalers_dict = s_and_m['scalers']
 
-    accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
+    if accuracy_file is None:
+        accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
+    else:
+        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
 
     possible_models = check_labels_regression(new_data)
 
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
         features = []
-        features.extend(profile_keys)
+        features.extend(profile_keys['unidentified'])
 
         scaler, model, acc = train_partial(False, new_data, features, 'r0_sphere',
                                            reg_models_dict, scalers_dict, all_training_data)
@@ -875,10 +906,8 @@ def train_regressors_partial(new_data, yaml_filename=None, all_training_data = N
     if possible_models['sigma_sphere'] == True:
         features = []
 
-        features.extend(saxs_math.profile_keys['unidentified'])
-        features.extend(saxs_math.profile_keys['spherical_normal'])
-
-
+        features.extend(profile_keys['unidentified'])
+        features.extend(profile_keys['spherical_normal'])
 
         scaler, model, acc = train_partial(False, new_data, features, 'sigma_sphere',
                                            reg_models_dict, scalers_dict, all_training_data)
@@ -893,9 +922,9 @@ def train_regressors_partial(new_data, yaml_filename=None, all_training_data = N
     # rg_gp model
     if possible_models['rg_gp'] == True:
 
-        gr_features = []
-        gr_features.extend(profile_keys)
-        gr_features.extend(guinier_porod_profile_keys)
+        features = []
+        features.extend(profile_keys['unidentified'])
+        features.extend(profile_keys['guinier_porod'])
 
         scaler, model, acc = train_partial(False, new_data, features, 'rg_gp',
                                            reg_models_dict, scalers_dict, all_training_data)
