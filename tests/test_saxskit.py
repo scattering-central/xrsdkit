@@ -8,6 +8,11 @@ import numpy as np
 from saxskit import saxs_math, saxs_fit, saxs_classify, saxs_regression
 from saxskit import peak_math
 
+from citrination_client import CitrinationClient
+from saxskit.saxs_models import get_data_from_Citrination
+from saxskit.saxs_models import train_classifiers, train_regressors
+from saxskit.saxs_models import train_classifiers_partial, train_regressors_partial
+
 def test_guinier_porod():
     qvals = np.arange(0.01,1.,0.01)
     Ivals = saxs_math.guinier_porod(qvals,20,4,120)
@@ -118,20 +123,73 @@ def test_fitter():
         print('\t{}: {} --> {}'.format(k,v,p_opt[k]))
 
 
-'''
-def test_citrination_classifier(address,api_key_file):
-    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
-    sxc = saxs_classify.SaxsClassifier(model_file_path)
-    sxc.citrination_setup(address,api_key_file)
-    for data_type in ['precursors','spheres','peaks']:
-        data_path = os.path.join(os.getcwd(),'tests','test_data','solution_saxs',data_type)
-        data_files = glob.glob(os.path.join(data_path,'*.csv'))
-        for fpath in data_files:
-            print('testing classifier on {}'.format(fpath))
-            q_I = np.loadtxt(fpath,delimiter=',')
-            prof = saxs_math.profile_spectrum(q_I)
-            pops = sxc.citrination_predict(prof)
-            for popk,pop in pops.items():
-                print('\t{} populations: {} ({} certainty)'.format(popk,pop[0],pop[1]))
+def test_partial_fit():
+    path = os.getcwd()
+    head, tail = os.path.split(path)
+    api_key_file = os.path.join(head, 'api_key.txt')
+    if not os.path.exists(api_key_file):
+        return
+    with open(api_key_file, "r") as g:
+        a_key = g.readline().strip()
+    cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
-'''
+    data = get_data_from_Citrination(client = cl, dataset_id_list= [16])
+    data_len = data.shape[0]
+
+    train = data.iloc[:int(data_len * 0.9), : ]
+    train_part = data.iloc[int(data_len * 0.9): , : ]
+
+    train_classifiers(train,yaml_filename='test_scalers_and_models.yml', accuracy_file="test_accuracy.txt",
+                      hyper_parameters_search = False)
+    train_regressors(train, yaml_filename='test_scalers_and_models_regression.yml',
+                 accuracy_file="test_accuracy_reg.txt",hyper_parameters_search = False)
+
+    train_classifiers_partial(train_part, yaml_filename = 'test_scalers_and_models.yml',
+                          accuracy_file="test_accuracy.txt", all_training_data = data)
+    train_regressors_partial(train_part, yaml_filename = 'test_scalers_and_models_regression.yml',
+                             accuracy_file="test_accuracy_reg.txt", all_training_data = data)
+
+
+
+#def test_partial_fit():
+#    path = os.getcwd()
+#    print(path)
+#    head, tail = os.path.split(path)
+#    api_key_file = os.path.join(head, 'api_key.txt')
+#
+#    with open(api_key_file, "r") as g:
+#            a_key = g.readline().strip()
+#    cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
+#
+#    data = get_data_from_Citrination(client = cl, dataset_id_list= [16])
+#    data_len = data.shape[0]
+#
+#    train = data.iloc[:int(data_len * 0.9), : ]
+#    train_part = data.iloc[int(data_len * 0.9): , : ]
+#
+#    train_classifiers(train,yaml_filename='test_scalers_and_models.yml', accuracy_file="test_accuracy.txt",
+#                          hyper_parameters_search = False)
+#    train_regressors(train, yaml_filename='test_scalers_and_models_regression.yml',
+#                     accuracy_file="test_accuracy_reg.txt",hyper_parameters_search = False)
+#
+#    train_classifiers_partial(train_part, yaml_filename = 'test_scalers_and_models.yml',
+#                              accuracy_file="test_accuracy.txt", all_training_data = data)
+#    train_regressors_partial(train_part, yaml_filename = 'test_scalers_and_models_regression.yml',
+#                             accuracy_file="test_accuracy_reg.txt", all_training_data = data)
+#
+#
+#def test_citrination_classifier(address,api_key_file):
+#    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
+#    sxc = saxs_classify.SaxsClassifier(model_file_path)
+#    sxc.citrination_setup(address,api_key_file)
+#    for data_type in ['precursors','spheres','peaks']:
+#        data_path = os.path.join(os.getcwd(),'tests','test_data','solution_saxs',data_type)
+#        data_files = glob.glob(os.path.join(data_path,'*.csv'))
+#        for fpath in data_files:
+#            print('testing classifier on {}'.format(fpath))
+#            q_I = np.loadtxt(fpath,delimiter=',')
+#            prof = saxs_math.profile_spectrum(q_I)
+#            pops = sxc.citrination_predict(prof)
+#            for popk,pop in pops.items():
+#                print('\t{} populations: {} ({} certainty)'.format(popk,pop[0],pop[1]))
+#
