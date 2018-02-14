@@ -207,6 +207,7 @@ def train_classifiers(all_data, yaml_filename=None, accuracy_file=None, hyper_pa
 
 def train_regressors(all_data, yaml_filename=None, accuracy_file=None, hyper_parameters_search=False):
     """Train and save SAXS classification models as a YAML file.
+
     Parameters
     ----------
     all_data : pandas.DataFrame
@@ -248,7 +249,8 @@ def train_regressors(all_data, yaml_filename=None, accuracy_file=None, hyper_par
 
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
-        features = profile_keys['unidentified']
+        features = []
+        features.extend(profile_keys['unidentified'])
 
         scaler, reg, acc = train(all_data, features, 'r0_sphere', hyper_parameters_search)
 
@@ -279,7 +281,6 @@ def train_regressors(all_data, yaml_filename=None, accuracy_file=None, hyper_par
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
-
         features = []
         features.extend(profile_keys['unidentified'])
         features.extend(profile_keys['guinier_porod'])
