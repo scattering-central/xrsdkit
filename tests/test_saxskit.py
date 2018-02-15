@@ -12,6 +12,7 @@ from citrination_client import CitrinationClient
 from saxskit.saxs_models import get_data_from_Citrination
 from saxskit.saxs_models import train_classifiers, train_regressors
 from saxskit.saxs_models import train_classifiers_partial, train_regressors_partial
+from saxskit.saxs_models import save_models
 
 def test_guinier_porod():
     qvals = np.arange(0.01,1.,0.01)
@@ -139,45 +140,22 @@ def test_partial_fit():
     train = data.iloc[:int(data_len * 0.9), : ]
     train_part = data.iloc[int(data_len * 0.9): , : ]
 
-    train_classifiers(train,yaml_filename='test_scalers_and_models.yml', accuracy_file="test_accuracy.txt",
-                      hyper_parameters_search = False)
-    train_regressors(train, yaml_filename='test_scalers_and_models_regression.yml',
-                 accuracy_file="test_accuracy_reg.txt",hyper_parameters_search = False)
+    scalers, models, accuracy = train_classifiers(data,  hyper_parameters_search = False)
+    save_models(scalers, models, accuracy, yaml_filename='test_scalers_and_models.yml',
+                accuracy_file="test_accuracy.txt")
 
-    train_classifiers_partial(train_part, yaml_filename = 'test_scalers_and_models.yml',
-                          accuracy_file="test_accuracy.txt", all_training_data = data)
-    train_regressors_partial(train_part, yaml_filename = 'test_scalers_and_models_regression.yml',
-                             accuracy_file="test_accuracy_reg.txt", all_training_data = data)
+    scalers, models, accuracy = train_regressors(train,hyper_parameters_search = False)
+    save_models(scalers, models, accuracy, yaml_filename='test_scalers_and_models_regression.yml',
+                accuracy_file="test_accuracy_reg.txt")
+
+    train_classifiers_partial(train_part, all_training_data = data)
+    save_models(scalers, models, accuracy, yaml_filename='test_scalers_and_models.yml', accuracy_file="test_accuracy.txt")
+
+    train_regressors_partial(train_part, all_training_data = data)
+    save_models(scalers, models, accuracy, yaml_filename='test_scalers_and_models_regression.yml',
+                accuracy_file="test_accuracy_reg.txt")
 
 
-
-#def test_partial_fit():
-#    path = os.getcwd()
-#    print(path)
-#    head, tail = os.path.split(path)
-#    api_key_file = os.path.join(head, 'api_key.txt')
-#
-#    with open(api_key_file, "r") as g:
-#            a_key = g.readline().strip()
-#    cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
-#
-#    data = get_data_from_Citrination(client = cl, dataset_id_list= [16])
-#    data_len = data.shape[0]
-#
-#    train = data.iloc[:int(data_len * 0.9), : ]
-#    train_part = data.iloc[int(data_len * 0.9): , : ]
-#
-#    train_classifiers(train,yaml_filename='test_scalers_and_models.yml', accuracy_file="test_accuracy.txt",
-#                          hyper_parameters_search = False)
-#    train_regressors(train, yaml_filename='test_scalers_and_models_regression.yml',
-#                     accuracy_file="test_accuracy_reg.txt",hyper_parameters_search = False)
-#
-#    train_classifiers_partial(train_part, yaml_filename = 'test_scalers_and_models.yml',
-#                              accuracy_file="test_accuracy.txt", all_training_data = data)
-#    train_regressors_partial(train_part, yaml_filename = 'test_scalers_and_models_regression.yml',
-#                             accuracy_file="test_accuracy_reg.txt", all_training_data = data)
-#
-#
 #def test_citrination_classifier(address,api_key_file):
 #    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
 #    sxc = saxs_classify.SaxsClassifier(model_file_path)
