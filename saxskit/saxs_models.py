@@ -731,13 +731,13 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     return df_work
 
-def train_classifiers_partial(new_data, yaml_filename=None, all_training_data = None):
+def train_classifiers_partial(new_data, filename=None, all_training_data = None):
     """update and save SAXS classification models as a YAML file.
     Parameters
     ----------
     new_data : pandas.DataFrame
         dataframe containing features and labels for updating models
-    yaml_filename : str
+    filename : str
         File where scalers and models was and will be saved.
         If None, the default file is used.
     all_training_data : pandas.DataFrame
@@ -754,10 +754,10 @@ def train_classifiers_partial(new_data, yaml_filename=None, all_training_data = 
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
-    if yaml_filename is None:
+    if filename is None:
         yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
     else:
-        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
+        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
 
     s_and_m_file = open(yaml_filename,'rb')
     s_and_m = yaml.load(s_and_m_file)
@@ -802,13 +802,13 @@ def train_classifiers_partial(new_data, yaml_filename=None, all_training_data = 
 
     return scalers, models, accuracy
 
-def train_regressors_partial(new_data, yaml_filename=None, all_training_data = None):
+def train_regressors_partial(new_data, filename=None, all_training_data = None):
     """Update and save SAXS regression models as a YAML file.
     Parameters
     ----------
     data : pandas.DataFrame
         dataframe containing features and labels for updating models
-    yaml_filename : str
+    filename : str
         File where scalers and models was and will be saved.
         If None, the default file is used.
     all_training_data : pandas.DataFrame
@@ -825,11 +825,11 @@ def train_regressors_partial(new_data, yaml_filename=None, all_training_data = N
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
-    if yaml_filename is None:
-        yaml_filename = os.path.join(d,'modeling_data',
-                                     'scalers_and_models_regression.yml')
+
+    if filename is None:
+        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
     else:
-        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
+        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
 
     s_and_m_file = open(yaml_filename,'rb')
     s_and_m = yaml.load(s_and_m_file)
@@ -959,7 +959,7 @@ def train_partial(classifier, data, features, target, reg_models_dict, scalers_d
     return scaler, model, accuracy
 
 
-def save_models(scalers, models, accuracy, yaml_filename=None, accuracy_file=None):
+def save_models(scalers, models, accuracy, filename=None):
     """Save SAXS regression models as a YAML file,
     save accuracy as a txt file.
     Parameters
@@ -970,24 +970,19 @@ def save_models(scalers, models, accuracy, yaml_filename=None, accuracy_file=Non
         of sklearn models.
     accuracy : dictionary
         of accuracies by models.
-    yaml_filename : str
-        File where scalers, models, sklearn, and accuracy will be saved.
-        If None, the default file is used.
-    accuracy_file : str
-        File where accuracy will be saved in readable form.
-        If None, the default file is used.
+    filename : str
+        scalers, models, sklearn, and accuracy will be saved in filename.yml,
+        accuracy also will be saved in filemane.txt.
+        If None, the default files are used.
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
-    if yaml_filename is None:
+    if filename is None:
         yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
-    else:
-        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
-
-    if accuracy_file is None:
         accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
     else:
-        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
+        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
+        accuracy_txt = os.path.join(d,'modeling_data',filename + ".txt")
 
     scalers_and_models = OrderedDict(
         version=list(map(int,sklearn.__version__.split('.'))),

@@ -23,13 +23,17 @@ class SaxsClassifier(object):
         # dict of classification model parameters
         classifier_dict = s_and_m['models']
         # dict of scaler parameters
-        scalers_dict = s_and_m['scalers'] 
+        scalers_dict = s_and_m['scalers']
+        # dict of accuracies
+        acc_dict = s_and_m['accuracy']
 
         self.models = OrderedDict.fromkeys(saxs_fit.population_keys)
         self.scalers = OrderedDict.fromkeys(saxs_fit.population_keys)
+        self.accuracy = OrderedDict.fromkeys(saxs_fit.population_keys)
         for model_name in saxs_fit.population_keys:
             model_params = classifier_dict[model_name]
-            scaler_params = scalers_dict[model_name] 
+            scaler_params = scalers_dict[model_name]
+            acc = acc_dict[model_name]
             if scaler_params is not None:
                 s = preprocessing.StandardScaler()
                 self.set_param(s,scaler_params)
@@ -37,6 +41,7 @@ class SaxsClassifier(object):
                 self.set_param(m,model_params)
             self.models[model_name] = m
             self.scalers[model_name] = s
+            self.accuracy[model_name] = acc
 
     # helper function - to set parametrs for scalers and models
     def set_param(self, m_s, param):
@@ -87,3 +92,15 @@ class SaxsClassifier(object):
 
         return populations, certainties
 
+    def get_accuracy(self):
+        """Get accuracy for a all classification models.
+
+        Returns
+        -------
+        accuracy : dictionary
+            of models and their accuracies.
+            to calculate the accuracy "Leave-N-Groups-Out" technique is used.
+            Every cycle data from two experiments used for testing and the
+            other data for training. The average accuracy is reported.
+        """
+        return self.accuracy

@@ -141,19 +141,16 @@ def test_partial_fit():
     train_part = data.iloc[int(data_len * 0.9): , : ]
 
     scalers, models, accuracy = train_classifiers(data,  hyper_parameters_search = False)
-    save_models(scalers, models, accuracy, yaml_filename='test_scalers_and_models.yml',
-                accuracy_file="test_accuracy.txt")
+    save_models(scalers, models, accuracy, 'test_classifiers')
 
     scalers, models, accuracy = train_regressors(train,hyper_parameters_search = False)
-    save_models(scalers, models, accuracy, yaml_filename='test_scalers_and_models_regression.yml',
-                accuracy_file="test_accuracy_reg.txt")
+    save_models(scalers, models, accuracy, 'test_regressors')
 
-    train_classifiers_partial(train_part, all_training_data = data)
-    save_models(scalers, models, accuracy, yaml_filename='test_scalers_and_models.yml', accuracy_file="test_accuracy.txt")
+    train_classifiers_partial(train_part,'test_classifiers', all_training_data = data)
+    save_models(scalers, models, accuracy, 'test_classifiers')
 
-    train_regressors_partial(train_part, all_training_data = data)
-    save_models(scalers, models, accuracy, yaml_filename='test_scalers_and_models_regression.yml',
-                accuracy_file="test_accuracy_reg.txt")
+    train_regressors_partial(train_part, 'test_regressors', all_training_data = data)
+    save_models(scalers, models, accuracy, 'test_regressors')
 
 
 #def test_citrination_classifier(address,api_key_file):
