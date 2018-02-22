@@ -24,13 +24,17 @@ class SaxsRegressor(object):
 
         reg_models_dict = s_and_m['models']
         scalers_dict = s_and_m['scalers']
+        acc_dict = s_and_m['accuracy']
 
         self.models = OrderedDict.fromkeys(all_parameter_keys)
         self.scalers = OrderedDict.fromkeys(all_parameter_keys)
+        self.accuracy = OrderedDict.fromkeys(all_parameter_keys)
+
         reg_models = reg_models_dict.keys()
         for model_name in reg_models:
             model_params = reg_models_dict[model_name]
             scaler_params = scalers_dict[model_name]
+            acc = acc_dict[model_name]
             if scaler_params is not None:
                 s = preprocessing.StandardScaler()
                 self.set_param(s,scaler_params)
@@ -38,6 +42,7 @@ class SaxsRegressor(object):
                 self.set_param(m,model_params)
             self.models[model_name] = m
             self.scalers[model_name] = s
+            self.accuracy[model_name] = acc
 
     # helper function - to set parameters for scalers and models
     def set_param(self, m_s, param):
@@ -97,3 +102,17 @@ class SaxsRegressor(object):
 
         return params
 
+    def get_accuracy(self):
+        """Get accuracy for a all regression models.
+
+        Returns
+        -------
+        accuracy : dictionary
+            of models and their accuracies.
+            to calculate the accuracy "Leave-N-Groups-Out" technique is used.
+            Every cycle data from two experiments used for testing and the
+            other data for training. The accuracy is calculated as
+            the mean absolute error divided by the standard deviation of
+            the training data. The average accuracy is reported.
+        """
+        return self.accuracy

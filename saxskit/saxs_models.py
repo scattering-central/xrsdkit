@@ -14,42 +14,29 @@ from . import saxs_piftools
 from . import population_keys, parameter_keys, profile_keys
 from . import all_profile_keys, all_parameter_keys
 
-def train_classifiers(all_data, yaml_filename=None, accuracy_file=None, hyper_parameters_search=False):
-    """Train and save SAXS classification models as a YAML file.
+def train_classifiers(all_data, hyper_parameters_search=False):
+    """Train SAXS classification models, optionally searching for optimal hyperparameters.
 
     Parameters
     ----------
     all_data : pandas.DataFrame
         dataframe containing features and labels
-    yaml_filename : str
-        File where scalers and models will be saved.
-        If None, the default file is used.
-    accuracy_file : str
-        File where accuracy will be saved.
-        If None, the default file is used.
+    hyper_parameters_search : bool
+        If true, grid-search model hyperparameters
+        to seek high cross-validation accuracy.
+
+    Returns
+    -------
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies for each model.
     """
-    p = os.path.abspath(__file__)
-    d = os.path.dirname(p)
-    if yaml_filename is None:
-        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
-    else:
-        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
-
-    if accuracy_file is None:
-        accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
-    else:
-        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
-
-    current_version = list(map(int,sklearn.__version__.split('.')))
-
     scalers = {}
     models = {}
     accuracy = {}
-    scalers_and_models = OrderedDict(
-        version=current_version,
-        scalers=scalers, 
-        models=models, 
-        accuracy=accuracy)
 
     # use the "unidentified" profiling for all classification models 
     features = profile_keys['unidentified']
@@ -196,54 +183,32 @@ def train_classifiers(all_data, yaml_filename=None, accuracy_file=None, hyper_pa
         models['diffraction_peaks'] = None
         accuracy['diffraction_peaks'] = None
 
-    # save scalers and models
-    with open(yaml_filename, 'w') as yaml_file:
-        yaml.dump(scalers_and_models, yaml_file)
+    return scalers, models, accuracy
 
-    # TODO: Is this not already saved in scalers_and_models.yml?
-    # save accuracy
-    with open (accuracy_txt, 'w') as txt_file:
-        txt_file.write(str(accuracy))
-
-def train_regressors(all_data, yaml_filename=None, accuracy_file=None, hyper_parameters_search=False):
-    """Train and save SAXS classification models as a YAML file.
+def train_regressors(all_data, hyper_parameters_search=False):
+    """Train SAXS parameter regression models, optionally searching for optimal hyperparameters.
 
     Parameters
     ----------
     all_data : pandas.DataFrame
         dataframe containing features and labels
-    yaml_filename : str
-        File where scalers and models will be saved.
-        If None, the default file is used.
-    accuracy_file : str
-        File where accuracy will be saved.
-        If None, the default file is used.
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation accuracy.
+
+    Returns
+    -------
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies for each model.
     """
-    p = os.path.abspath(__file__)
-    d = os.path.dirname(p)
-    if yaml_filename is None:
-        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')
-    else:
-        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
-
-    if accuracy_file is None:
-        accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
-    else:
-        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
-
-    current_version = list(map(int,sklearn.__version__.split('.')))
 
     scalers = {}
     models = {}
     accuracy = {}
-    scalers_and_models = OrderedDict(
-        version=current_version,
-        scalers=scalers,
-        models=models,
-        accuracy=accuracy)
 
     possible_models = check_labels_regression(all_data)
 
@@ -295,16 +260,10 @@ def train_regressors(all_data, yaml_filename=None, accuracy_file=None, hyper_par
         models['rg_gp'] = None
         accuracy['rg_gp'] = None
 
-    # save scalers and models
-    with open(yaml_filename, 'w') as yaml_file:
-        yaml.dump(scalers_and_models, yaml_file)
-
-    # save accuracy
-    with open (accuracy_txt, 'w') as txt_file:
-        txt_file.write(str(accuracy))
+    return scalers, models, accuracy
 
 def train(all_data, features, target, hyper_parameters_search):
-    """search hyperparameters and train a model
+    """Helper function for training regression models.
 
     Parameters
     ----------
@@ -321,7 +280,7 @@ def train(all_data, features, target, hyper_parameters_search):
     -------
     scaler : StandardScaler
         scaler used to scale the data
-    reg : model SGDRegressor
+    reg : SGDRegressor
         trained model
     accuracy : float
         average crossvalidation score
@@ -365,7 +324,7 @@ def train(all_data, features, target, hyper_parameters_search):
 
 
 def hyperparameters_search(data_features, data_labels, group_by, leaveNGroupOut, n):
-    """Grid search for alpha, penalty, and l1 ratio
+    """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
     Parameters
     ----------
@@ -383,8 +342,9 @@ def hyperparameters_search(data_features, data_labels, group_by, leaveNGroupOut,
 
     Returns
     -------
-    penalty : string 'none', 'l2', 'l1', or 'elasticnet'
+    penalty : string
         The penalty (aka regularization term) to be used.
+        Options are  'none', 'l2', 'l1', or 'elasticnet'.
     alpha : float
         Constant that multiplies the regularization term.
         Defaults to 0.0001 Also used to compute learning_rate when set to 'optimal'.
@@ -432,11 +392,12 @@ def hyperparameters_search_regression(data_features, data_labels, group_by, leav
 
     Returns
     -------
-    penalty : string 'none', 'l2', 'l1', or 'elasticnet'
+    penalty : string
         The penalty (aka regularization term) to be used.
+        Options are  'none', 'l2', 'l1', or 'elasticnet'.
     alpha : float
         Constant that multiplies the regularization term.
-        Defaults to 0.0001 Also used to compute learning_rate when set to 'optimal'.
+        Defaults to 0.0001. Also used to compute learning_rate when set to 'optimal'.
     l1_ratio : string
         The Elastic Net mixing parameter, with 0 <= l1_ratio <= 1.
         l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1. Defaults to 0.15.
@@ -772,54 +733,57 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     return df_work
 
-def train_classifiers_partial(new_data, yaml_filename=None, accuracy_file=None, all_training_data = None):
-    """update and save SAXS classification models as a YAML file.
+def train_classifiers_partial(new_data, filename=None, all_training_data = None):
+    """Read SAXS classification models from a YAML file, then update them with new data.
+
     Parameters
     ----------
     new_data : pandas.DataFrame
         dataframe containing features and labels for updating models
-    yaml_filename : str
+    filename : str
         File where scalers and models was and will be saved.
         If None, the default file is used.
-    accuracy_file : str
-        File where accuracy will be saved.
-        If None, the default file is used.
-    all_training_data : pandas.DataFrame
-        dataframe containing features and labels for testing models
+    all_training_data : pandas.DataFrame (optional)
+        dataframe containing all of the original training data,
+        for computing accuracies of the updated models.
+
+    Returns
+    -------
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies by models.
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
-    if yaml_filename is None:
+    if filename is None:
         yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
     else:
-        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
+        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
 
     s_and_m_file = open(yaml_filename,'rb')
     s_and_m = yaml.load(s_and_m_file)
 
-    models_dict = s_and_m['models']
-    scalers_dict = s_and_m['scalers']
-
-    if accuracy_file is None:
-        accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
-    else:
-        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
+    models = s_and_m['models']
+    scalers = s_and_m['scalers']
+    accuracy = s_and_m['accuracy']
 
     possible_models = check_labels(all_training_data)
     features = profile_keys['unidentified']
 
-
     # unidentified scatterer population model
     if possible_models['unidentified'] == True:
         scaler, model, acc = train_partial(True, new_data, features, 'unidentified',
-                                           models_dict, scalers_dict, all_training_data)
+                                           models, scalers, all_training_data)
 
         if scaler:
-            s_and_m['scalers']['unidentified'] = scaler.__dict__
+            scalers['unidentified'] = scaler.__dict__
         if model:
-            s_and_m['models']['unidentified'] = model.__dict__
+            models['unidentified'] = model.__dict__
         if acc:
-            s_and_m['accuracy']['unidentified'] = acc
+            accuracy['unidentified'] = acc
 
     # For the rest of the models,
     # we will use only data with
@@ -829,62 +793,56 @@ def train_classifiers_partial(new_data, yaml_filename=None, accuracy_file=None, 
     for k, v in possible_models.items():
         if v == True and k != 'unidentified':
             scaler, model, acc = train_partial(True, new_data, features, k,
-                                           models_dict, scalers_dict, all_training_data)
+                                           models, scalers, all_training_data)
             if scaler:
-                s_and_m['scalers'][k] = scaler.__dict__
+                scalers[k] = scaler.__dict__
             if model:
-                s_and_m['models'][k] = model.__dict__
+                models[k] = model.__dict__
             if acc:
-                s_and_m['accuracy'][k] = acc
+                accuracy[k] = acc
 
-
-    # save scalers and models
-    with open(yaml_filename, 'w') as yaml_file:
-        yaml.dump(s_and_m, yaml_file)
-
-    # save accuracy
     if all_training_data is None:
-        with open("saxskit/saxskit/modeling_data/accuracy.txt", "r") as g:
-            old_accuracy = g.readline()
-            accuracy = 'Accuracy was not updated after using partia_fit: ' + old_accuracy
-    else:
-        accuracy = str(s_and_m['accuracy'])
-    with open (accuracy_txt, 'w') as txt_file:
-        txt_file.write(accuracy)
+        accuracy["comment"] = 'Accuracy was not updated after using train_classifiers_partial() '
 
-def train_regressors_partial(new_data, yaml_filename=None, accuracy_file=None, all_training_data = None):
-    """Update and save SAXS regression models as a YAML file.
+    return scalers, models, accuracy
+
+def train_regressors_partial(new_data, filename=None, all_training_data=None):
+    """Read SAXS regression models from a YAML file, then update them with new data.
+
     Parameters
     ----------
     data : pandas.DataFrame
         dataframe containing features and labels for updating models
-    yaml_filename : str
+    filename : str
         File where scalers and models was and will be saved.
         If None, the default file is used.
-    accuracy_file : str
-        File where accuracy will be saved.
-        If None, the default file is used.
-    all_training_data : pandas.DataFrame
-        dataframe containing features and labels for testing models
+    all_training_data : pandas.DataFrame (optional)
+        dataframe containing all of the original training data
+        for computing the accuracy of the updated models.
+
+    Returns
+    -------
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies for each model.
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
-    if yaml_filename is None:
-        yaml_filename = os.path.join(d,'modeling_data',
-                                     'scalers_and_models_regression.yml')
+
+    if filename is None:
+        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
     else:
-        yaml_filename = os.path.join(d,'modeling_data',yaml_filename)
+        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
 
     s_and_m_file = open(yaml_filename,'rb')
     s_and_m = yaml.load(s_and_m_file)
 
-    reg_models_dict = s_and_m['models']
-    scalers_dict = s_and_m['scalers']
-
-    if accuracy_file is None:
-        accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
-    else:
-        accuracy_txt = os.path.join(d,'modeling_data',accuracy_file)
+    models = s_and_m['models']
+    scalers = s_and_m['scalers']
+    accuracy = s_and_m['accuracy']
 
     possible_models = check_labels_regression(new_data)
 
@@ -894,13 +852,13 @@ def train_regressors_partial(new_data, yaml_filename=None, accuracy_file=None, a
         features.extend(profile_keys['unidentified'])
 
         scaler, model, acc = train_partial(False, new_data, features, 'r0_sphere',
-                                           reg_models_dict, scalers_dict, all_training_data)
+                                           models, scalers, all_training_data)
         if scaler:
-            s_and_m['scalers']['r0_sphere'] = scaler.__dict__
+            scalers['r0_sphere'] = scaler.__dict__
         if model:
-            s_and_m['models']['r0_sphere'] = model.__dict__
+            models['r0_sphere'] = model.__dict__
         if acc:
-            s_and_m['accuracy']['r0_sphere'] = acc
+            accuracy['r0_sphere'] = acc
 
 
     # sigma_shpere model
@@ -911,14 +869,14 @@ def train_regressors_partial(new_data, yaml_filename=None, accuracy_file=None, a
         features.extend(profile_keys['spherical_normal'])
 
         scaler, model, acc = train_partial(False, new_data, features, 'sigma_sphere',
-                                           reg_models_dict, scalers_dict, all_training_data)
+                                           models, scalers, all_training_data)
 
         if scaler:
-            s_and_m['scalers']['sigma_sphere'] = scaler.__dict__
+            scalers['sigma_sphere'] = scaler.__dict__
         if model:
-            s_and_m['models']['sigma_sphere'] = model.__dict__
+            models['sigma_sphere'] = model.__dict__
         if acc:
-            s_and_m['accuracy']['sigma_sphere'] = acc
+            accuracy['sigma_sphere'] = acc
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
@@ -928,29 +886,19 @@ def train_regressors_partial(new_data, yaml_filename=None, accuracy_file=None, a
         features.extend(profile_keys['guinier_porod'])
 
         scaler, model, acc = train_partial(False, new_data, features, 'rg_gp',
-                                           reg_models_dict, scalers_dict, all_training_data)
+                                           models, scalers, all_training_data)
 
         if scaler:
-            s_and_m['scalers']['rg_gp'] = scaler.__dict__
+            scalers['rg_gp'] = scaler.__dict__
         if model:
-            s_and_m['models']['rg_gp'] = model.__dict__
+            models['rg_gp'] = model.__dict__
         if acc:
-            s_and_m['accuracy']['rg_gp'] = acc
+            accuracy['rg_gp'] = acc
 
-
-    # save scalers and models
-    with open(yaml_filename, 'w') as yaml_file:
-        yaml.dump(s_and_m, yaml_file)
-
-    # save accuracy
     if all_training_data is None:
-        with open("saxskit/saxskit/modeling_data/accuracy_regression.txt", "r") as g:
-            old_accuracy = g.readline()
-            accuracy = 'Accuracy was not updated after using partia_fit: ' + old_accuracy
-    else:
-        accuracy = str(s_and_m['accuracy'])
-    with open (accuracy_txt, 'w') as txt_file:
-        txt_file.write(accuracy)
+        accuracy["comment"] = 'Accuracy was not updated after using train_regressors_partial()'
+
+    return scalers, models, accuracy
 
 
 # helper function - to set parametrs for scalers and models
@@ -1016,3 +964,42 @@ def train_partial(classifier, data, features, target, reg_models_dict, scalers_d
 
     return scaler, model, accuracy
 
+
+def save_models(scalers, models, accuracy, filename=None):
+    """Save model parameters in a YAML file, and accuracies in a txt file.
+
+    Parameters
+    ----------
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies for each model.
+    filename : str
+        scalers, models, sklearn, and accuracy will be saved in filename.yml,
+        accuracy also will be saved in filemane.txt.
+        If None, the default files are used.
+    """
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(p)
+    if filename is None:
+        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
+        accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
+    else:
+        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
+        accuracy_txt = os.path.join(d,'modeling_data',filename + ".txt")
+
+    scalers_and_models = OrderedDict(
+        version=list(map(int,sklearn.__version__.split('.'))),
+        scalers=scalers,
+        models=models,
+        accuracy=accuracy)
+
+    # save scalers and models
+    with open(yaml_filename, 'w') as yaml_file:
+        yaml.dump(scalers_and_models, yaml_file)
+
+    # save accuracy
+    with open (accuracy_txt, 'w') as txt_file:
+        txt_file.write(str(accuracy))
