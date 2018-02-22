@@ -27,12 +27,12 @@ def train_classifiers(all_data, hyper_parameters_search=False):
 
     Returns
     -------
-    scalers : dictionary
-        of sklearn standard scalers (one scaler per model).
-    models : dictionary
-        of sklearn models.
-    accuracy : dictionary
-        of accuracies by models.
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies for each model.
     """
     scalers = {}
     models = {}
