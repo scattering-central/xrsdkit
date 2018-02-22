@@ -15,7 +15,7 @@ from . import population_keys, parameter_keys, profile_keys
 from . import all_profile_keys, all_parameter_keys
 
 def train_classifiers(all_data, hyper_parameters_search=False):
-    """Train and save SAXS classification models as a YAML file.
+    """Train SAXS classification models.
 
     Parameters
     ----------
