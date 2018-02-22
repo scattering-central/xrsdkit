@@ -93,12 +93,12 @@ class SaxsClassifier(object):
         return populations, certainties
 
     def get_accuracy(self):
-        """Get accuracy for a all classification models.
+        """Get accuracy for all classification models.
 
         Returns
         -------
-        accuracy : dictionary
-            of models and their accuracies.
+        accuracy : dict
+            Dictionary of models and their accuracies.
             to calculate the accuracy "Leave-N-Groups-Out" technique is used.
             Every cycle data from two experiments used for testing and the
             other data for training. The average accuracy is reported.
