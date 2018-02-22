@@ -15,7 +15,7 @@ from . import population_keys, parameter_keys, profile_keys
 from . import all_profile_keys, all_parameter_keys
 
 def train_classifiers(all_data, hyper_parameters_search=False):
-    """Train SAXS classification models.
+    """Train SAXS classification models, optionally searching for optimal hyperparameters.
 
     Parameters
     ----------
@@ -186,7 +186,7 @@ def train_classifiers(all_data, hyper_parameters_search=False):
     return scalers, models, accuracy
 
 def train_regressors(all_data, hyper_parameters_search=False):
-    """Train SAXS parameter regression models.
+    """Train SAXS parameter regression models, optionally searching for optimal hyperparameters.
 
     Parameters
     ----------
@@ -263,7 +263,7 @@ def train_regressors(all_data, hyper_parameters_search=False):
     return scalers, models, accuracy
 
 def train(all_data, features, target, hyper_parameters_search):
-    """search hyperparameters and train a model
+    """Helper function for training regression models.
 
     Parameters
     ----------
@@ -280,7 +280,7 @@ def train(all_data, features, target, hyper_parameters_search):
     -------
     scaler : StandardScaler
         scaler used to scale the data
-    reg : model SGDRegressor
+    reg : SGDRegressor
         trained model
     accuracy : float
         average crossvalidation score
@@ -324,7 +324,7 @@ def train(all_data, features, target, hyper_parameters_search):
 
 
 def hyperparameters_search(data_features, data_labels, group_by, leaveNGroupOut, n):
-    """Grid search for alpha, penalty, and l1 ratio
+    """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
     Parameters
     ----------
@@ -342,8 +342,9 @@ def hyperparameters_search(data_features, data_labels, group_by, leaveNGroupOut,
 
     Returns
     -------
-    penalty : string 'none', 'l2', 'l1', or 'elasticnet'
+    penalty : string
         The penalty (aka regularization term) to be used.
+        Options are  'none', 'l2', 'l1', or 'elasticnet'.
     alpha : float
         Constant that multiplies the regularization term.
         Defaults to 0.0001 Also used to compute learning_rate when set to 'optimal'.
@@ -391,11 +392,12 @@ def hyperparameters_search_regression(data_features, data_labels, group_by, leav
 
     Returns
     -------
-    penalty : string 'none', 'l2', 'l1', or 'elasticnet'
+    penalty : string
         The penalty (aka regularization term) to be used.
+        Options are  'none', 'l2', 'l1', or 'elasticnet'.
     alpha : float
         Constant that multiplies the regularization term.
-        Defaults to 0.0001 Also used to compute learning_rate when set to 'optimal'.
+        Defaults to 0.0001. Also used to compute learning_rate when set to 'optimal'.
     l1_ratio : string
         The Elastic Net mixing parameter, with 0 <= l1_ratio <= 1.
         l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1. Defaults to 0.15.
@@ -732,7 +734,8 @@ def get_data_from_Citrination(client, dataset_id_list):
     return df_work
 
 def train_classifiers_partial(new_data, filename=None, all_training_data = None):
-    """update and save SAXS classification models as a YAML file.
+    """Read SAXS classification models from a YAML file, then update them with new data.
+
     Parameters
     ----------
     new_data : pandas.DataFrame
@@ -740,17 +743,18 @@ def train_classifiers_partial(new_data, filename=None, all_training_data = None)
     filename : str
         File where scalers and models was and will be saved.
         If None, the default file is used.
-    all_training_data : pandas.DataFrame
-        dataframe containing features and labels for testing models.
+    all_training_data : pandas.DataFrame (optional)
+        dataframe containing all of the original training data,
+        for computing accuracies of the updated models.
 
     Returns
     -------
-    scalers : dictionary
-        of sklearn standard scalers (one scaler per model).
-    models : dictionary
-        of sklearn models.
-    accuracy : dictionary
-        of accuracies by models.
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies by models.
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
@@ -802,8 +806,9 @@ def train_classifiers_partial(new_data, filename=None, all_training_data = None)
 
     return scalers, models, accuracy
 
-def train_regressors_partial(new_data, filename=None, all_training_data = None):
-    """Update and save SAXS regression models as a YAML file.
+def train_regressors_partial(new_data, filename=None, all_training_data=None):
+    """Read SAXS regression models from a YAML file, then update them with new data.
+
     Parameters
     ----------
     data : pandas.DataFrame
@@ -811,17 +816,18 @@ def train_regressors_partial(new_data, filename=None, all_training_data = None):
     filename : str
         File where scalers and models was and will be saved.
         If None, the default file is used.
-    all_training_data : pandas.DataFrame
-        dataframe containing features and labels for testing models
+    all_training_data : pandas.DataFrame (optional)
+        dataframe containing all of the original training data
+        for computing the accuracy of the updated models.
 
     Returns
     -------
-    scalers : dictionary
-        of sklearn standard scalers (one scaler per model).
-    models : dictionary
-        of sklearn models.
-    accuracy : dictionary
-        of accuracies by models.
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies for each model.
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
@@ -960,16 +966,16 @@ def train_partial(classifier, data, features, target, reg_models_dict, scalers_d
 
 
 def save_models(scalers, models, accuracy, filename=None):
-    """Save SAXS regression models as a YAML file,
-    save accuracy as a txt file.
+    """Save model parameters in a YAML file, and accuracies in a txt file.
+
     Parameters
     ----------
-    scalers : dictionary
-        of sklearn standard scalers (one scaler per model).
-    models : dictionary
-        of sklearn models.
-    accuracy : dictionary
-        of accuracies by models.
+    scalers : dict
+        Dictionary of sklearn standard scalers (one scaler per model).
+    models : dict
+        Dictionary of sklearn models.
+    accuracy : dict
+        Dictionary of accuracies for each model.
     filename : str
         scalers, models, sklearn, and accuracy will be saved in filename.yml,
         accuracy also will be saved in filemane.txt.
