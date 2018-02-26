@@ -140,17 +140,17 @@ def test_partial_fit():
     train = data.iloc[:int(data_len * 0.9), : ]
     train_part = data.iloc[int(data_len * 0.9): , : ]
 
-    scalers, models, accuracy = train_classifiers(data,  hyper_parameters_search = False)
-    save_models(scalers, models, accuracy, 'test_classifiers')
+    scalers, models, accuracy = train_classifiers(train,  hyper_parameters_search = False)
+    save_models(scalers, models, accuracy, True, 'test_classifiers')
 
     scalers, models, accuracy = train_regressors(train,hyper_parameters_search = False)
-    save_models(scalers, models, accuracy, 'test_regressors')
+    save_models(scalers, models, accuracy, False, 'test_regressors')
 
-    train_classifiers_partial(train_part,'test_classifiers', all_training_data = data)
-    save_models(scalers, models, accuracy, 'test_classifiers')
+    scalers, models, accuracy = train_classifiers_partial(train_part,'test_classifiers', all_training_data = data)
+    save_models(scalers, models, accuracy, True, 'test_classifiers')
 
-    train_regressors_partial(train_part, 'test_regressors', all_training_data = data)
-    save_models(scalers, models, accuracy, 'test_regressors')
+    scalers, models, accuracy = train_regressors_partial(train_part, 'test_regressors', all_training_data = data)
+    save_models(scalers, models, accuracy, False, 'test_regressors')
 
 
 #def test_citrination_classifier(address,api_key_file):

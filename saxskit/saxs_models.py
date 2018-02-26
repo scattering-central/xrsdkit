@@ -965,7 +965,7 @@ def train_partial(classifier, data, features, target, reg_models_dict, scalers_d
     return scaler, model, accuracy
 
 
-def save_models(scalers, models, accuracy, filename=None):
+def save_models(scalers, models, accuracy, classifier, filename=None):
     """Save model parameters in a YAML file, and accuracies in a txt file.
 
     Parameters
@@ -976,6 +976,9 @@ def save_models(scalers, models, accuracy, filename=None):
         Dictionary of sklearn models.
     accuracy : dict
         Dictionary of accuracies for each model.
+    classifier : bool
+        "True" for classification models
+        "False" for regressin models.
     filename : str
         scalers, models, sklearn, and accuracy will be saved in filename.yml,
         accuracy also will be saved in filemane.txt.
@@ -984,8 +987,12 @@ def save_models(scalers, models, accuracy, filename=None):
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
     if filename is None:
-        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
-        accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
+        if classifier:
+            yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
+            accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
+        else:
+            yaml_filename = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')
+            accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
     else:
         yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
         accuracy_txt = os.path.join(d,'modeling_data',filename + ".txt")
