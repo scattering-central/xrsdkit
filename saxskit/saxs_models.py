@@ -299,10 +299,10 @@ def train(all_data, features, target, hyper_parameters_search):
         epsilon = hyperparameters_search_regression(data[features],
             data[target], data['experiment_id'], leaveNGroupOut, 1)
     else: # default parametrs from sklern
-        penalty = 'l2'
-        alpha = 0.0001
-        l1_ratio = 0.15
-        loss = 'squared_loss'
+        penalty =  'elasticnet'  #'l2'
+        alpha = 0.01 #0.0001
+        l1_ratio = 0.5 # 0.15
+        loss = 'huber'
         epsilon = 0.1
 
     reg = linear_model.SGDRegressor(alpha= alpha, loss= loss,
@@ -833,7 +833,7 @@ def train_regressors_partial(new_data, filename=None, all_training_data=None):
     d = os.path.dirname(p)
 
     if filename is None:
-        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
+        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')################################
     else:
         yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
 
