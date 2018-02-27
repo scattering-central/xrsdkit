@@ -733,19 +733,19 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     return df_work
 
-def train_classifiers_partial(new_data, filename=None, all_training_data = None):
+def train_classifiers_partial(new_data, file_path=None, all_training_data=None):
     """Read SAXS classification models from a YAML file, then update them with new data.
 
     Parameters
     ----------
     new_data : pandas.DataFrame
         dataframe containing features and labels for updating models
-    filename : str
-        File where scalers and models was and will be saved.
-        If None, the default file is used.
+    file_path : str (optional)
+        Full path to YAML file where scalers and models are saved.
+        If None, the default saxskit models are used.
     all_training_data : pandas.DataFrame (optional)
         dataframe containing all of the original training data,
-        for computing accuracies of the updated models.
+        for computing cross-validation errors of the updated models.
 
     Returns
     -------
@@ -753,37 +753,33 @@ def train_classifiers_partial(new_data, filename=None, all_training_data = None)
         Dictionary of sklearn standard scalers (one scaler per model).
     models : dict
         Dictionary of sklearn models.
-    accuracy : dict
-        Dictionary of accuracies by models.
+    cv_errors : dict
+        Dictionary of cross-validation errors for each model.
     """
-    p = os.path.abspath(__file__)
-    d = os.path.dirname(p)
-    if filename is None:
-        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
-    else:
-        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
-
-    s_and_m_file = open(yaml_filename,'rb')
+    if file_path is None:
+        p = os.path.abspath(__file__)
+        d = os.path.dirname(p)
+        file_path = os.path.join(d,'modeling_data','scalers_and_models.yml')
+    s_and_m_file = open(file_path,'rb')
     s_and_m = yaml.load(s_and_m_file)
 
     models = s_and_m['models']
     scalers = s_and_m['scalers']
-    accuracy = s_and_m['accuracy']
+    cv_errors = s_and_m['accuracy']
 
     possible_models = check_labels(all_training_data)
     features = profile_keys['unidentified']
 
     # unidentified scatterer population model
     if possible_models['unidentified'] == True:
-        scaler, model, acc = train_partial(True, new_data, features, 'unidentified',
+        scaler, model, cverr = train_partial(True, new_data, features, 'unidentified',
                                            models, scalers, all_training_data)
-
         if scaler:
             scalers['unidentified'] = scaler.__dict__
         if model:
             models['unidentified'] = model.__dict__
-        if acc:
-            accuracy['unidentified'] = acc
+        if cverr:
+            cv_errors['unidentified'] = cverr 
 
     # For the rest of the models,
     # we will use only data with
@@ -792,30 +788,29 @@ def train_classifiers_partial(new_data, filename=None, all_training_data = None)
 
     for k, v in possible_models.items():
         if v == True and k != 'unidentified':
-            scaler, model, acc = train_partial(True, new_data, features, k,
+            scaler, model, cverr = train_partial(True, new_data, features, k,
                                            models, scalers, all_training_data)
             if scaler:
                 scalers[k] = scaler.__dict__
             if model:
                 models[k] = model.__dict__
-            if acc:
-                accuracy[k] = acc
-
+            if cverr:
+                cv_errors[k] = cverr
     if all_training_data is None:
-        accuracy["comment"] = 'Accuracy was not updated after using train_classifiers_partial() '
+        cv_errors['NOTE'] = 'Cross-validation errors '\
+        'were not re-computed after partial model training'
+    return scalers, models, cv_errors 
 
-    return scalers, models, accuracy
-
-def train_regressors_partial(new_data, filename=None, all_training_data=None):
+def train_regressors_partial(new_data, file_path=None, all_training_data=None):
     """Read SAXS regression models from a YAML file, then update them with new data.
 
     Parameters
     ----------
     data : pandas.DataFrame
         dataframe containing features and labels for updating models
-    filename : str
-        File where scalers and models was and will be saved.
-        If None, the default file is used.
+    file_path : str (optional)
+        Full path to YAML file where scalers and models are saved.
+        If None, the default saxskit models are used.
     all_training_data : pandas.DataFrame (optional)
         dataframe containing all of the original training data
         for computing the accuracy of the updated models.
@@ -829,77 +824,62 @@ def train_regressors_partial(new_data, filename=None, all_training_data=None):
     accuracy : dict
         Dictionary of accuracies for each model.
     """
-    p = os.path.abspath(__file__)
-    d = os.path.dirname(p)
+    if file_path is None:
+        p = os.path.abspath(__file__)
+        d = os.path.dirname(p)
+        file_path = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')
 
-    if filename is None:
-        yaml_filename = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')################################
-    else:
-        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
-
-    s_and_m_file = open(yaml_filename,'rb')
+    s_and_m_file = open(file_path,'rb')
     s_and_m = yaml.load(s_and_m_file)
-
     models = s_and_m['models']
     scalers = s_and_m['scalers']
-    accuracy = s_and_m['accuracy']
+    cv_errors = s_and_m['accuracy']
 
     possible_models = check_labels_regression(new_data)
-
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
         features = []
         features.extend(profile_keys['unidentified'])
-
-        scaler, model, acc = train_partial(False, new_data, features, 'r0_sphere',
+        scaler, model, cverr = train_partial(False, new_data, features, 'r0_sphere',
                                            models, scalers, all_training_data)
         if scaler:
             scalers['r0_sphere'] = scaler.__dict__
         if model:
             models['r0_sphere'] = model.__dict__
-        if acc:
-            accuracy['r0_sphere'] = acc
-
+        if cverr:
+            cv_errors['r0_sphere'] = cverr 
 
     # sigma_shpere model
     if possible_models['sigma_sphere'] == True:
         features = []
-
         features.extend(profile_keys['unidentified'])
         features.extend(profile_keys['spherical_normal'])
-
-        scaler, model, acc = train_partial(False, new_data, features, 'sigma_sphere',
+        scaler, model, cverr = train_partial(False, new_data, features, 'sigma_sphere',
                                            models, scalers, all_training_data)
-
         if scaler:
             scalers['sigma_sphere'] = scaler.__dict__
         if model:
             models['sigma_sphere'] = model.__dict__
-        if acc:
-            accuracy['sigma_sphere'] = acc
+        if cverr:
+            cv_errors['sigma_sphere'] = cverr 
 
     # rg_gp model
     if possible_models['rg_gp'] == True:
-
         features = []
         features.extend(profile_keys['unidentified'])
         features.extend(profile_keys['guinier_porod'])
-
-        scaler, model, acc = train_partial(False, new_data, features, 'rg_gp',
+        scaler, model, cverr = train_partial(False, new_data, features, 'rg_gp',
                                            models, scalers, all_training_data)
-
         if scaler:
             scalers['rg_gp'] = scaler.__dict__
         if model:
             models['rg_gp'] = model.__dict__
-        if acc:
-            accuracy['rg_gp'] = acc
-
+        if cverr:
+            cv_errors['rg_gp'] = cverr 
     if all_training_data is None:
-        accuracy["comment"] = 'Accuracy was not updated after using train_regressors_partial()'
-
-    return scalers, models, accuracy
-
+        cv_errors['NOTE'] = 'Cross-validation errors '\
+        'were not re-computed after partial model training'
+    return scalers, models, cv_errors 
 
 # helper function - to set parametrs for scalers and models
 def set_param(m_s, param):
@@ -912,8 +892,7 @@ def set_param(m_s, param):
 def train_partial(classifier, data, features, target, reg_models_dict, scalers_dict, testing_data):
     model_params = reg_models_dict[target]
     scaler_params = scalers_dict[target]
-
-    if scaler_params is not None:# the model exist
+    if scaler_params is not None:
         scaler = preprocessing.StandardScaler()
         set_param(scaler,scaler_params)
         if classifier == True:
@@ -956,17 +935,14 @@ def train_partial(classifier, data, features, target, reg_models_dict, scalers_d
                         data, target, features,  model_params['alpha'], model_params['l1_ratio'],
                         model_params['penalty'], model_params['loss'],
                         model_params['epsilon'], label_std)
-
     else:
         scaler = None
         model = None
         accuracy = None
-
     return scaler, model, accuracy
 
-
-def save_models(scalers, models, accuracy, classifier, filename=None):
-    """Save model parameters in a YAML file, and accuracies in a txt file.
+def save_models(scalers, models, cv_errors, file_path=None):
+    """Save model parameters and CV errors in YAML and .txt files.
 
     Parameters
     ----------
@@ -974,39 +950,37 @@ def save_models(scalers, models, accuracy, classifier, filename=None):
         Dictionary of sklearn standard scalers (one scaler per model).
     models : dict
         Dictionary of sklearn models.
-    accuracy : dict
-        Dictionary of accuracies for each model.
-    classifier : bool
-        "True" for classification models
-        "False" for regressin models.
-    filename : str
-        scalers, models, sklearn, and accuracy will be saved in filename.yml,
-        accuracy also will be saved in filemane.txt.
-        If None, the default files are used.
+    cv_errors : dict
+        Dictionary of normalized cross-validation errors each model.
+    file_path : str
+        Full path to the YAML file where the models will be saved. 
+        Scalers, models, sklearn version, and cross-validation errors 
+        will be saved at this path, and the cross-validation errors 
+        are also saved in a .txt file of the same name, in the same directory. 
     """
-    p = os.path.abspath(__file__)
-    d = os.path.dirname(p)
-    if filename is None:
-        if classifier:
-            yaml_filename = os.path.join(d,'modeling_data','scalers_and_models.yml')
-            accuracy_txt = os.path.join(d,'modeling_data','accuracy.txt')
-        else:
-            yaml_filename = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')
-            accuracy_txt = os.path.join(d,'modeling_data','accuracy_regression.txt')
-    else:
-        yaml_filename = os.path.join(d,'modeling_data',filename + ".yml")
-        accuracy_txt = os.path.join(d,'modeling_data',filename + ".txt")
-
+    if file_path is None:
+        p = os.path.abspath(__file__)
+        d = os.path.dirname(p) 
+        suffix = 0
+        file_path = os.path.join(d,'modeling_data',
+            'custom_models_'+str(suffix)+'.yml')
+        while os.path.exists(file_path):
+            suffix += 1
+            file_path = os.path.join(d,'modeling_data',
+                'custom_models_'+str(suffix)+'.yml')
+    if not os.path.splitext(file_path)[1] == '.yml':
+        file_path = file_path+'.yml'
+    cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
     scalers_and_models = OrderedDict(
         version=list(map(int,sklearn.__version__.split('.'))),
         scalers=scalers,
         models=models,
-        accuracy=accuracy)
-
+        accuracy=cv_errors)
     # save scalers and models
-    with open(yaml_filename, 'w') as yaml_file:
+    with open(file_path, 'w') as yaml_file:
         yaml.dump(scalers_and_models, yaml_file)
-
     # save accuracy
-    with open (accuracy_txt, 'w') as txt_file:
-        txt_file.write(str(accuracy))
+    with open(cverr_txt_path, 'w') as txt_file:
+        txt_file.write(str(cv_errors))
+
+
