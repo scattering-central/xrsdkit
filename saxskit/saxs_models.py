@@ -14,7 +14,7 @@ from . import saxs_piftools
 from . import population_keys, parameter_keys, profile_keys
 from . import all_profile_keys, all_parameter_keys
 
-def train_classifiers(all_data, hyper_parameters_search=False):
+def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
     """Train SAXS classification models, optionally searching for optimal hyperparameters.
 
     Parameters
@@ -24,6 +24,9 @@ def train_classifiers(all_data, hyper_parameters_search=False):
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation accuracy.
+    models : str
+        the name of model to train ("unidentified", "spherical_normal",
+        "guinier_porod", "diffraction_peaks", or "all" to train all models).
 
     Returns
     -------
@@ -41,6 +44,12 @@ def train_classifiers(all_data, hyper_parameters_search=False):
     # use the "unidentified" profiling for all classification models 
     features = profile_keys['unidentified']
     possible_models = check_labels(all_data)
+
+    if model != 'all':
+        for k in possible_models.keys():
+            if k != model:
+                # we do not want to train the other models
+                possible_models[k] = False
 
     # using leaveTwoGroupOut makes sense when we have at least 5 groups
     if len(all_data.experiment_id.unique()) > 4:
@@ -185,7 +194,7 @@ def train_classifiers(all_data, hyper_parameters_search=False):
 
     return scalers, models, accuracy
 
-def train_regressors(all_data, hyper_parameters_search=False):
+def train_regressors(all_data, hyper_parameters_search=False, model= 'all'):
     """Train SAXS parameter regression models, optionally searching for optimal hyperparameters.
 
     Parameters
@@ -195,6 +204,9 @@ def train_regressors(all_data, hyper_parameters_search=False):
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation accuracy.
+    models : str
+        the name of model to train ("r0_sphere", "sigma_sphere",
+        "rg_gp", or "all" to train all models).
 
     Returns
     -------
@@ -211,6 +223,12 @@ def train_regressors(all_data, hyper_parameters_search=False):
     accuracy = {}
 
     possible_models = check_labels_regression(all_data)
+
+    if model != 'all':
+        for k in possible_models.keys():
+            if k != model:
+                # we do not want to train the other models
+                possible_models[k] = False
 
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
@@ -733,19 +751,22 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     return df_work
 
-def train_classifiers_partial(new_data, file_path=None, all_training_data=None):
+def train_classifiers_partial(new_data, file_path=None, all_training_data=None, model='all'):
     """Read SAXS classification models from a YAML file, then update them with new data.
 
     Parameters
     ----------
     new_data : pandas.DataFrame
-        dataframe containing features and labels for updating models
+        dataframe containing features and labels for updating models.
     file_path : str (optional)
         Full path to YAML file where scalers and models are saved.
         If None, the default saxskit models are used.
     all_training_data : pandas.DataFrame (optional)
         dataframe containing all of the original training data,
         for computing cross-validation errors of the updated models.
+    model : str
+        the name of model to train ("unidentified", "spherical_normal",
+        "guinier_porod", "diffraction_peaks", or "all" to train all models).
 
     Returns
     -------
@@ -768,6 +789,13 @@ def train_classifiers_partial(new_data, file_path=None, all_training_data=None):
     cv_errors = s_and_m['accuracy']
 
     possible_models = check_labels(all_training_data)
+
+    if model != 'all':
+        for k in possible_models.keys():
+            if k != model:
+                # we do not want to train the other models
+                possible_models[k] = False
+
     features = profile_keys['unidentified']
 
     # unidentified scatterer population model
@@ -801,7 +829,7 @@ def train_classifiers_partial(new_data, file_path=None, all_training_data=None):
         'were not re-computed after partial model training'
     return scalers, models, cv_errors 
 
-def train_regressors_partial(new_data, file_path=None, all_training_data=None):
+def train_regressors_partial(new_data, file_path=None, all_training_data=None, model='all'):
     """Read SAXS regression models from a YAML file, then update them with new data.
 
     Parameters
@@ -814,6 +842,9 @@ def train_regressors_partial(new_data, file_path=None, all_training_data=None):
     all_training_data : pandas.DataFrame (optional)
         dataframe containing all of the original training data
         for computing the accuracy of the updated models.
+    models : str
+        the name of model to train ("r0_sphere", "sigma_sphere",
+        "rg_gp", or "all" to train all models).
 
     Returns
     -------
@@ -836,6 +867,13 @@ def train_regressors_partial(new_data, file_path=None, all_training_data=None):
     cv_errors = s_and_m['accuracy']
 
     possible_models = check_labels_regression(new_data)
+
+    if model != 'all':
+        for k in possible_models.keys():
+            if k != model:
+                # we do not want to train the other models
+                possible_models[k] = False
+
     # r0_sphere model
     if possible_models['r0_sphere'] == True:
         features = []
@@ -971,16 +1009,31 @@ def save_models(scalers, models, cv_errors, file_path=None):
     if not os.path.splitext(file_path)[1] == '.yml':
         file_path = file_path+'.yml'
     cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
-    scalers_and_models = OrderedDict(
-        version=list(map(int,sklearn.__version__.split('.'))),
-        scalers=scalers,
-        models=models,
-        accuracy=cv_errors)
+
+    # if we want to save only a specific model,
+    # the other models should not be changed
+    s_and_m_file = open(file_path,'rb')
+    s_and_m_old = yaml.load(s_and_m_file)
+
+    # update scalers, models, and accuracies using new models:
+    for item in models.keys():
+        if models[item]:
+            s_and_m_old['models'][item] = models[item]
+
+    for item in scalers.keys():
+        if scalers[item]:
+            s_and_m_old['scalers'][item] = scalers[item]
+
+    for item in cv_errors.keys():
+        if cv_errors[item]:
+            s_and_m_old['accuracy'][item] = cv_errors[item]
+
     # save scalers and models
     with open(file_path, 'w') as yaml_file:
-        yaml.dump(scalers_and_models, yaml_file)
+        yaml.dump(s_and_m_old, yaml_file)
+
     # save accuracy
     with open(cverr_txt_path, 'w') as txt_file:
-        txt_file.write(str(cv_errors))
+        txt_file.write(str(s_and_m_old['accuracy']))
 
 

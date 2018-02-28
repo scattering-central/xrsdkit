@@ -144,18 +144,18 @@ def test_model_training():
     test_classifiers_path = os.path.join(d,'saxskit','modeling_data','test_classifiers.yml')
     test_regressors_path = os.path.join(d,'saxskit','modeling_data','test_regressors.yml')
     
-    scalers, models, accuracy = train_classifiers(train, hyper_parameters_search=False)
+    scalers, models, accuracy = train_classifiers(train, hyper_parameters_search=False, model='all')
     save_models(scalers, models, accuracy, test_classifiers_path)
 
-    scalers, models, accuracy = train_regressors(train, hyper_parameters_search=False)
+    scalers, models, accuracy = train_regressors(train, hyper_parameters_search=False, model='all')
     save_models(scalers, models, accuracy, test_regressors_path)
 
     scalers, models, accuracy = train_classifiers_partial(
-        train_part, test_classifiers_path, all_training_data=data)
+        train_part, test_classifiers_path, all_training_data=data, model='all')
     save_models(scalers, models, accuracy, test_classifiers_path)
 
     scalers, models, accuracy = train_regressors_partial(
-        train_part, test_regressors_path, all_training_data=data)
+        train_part, test_regressors_path, all_training_data=data, model='all')
     save_models(scalers, models, accuracy, test_regressors_path)
 
 #def test_citrination_classifier(address,api_key_file):
