@@ -123,8 +123,7 @@ def test_fitter():
     for k, v in params.items():
         print('\t{}: {} --> {}'.format(k,v,p_opt[k]))
 
-
-def test_partial_fit():
+def test_model_training():
     path = os.getcwd()
     head, tail = os.path.split(path)
     api_key_file = os.path.join(head, 'api_key.txt')
@@ -134,24 +133,30 @@ def test_partial_fit():
         a_key = g.readline().strip()
     cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
-    data = get_data_from_Citrination(client = cl, dataset_id_list= [16])
+    data = get_data_from_Citrination(client=cl, dataset_id_list=[16])
     data_len = data.shape[0]
 
-    train = data.iloc[:int(data_len * 0.9), : ]
-    train_part = data.iloc[int(data_len * 0.9): , : ]
+    train = data.iloc[:int(data_len*0.9),:]
+    train_part = data.iloc[int(data_len*0.9):,:]
 
-    scalers, models, accuracy = train_classifiers(data,  hyper_parameters_search = False)
-    save_models(scalers, models, accuracy, 'test_classifiers')
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(os.path.dirname(p))
+    test_classifiers_path = os.path.join(d,'saxskit','modeling_data','test_classifiers.yml')
+    test_regressors_path = os.path.join(d,'saxskit','modeling_data','test_regressors.yml')
+    
+    scalers, models, accuracy = train_classifiers(train, hyper_parameters_search=False, model='all')
+    save_models(scalers, models, accuracy, test_classifiers_path)
 
-    scalers, models, accuracy = train_regressors(train,hyper_parameters_search = False)
-    save_models(scalers, models, accuracy, 'test_regressors')
+    scalers, models, accuracy = train_regressors(train, hyper_parameters_search=False, model='all')
+    save_models(scalers, models, accuracy, test_regressors_path)
 
-    train_classifiers_partial(train_part,'test_classifiers', all_training_data = data)
-    save_models(scalers, models, accuracy, 'test_classifiers')
+    scalers, models, accuracy = train_classifiers_partial(
+        train_part, test_classifiers_path, all_training_data=data, model='all')
+    save_models(scalers, models, accuracy, test_classifiers_path)
 
-    train_regressors_partial(train_part, 'test_regressors', all_training_data = data)
-    save_models(scalers, models, accuracy, 'test_regressors')
-
+    scalers, models, accuracy = train_regressors_partial(
+        train_part, test_regressors_path, all_training_data=data, model='all')
+    save_models(scalers, models, accuracy, test_regressors_path)
 
 #def test_citrination_classifier(address,api_key_file):
 #    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
