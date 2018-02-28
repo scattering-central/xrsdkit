@@ -24,7 +24,7 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation accuracy.
-    models : str
+    model : str
         the name of model to train ("unidentified", "spherical_normal",
         "guinier_porod", "diffraction_peaks", or "all" to train all models).
 
@@ -204,7 +204,7 @@ def train_regressors(all_data, hyper_parameters_search=False, model= 'all'):
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation accuracy.
-    models : str
+    model : str
         the name of model to train ("r0_sphere", "sigma_sphere",
         "rg_gp", or "all" to train all models).
 
@@ -842,7 +842,7 @@ def train_regressors_partial(new_data, file_path=None, all_training_data=None, m
     all_training_data : pandas.DataFrame (optional)
         dataframe containing all of the original training data
         for computing the accuracy of the updated models.
-    models : str
+    model : str
         the name of model to train ("r0_sphere", "sigma_sphere",
         "rg_gp", or "all" to train all models).
 
