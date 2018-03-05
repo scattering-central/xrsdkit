@@ -20,7 +20,6 @@ with open(api_key_file, "r") as g:
 cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
 data = get_data_from_Citrination(client = cl, dataset_id_list= [1,15])
-data_len = data.shape[0]
 
 scalers, models, accuracy = train_classifiers(data, hyper_parameters_search = True, model='all')
 save_models(scalers, models, accuracy, classifiers_path)
