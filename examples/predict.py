@@ -18,8 +18,11 @@ from saxskit.saxs_citrination import CitrinationSaxsModels
 # for computing parameters related with intensity:
 from saxskit import saxs_fit
 
-path = os.getcwd()
-q_i = np.genfromtxt (path + '/saxskit/examples/sample_0.csv', delimiter=",")
+p = os.path.abspath(__file__)
+d = os.path.dirname(os.path.dirname(p))
+path = os.path.join(d,'examples','sample_0.csv')
+
+q_i = np.genfromtxt (path, delimiter=",")
 
 #Profile a saxs spectrum:
 features = profile_spectrum(q_i)
@@ -49,7 +52,10 @@ print()
 #Using Citrination models:
 print("\033[1m" + "Prediction from Citrination models: " + "\033[0;0m", "\n")
 
-api_key_file = path + '/citrination_api_key_ssrl.txt'
+api_key_file = os.path.join(d, 'api_key.txt')
+if not os.path.exists(api_key_file):
+    print("Citrination api key file did not find")
+
 saxs_models = CitrinationSaxsModels(api_key_file,'https://slac.citrination.com')
 
 populations, uncertainties = saxs_models.classify(features)

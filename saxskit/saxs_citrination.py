@@ -15,7 +15,7 @@ class CitrinationSaxsModels(object):
     as an instantiation argument.
     """
 
-    def __init__(self, api_key_file, address='https://citrination.com/'):
+    def __init__(self, api_key_file, address='https://slac.citrination.com'):
         with open(api_key_file, "r") as g:
             api_key = g.readline()
         a_key = api_key.strip()
