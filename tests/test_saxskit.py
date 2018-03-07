@@ -169,18 +169,22 @@ def test_citrination_models():
         return
 
     test_path = os.path.join(head,'saxskit','examples','sample_0.csv')
-    q_i = np.genfromtxt (test_path + '/saxskit/examples/sample_0.csv', delimiter=",")
+    q_i = np.genfromtxt (test_path, delimiter=",")
     features = profile_spectrum(q_i)
 
 
     saxs_models = CitrinationSaxsModels(api_key_file,'https://slac.citrination.com')
+    print('testing Citrination models on {}'.format(test_path))
 
     flags, uncertainties = saxs_models.classify(features)
+    print("scatterer populations: ")
     for popk in flags.keys():
         print('\t{} populations: {} ({} certainty)'.format(popk,flags[popk],uncertainties[popk]))
 
-
     params,uncertainties = saxs_models.predict_params(flags, features, q_i)
+    print("scattering and intensity parameters: ")
+    for popk in params.keys():
+        print('\t{} populations: {} ({} certainty)'.format(popk,params[popk],uncertainties[popk]))
 
 
 #def test_citrination_classifier(address,api_key_file):
