@@ -78,7 +78,3 @@ for k,v in params.items():
     for n in range(len(v)):
         print(" %10.3f" % (v[n]) )
 print()
-
-print("uncertainties: ")
-for k,v in uncertainties.items():
-    print(k, ": %1.3f" % (v))
