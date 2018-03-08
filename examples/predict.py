@@ -65,6 +65,10 @@ for k,v in populations.items():
 print()
 
 params,uncertainties = saxs_models.predict_params(populations, features, q_i)
+print("scatterer parameters: ")
+for k,v in params.items():
+    print(k, ":", v, " +/- %1.3f" % (uncertainties[k]))
+print()
 
 sxf = saxs_fit.SaxsFitter(q_i,populations)
 params, report = sxf.fit_intensity_params(params)
