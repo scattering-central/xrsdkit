@@ -133,7 +133,7 @@ To predict scatters populations we can use SAXSKIT models (built on Sklearn) or 
 | I0_sphere :   3202.553
 | r0_sphere :     28.056
 | sigma_sphere :      0.095
-
+|
 ::
 
 
