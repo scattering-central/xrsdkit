@@ -145,23 +145,17 @@ three regression models:
 - 'sigma_sphere': the fractional standard deviation of sphere size for 'spherical_normal' scatterers
 - 'rg_gp': the radius of gyration for 'guinier_porod' scatterers
 
-Users with Citrination accounts can pull SAXS data from Citrination to train custom models. The SAXS records used for
- training must have been generated with saxskit.saxs_piftools, preferably by the same version of saxskit.
+Users with Citrination accounts can pull SAXS data from Citrination to train custom models. The SAXS records used for training must have been generated with saxskit.saxs_piftools, preferably by the same version of saxskit.
 
 
 **SAXSKIT provides two options for training**:
 
-- training from scratch: useful for initial training or when we have a lot of new data (around 30% of the dataset
- or more).
-- updating existing models with additional data: takes less time than training new models, especially when the existing
- model was trained on a large data set. This is recommended when there is some new data, but the new data are less than
-  about 30% of the dataset.
+- training from scratch: useful for initial training or when we have a lot of new data (around 30% of the dataset or more).
+- updating existing models with additional data: takes less time than training new models, especially when the existing model was trained on a large data set. This is recommended when there is some new data, but the new data are less than about 30% of the dataset.
 
-"training from scratch" is useful for initial training or when we have a lot of new data (more than 30%). It is
-recommended to use "hyper_parameters_search = True."
+"training from scratch" is useful for initial training or when we have a lot of new data (more than 30%). It is recommended to use "hyper_parameters_search = True."
 
-Updating existing models is recommended when we have some new data (less than 30%). Updating existing models takes
-significant less time than "training from scratch"
+Updating existing models is recommended when we have some new data (less than 30%). Updating existing models takes significant less time than "training from scratch"
 
 
 Training from "scratch"
@@ -250,11 +244,11 @@ Step 2. Train Classifiers and Save The Models ::
 
 For training from scratch, we use train_classifiers() with hyper_parameters_search = True. This will seek a set of
 model hyperparameters that optimizes the model. The final set of hyperparameters is the set that provides the highest
- mean accuracy on the given test data and labels.
+mean accuracy on the given test data and labels.
 
 Since samples from the same experiment are often highly correlated, saxskit uses a "Leave-N-Groups-Out" technique to
 evaluate training error. Saxskit leaves two groups (experiment_ids) out for each training cycle. For example, if we
- have experiments 1 through 5:
+have experiments 1 through 5:
 
 - train the model on 1,2 3; test on 4,5
 - train the model on 1,2,5; test on 3,4
@@ -373,6 +367,7 @@ Accuracy after updating ::
 | guinier_porod: 0.7321
 | spherical_normal: 0.9765
 | unidentified: 0.9886
+|
 
 If we are not satisfied with new accuracy, we can train the models "from scratch" ::
 
@@ -403,6 +398,7 @@ Accuracy after updating ::
 | r0_sphere: 0.2642
 | rg_gp: 1.1316
 | sigma_sphere: 0.5594
+|
 
 Again, if we are not satisfied with new accuracy, we can train the models "from scratch" ::
 
