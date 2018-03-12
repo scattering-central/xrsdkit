@@ -47,7 +47,7 @@ class CitrinationSaxsModels(object):
 
         populations = OrderedDict()
         uncertainties = OrderedDict()
-        resp = self.client.predict("24", inputs) # "24" is ID of dataview on Citrination
+        resp = self.client.predict("33", inputs) # "33" is ID of dataview on Citrination
         for popname in population_keys:
             populations[popname] = int(resp['candidates'][0]['Property '+popname][0])
             uncertainties[popname] = float(resp['candidates'][0]['Property '+popname][1])
@@ -96,14 +96,14 @@ class CitrinationSaxsModels(object):
             return params, uncertainties
 
         if bool(populations['spherical_normal']):
-            resp = self.client.predict("27", features) # "27" is ID of dataview on Citrination
+            resp = self.client.predict("34", features) # "34" is ID of dataview on Citrination
             params['r0_sphere'] = [float(resp['candidates'][0]['Property r0_sphere'][0])]
             uncertainties['r0_sphere'] = float(resp['candidates'][0]['Property r0_sphere'][1])
             additional_features = saxs_math.spherical_normal_profile(q_I)
             additional_features = self.append_str_property(additional_features)
             ss_features = OrderedDict(features)
             ss_features.update(additional_features)
-            resp = self.client.predict("28", ss_features)
+            resp = self.client.predict("31", ss_features)
             params['sigma_sphere'] = [float(resp['candidates'][0]['Property sigma_sphere'][0])]
             uncertainties['sigma_sphere'] = float(resp['candidates'][0]['Property sigma_sphere'][1])
 
@@ -112,7 +112,7 @@ class CitrinationSaxsModels(object):
             additional_features = self.append_str_property(additional_features)
             rg_features = dict(features)
             rg_features.update(additional_features)
-            resp =self.client.predict("29", rg_features)
+            resp =self.client.predict("35", rg_features)
             params['rg_gp'] = [float(resp['candidates'][0]['Property rg_gp'][0])]
             uncertainties['rg_gp'] = float(resp['candidates'][0]['Property rg_gp'][1])
 
