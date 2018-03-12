@@ -138,10 +138,10 @@ To predict scatters populations we can use SAXSKIT models (built on Sklearn) or 
 
 
 The full version of this code:
-https://github.com/scattering-central/saxskit/blob/examples/examples/predict.py
+https://github.com/scattering-central/saxskit/blob/dev/examples/predict.py
 
 Output:
-https://github.com/scattering-central/saxskit/blob/examples/examples/output.png
+https://github.com/scattering-central/saxskit/blob/dev/examples/output.png
 
 There are some more detailed examples of predictions, training and updating of models in "examples" folder.
 
