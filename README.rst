@@ -141,7 +141,7 @@ The full version of this code:
 https://github.com/scattering-central/saxskit/blob/dev/examples/predict.py
 
 Output:
-https://github.com/scattering-central/saxskit/blob/dev/examples/output.pngv
+https://github.com/scattering-central/saxskit/blob/dev/examples/output.png
 
 There are some more detailed examples of predictions, training and updating of models in "examples" folder.
 
