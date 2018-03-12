@@ -141,7 +141,7 @@ https://github.com/scattering-central/saxskit/blob/dev/examples/predict_using_ci
 Train the models
 ................
 
-**SAXSKIT has seven pretrained models**:
+**saxskit has seven pretrained models**:
 
 four binary classifiers:
 
@@ -159,7 +159,7 @@ three regression models:
 Users with Citrination accounts can pull SAXS data from Citrination to train custom models. The SAXS records used for training must have been generated with saxskit.saxs_piftools, preferably by the same version of saxskit.
 
 
-**SAXSKIT provides two options for training**:
+**saxskit provides two options for training**:
 
 - training from scratch: useful for initial training or when we have a lot of new data (around 30% of the dataset or more).
 - updating existing models with additional data: takes less time than training new models, especially when the existing model was trained on a large data set. This is recommended when there is some new data, but the new data are less than about 30% of the dataset.
