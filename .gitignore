@@ -17,4 +17,5 @@ pip-selfcheck.json
 *__pycache__
 *.egg-info
 *.ipynb-checkpoints
+*api_key.txt
 examples/.ipynb_checkpoints/*.ipynb
