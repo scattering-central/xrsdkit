@@ -27,14 +27,14 @@ q_i = np.genfromtxt (path, delimiter=",")
 #Profile a saxs spectrum:
 features = profile_spectrum(q_i)
 
-#Using SAXSKIT models:
-print("\033[1m" + "Prediction from SAXSKIT models: " + "\033[0;0m", "\n")
+#Using saxskit models:
+print("\033[1m" + "Prediction from saxskit models: " + "\033[0;0m", "\n")
 
 m = SaxsClassifier()
-populations, propability = m.classify(features)
+populations, probabilities = m.classify(features)
 print("scatterer populations: ")
 for k,v in populations.items():
-    print(k, ":", v, "  with propability: %1.3f" % (propability[k]))
+    print(k, ":", v, "  with probability: %1.3f" % (probabilities[k]))
 print()
 
 r = SaxsRegressor()
