@@ -14,6 +14,9 @@ from saxskit.saxs_models import train_classifiers, train_regressors
 from saxskit.saxs_models import train_classifiers_partial, train_regressors_partial
 from saxskit.saxs_models import save_models
 
+from saxskit.saxs_math import profile_spectrum
+from saxskit.saxs_citrination import CitrinationSaxsModels
+
 def test_guinier_porod():
     qvals = np.arange(0.01,1.,0.01)
     Ivals = saxs_math.guinier_porod(qvals,20,4,120)
@@ -157,6 +160,32 @@ def test_model_training():
     scalers, models, accuracy = train_regressors_partial(
         train_part, test_regressors_path, all_training_data=data, model='all')
     save_models(scalers, models, accuracy, test_regressors_path)
+
+def test_citrination_models():
+    path = os.getcwd()
+    head, tail = os.path.split(path)
+    api_key_file = os.path.join(head, 'api_key.txt')
+    if not os.path.exists(api_key_file):
+        return
+
+    test_path = os.path.join(head,'saxskit','examples','sample_0.csv')
+    q_i = np.genfromtxt (test_path, delimiter=",")
+    features = profile_spectrum(q_i)
+
+
+    saxs_models = CitrinationSaxsModels(api_key_file,'https://slac.citrination.com')
+    print('testing Citrination models on {}'.format(test_path))
+
+    flags, uncertainties = saxs_models.classify(features)
+    print("scatterer populations: ")
+    for popk in flags.keys():
+        print('\t{} populations: {} ({} certainty)'.format(popk,flags[popk],uncertainties[popk]))
+
+    params,uncertainties = saxs_models.predict_params(flags, features, q_i)
+    print("scattering and intensity parameters: ")
+    for popk in params.keys():
+        print('\t{} populations: {} ({} certainty)'.format(popk,params[popk],uncertainties[popk]))
+
 
 #def test_citrination_classifier(address,api_key_file):
 #    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')

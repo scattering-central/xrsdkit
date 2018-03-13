@@ -2,12 +2,12 @@ from __future__ import print_function
 
 import numpy as np
 
-from diffractkit import peak_math,diffraction
+from xrsdkit import diffraction
 
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm in [0.01,0.03,0.05,0.1]:
-        g = peak_math.gaussian(qvals-2.,hwhm)
+        g = diffraction.peak_math.gaussian(qvals-2.,hwhm)
         intg = np.sum(0.01*g)
         print('approx. integral of gaussian with hwhm {}: {}'\
             .format(hwhm,intg))
@@ -15,7 +15,7 @@ def test_gaussian():
 def test_lorentzian():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm in [0.01,0.03,0.05,0.1]:
-        l = peak_math.lorentzian(qvals-2.,hwhm)
+        l = diffraction.peak_math.lorentzian(qvals-2.,hwhm)
         intl = np.sum(0.01*l)
         print('approx. integral of lorentzian with hwhm {}: {}'\
             .format(hwhm,intl))
@@ -24,7 +24,7 @@ def test_voigt():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm_g in [0.01,0.03,0.05,0.1]:
         for hwhm_l in [0.01,0.03,0.05,0.1]:
-            v = peak_math.voigt(qvals-2.0,hwhm_g,hwhm_l)
+            v = diffraction.peak_math.voigt(qvals-2.0,hwhm_g,hwhm_l)
             intv = np.sum(0.01*v)
             print('approx. integral of voigt '\
                 'with gaussian hwhm {} and lorentzian hwhm {}: {}'\
