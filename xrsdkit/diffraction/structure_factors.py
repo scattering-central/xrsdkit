@@ -3,6 +3,9 @@ from functools import partial
 import numpy as np
 import quadpy
 
+from xrsdkit import scattering
+from xrsdkit.scattering import form_factors as xrff
+
 fcc_coords = np.array([
     (0.,0.,0.),
     (0.5,0.5,0.),
@@ -18,7 +21,7 @@ def fcc_sf(q_hkl,hkl,populations):
         for fcc_coord in fcc_coords:
             for coord,ffspec in basis.items():
                 g_dot_r = np.dot(fcc_coord+coord,hkl)
-                ff = scattering.compute_ff(np.array([q_hkl]),ffspec)[0]*np.exp(2j*np.pi*g_dot_r)
+                ff = xrff.compute_ff(np.array([q_hkl]),ffspec)[0]*np.exp(2j*np.pi*g_dot_r)
                 F_hkl += ff
     return F_hkl
 

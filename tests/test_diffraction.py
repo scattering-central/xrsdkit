@@ -2,12 +2,13 @@ from __future__ import print_function
 
 import numpy as np
 
-from xrsdkit import diffraction
+from xrsdkit import compute_intensity 
+from xrsdkit.diffraction import structure_factors,peak_math
 
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm in [0.01,0.03,0.05,0.1]:
-        g = diffraction.peak_math.gaussian(qvals-2.,hwhm)
+        g = peak_math.gaussian(qvals-2.,hwhm)
         intg = np.sum(0.01*g)
         print('approx. integral of gaussian with hwhm {}: {}'\
             .format(hwhm,intg))
@@ -15,7 +16,7 @@ def test_gaussian():
 def test_lorentzian():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm in [0.01,0.03,0.05,0.1]:
-        l = diffraction.peak_math.lorentzian(qvals-2.,hwhm)
+        l = peak_math.lorentzian(qvals-2.,hwhm)
         intl = np.sum(0.01*l)
         print('approx. integral of lorentzian with hwhm {}: {}'\
             .format(hwhm,intl))
@@ -24,7 +25,7 @@ def test_voigt():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm_g in [0.01,0.03,0.05,0.1]:
         for hwhm_l in [0.01,0.03,0.05,0.1]:
-            v = diffraction.peak_math.voigt(qvals-2.0,hwhm_g,hwhm_l)
+            v = peak_math.voigt(qvals-2.0,hwhm_g,hwhm_l)
             intv = np.sum(0.01*v)
             print('approx. integral of voigt '\
                 'with gaussian hwhm {} and lorentzian hwhm {}: {}'\
@@ -45,7 +46,7 @@ def test_voigt():
 #                flat={'amplitude':1.}
 #                )}
 #            )
-#    Ivals = diffraction.compute_intensity(qvals,pops,0.8265616)
+#    Ivals = compute_intensity(qvals,pops,0.8265616)
 
 def test_fcc_sf():
     # take the q value of the (111) sphere
@@ -64,7 +65,7 @@ def test_fcc_sf():
                 )}
             )
 
-    sf_func = lambda qi,ph,th: diffraction.fcc_sf(qi,
+    sf_func = lambda qi,ph,th: structure_factors.fcc_sf(qi,
         np.array([
             qi*np.sin(th)*np.cos(ph),
             qi*np.sin(th)*np.sin(ph),
@@ -119,8 +120,8 @@ def test_fcc_Al():
                 atomic={'atom_name':'Al'}
                 )}
             )
-    Ivals = diffraction.compute_intensity(qvals,pops,0.8265616)
-    sfvals = diffraction.fcc_sf_spherical_average(qvals,pops)
+    Ivals = compute_intensity(qvals,pops,0.8265616)
+    sfvals = structure_factors.fcc_sf_spherical_average(qvals,pops)
 
     #from matplotlib import pyplot as plt
     #plt.figure(1)

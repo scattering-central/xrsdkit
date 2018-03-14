@@ -1,3 +1,10 @@
+from collections import OrderedDict
+
+import numpy as np 
+
+from . import standardize_array, pearson
+from ..fitting import fit_I0
+
 profile_keys = list([
     'Imax_over_Imean',
     'Imax_sharpness',
@@ -132,10 +139,10 @@ def profile_spectrum(q_I):
     logI_fluctuation = fluc/logI_range
 
     ### correlation analysis
-    pearson_q = compute_pearson(q,I)
-    pearson_q2 = compute_pearson(q**2,I)
-    pearson_expq = compute_pearson(np.exp(q),I)
-    pearson_invexpq = compute_pearson(np.exp(-1*q),I)
+    pearson_q = pearson(q,I)
+    pearson_q2 = pearson(q**2,I)
+    pearson_expq = pearson(np.exp(q),I)
+    pearson_invexpq = pearson(np.exp(-1*q),I)
 
     ### fourier analysis
     fftI = np.fft.fft(I)
@@ -153,7 +160,7 @@ def profile_spectrum(q_I):
     r_fftIcentroid = rfftI_rint / fftI_rint 
     r_fftImax = r_pos[np.argmax(fftampI_rpos)]
 
-    features = OrderedDict.fromkeys(profile_keys['unidentified'])
+    features = OrderedDict.fromkeys(profile_keys)
     features['Imax_over_Imean'] = Imax_over_Imean
     features['Imax_sharpness'] = Imax_sharpness
     features['I_fluctuation'] = I_fluctuation
@@ -198,7 +205,7 @@ def guinier_porod_profile(q_I):
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    features = OrderedDict.fromkeys(profile_keys['guinier_porod'])
+    features = OrderedDict.fromkeys(profile_keys)
     q_s,q_mean,q_std = standardize_array(q)
     I_s,I_mean,I_std = standardize_array(q)
     I_at_0, p_I0 = fit_I0(q,I,4)
@@ -241,7 +248,7 @@ def spherical_normal_profile(q_I):
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    features = OrderedDict.fromkeys(profile_keys['spherical_normal'])
+    features = OrderedDict.fromkeys(profile_keys)
     #######
     # 1: Find the first local max
     # and subsequent local minimum of I*q**4 
@@ -298,14 +305,14 @@ def detailed_profile(q_I,populations):
     try:
         gp_prof = guinier_porod_profile(q_I)
     except:
-        gp_prof = OrderedDict.fromkeys(profile_keys['guinier_porod'])
+        gp_prof = OrderedDict.fromkeys(profile_keys)
     profs.update(gp_prof)
 
     #if bool(populations['spherical_normal']):
     try:
         sph_prof = spherical_normal_profile(q_I)
     except:
-        sph_prof = OrderedDict.fromkeys(profile_keys['spherical_normal'])
+        sph_prof = OrderedDict.fromkeys(profile_keys)
     profs.update(sph_prof)
 
     #if bool(populations['diffraction_peaks']):

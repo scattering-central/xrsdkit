@@ -93,4 +93,17 @@ def chi_squared(y1,y2,weights=None):
     y2 : array
         an array of floats
     weights : array
+        array of weights to multiply each element of (`y2`-`y1`)**2 
+
+    Returns
+    -------
+    chi2 : float
+        sum of difference squared between `y1` and `y2`. 
+    """
+    if weights is None:
+        return np.sum( (y1 - y2)**2 )
+    else:
+        weights = weights / np.sum(weights)
+        return np.sum( (y1 - y2)**2*weights )
+
 

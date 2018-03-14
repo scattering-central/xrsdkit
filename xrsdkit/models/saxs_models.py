@@ -631,28 +631,6 @@ def testing_by_experiments(df, label, features, alpha, l1_ratio, penalty):
     return acc
 
 
-def get_pifs_from_Citrination(client, dataset_id_list):
-    all_hits = []
-    for dataset in dataset_id_list:
-        query = PifSystemReturningQuery(
-            from_index=0,
-            size=100,
-            query=DataQuery(
-                dataset=DatasetQuery(
-                    id=Filter(
-                    equal=dataset))))
-
-        current_result = client.search(query)
-        while current_result.hits is not None:
-            all_hits.extend(current_result.hits)
-            n_current_hits = len(current_result.hits)
-            #n_hits += n_current_hits
-            query.from_index += n_current_hits 
-            current_result = client.search(query)
-
-    pifs = [x.system for x in all_hits]
-    return pifs
-
 def testing_by_experiments_regression(df, label, features, alpha, l1_ratio,
                                       penalty, loss, epsilon, label_std):
     """Fit a model, then test it by leaveTwoGroupsOut cross-validation
@@ -698,58 +676,6 @@ def testing_by_experiments_regression(df, label, features, alpha, l1_ratio,
     normalized_error =  sum(test_scores_by_ex)/count
     return normalized_error
 
-def get_data_from_Citrination(client, dataset_id_list):
-    """Get data from Citrination and create a dataframe.
-
-    Parameters
-    ----------
-    client : citrination_client.CitrinationClient
-        A python Citrination client for fetching data
-    dataset_id_list : list of int
-        List of dataset ids (integers) for fetching SAXS records
-
-    Returns
-    -------
-    df_work : pandas.DataFrame
-        dataframe containing features and labels
-        obtained through `client` from the Citrination datasets
-        listed in `dataset_id_list`
-    """
-    data = []
-
-    pifs = get_pifs_from_Citrination(client,dataset_id_list)
-
-    for pp in pifs:
-        feats = OrderedDict.fromkeys(all_profile_keys)
-        pops = OrderedDict.fromkeys(population_keys)
-        par = OrderedDict.fromkeys(all_parameter_keys)
-        expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
-        feats.update(saxs_math.profile_spectrum(q_I))
-        feats.update(saxs_math.detailed_profile(q_I,pif_pops))
-        pops.update(pif_pops)
-        par.update(pif_par)
-        param_list = []
-        for k in par.keys():
-            if par[k] is not None:
-                val = par[k][0]
-            else:
-                val = None
-            param_list.append(val)
-
-        data_row = [expt_id]+list(feats.values())+list(pops.values())+param_list
-        data.append(data_row)
-
-    colnames = ['experiment_id']
-    colnames.extend(all_profile_keys)
-    colnames.extend(population_keys)
-    colnames.extend(all_parameter_keys)
-
-    d = pd.DataFrame(data=data, columns=colnames)
-    d = d.where((pd.notnull(d)), None) # replace all NaN by None
-    shuffled_rows = np.random.permutation(d.index)
-    df_work = d.loc[shuffled_rows]
-
-    return df_work
 
 def train_classifiers_partial(new_data, file_path=None, all_training_data=None, model='all'):
     """Read SAXS classification models from a YAML file, then update them with new data.

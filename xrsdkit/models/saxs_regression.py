@@ -6,9 +6,13 @@ import yaml
 import numpy as np
 from sklearn import preprocessing,linear_model
 
-from . import saxs_math, saxs_fit
-from . import parameter_keys, all_parameter_keys 
-from . import peak_math, peak_finder
+from ..tools import profiler
+
+# TODO: refactor to new data model
+all_parameter_keys = ['I0_floor','G_gp','rg_gp','D_gp','I0_sphere','r0_sphere','sigma_sphere']
+param_defaults = OrderedDict.fromkeys(all_parameter_keys)
+for k in all_parameter_keys:
+    param_defaults[k] = 0.01
 
 class SaxsRegressor(object):
     """A set of regression models to be used on SAXS spectra"""
@@ -62,7 +66,7 @@ class SaxsRegressor(object):
             similar to output of SaxsClassifier.classify()
         features : dict
             dictionary of sample numerical features,
-            similar to output of saxs_math.profile_spectrum().
+            similar to output of profiler.profile_spectrum().
         q_I : array 
             n-by-2 array of scattering vector (1/Angstrom) and intensities. 
 
@@ -82,9 +86,9 @@ class SaxsRegressor(object):
             x = self.scalers['r0_sphere'].transform(feature_array)
             r0sph = self.models['r0_sphere'].predict(x)
             params['r0_sphere'] = [float(r0sph[0])]
-            additional_features = saxs_math.spherical_normal_profile(q_I)
+            additional_features = profiler.spherical_normal_profile(q_I)
             if None in additional_features.values():
-                params['sigma_sphere'] = [float(saxs_fit.param_defaults['sigma_sphere'])]
+                params['sigma_sphere'] = [float(param_defaults['sigma_sphere'])]
             else:
                 ss_features = np.append(feature_array, np.array(list(additional_features.values()))).reshape(1,-1)
                 x = self.scalers['sigma_sphere'].transform(ss_features)
@@ -92,13 +96,13 @@ class SaxsRegressor(object):
                 params['sigma_sphere'] = [float(sigsph[0])]
 
         if bool(populations['guinier_porod']):
-            additional_features = saxs_math.guinier_porod_profile(q_I)
+            additional_features = profiler.guinier_porod_profile(q_I)
             rg_features = np.append(feature_array, np.array(list(additional_features.values()))).reshape(1,-1)
             x = self.scalers['rg_gp'].transform(rg_features)
             rg = self.models['rg_gp'].predict(x)
             params['rg_gp'] = [float(rg[0])]
             # TODO: add a model for the porod exponent.
-            params['D_gp'] = [float(saxs_fit.param_defaults['D_gp'])]
+            params['D_gp'] = [float(param_defaults['D_gp'])]
 
         return params
 

@@ -6,7 +6,8 @@ import sklearn
 from sklearn import preprocessing,linear_model
 import yaml
 
-from . import saxs_fit
+# TODO: refactor to new data model
+population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
 
 class SaxsClassifier(object):
     """A classifier to determine scatterer populations from SAXS spectra"""
@@ -27,10 +28,10 @@ class SaxsClassifier(object):
         # dict of accuracies
         acc_dict = s_and_m['accuracy']
 
-        self.models = OrderedDict.fromkeys(saxs_fit.population_keys)
-        self.scalers = OrderedDict.fromkeys(saxs_fit.population_keys)
-        self.accuracy = OrderedDict.fromkeys(saxs_fit.population_keys)
-        for model_name in saxs_fit.population_keys:
+        self.models = OrderedDict.fromkeys(population_keys)
+        self.scalers = OrderedDict.fromkeys(population_keys)
+        self.accuracy = OrderedDict.fromkeys(population_keys)
+        for model_name in population_keys:
             model_params = classifier_dict[model_name]
             scaler_params = scalers_dict[model_name]
             acc = acc_dict[model_name]
@@ -65,7 +66,7 @@ class SaxsClassifier(object):
         populations : dict
             dictionary of integers 
             counting predicted scatterer populations
-            for all populations in saxs_fit.population_keys.
+            for all populations in population_keys.
         certainties : dict
             dictionary, similar to `populations`,
             but containing the certainty of the prediction
@@ -82,7 +83,7 @@ class SaxsClassifier(object):
         certainties['unidentified'] = cert 
 
         if not populations['unidentified']: 
-            for k in saxs_fit.population_keys:
+            for k in population_keys:
                 if not k == 'unidentified':
                     x = self.scalers[k].transform(feature_array)
                     pop = int(self.models[k].predict(x)[0])

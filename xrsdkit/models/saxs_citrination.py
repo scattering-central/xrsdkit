@@ -1,9 +1,84 @@
 from collections import OrderedDict
 
-from . import saxs_math
-from . import population_keys
+from ..tools import profiler 
 
 from citrination_client import CitrinationClient
+
+# TODO: refactor to new data model
+population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
+
+def get_data_from_Citrination(client, dataset_id_list):
+    """Get data from Citrination and create a dataframe.
+
+    Parameters
+    ----------
+    client : citrination_client.CitrinationClient
+        A python Citrination client for fetching data
+    dataset_id_list : list of int
+        List of dataset ids (integers) for fetching SAXS records
+
+    Returns
+    -------
+    df_work : pandas.DataFrame
+        dataframe containing features and labels
+        obtained through `client` from the Citrination datasets
+        listed in `dataset_id_list`
+    """
+    data = []
+
+    pifs = get_pifs_from_Citrination(client,dataset_id_list)
+
+    for pp in pifs:
+        feats = OrderedDict.fromkeys(all_profile_keys)
+        pops = OrderedDict.fromkeys(population_keys)
+        par = OrderedDict.fromkeys(all_parameter_keys)
+        expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
+        feats.update(saxs_math.profile_spectrum(q_I))
+        feats.update(saxs_math.detailed_profile(q_I,pif_pops))
+        pops.update(pif_pops)
+        par.update(pif_par)
+        param_list = []
+        for k in par.keys():
+            if par[k] is not None:
+                val = par[k][0]
+            else:
+                val = None
+            param_list.append(val)
+
+        data_row = [expt_id]+list(feats.values())+list(pops.values())+param_list
+        data.append(data_row)
+
+    colnames = ['experiment_id']
+    colnames.extend(all_profile_keys)
+    colnames.extend(population_keys)
+    colnames.extend(all_parameter_keys)
+
+    d = pd.DataFrame(data=data, columns=colnames)
+    d = d.where((pd.notnull(d)), None) # replace all NaN by None
+    shuffled_rows = np.random.permutation(d.index)
+    df_work = d.loc[shuffled_rows]
+
+def get_pifs_from_Citrination(client, dataset_id_list):
+    all_hits = []
+    for dataset in dataset_id_list:
+        query = PifSystemReturningQuery(
+            from_index=0,
+            size=100,
+            query=DataQuery(
+                dataset=DatasetQuery(
+                    id=Filter(
+                    equal=dataset))))
+
+        current_result = client.search(query)
+        while current_result.hits is not None:
+            all_hits.extend(current_result.hits)
+            n_current_hits = len(current_result.hits)
+            #n_hits += n_current_hits
+            query.from_index += n_current_hits 
+            current_result = client.search(query)
+
+    pifs = [x.system for x in all_hits]
+    return pifs
 
 class CitrinationSaxsModels(object):
     """A set of models that uses Citrination to evaluate SAXS spectra.
@@ -37,7 +112,7 @@ class CitrinationSaxsModels(object):
         populations : dict
             dictionary of integers
             counting predicted scatterer populations
-            for all populations in saxskit.population_keys.
+            for all populations in population_keys.
         uncertainties : dict
             dictionary, similar to `populations`,
             but containing the uncertainty of the prediction
@@ -73,7 +148,7 @@ class CitrinationSaxsModels(object):
             similar to output of self.classify()
         features : dict
             dictionary of sample numerical features,
-            similar to output of saxs_math.profile_spectrum().
+            similar to output of profiler.profile_spectrum().
         q_I : array
             n-by-2 array of scattering vector (1/Angstrom) and intensities.
 
@@ -99,7 +174,7 @@ class CitrinationSaxsModels(object):
             resp = self.client.predict("34", features) # "34" is ID of dataview on Citrination
             params['r0_sphere'] = [float(resp['candidates'][0]['Property r0_sphere'][0])]
             uncertainties['r0_sphere'] = float(resp['candidates'][0]['Property r0_sphere'][1])
-            additional_features = saxs_math.spherical_normal_profile(q_I)
+            additional_features = profiler.spherical_normal_profile(q_I)
             additional_features = self.append_str_property(additional_features)
             ss_features = OrderedDict(features)
             ss_features.update(additional_features)
@@ -108,7 +183,7 @@ class CitrinationSaxsModels(object):
             uncertainties['sigma_sphere'] = float(resp['candidates'][0]['Property sigma_sphere'][1])
 
         if bool(populations['guinier_porod']):
-            additional_features = saxs_math.guinier_porod_profile(q_I)
+            additional_features = profiler.guinier_porod_profile(q_I)
             additional_features = self.append_str_property(additional_features)
             rg_features = dict(features)
             rg_features.update(additional_features)
