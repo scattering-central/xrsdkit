@@ -4,6 +4,20 @@ import numpy as np
 
 from xrsdkit import compute_intensity 
 from xrsdkit.diffraction import structure_factors,peak_math
+    
+fcc_Al = dict(
+    structure='fcc',
+    parameters=dict(
+        a=4.046,
+        profile='voigt',
+        hwhm=0.002,
+        q_min=1.,
+        q_max=5.,
+        ),
+    basis={(0,0,0):dict(
+        atomic={'atom_name':'Al'}
+        )}
+    )
 
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
@@ -51,19 +65,6 @@ def test_voigt():
 def test_fcc_sf():
     # take the q value of the (111) sphere
     q_111 = np.sqrt(3)
-    pops = dict(
-            lattice='fcc',
-            parameters=dict(
-                a=4.046,
-                profile='voigt',
-                hwhm=0.002,
-                q_min=1.,
-                q_max=5.,
-                ),
-            basis={(0,0,0):dict(
-                atomic={'atom_name':'Al'}
-                )}
-            )
 
     sf_func = lambda qi,ph,th: structure_factors.fcc_sf(qi,
         np.array([
@@ -105,6 +106,17 @@ def test_fcc_sf():
     #plt.colorbar(sfcont_imag)
     #plt.show()
 
+def test_fcc_spherical_average_sf():
+    qvals = np.arange(1.,5.,0.001)
+    sf_avg = structure_factors.fcc_sf_spherical_average(qvals,pops)
+    #from matplotlib import pyplot as plt
+    #plt.figure(3)
+    #plt.plot(q,sf_avg.real,'g')
+    #plt.plot(q,sf_avg.imag,'r')
+    #plt.plot(qvals,(sf_avg*sf_avg.conjugate()).real,'r')
+    #plt.legend(['real','imaginary','magnitude'])
+    #plt.show()
+
 def test_fcc_Al():
     qvals = np.arange(1.,5.,0.001)
     pops = dict(
@@ -121,19 +133,12 @@ def test_fcc_Al():
                 )}
             )
     Ivals = compute_intensity(qvals,pops,0.8265616)
-    sfvals = structure_factors.fcc_sf_spherical_average(qvals,pops)
 
     #from matplotlib import pyplot as plt
-    #plt.figure(1)
+    #plt.figure(4)
     #plt.plot(qvals,Ivals)
     #plt.show()
     
-    #plt.figure(2)
-    #plt.plot(qvals,sfvals.real,'b')
-    #plt.plot(qvals,sfvals.imag,'g')
-    #plt.plot(qvals,(sfvals*sfvals.conjugate()).real,'r')
-
-
 
 
 
