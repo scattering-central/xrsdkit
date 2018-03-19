@@ -24,7 +24,7 @@ def fcc_sf(q_hkl,hkl,popd):
                         xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params[i]) 
                         for i in range(len(specie_params))]) 
                 else: 
-                    ff = xrff.compute_ff(np.array([q_hkl]),specie,params)[0]*np.exp(2j*np.pi*g_dot_r)
+                    ff = xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params)[0]*np.exp(2j*np.pi*g_dot_r)
                 F_hkl += ff
     return F_hkl
 

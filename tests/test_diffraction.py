@@ -71,7 +71,7 @@ def test_fcc_sf():
             qi*np.sin(th)*np.cos(ph),
             qi*np.sin(th)*np.sin(ph),
             qi*np.cos(th)]).reshape(3,1),
-        pops)
+        fcc_Al)
 
     ph,th = np.meshgrid(np.arange(0,np.pi,0.1),np.arange(0,2*np.pi,0.1))
     sf = np.zeros(ph.shape,dtype=complex)
@@ -108,7 +108,7 @@ def test_fcc_sf():
 
 def test_fcc_spherical_average_sf():
     qvals = np.arange(1.,5.,0.001)
-    sf_avg = structure_factors.fcc_sf_spherical_average(qvals,pops)
+    sf_avg = structure_factors.fcc_sf_spherical_average(qvals,fcc_Al)
     #from matplotlib import pyplot as plt
     #plt.figure(3)
     #plt.plot(q,sf_avg.real,'g')
@@ -119,20 +119,7 @@ def test_fcc_spherical_average_sf():
 
 def test_fcc_Al():
     qvals = np.arange(1.,5.,0.001)
-    pops = dict(
-            lattice='fcc',
-            parameters=dict(
-                a=4.046,
-                profile='voigt',
-                hwhm=0.002,
-                q_min=1.,
-                q_max=5.,
-                ),
-            basis={(0,0,0):dict(
-                atomic={'atom_name':'Al'}
-                )}
-            )
-    Ivals = compute_intensity(qvals,pops,0.8265616)
+    Ivals = compute_intensity(qvals,fcc_Al,0.8265616)
 
     #from matplotlib import pyplot as plt
     #plt.figure(4)

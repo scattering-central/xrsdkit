@@ -313,7 +313,5 @@ def full_profile(q_I):
         profs.update(sph_prof)
     except:
         pass
-    print('FULL PROFILE: ')
-    print(profs)
     return profs
 
