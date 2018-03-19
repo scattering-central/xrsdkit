@@ -213,10 +213,42 @@ def scalar_property(fname,fval,desc=None,data_type=None,funits=None):
         pf.units = funits
     return pf
 
+def unpack_pif(pp):
+    expt_id = None
+    t_utc = None
+    q_I = None
+    temp = None
+    features = OrderedDict()
+    if pp.ids is not None:
+        for iidd in pp.ids:
+            if iidd.name == 'EXPERIMENT_ID':
+                expt_id = iidd.value
+    if pp.tags is not None:
+        for ttgg in pp.tags:
+            if 'time (utc): ' in ttgg:
+                t_utc = float(ttgg.replace('time (utc): ',''))
+    if pp.properties is not None: 
+        for prop in pp.properties:
+            if prop.name == 'SAXS intensity':
+                I = [float(sca.value) for sca in prop.scalars]
+                for val in prop.conditions:
+                    if val.name == 'scattering vector':
+                        q = [float(sca.value) for sca in val.scalars]
+                    if val.name == 'temperature':
+                        temp = float(val.scalars[0].value)
+                q_I = np.vstack([q,I]).T
+            elif prop.tags is not None:
+                if 'spectrum profiling quantity' in prop.tags:
+                    features[prop.name] = float(prop.scalars[0].value) 
+    populations = []
+    if pp.classifications is not None:
+        for cls in pp.classifications:
+            populations.append({'structure':cls.value})
+    return expt_id,t_utc,q_I,temp,features,populations
 
 
 
-
+#### obsolete functions below this line ####
 
 population_keys=['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
 all_parameter_keys=['I0_floor','G_gp','rg_gp','D_gp','I0_sphere','r0_sphere','sigma_sphere']
