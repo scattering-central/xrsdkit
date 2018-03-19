@@ -18,14 +18,19 @@ profile_keys = list([
     'pearson_q',
     'pearson_q2',
     'pearson_expq',
-    'pearson_invexpq',
+    'pearson_invexpq'])
+gp_profile_keys = list([
     'I0_over_Imean',
     'I0_curvature',
-    'q_at_half_I0',
+    'q_at_half_I0'])
+spherical_profile_keys = list([
     'q_at_Iq4_min1',
     'pIq4_qwidth',
     'pI_qvertex',
     'pI_qwidth'])
+
+profile_keys.extend(gp_profile_keys)
+profile_keys.extend(spherical_profile_keys)
  
 def profile_spectrum(q_I):
     """Numerical profiling of a SAXS spectrum.
@@ -205,16 +210,16 @@ def guinier_porod_profile(q_I):
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    features = OrderedDict.fromkeys(profile_keys)
     q_s,q_mean,q_std = standardize_array(q)
     I_s,I_mean,I_std = standardize_array(q)
     I_at_0, p_I0 = fit_I0(q,I,4)
     dpdq = np.polyder(p_I0)
     d2pdq2 = np.polyder(dpdq)
     I0_curv = (np.polyval(d2pdq2,-1*q_mean/q_std)*I_std+I_mean)/I_mean
-    
-    features['I0_over_Imean'] = I_at_0/I_mean
     idx_half_I0 = np.min(np.where(I<0.5*I_at_0))
+    
+    features = OrderedDict.fromkeys(gp_profile_keys)
+    features['I0_over_Imean'] = I_at_0/I_mean
     features['q_at_half_I0'] = q[idx_half_I0]
     features['I0_curvature'] = I0_curv
     return features
@@ -248,7 +253,6 @@ def spherical_normal_profile(q_I):
     """
     q = q_I[:,0]
     I = q_I[:,1]
-    features = OrderedDict.fromkeys(profile_keys)
     #######
     # 1: Find the first local max
     # and subsequent local minimum of I*q**4 
@@ -263,6 +267,7 @@ def spherical_normal_profile(q_I):
             idxmax1 = idx
         if np.argmin(Iqqqq[idx-w:idx+w+1]) == w and idxmin1 == 0 and not idxmax1 == 0:
             idxmin1 = idx
+    features = OrderedDict.fromkeys(spherical_profile_keys)
     if idxmin1 == 0 or idxmax1 == 0:
         return features 
     #######
@@ -295,30 +300,20 @@ def spherical_normal_profile(q_I):
     features['pI_qwidth'] = pI_fwidth*q_min1_std
     return features 
 
-def detailed_profile(q_I,populations):
-    profs = OrderedDict()
-
-    if bool(populations['unidentified']):
-        return profs 
-
-    #if bool(populations['guinier_porod']):
+def full_profile(q_I):
+    profs = OrderedDict.fromkeys(profile_keys)
+    profs.update(profile_spectrum(q_I))    
     try:
         gp_prof = guinier_porod_profile(q_I)
+        profs.update(gp_prof)
     except:
-        gp_prof = OrderedDict.fromkeys(profile_keys)
-    profs.update(gp_prof)
-
-    #if bool(populations['spherical_normal']):
+        pass
     try:
         sph_prof = spherical_normal_profile(q_I)
+        profs.update(sph_prof)
     except:
-        sph_prof = OrderedDict.fromkeys(profile_keys)
-    profs.update(sph_prof)
-
-    #if bool(populations['diffraction_peaks']):
-    #   diffraction-specific profiling should go here
- 
+        pass
+    print('FULL PROFILE: ')
+    print(profs)
     return profs
-
-
 

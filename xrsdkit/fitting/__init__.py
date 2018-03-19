@@ -4,7 +4,6 @@ from collections import OrderedDict
 import numpy as np
 import lmfit
 
-from .. import lattices, form_factors, parameters
 from ..tools import standardize_array
 
 param_defaults = OrderedDict(

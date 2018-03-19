@@ -199,7 +199,7 @@ def fcc_crystal(atom_name,a_lat,q_min=None,q_max=None,pk_profile=None,hwhm=None)
         name='fcc_{}'+atom_name,
         structure='fcc',
         parameters={'a':a_lat},
-        basis=dict((0,0,0)={'atomic':{'atom_name':atom_name}})
+        basis={(0,0,0):{'atomic':{'atom_name':atom_name}}}
         )
     if q_min:
         fcc_pop['parameters']['q_min'] = q_min
