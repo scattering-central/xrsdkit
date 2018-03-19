@@ -3,6 +3,8 @@ from collections import OrderedDict
 from ..tools import profiler 
 
 from citrination_client import CitrinationClient
+from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
+
 
 # TODO: refactor to new data model
 population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
