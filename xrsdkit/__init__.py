@@ -8,13 +8,12 @@ A population is described by a dict with the following entries:
         (e.g. 'noise', 'substrate', 'particles')
 
     - 'structure' : the structure of the population 
-        (e.g. 'crystalline', 'diffuse', 'condensed'). 
+        (e.g. 'diffuse', 'condensed', 'fcc'). 
 
     - 'parameters' : dict describing the structure (lattice parameters, etc)
         as well as any other parameters used in the scattering computation.
         Some of the keys are used for structural parameters:
 
-        - 'lattice' : lattice identifier, e.g. 'fcc' or 'bcc' 
         - 'a', 'b', 'c' : a, b, and c lattice parameters
         - 'alpha' : angle between b and c lattice vectors
         - 'beta' : angle between a and c lattice vectors
@@ -50,10 +49,8 @@ The following structures are currently supported:
         the number of scatterers 'N',
         and at least one basis site.
 
-    - 'crystalline' : crystalline lattice.
-        The lattice is indicated by the parameters['lattice'],
-        and each unique lattice makes use of a set of 
-        parameters, angles, and basis sites. 
+    - 'fcc' : crystalline fcc lattice,
+        defined by one lattice parameter 'a'. 
 
 The supported form factors and their parameters are:
 
