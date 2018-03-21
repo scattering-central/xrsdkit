@@ -1,13 +1,18 @@
 from collections import OrderedDict
 
-from ..tools import profiler 
+from ..tools import profiler
+from ..tools import piftools
 
 from citrination_client import CitrinationClient
 from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
 
+import pandas as pd
+import numpy as np
 
 # TODO: refactor to new data model
-population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
+#population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
+from .. import structures # it was population_keys
+#from .. import form_factors
 
 def get_data_from_Citrination(client, dataset_id_list):
     """Get data from Citrination and create a dataframe.
@@ -31,11 +36,70 @@ def get_data_from_Citrination(client, dataset_id_list):
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
-        feats = OrderedDict.fromkeys(all_profile_keys)
-        pops = OrderedDict.fromkeys(population_keys)
+        feats = OrderedDict.fromkeys(profiler.profile_keys) # features
+        pops = OrderedDict.fromkeys(structures) # classification labels diffuse, crilstalline
+        #form = OrderedDict.fromkeys(form_factors) # classif 'flat','guinier_porod','spherical_normal','atomic'
+        #par = OrderedDict.fromkeys(all_parameter_keys)
+        expt_id,t_utc,q_I,temp,pif_feats,pif_pops = piftools.unpack_pif(pp)
+        #feats.update(profiler.profile_spectrum(q_I))
+        feats.update(pif_feats)
+        #feats.update(saxs_math.detailed_profile(q_I,pif_pops))
+
+        #pops.update(pif_pops)
+        pops['crystalline'] = False
+        pops['diffuse'] = False
+        for i in pif_pops:
+            if 'fcc' in i.values():
+                pops['crystalline'] = True
+            if 'diffuse' in i.values():
+                pops['diffuse'] = True
+
+
+
+        #par.update(pif_par)
+
+        data_row = [expt_id]+list(feats.values())+list(pops.values())
+        data.append(data_row)
+
+    colnames = ['experiment_id']
+    colnames.extend(profiler.profile_keys)
+    colnames.extend(structures)
+
+    d = pd.DataFrame(data=data, columns=colnames)
+    d = d.where((pd.notnull(d)), None) # replace all NaN by None
+    shuffled_rows = np.random.permutation(d.index)
+    df_work = d.loc[shuffled_rows]
+
+    return df_work
+
+'''
+def get_data_from_Citrination(client, dataset_id_list):
+    """Get data from Citrination and create a dataframe.
+
+    Parameters
+    ----------
+    client : citrination_client.CitrinationClient
+        A python Citrination client for fetching data
+    dataset_id_list : list of int
+        List of dataset ids (integers) for fetching SAXS records
+
+    Returns
+    -------
+    df_work : pandas.DataFrame
+        dataframe containing features and labels
+        obtained through `client` from the Citrination datasets
+        listed in `dataset_id_list`
+    """
+    data = []
+
+    pifs = get_pifs_from_Citrination(client,dataset_id_list)
+
+    for pp in pifs:
+        feats = OrderedDict.fromkeys(all_profile_keys) # features
+        pops = OrderedDict.fromkeys(structures) # classification labels
         par = OrderedDict.fromkeys(all_parameter_keys)
-        expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = saxs_piftools.unpack_pif(pp)
-        feats.update(saxs_math.profile_spectrum(q_I))
+        expt_id,t_utc,q_I,temp,pif_feats,pif_pops,pif_par,rpt = piftools.unpack_pif(pp)
+        feats.update(profiler.profile_spectrum(q_I))
         feats.update(saxs_math.detailed_profile(q_I,pif_pops))
         pops.update(pif_pops)
         par.update(pif_par)
@@ -52,7 +116,7 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     colnames = ['experiment_id']
     colnames.extend(all_profile_keys)
-    colnames.extend(population_keys)
+    colnames.extend(structures)
     colnames.extend(all_parameter_keys)
 
     d = pd.DataFrame(data=data, columns=colnames)
@@ -60,6 +124,8 @@ def get_data_from_Citrination(client, dataset_id_list):
     shuffled_rows = np.random.permutation(d.index)
     df_work = d.loc[shuffled_rows]
 
+    return df_work
+'''
 def get_pifs_from_Citrination(client, dataset_id_list):
     all_hits = []
     for dataset in dataset_id_list:

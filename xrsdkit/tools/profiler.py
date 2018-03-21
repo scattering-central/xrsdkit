@@ -19,6 +19,10 @@ profile_keys = list([
     'pearson_q2',
     'pearson_expq',
     'pearson_invexpq'])
+
+profile_keys_1 = []
+profile_keys_1.extend(profile_keys) # a short set of features for diffuse and cristaline classifications
+
 gp_profile_keys = list([
     'I0_over_Imean',
     'I0_curvature',

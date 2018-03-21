@@ -243,8 +243,10 @@ def unpack_pif(pp): # I need to work on it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     populations = []
     if pp.classifications is not None:
         for cls in pp.classifications:
-            populations.append({'structure':cls.value})
+            populations.append({'name': cls.name,'structure':cls.value})
     return expt_id,t_utc,q_I,temp,features,populations
+
+    #return expt_id,t_utc,q_I,temp,feats,pops,par,rpt
 
 
 

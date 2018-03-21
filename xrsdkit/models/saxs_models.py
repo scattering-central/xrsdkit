@@ -1,18 +1,11 @@
-from collections import OrderedDict
 import os
-
-import pandas as pd
 import numpy as np
-import sklearn
 import yaml
-from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
 from sklearn import model_selection, preprocessing, linear_model
 from sklearn.metrics import mean_absolute_error
 
-from . import saxs_math
-from . import saxs_piftools
-from . import population_keys, parameter_keys, profile_keys
-from . import all_profile_keys, all_parameter_keys
+
+from ..tools import profiler
 
 def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
     """Train SAXS classification models, optionally searching for optimal hyperparameters.
@@ -42,7 +35,7 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
     accuracy = {}
 
     # use the "unidentified" profiling for all classification models 
-    features = profile_keys['unidentified']
+    features = profiler.profile_keys_1
     possible_models = check_labels(all_data)
 
     if model != 'all':
@@ -58,14 +51,14 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
         # use 5-fold cross validation
         leaveTwoGroupOut = False 
 
-    # unidentified scatterer population model
-    if possible_models['unidentified'] == True:
+    # diffuse scatterer population model
+    if possible_models['diffuse'] == True:
         scaler = preprocessing.StandardScaler()
         scaler.fit(all_data[features])
         transformed_data = scaler.transform(all_data[features])
         if hyper_parameters_search == True:
             penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['unidentified']],
+                transformed_data, all_data[['diffuse']],
                 all_data['experiment_id'], leaveTwoGroupOut, 2)
         else:
             penalty = 'l1'
@@ -74,37 +67,32 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
 
         logsgdc = linear_model.SGDClassifier(
             alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['unidentified'])
+        logsgdc.fit(transformed_data, all_data['diffuse'])
 
         # save the scaler and model for "bad_data"
-        scalers['unidentified'] = scaler.__dict__
-        models['unidentified'] = logsgdc.__dict__
+        scalers['diffuse'] = scaler.__dict__
+        models['diffuse'] = logsgdc.__dict__
 
         # save the accuracy
         if leaveTwoGroupOut:
-            accuracy['unidentified'] = testing_by_experiments(
-                all_data, 'unidentified', features, alpha, l1_ratio, penalty)
+            accuracy['diffuse'] = testing_by_experiments(
+                all_data, 'diffuse', features, alpha, l1_ratio, penalty)
         else:
-            accuracy['unidentified'] = testing_using_crossvalidation(
-                all_data, 'unidentified', features, alpha, l1_ratio, penalty)
+            accuracy['diffuse'] = testing_using_crossvalidation(
+                all_data, 'diffuse', features, alpha, l1_ratio, penalty)
     else:
-        scalers['unidentified'] = None
-        models['unidentified'] = None
-        accuracy['unidentified'] = None
+        scalers['diffuse'] = None
+        models['diffuse'] = None
+        accuracy['diffuse'] = None
 
-    # For the rest of the models, 
-    # we will use only data with
-    # identifiable scattering populations 
-    all_data = all_data[all_data['unidentified']==False]
-
-    # spherical_normal scatterer population model
-    if possible_models['spherical_normal'] == True:
+    # crystalline scatterer population model
+    if possible_models['crystalline'] == True:
         scaler = preprocessing.StandardScaler()
         scaler.fit(all_data[features])
         transformed_data = scaler.transform(all_data[features])
         if hyper_parameters_search == True:
             penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['spherical_normal']],
+                transformed_data, all_data[['crystalline']],
                 all_data['experiment_id'], leaveTwoGroupOut, 2)
         else:
             penalty = 'l1'
@@ -113,84 +101,26 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
 
         logsgdc = linear_model.SGDClassifier(
             alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['spherical_normal'])
+        logsgdc.fit(transformed_data, all_data['crystalline'])
 
-        scalers['spherical_normal'] = scaler.__dict__
-        models['spherical_normal'] = logsgdc.__dict__
+        # save the scaler and model for "bad_data"
+        scalers['crystalline'] = scaler.__dict__
+        models['crystalline'] = logsgdc.__dict__
+
+        # save the accuracy
         if leaveTwoGroupOut:
-            accuracy['spherical_normal'] = testing_by_experiments(
-                all_data, 'spherical_normal', features, alpha, l1_ratio, penalty)
+            accuracy['crystalline'] = testing_by_experiments(
+                all_data, 'crystalline', features, alpha, l1_ratio, penalty)
         else:
-            accuracy['spherical_normal'] = testing_using_crossvalidation(
-                all_data, 'spherical_normal', features, alpha, l1_ratio, penalty)
+            accuracy['crystalline'] = testing_using_crossvalidation(
+                all_data, 'crystalline', features, alpha, l1_ratio, penalty)
     else:
-        scalers['spherical_normal'] = None
-        models['spherical_normal'] = None
-        accuracy['spherical_normal'] = None
+        scalers['crystalline'] = None
+        models['crystalline'] = None
+        accuracy['crystalline'] = None
 
-    # guinier_porod scatterer population model
-    if possible_models['guinier_porod'] == True:
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(all_data[features])
-        transformed_data = scaler.transform(all_data[features])
-
-        if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['guinier_porod']],
-                all_data['experiment_id'], leaveTwoGroupOut, 2)
-        else:
-            penalty = 'elasticnet'
-            alpha = 0.01
-            l1_ratio = 0.85
-
-        logsgdc = linear_model.SGDClassifier(
-            alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['guinier_porod'])
-
-        scalers['guinier_porod'] = scaler.__dict__
-        models['guinier_porod'] = logsgdc.__dict__
-        if leaveTwoGroupOut:
-            accuracy['guinier_porod'] = testing_by_experiments(
-                all_data, 'guinier_porod', features, alpha, l1_ratio, penalty)
-        else:
-            accuracy['guinier_porod'] = testing_using_crossvalidation(
-                all_data, 'guinier_porod', features, alpha, l1_ratio, penalty)
-    else:
-        scalers['guinier_porod'] = None
-        models['guinier_porod'] = None
-        accuracy['guinier_porod'] = None
-
-    # diffraction peak population model
-    if possible_models['diffraction_peaks'] == True:
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(all_data[features])
-        transformed_data = scaler.transform(all_data[features])
-
-        if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['diffraction_peaks']],
-                all_data['experiment_id'], leaveTwoGroupOut, 2)
-        else:
-            penalty = 'elasticnet'
-            alpha = 0.001
-            l1_ratio = 0.85
-
-        logsgdc = linear_model.SGDClassifier(
-            alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['diffraction_peaks'])
-
-        scalers['diffraction_peaks'] = scaler.__dict__
-        models['diffraction_peaks'] = logsgdc.__dict__
-        if leaveTwoGroupOut:
-            accuracy['diffraction_peaks'] = testing_by_experiments(
-                all_data,'diffraction_peaks',features, alpha, l1_ratio, penalty)
-        else:
-            accuracy['diffraction_peaks'] = testing_using_crossvalidation(
-                all_data,'diffraction_peaks', features, alpha, l1_ratio, penalty)
-    else:
-        scalers['diffraction_peaks'] = None
-        models['diffraction_peaks'] = None
-        accuracy['diffraction_peaks'] = None
+    # the next two classifiers for diffuse scattering populations only
+    all_data = all_data[all_data['crystalline']==True]
 
     return scalers, models, accuracy
 
@@ -476,18 +406,16 @@ def check_labels(dataframe):
         for each of the possible models. 
     """
     possible_models = {}
-    if len(dataframe.unidentified.unique()) == 2:
-        possible_models['unidentified'] = True
+    if len(dataframe.diffuse.unique()) > 1:
+        possible_models['diffuse'] = True
     else:
-        possible_models['unidentified'] = False
-    # we will use only samples with identifiable 
-    # scattering popoulations for the other models
-    dataframe = dataframe[dataframe['unidentified']==False]
-    for l in ['spherical_normal', 'guinier_porod', 'diffraction_peaks']:
-        if len(dataframe[l].unique()) == 2:
-            possible_models[l] = True
-        else:
-            possible_models[l] = False
+        possible_models['diffuse'] = False
+
+    if len(dataframe.crystalline.unique()) > 1:
+        possible_models['crystalline'] = True
+    else:
+        possible_models['crystalline'] = False
+
     return possible_models
 
 def check_labels_regression(dataframe):
@@ -940,6 +868,12 @@ def save_models(scalers, models, cv_errors, file_path=None):
     # the other models should not be changed
     s_and_m_file = open(file_path,'rb')
     s_and_m_old = yaml.load(s_and_m_file)
+
+    if s_and_m_old == None: # for the first training: the file is empty
+        scalers = {'diffuse': None, 'crystalline': None}
+        models = {'diffuse': None, 'crystalline': None}
+        accuracy = {'diffuse': None, 'crystalline': None}
+        s_and_m_old = {'scalers': scalers, 'models': models, 'accuracy': accuracy}
 
     # update scalers, models, and accuracies using new models:
     for item in models.keys():
