@@ -77,8 +77,8 @@ def structure_classifications(populations):
     c = []
     if not isinstance(populations,list):
         populations = [populations]
-    for i,popd in enumerate(populations):
-        c_struct = pifobj.Classification('structure_{}'.format(i),popd['structure'])
+    for popd in populations:
+        c_struct = pifobj.Classification('{}_structure'.format(popd['name']),popd['structure'])
         c.append(c_struct)        
     return c
 
@@ -243,11 +243,13 @@ def unpack_pif(pp): # I need to work on it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     populations = []
     if pp.classifications is not None:
         for cls in pp.classifications:
-            populations.append({'name': cls.name,'structure':cls.value})
+            popd = OrderedDict()
+            popd['name'] = cls.name[:cls.name.rfind('_')]
+            popd['structure'] = cls.value 
+            populations.append(popd)
     return expt_id,t_utc,q_I,temp,features,populations
 
     #return expt_id,t_utc,q_I,temp,feats,pops,par,rpt
-
 
 
 #### obsolete functions below this line ####
