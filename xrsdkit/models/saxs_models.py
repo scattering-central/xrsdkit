@@ -833,14 +833,14 @@ def train_partial(classifier, data, features, target, reg_models_dict, scalers_d
         accuracy = None
     return scaler, model, accuracy
 
-def save_models(scalers, models, cv_errors, file_path=None):
+def save_models(new_scalers, new_models, cv_errors, file_path=None):
     """Save model parameters and CV errors in YAML and .txt files.
 
     Parameters
     ----------
-    scalers : dict
+    new_scalers : dict
         Dictionary of sklearn standard scalers (one scaler per model).
-    models : dict
+    new_models : dict
         Dictionary of sklearn models.
     cv_errors : dict
         Dictionary of normalized cross-validation errors each model.
@@ -876,13 +876,13 @@ def save_models(scalers, models, cv_errors, file_path=None):
         s_and_m_old = {'scalers': scalers, 'models': models, 'accuracy': accuracy}
 
     # update scalers, models, and accuracies using new models:
-    for item in models.keys():
-        if models[item]:
-            s_and_m_old['models'][item] = models[item]
+    for item in new_models.keys():
+        if new_models[item]:
+            s_and_m_old['models'][item] = new_models[item]
 
-    for item in scalers.keys():
-        if scalers[item]:
-            s_and_m_old['scalers'][item] = scalers[item]
+    for item in new_scalers.keys():
+        if new_scalers[item]:
+            s_and_m_old['scalers'][item] = new_scalers[item]
 
     for item in cv_errors.keys():
         if cv_errors[item]:
