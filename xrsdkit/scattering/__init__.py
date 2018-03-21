@@ -9,15 +9,19 @@ def diffuse_intensity(q,popd,source_wavelength):
     # the basis has only one point.
     # the coordinate is ignored. 
     species = basis[basis.keys()[0]]
-    n_species = _specie_count(species)
-    if np.sum(n_species.values()) == 1:
-        specie_name = species.keys()[0]
-        specie_params = species[specie_name]
-        if isinstance(specie_params,list):
-            specie_params = specie_params[0]
-        spff = xrff.compute_ff(q,specie_name,specie_params)
-        ff += specie_params['occupancy']*spff
-    I = popd['N']*ff**2
+    for specie_name, specie_params in species.items():
+        if not isinstance(specie_params,list):
+            specie_params = [specie_params]
+        if specie_name in diffuse_form_factors:
+            I += popd['parameters']['I0'] \
+                * np.sum([xrff.compute_ff_squared(q,specie_name,p) \
+                for p in specie_params])
+        else:
+            #spff = xrff.compute_ff(q,specie_name,specie_params)
+            I += popd['parameters']['I0'] \
+                * np.sum([(p['occupancy']*xrff.compute_ff(q,specie_name,p))**2 \
+                for p in specie_params])
+    I = popd['I0']*ff**2
     return I
 
 def _specie_count(species_dict):

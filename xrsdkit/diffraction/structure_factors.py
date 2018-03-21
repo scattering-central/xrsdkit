@@ -17,14 +17,17 @@ def fcc_sf(q_hkl,hkl,popd):
     basis = popd['basis']
     for fcc_coord in fcc_coords:
         for coord, species in basis.items():
-            for specie_name, specie_params in species.items(): 
+            for specie_name, specie_params in species.items():
                 g_dot_r = np.dot(fcc_coord+coord,hkl)
                 if isinstance(specie_params,list):
-                    ff = np.sum([specie_params[i]['occupancy'] *
-                        xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params[i]) 
+                    ff = np.sum([specie_params[i]['occupancy'] \
+                        * xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params[i]) \
+                        * np.exp(2j*np.pi*g_dot_r) \
                         for i in range(len(specie_params))]) 
                 else: 
-                    ff = xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params)[0]*np.exp(2j*np.pi*g_dot_r)
+                    ff = specie_params['occupancy'] \
+                        * xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params)[0] \
+                        * np.exp(2j*np.pi*g_dot_r)
                 F_hkl += ff
     return F_hkl
 

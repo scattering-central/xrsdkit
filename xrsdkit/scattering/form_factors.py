@@ -11,21 +11,20 @@ def compute_ff(q,specie_name,params):
     ff = np.zeros(nq)
     if specie_name == 'flat':
         return float(params['amplitude'])*np.ones(nq)
-    if specie_name == 'guinier_porod':
-        ff_gp = guinier_porod_ff(q,params['G'],params['r_g'],params['D'])
-        return ff_gp 
-    #if specie_name == 'spherical_normal':
-    #    # TODO: come up with an expression for the form factor?
-    #    I_sph = spherical_normal_intensity(q,params['r0'],params['sigma']) 
-    #    # TODO: determine whether or not this square root approach is ok.
-    #    ff_sph = np.sqrt(I_sph) 
-    #    return ff_sph
     if specie_name == 'atomic':
         if 'atom_name' in params:
             ff_atom = standard_atomic_ff(q,params['atom_name'])
         else:
             ff_atom = atomic_ff(q,params)
         return ff_atom
+
+def compute_ff_squared(q,specie_name,params):
+    if specie_name == 'guinier_porod':
+        ff2_gp = guinier_porod_intensity(q,params['G'],params['r_g'],params['D'])
+        return ff2_gp 
+    if specie_name == 'spherical_normal':
+        ff2_sph = spherical_normal_intensity(q,params['r0'],params['sigma']) 
+        return ff2_sph
 
 def standard_atomic_ff(q,atom_name):
     pars = atomic_params[atom_name]
@@ -45,7 +44,7 @@ def spherical_ff(q,r):
     x = q*r
     return 3.*(np.sin(x)-x*np.cos(x))*x**-3
 
-def spherical_normal_ff(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):  
+def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):  
     """Compute the form factor for a normally-distributed sphere population.
 
     The returned form factor is normalized 
@@ -71,8 +70,8 @@ def spherical_normal_ff(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):
 
     Returns
     -------
-    ff : array
-        Array of form factor values for all q
+    I : array
+        Array of intensity values for all q
     """
     q_zero = (q == 0)
     q_nz = np.invert(q_zero) 
@@ -80,28 +79,27 @@ def spherical_normal_ff(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):
     if sigma < 1E-9:
         x = q*r0
         V_r0 = float(4)/3*np.pi*r0**3
-        ff_0 = V_r0 
-        ff[q_nz] = ff_0*spherical_ff(q[q_nz],r0)
+        I_0 = V_r0**2
+        I[q_nz] = I_0*spherical_ff(q[q_nz],r0)**2
     else:
         sigma_r = sigma*r0
         dr = sigma_r*sampling_step
         rmin = np.max([r0-sampling_width*sigma_r,dr])
         rmax = r0+sampling_width*sigma_r
-        ff_0 = 0
+        I_0 = 0
         for ri in np.arange(rmin,rmax,dr):
             V_ri = float(4)/3*np.pi*ri**3
             # The normal-distributed density of particles with radius r_i:
             rhoi = 1./(np.sqrt(2*np.pi)*sigma_r)*np.exp(-1*(r0-ri)**2/(2*sigma_r**2))
-            # NOTE: this is a mistake.
-            ff_0 += V_ri * np.sqrt(rhoi*dr)
-            ff[q_nz] += ff_0*spherical_ff(q[q_nz],ri)
+            I_0 += V_ri**2*rhoi*dr
+            I[q_nz] += I_0*spherical_ff(q[q_nz],ri)**2
     if any(q_zero):
-        ff[q_zero] = ff_0 
-    ff = ff/ff_0 
-    return ff 
+        I[q_zero] = I_0 
+    I = I/I_0 
+    return I 
 
-def guinier_porod_ff(q,guinier_factor,r_g,porod_exponent):
-    """Compute the form factor for a Guinier-Porod population.
+def guinier_porod_intensity(q,guinier_factor,r_g,porod_exponent):
+    """Compute a Guinier-Porod scattering intensity.
     
     Parameters
     ----------
@@ -116,8 +114,8 @@ def guinier_porod_ff(q,guinier_factor,r_g,porod_exponent):
 
     Returns
     -------
-    ff : array
-        Array of form factor values for all q 
+    I : array
+        Array of intensities for all q 
 
     Reference
     ---------
@@ -131,13 +129,13 @@ def guinier_porod_ff(q,guinier_factor,r_g,porod_exponent):
     porod_factor = guinier_factor*np.exp(-1./2*porod_exponent)\
                     * (3./2*porod_exponent)**(1./2*porod_exponent)\
                     * 1./(r_g**porod_exponent)
-    ff = np.zeros(q.shape)
+    I = np.zeros(q.shape)
     # Guinier equation:
     if any(idx_guinier):
-        ff[idx_guinier] = np.sqrt(guinier_factor) * np.exp(-1./6*q[idx_guinier]**2*r_g**2)
+        I[idx_guinier] = guinier_factor * np.exp(-1./3*q[idx_guinier]**2*r_g**2)
     # Porod equation:
     if any(idx_porod):
-        ff[idx_porod] = np.sqrt(porod_factor) * 1./(2*q[idx_porod]**porod_exponent)
-    return ff 
+        I[idx_porod] = porod_factor * 1./(q[idx_porod]**porod_exponent)
+    return I 
 
 

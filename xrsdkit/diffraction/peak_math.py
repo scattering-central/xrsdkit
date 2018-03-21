@@ -6,44 +6,16 @@ from scipy.optimize import minimize as scimin
 
 def peak_profile(q,q_pk,profile_name,params):
     if profile_name == 'voigt':
-        hwhm_g = params['hwhm']
-        hwhm_l = params['hwhm']
+        hwhm_g = params['hwhm_g']
+        hwhm_l = params['hwhm_l']
         line_shape = voigt(q-q_pk,hwhm_g,hwhm_l)
     elif profile_name == 'gaussian':
-        hwhm_g = params['hwhm']
+        hwhm_g = params['hwhm_g']
         line_shape = gaussian(q-q_pk,hwhm_g)
     elif profile_name == 'lorentzian':
-        hwhm_l = params['hwhm']
+        hwhm_l = params['hwhm_l']
         line_shape = lorentzian(q-q_pk,hwhm_l)
     return line_shape
-
-
-# get y value nearest xpk guess, use it to guess a scaling factor
-#ypk = y[np.argmin((x-xpk)**2)]
-#scl = ypk / self.voigt(0, hwhm, hwhm)
-#xpk, hwhm_g, hwhm_l, scl = self.solve_voigt(x,y,xpk,hwhm,hwhm,scl)
-#y_voigt = self.voigt(x,hwhm_g,hwhm_l)
-
-def solve_voigt(x, y, xc, hwhm_g, hwhm_l, scl):
-    """iteratively minimize an objective to fit x, y curve to a voigt profile"""
-    res = scimin(partial(self.hann_voigt_fit,x,y),(xc,hwhm_g,hwhm_l,scl))
-
-def hann_voigt_fit(x, y, xc, hwhm_g, hwhm_l, scl):
-    # estimate hwhm of voigt
-    # hwhm estimation params from https://en.wikipedia.org/wiki/Voigt_profile
-    phi = hwhm_l / hwhm_g
-    c0 = 2.0056; c1 = 1.0593 
-    hwhm_voigt = hwhm_g * (1 - c0*c1 + np.sqrt(phi**2 + 2*c1*phi +c0**2*c1**2))
-    # x,y values in the window region
-    i_win = np.array([i for i in range(len(y)) if x[i] > xc-hwhm_voigt and x[i] < xc+hwhm_voigt])
-    y_win = np.array([y[i] for i in i_win])
-    x_win = np.array([x[i] for i in i_win])
-    n_win = len(i_win)
-    # window weights
-    w_win = 0.5 * (1 - np.cos(2*np.pi*np.arange(n_win)/(n_win-1)) )
-    # voigt profile in window, scaled by scl
-    y_voigt = scl*self.voigt(x_win-xc,hwhm_g,hwhm_l)
-    return np.sum(w_win * (y_voigt - y_win)**2)
 
 def gaussian(x, hwhm_g):
     """
