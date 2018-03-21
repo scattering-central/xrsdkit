@@ -6,11 +6,10 @@ import sklearn
 from sklearn import preprocessing,linear_model
 import yaml
 
-# TODO: refactor to new data model
-population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
+from .. import structures
 
-class SaxsClassifier(object):
-    """A classifier to determine scatterer populations from SAXS spectra"""
+class StructureClassifier(object):
+    """Models for classifying structure from scattering/diffraction data"""
 
     def __init__(self,yml_file=None):
         if yml_file is None:
@@ -28,21 +27,21 @@ class SaxsClassifier(object):
         # dict of accuracies
         acc_dict = s_and_m['accuracy']
 
-        self.models = OrderedDict.fromkeys(population_keys)
-        self.scalers = OrderedDict.fromkeys(population_keys)
-        self.accuracy = OrderedDict.fromkeys(population_keys)
-        for model_name in population_keys:
-            model_params = classifier_dict[model_name]
-            scaler_params = scalers_dict[model_name]
-            acc = acc_dict[model_name]
+        self.models = OrderedDict.fromkeys(structures)
+        self.scalers = OrderedDict.fromkeys(structures)
+        self.accuracy = OrderedDict.fromkeys(structures)
+        for struct_name in structures:
+            model_params = classifier_dict[struct_name]
+            scaler_params = scalers_dict[struct_name]
+            acc = acc_dict[struct_name]
             if scaler_params is not None:
                 s = preprocessing.StandardScaler()
                 self.set_param(s,scaler_params)
                 m = linear_model.SGDClassifier()
                 self.set_param(m,model_params)
-            self.models[model_name] = m
-            self.scalers[model_name] = s
-            self.accuracy[model_name] = acc
+            self.models[struct_name] = m
+            self.scalers[struct_name] = s
+            self.accuracy[struct_name] = acc
 
     # helper function - to set parametrs for scalers and models
     def set_param(self, m_s, param):
@@ -53,7 +52,7 @@ class SaxsClassifier(object):
                 setattr(m_s, k, v)
 
     def classify(self, sample_features):
-        """Classify a sample from its features dict.
+        """Determine the types of structures represented by the sample
 
         Parameters
         ----------
@@ -63,33 +62,36 @@ class SaxsClassifier(object):
 
         Returns
         -------
-        populations : dict
-            dictionary of integers 
-            counting predicted scatterer populations
-            for all populations in population_keys.
+        structure_flags : dict
+            dictionary of booleans inidicating whether or not 
+            the sample exhibits various structures 
         certainties : dict
-            dictionary, similar to `populations`,
+            dictionary, similar to `structure_flags`,
             but containing the certainty of the prediction
         """
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)  
 
-        populations = OrderedDict()
-        certainties = OrderedDict()
+        structs = OrderedDict.fromkeys(structures)
+        certainties = OrderedDict.fromkeys(structures)
 
-        x = self.scalers['unidentified'].transform(feature_array)
-        pop = int(self.models['unidentified'].predict(x)[0])
-        cert = self.models['unidentified'].predict_proba(x)[0,pop]
-        populations['unidentified'] = pop 
-        certainties['unidentified'] = cert 
+        for struct_name in structures:
+            structs[struct_name] = False
+            certainties[struct_name] = 0. 
 
-        if not populations['unidentified']: 
-            for k in population_keys:
-                if not k == 'unidentified':
-                    x = self.scalers[k].transform(feature_array)
-                    pop = int(self.models[k].predict(x)[0])
-                    cert = self.models[k].predict_proba(x)[0,pop]
-                    populations[k] = pop 
-                    certainties[k] = cert 
+        #x = self.scalers['unidentified'].transform(feature_array)
+        #pop = int(self.models['unidentified'].predict(x)[0])
+        #cert = self.models['unidentified'].predict_proba(x)[0,pop]
+        #populations['unidentified'] = pop 
+        #certainties['unidentified'] = cert 
+
+        #if not populations['unidentified']: 
+        #    for k in population_keys:
+        #        if not k == 'unidentified':
+        #            x = self.scalers[k].transform(feature_array)
+        #            pop = int(self.models[k].predict(x)[0])
+        #            cert = self.models[k].predict_proba(x)[0,pop]
+        #            populations[k] = pop 
+        #            certainties[k] = cert 
 
         return populations, certainties
 
