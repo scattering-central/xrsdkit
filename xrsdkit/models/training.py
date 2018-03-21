@@ -4,7 +4,6 @@ import yaml
 from sklearn import model_selection, preprocessing, linear_model
 from sklearn.metrics import mean_absolute_error
 
-
 from ..tools import profiler
 
 def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
