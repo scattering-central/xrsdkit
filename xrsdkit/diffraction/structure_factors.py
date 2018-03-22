@@ -1,7 +1,7 @@
 from functools import partial
 
 import numpy as np
-import quadpy
+#import quadpy
 
 from xrsdkit import scattering
 from xrsdkit.scattering import form_factors as xrff
@@ -17,6 +17,7 @@ def fcc_sf(q_hkl,hkl,popd):
     basis = popd['basis']
     for fcc_coord in fcc_coords:
         for coord, species in basis.items():
+            # TODO: defend against weird or nonphysical occupancy choices
             for specie_name, specie_params in species.items():
                 g_dot_r = np.dot(fcc_coord+coord,hkl)
                 if isinstance(specie_params,list):
@@ -25,24 +26,25 @@ def fcc_sf(q_hkl,hkl,popd):
                         * np.exp(2j*np.pi*g_dot_r) \
                         for i in range(len(specie_params))]) 
                 else: 
-                    ff = specie_params['occupancy'] \
-                        * xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params)[0] \
+                    occ = 1.
+                    if 'occupancy' in specie_params: occ = specie_params['occupancy']
+                    ff = occ * xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params)[0] \
                         * np.exp(2j*np.pi*g_dot_r)
                 F_hkl += ff
     return F_hkl
 
-def fcc_sf_spherical_average(q,popd):
-    n_q = len(q)
-    sf_func = lambda qi,ph,th: fcc_sf(qi,
-            np.array([
-            qi*np.sin(th)*np.cos(ph),
-            qi*np.sin(th)*np.sin(ph),
-            qi*np.cos(th)]),
-            popd)
-    sf_integral_func = lambda qi: quadpy.sphere.integrate_spherical(
-        partial(sf_func,qi),rule=quadpy.sphere.Lebedev(35))
-    sf = 1./(2*np.pi**2)*np.array(
-        [sf_integral_func(qq) for qq in q],
-        dtype=complex)
-    return sf
+#def fcc_sf_spherical_average(q,popd):
+#    n_q = len(q)
+#    sf_func = lambda qi,ph,th: fcc_sf(qi,
+#            np.array([
+#            qi*np.sin(th)*np.cos(ph),
+#            qi*np.sin(th)*np.sin(ph),
+#            qi*np.cos(th)]),
+#            popd)
+#    sf_integral_func = lambda qi: quadpy.sphere.integrate_spherical(
+#        partial(sf_func,qi),rule=quadpy.sphere.Lebedev(35))
+#    sf = 1./(2*np.pi**2)*np.array(
+#        [sf_integral_func(qq) for qq in q],
+#        dtype=complex)
+#    return sf
 
