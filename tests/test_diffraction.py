@@ -8,14 +8,16 @@ from xrsdkit.diffraction import structure_factors,peak_math
 fcc_Al = dict(
     structure='fcc',
     parameters=dict(
+        I0=1.,
         a=4.046,
         profile='voigt',
-        hwhm=0.002,
+        hwhm_g=0.002,
+        hwhm_l=0.0018,
         q_min=1.,
         q_max=5.,
         ),
     basis={(0,0,0):dict(
-        atomic={'atom_name':'Al'}
+        atomic={'symbol':'Al'}
         )}
     )
 
@@ -106,9 +108,9 @@ def test_fcc_sf():
     #plt.colorbar(sfcont_imag)
     #plt.show()
 
-def test_fcc_spherical_average_sf():
-    qvals = np.arange(1.,5.,0.001)
-    sf_avg = structure_factors.fcc_sf_spherical_average(qvals,fcc_Al)
+#def test_fcc_spherical_average_sf():
+#    qvals = np.arange(1.,5.,0.001)
+#    sf_avg = structure_factors.fcc_sf_spherical_average(qvals,fcc_Al)
     #from matplotlib import pyplot as plt
     #plt.figure(3)
     #plt.plot(q,sf_avg.real,'g')

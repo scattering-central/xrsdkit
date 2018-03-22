@@ -4,8 +4,8 @@ import numpy as np
 from citrination_client import CitrinationClient
 
 from xrsdkit.tools import profiler
-from xrsdkit.models.saxs_citrination import CitrinationSaxsModels 
-from xrsdkit.models.saxs_citrination import get_data_from_Citrination
+#from xrsdkit.models.saxs_citrination import CitrinationSaxsModels 
+#from xrsdkit.models.saxs_citrination import get_data_from_Citrination
 #from saxskit.saxs_models import train_classifiers, train_regressors
 #from saxskit.saxs_models import train_classifiers_partial, train_regressors_partial
 #from saxskit.saxs_models import save_models

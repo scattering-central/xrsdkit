@@ -7,29 +7,26 @@ import numpy as np
 
 from xrsdkit.scattering import form_factors as xrff
 
-
 #from saxskit.saxs_math import profile_spectrum
 #from saxskit.saxs_citrination import CitrinationSaxsModels
 
 qvals = np.arange(0.,1.,0.01)
 
 def test_guinier_porod():
-    ff = xrff.guinier_porod_ff(qvals,20,4,120)
+    ff = xrff.guinier_porod_intensity(qvals,20,4,120)
 
 def test_spherical_normal():
-    ff = xrff.spherical_normal_ff(qvals,20,0.2)
-    ff_mono = xrff.spherical_normal_ff(qvals,20,0.)
-
+    ff2 = xrff.spherical_normal_intensity(qvals,20,0.2)
+    ff_mono = xrff.spherical_ff(qvals,20)
 
 qvals = np.arange(0.,2.,0.01)
-
 def test_plot_ff():
     ff_H = xrff.standard_atomic_ff(qvals,'H')
     ff_Al = xrff.standard_atomic_ff(qvals,'Al')
     ff_U = xrff.standard_atomic_ff(qvals,'U')
-    ff_gp = xrff.guinier_porod_ff(qvals,1,4,120)
-    #ff_poly = xrff.spherical_normal_ff(qvals,20,0.2)
-    ff_mono = xrff.spherical_normal_ff(qvals,20,0.)
+    ff2_gp = xrff.guinier_porod_intensity(qvals,1,4,120)
+    ff2_poly = xrff.spherical_normal_intensity(qvals,20,0.2)
+    ff_mono = xrff.spherical_ff(qvals,20)
     #from matplotlib import pyplot as plt
     #plt.plot(qvals,ff_H/ff_H[0]) 
     #plt.plot(qvals,ff_Al/ff_Al[0]) 
