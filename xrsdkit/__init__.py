@@ -2,16 +2,16 @@
 
 A scattering/diffraction pattern is assumed to represent
 one or more populations of scattering objects.
-A population is described by a dict with the following entries:
-
-    - 'name' : string population identifier 
-        (e.g. 'noise', 'substrate', 'particles')
+The populations are described by a dict,
+where each population has a name (dict key)
+and a set of parameters (dict value).
+Each dict parameters should have the following entries: 
 
     - 'structure' : the structure of the population 
         (e.g. 'diffuse', 'disordered', 'fcc'). 
 
     - 'parameters' : dict describing the structure (lattice parameters, etc)
-        as well as any other parameters used in the scattering computation.
+        as well as any other parameters used for the computation.
         Some keys are used for parameterizing intensities and diffraction peaks:
 
         - 'I0' : the scattering or diffraction computed for each population 
@@ -116,19 +116,17 @@ is placed in a 40-Angstrom fcc lattice,
 with peaks from q=0.1 to q=1.0 
 included in the summation:
 fcc_gp_population = dict(
-    structure='fcc',
-    parameters=dict(
-        a=40.,
-        q_min=0.1,
-        q_max=1.,
-        profile='voigt'
-        hwhm_g=0.01
-        hwhm_l=0.01
-        )
-    basis=dict(
-        (0,0,0)=dict(
-            flat={'amplitude':10}
-            )
+    fcc_gp = dict(
+        structure='fcc',
+        parameters=dict(
+            a=40.,
+            q_min=0.1,
+            q_max=1.,
+            profile='voigt',
+            hwhm_g=0.01,
+            hwhm_l=0.01
+            ),
+        basis={(0,0,0):{'flat':{'amplitude':10}}}
         )
     )
 """
@@ -175,8 +173,8 @@ def compute_intensity(q,populations,source_wavelength):
     ----------
     q : array
         Array of q values at which intensities will be computed.
-    populations : dict or list of dict
-        Each dict in the list describes a population of scatterers.
+    populations : dict
+        Each entry in the dict describes a population of scatterers.
         See the module documentation for the dict specifications. 
     source_wavelength : float 
         Wavelength of radiation source in Angstroms
@@ -186,16 +184,12 @@ def compute_intensity(q,populations,source_wavelength):
     I : array
         Array of scattering intensities for each of the input q values
     """
-    if not isinstance(populations,list):
-        populations = [populations]
     n_q = len(q)
     I = np.zeros(n_q)
-    for popd in populations:
+    for pop_name,popd in populations.items():
         st = popd['structure']
-        I0 = 1
-        if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
         if st == 'diffuse':
-            I += I0 * scattering.diffuse_intensity(q,popd,source_wavelength)
+            I += scattering.diffuse_intensity(q,popd,source_wavelength)
         elif st == 'fcc':
             if any([ any([specie_name in diffuse_form_factor_names 
                 for specie_name in specie_dict.keys()])
@@ -203,12 +197,13 @@ def compute_intensity(q,populations,source_wavelength):
                 msg = 'Populations of type {} are currently not supported '\
                     'in crystalline arrangements.'.format(diffuse_form_factor_names)
                 raise ValueError(msg)
-            I += I0 * diffraction.fcc_intensity(q,popd,source_wavelength)
+            I += diffraction.fcc_intensity(q,popd,source_wavelength)
         elif st == 'disordered':
             profile_name = popd['parameters']['profile']
             q_c = popd['parameters']['q_center']
-            line_shape = peak_math.peak_profile(q,q_c,profile_name,popd['parameters'])
-            I += I0 * diffraction.fcc_intensity(q,popd,source_wavelength)
+            I0 = 1.
+            if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
+            I += I0 * peak_math.peak_profile(q,q_c,profile_name,popd['parameters'])
         else:
             msg = 'structure specification {} is not supported'.format(lat)
             raise ValueError(msg)
