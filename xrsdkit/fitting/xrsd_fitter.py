@@ -38,27 +38,11 @@ class XRSDFitter(object):
             self.dI.fill(np.nan)
             self.dI[self.idx_fit] = np.sqrt(self.I[self.idx_fit])
 
-    def fit(self,params=None,fixed_params=None,param_limits=None,error_weighted=True,objective='chi2log'):
-        """Fit the SAXS spectrum, optionally holding some parameters fixed.
+    def fit(self,error_weighted=True,objective='chi2log'):
+        """Fit the SAXS spectrum, return an optimized populations dict.
     
         Parameters
         ----------
-        params : dict, optional
-            Dict of scattering equation parameters (initial guess).
-            If not provided, some defaults are chosen.
-        fixed_params : dict, optional
-            Dict of floats giving values in `params`
-            that should be held constant during fitting.
-            The structure of this dict should constitute
-            a subset of the structure of the `params` dict.
-            Entries in `fixed_params` take precedence 
-            over the corresponding entries in `params`, so that the 
-            initial condition does not violate the constraint.
-            Entries in `fixed_params` that are outside 
-            the structure of the `params` dict will be ignored.
-        param_limits : dict, optional
-            Like `fixed_params`, but containing tuples that define
-            the upper and lower limits for fitting each parameter.
         error_weighted : bool
             Flag for whether or not the fit 
             should be weighted by the intensity error estimates.
@@ -69,8 +53,7 @@ class XRSDFitter(object):
         Returns
         -------
         p_opt : dict
-            Dict of optimized SAXS equation parameters,
-            with the same shape as the input `params`.
+            Dict of scattering populations with optimized parameters.
         rpt : dict
             Dict reporting quantities of interest
             about the fit result.
@@ -79,14 +62,14 @@ class XRSDFitter(object):
         if bool(self.populations['unidentified']):
             return OrderedDict(),OrderedDict()
 
-        dp = self.default_params()
-        if params is None:
-            params = dp
-        else:
-            params = update_params(dp,params)
+        obj_init = self.evaluate_residual(params,error_weighted)
 
-        obj_init = self.evaluate(params,error_weighted)
         #print('obj_init: {}'.format(obj_init))
+        #dp = self.default_params()
+        #if params is None:
+        #    params = dp
+        #else:
+        #    params = update_params(dp,params)
 
         lmf_params = self.lmfit_params(params,fixed_params,param_limits) 
         lmf_res = lmfit.minimize(self.lmf_evaluate,
@@ -136,32 +119,32 @@ class XRSDFitter(object):
     def lmf_evaluate(self,lmf_params,error_weighted=True):
         return self.evaluate(self.saxskit_params(lmf_params),error_weighted)
 
-    def evaluate(self,params,error_weighted=True):
-        """Evaluate the objective for a given dict of params.
+    def evaluate_residual(self,populations,error_weighted=True):
+        """Evaluate the fit residual for a given populations dict.
 
         Parameters
         ----------
-        params : dict
-            Dict of scattering equation parameters.
+        populations : dict
+            Dict of scatterer populations and parameters 
         error_weighted : bool
-            Flag for whether or not to weight the fit
+            Flag for whether or not to weight the result
             by the intensity error estimate.
 
         Returns
         -------
-        objective : float
-            Value of the fitting objective for `param_dict`.
+        res : float
+            Value of the residual 
         """
         I_comp = saxs_math.compute_saxs(
             self.q,self.populations,params)
         #I_comp[I_comp<0.] = 1.E-12
         if error_weighted:
-            obj = saxs_math.compute_chi2(
+            res = saxs_math.compute_chi2(
                     np.log(I_comp[self.idx_fit]),
                     self.logI[self.idx_fit],
                     self.dI[self.idx_fit])
         else:
-            obj = saxs_math.compute_chi2(
+            res = saxs_math.compute_chi2(
                     np.log(I_comp[self.idx_fit]),
                     self.logI[self.idx_fit])
         #print('params: {}'.format(params))
@@ -171,7 +154,7 @@ class XRSDFitter(object):
         #plt.semilogy(self.q,self.logI)
         #plt.semilogy(self.q,I_comp,'r-')
         #plt.show()
-        return obj 
+        return res 
 
     def lmfit_params(self,params=None,fixed_params=None,param_bounds=None):
         # params
