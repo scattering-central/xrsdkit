@@ -138,11 +138,14 @@ import numpy as np
 from . import scattering, diffraction
 
 # list of allowed structure specifications
-structures = [
+structures = list([
     'unidentified',
     'diffuse',
     'disordered',
     'fcc'])
+
+# list of structures that are crystalline
+crystalline_structures = ['fcc']
 
 # dict of allowed structure parameters:
 sf_parameters = OrderedDict(
@@ -221,12 +224,12 @@ def compute_intensity(q,populations,source_wavelength):
             raise ValueError(msg)
     return I
 
-def fcc_crystal(atom_name,a_lat,q_min=None,q_max=None,pk_profile=None,hwhm_g=None,hwhm_l=None):
+def fcc_crystal(atom_symbol,a_lat,q_min=None,q_max=None,pk_profile=None,hwhm_g=None,hwhm_l=None):
     fcc_pop = dict(
-        name='fcc_{}'+atom_name,
+        name='fcc_{}'+atom_symbol,
         structure='fcc',
         parameters={'a':a_lat},
-        basis={(0,0,0):{'atomic':{'atom_name':atom_name}}}
+        basis={(0,0,0):{'atomic':{'symbol':atom_symbol}}}
         )
     if q_min:
         fcc_pop['parameters']['q_min'] = q_min
