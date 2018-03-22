@@ -4,6 +4,7 @@ import numpy as np
 import pypif.obj as pifobj
 
 from . import profiler
+from .. import diffuse_form_factors, crystalline_structures 
 
 #parameter_description = OrderedDict.fromkeys(all_parameter_keys)
 #parameter_description['I0_floor'] = 'flat background intensity'
@@ -58,16 +59,18 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     csys.uid = uid
     csys.ids = []
     csys.tags = []
-    csys.classifications = []
+    #csys.classifications = []
     csys.properties = []
     if expt_id is not None:
         csys.ids.append(id_tag('EXPERIMENT_ID',expt_id))
     if t_utc is not None:
         csys.tags.append('time (utc): '+str(int(t_utc)))
-    if populations is not None:
-        csys.classifications = structure_classifications(populations)
     if q_I is not None:
-        csys.properties.extend(saxs_properties(q_I,temp_C))
+        csys.properties.extend(q_I_properties(q_I,temp_C))
+    if populations is not None:
+    #    csys.classifications = structure_classifications(populations)
+        csys.properties.extend(structure_properties(populations))
+        csys.properties.extend(diffuse_specie_count_properties(populations))
     return csys
 
 def id_tag(idname,idval,tags=None):
@@ -78,13 +81,61 @@ def structure_classifications(populations):
     if not isinstance(populations,list):
         populations = [populations]
     for popd in populations:
-        c_struct = pifobj.Classification('{}_structure'.format(popd['name']),popd['structure'])
-        c.append(c_struct)        
+        if not popd['name'] == 'noise':
+            c_struct = pifobj.Classification('{}_structure'.format(popd['name']),popd['structure'])
+            c.append(c_struct)        
     return c
 
-def saxs_properties(q_I,temp_C=None):
+def structure_properties(populations):
     properties = []
+    if not isinstance(populations,list):
+        populations = [populations]
+    crystalline_flag = 0
+    if any([popd['structure'] in crystalline_structures for popd in populations]):
+        crystalline_flag = 1
+    diffuse_flag = 0
+    if any([popd['structure'] == 'diffuse' and not popd['name'] == 'noise' for popd in populations]):
+        diffuse_flag = 1
+    disordered_flag = 0
+    if any([popd['structure'] == 'disordered' for popd in populations]):
+        disordered_flag = 1
+    properties.append(scalar_property(
+        'crystalline_structure_flag',crystalline_flag,
+        'crystalline structure flag','EXPERIMENTAL'))
+    properties.append(scalar_property(
+        'diffuse_structure_flag',diffuse_flag,
+        'diffuse structure flag','EXPERIMENTAL'))
+    properties.append(scalar_property(
+        'disordered_structure_flag',disordered_flag,
+        'disordered structure flag','EXPERIMENTAL'))
+    return properties
 
+def diffuse_specie_count_properties(populations):
+    properties = []
+    if not isinstance(populations,list):
+        populations = [populations]
+    n_diffuse = OrderedDict.fromkeys(diffuse_form_factors)
+    for ff_name in diffuse_form_factors:
+        n_diffuse[ff_name] = 0
+    # TODO: vectorize
+    for popd in populations:
+        if popd['structure'] == 'diffuse':
+            for coord, species in popd['basis'].items():
+                for specie_name, specie_params in species.items():
+                    if specie_name in diffuse_form_factors:
+                        n_params = 1
+                        if isinstance(specie_params,list):
+                            n_params = len(specie_params)
+                        n_diffuse[specie_name] += n_params
+    for specie_name, ns in n_diffuse.items():
+        properties.append(scalar_property(
+            '{}_population_count'.format(specie_name),ns,
+            'number of diffuse {} populations'.format(specie_name),
+            'EXPERIMENTAL'))
+    return properties
+
+def q_I_properties(q_I,temp_C=None):
+    properties = []
     if q_I is not None:
         # Process measured q_I into a property
         pI = q_I_property(q_I)
@@ -98,13 +149,13 @@ def saxs_properties(q_I,temp_C=None):
         properties.extend(prof_props)
     return properties
 
-def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='SAXS intensity'):
+def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='Intensity'):
     pI = pifobj.Property()
     n_qpoints = q_I.shape[0]
     pI.scalars = [pifobj.Scalar(q_I[i,1]) for i in range(n_qpoints)]
     pI.units = Iunits 
     pI.conditions = []
-    pI.conditions.append( pifobj.Value('scattering vector', 
+    pI.conditions.append( pifobj.Value('scattering vector magnitude', 
                         [pifobj.Scalar(q_I[i,0]) for i in range(n_qpoints)],
                         None,None,None,qunits) )
     pI.name = propname 
