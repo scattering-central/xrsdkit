@@ -57,7 +57,7 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
         transformed_data = scaler.transform(all_data[features])
         if hyper_parameters_search == True:
             penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['diffuse']],
+                transformed_data, all_data[['diffuse_structure_flag']],
                 all_data['experiment_id'], leaveTwoGroupOut, 2)
         else:
             penalty = 'l1'
@@ -66,7 +66,7 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
 
         logsgdc = linear_model.SGDClassifier(
             alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['diffuse'])
+        logsgdc.fit(transformed_data, all_data['diffuse_structure_flag'])
 
         # save the scaler and model for "bad_data"
         scalers['diffuse'] = scaler.__dict__
@@ -75,10 +75,10 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
         # save the accuracy
         if leaveTwoGroupOut:
             accuracy['diffuse'] = testing_by_experiments(
-                all_data, 'diffuse', features, alpha, l1_ratio, penalty)
+                all_data, 'diffuse_structure_flag', features, alpha, l1_ratio, penalty)
         else:
             accuracy['diffuse'] = testing_using_crossvalidation(
-                all_data, 'diffuse', features, alpha, l1_ratio, penalty)
+                all_data, 'diffuse_structure_flag', features, alpha, l1_ratio, penalty)
     else:
         scalers['diffuse'] = None
         models['diffuse'] = None
@@ -91,7 +91,7 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
         transformed_data = scaler.transform(all_data[features])
         if hyper_parameters_search == True:
             penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['crystalline']],
+                transformed_data, all_data[['crystalline_structure_flag']],
                 all_data['experiment_id'], leaveTwoGroupOut, 2)
         else:
             penalty = 'l1'
@@ -100,7 +100,7 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
 
         logsgdc = linear_model.SGDClassifier(
             alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['crystalline'])
+        logsgdc.fit(transformed_data, all_data['crystalline_structure_flag'])
 
         # save the scaler and model for "bad_data"
         scalers['crystalline'] = scaler.__dict__
@@ -109,17 +109,17 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
         # save the accuracy
         if leaveTwoGroupOut:
             accuracy['crystalline'] = testing_by_experiments(
-                all_data, 'crystalline', features, alpha, l1_ratio, penalty)
+                all_data, 'crystalline_structure_flag', features, alpha, l1_ratio, penalty)
         else:
             accuracy['crystalline'] = testing_using_crossvalidation(
-                all_data, 'crystalline', features, alpha, l1_ratio, penalty)
+                all_data, 'crystalline_structure_flag', features, alpha, l1_ratio, penalty)
     else:
         scalers['crystalline'] = None
         models['crystalline'] = None
         accuracy['crystalline'] = None
 
     # the next two classifiers for diffuse scattering populations only
-    all_data = all_data[all_data['crystalline']==True]
+    all_data = all_data[all_data['crystalline_structure_flag']==True]
 
     return scalers, models, accuracy
 
@@ -405,12 +405,12 @@ def check_labels(dataframe):
         for each of the possible models. 
     """
     possible_models = {}
-    if len(dataframe.diffuse.unique()) > 1:
+    if len(dataframe.diffuse_structure_flag.unique()) > 1:
         possible_models['diffuse'] = True
     else:
         possible_models['diffuse'] = False
 
-    if len(dataframe.crystalline.unique()) > 1:
+    if len(dataframe.crystalline_structure_flag.unique()) > 1:
         possible_models['crystalline'] = True
     else:
         possible_models['crystalline'] = False
