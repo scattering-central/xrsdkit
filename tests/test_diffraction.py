@@ -11,7 +11,7 @@ fcc_Al = {'Al':dict(
         q_min=1.,
         q_max=5.,
         profile='voigt'
-        )
+        ),
     parameters=dict(
         a=4.046,
         hwhm_g=0.002,

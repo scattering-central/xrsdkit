@@ -127,7 +127,7 @@ fcc_gp_population = dict(
         diffraction_setup=dict(
             q_min=0.1,
             q_max=1.,
-            profile='voigt',
+            profile='voigt'
             ),
         parameters=dict(
             a=40.,
