@@ -12,8 +12,8 @@ def compute_ff(q,specie_name,params):
     if specie_name == 'flat':
         return float(params['amplitude'])*np.ones(nq)
     if specie_name == 'atomic':
-        if 'atom_name' in params:
-            ff_atom = standard_atomic_ff(q,params['atom_name'])
+        if 'symbol' in params:
+            ff_atom = standard_atomic_ff(q,params['symbol'])
         else:
             ff_atom = atomic_ff(q,params)
         return ff_atom
@@ -26,8 +26,8 @@ def compute_ff_squared(q,specie_name,params):
         ff2_sph = spherical_normal_intensity(q,params['r0'],params['sigma']) 
         return ff2_sph
 
-def standard_atomic_ff(q,atom_name):
-    pars = atomic_params[atom_name]
+def standard_atomic_ff(q,atom_symbol):
+    pars = atomic_params[atom_symbol]
     return atomic_ff(q,pars)
 
 def atomic_ff(q,params):
@@ -41,8 +41,14 @@ def atomic_ff(q,params):
     return ff
 
 def spherical_ff(q,r):
+    ff = np.zeros(q.shape)
     x = q*r
-    return 3.*(np.sin(x)-x*np.cos(x))*x**-3
+    if q[0] == 0:
+        ff[0] = 1.
+        ff[1:] = 3.*(np.sin(x[1:])-x[1:]*np.cos(x[1:]))*x[1:]**-3
+        return ff
+    else:
+        return 3.*(np.sin(x)-x*np.cos(x))*x**-3
 
 def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):  
     """Compute the form factor for a normally-distributed sphere population.
@@ -73,14 +79,12 @@ def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):
     I : array
         Array of intensity values for all q
     """
-    q_zero = (q == 0)
-    q_nz = np.invert(q_zero) 
-    ff = np.zeros(q.shape)
+    I = np.zeros(q.shape)
     if sigma < 1E-9:
         x = q*r0
         V_r0 = float(4)/3*np.pi*r0**3
         I_0 = V_r0**2
-        I[q_nz] = I_0*spherical_ff(q[q_nz],r0)**2
+        I = I_0*spherical_ff(q,r0)**2
     else:
         sigma_r = sigma*r0
         dr = sigma_r*sampling_step
@@ -91,10 +95,9 @@ def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):
             V_ri = float(4)/3*np.pi*ri**3
             # The normal-distributed density of particles with radius r_i:
             rhoi = 1./(np.sqrt(2*np.pi)*sigma_r)*np.exp(-1*(r0-ri)**2/(2*sigma_r**2))
-            I_0 += V_ri**2*rhoi*dr
-            I[q_nz] += I_0*spherical_ff(q[q_nz],ri)**2
-    if any(q_zero):
-        I[q_zero] = I_0 
+            I0_i = V_ri**2*rhoi*dr
+            I_0 += I0_i
+            I += I0_i*spherical_ff(q,ri)**2
     I = I/I_0 
     return I 
 
