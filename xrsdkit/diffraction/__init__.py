@@ -5,6 +5,9 @@ from pymatgen import Lattice
 
 from . import structure_factors as xrsf
 
+# list of structures that are crystalline
+crystalline_structure_names = ['fcc']
+
 def fcc_intensity(q,popd,source_wavelength):
     n_q = len(q)
     I = np.zeros(n_q)

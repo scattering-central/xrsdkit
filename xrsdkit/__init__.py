@@ -140,7 +140,9 @@ from .scattering import \
     form_factor_names, \
     diffuse_form_factor_names, \
     diffuse_intensity
-from .diffraction import fcc_intensity
+from .diffraction import \
+    crystalline_structure_names \
+fcc_intensity
 
 # list of allowed structure specifications
 structures = list([
@@ -148,9 +150,6 @@ structures = list([
     'diffuse',
     'disordered',
     'fcc'])
-
-# list of structures that are crystalline
-crystalline_structures = ['fcc']
 
 # dict of allowed structure parameters:
 sf_parameters = OrderedDict(

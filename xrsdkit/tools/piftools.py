@@ -5,7 +5,7 @@ import pypif.obj as pifobj
 
 from . import profiler
 from ..scattering import diffuse_form_factor_names
-from ..diffraction import crystalline_structures 
+from ..diffraction import crystalline_structure_names 
 
 #parameter_description = OrderedDict.fromkeys(all_parameter_keys)
 #parameter_description['I0_floor'] = 'flat background intensity'
@@ -85,7 +85,7 @@ def structure_properties(populations):
     if not isinstance(populations,list):
         populations = [populations]
     crystalline_flag = 0
-    if any([popd['structure'] in crystalline_structures for popd in populations]):
+    if any([popd['structure'] in crystalline_structure_names for popd in populations]):
         crystalline_flag = 1
     diffuse_flag = 0
     if any([popd['structure'] == 'diffuse' and not popd['name'] == 'noise' for popd in populations]):
