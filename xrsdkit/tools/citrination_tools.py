@@ -42,7 +42,7 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     colnames = ['experiment_id']
     colnames.extend(profiler.profile_keys)
-    colnames.extend(piftools.model_output_keys)
+    colnames.extend(piftools.model_output_names)
 
     d = pd.DataFrame(data=data, columns=colnames)
     d = d.where((pd.notnull(d)), None) # replace all NaN by None
