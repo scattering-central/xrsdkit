@@ -84,16 +84,17 @@ def id_tag(idname,idval,tags=None):
 
 def structure_properties(populations):
     properties = []
-    if not isinstance(populations,list):
-        populations = [populations]
     crystalline_flag = 0
-    if any([popd['structure'] in crystalline_structure_names for popd in populations]):
+    if any([popd['structure'] in crystalline_structure_names 
+        for pop_name,popd in populations.items()]):
         crystalline_flag = 1
     diffuse_flag = 0
-    if any([popd['structure'] == 'diffuse' and not popd['name'] == 'noise' for popd in populations]):
+    if any([popd['structure'] == 'diffuse' and not pop_name == 'noise' 
+        for pop_name,popd in populations.items()]):
         diffuse_flag = 1
     disordered_flag = 0
-    if any([popd['structure'] == 'disordered' for popd in populations]):
+    if any([popd['structure'] == 'disordered' 
+        for pop_name,popd in populations.items()]):
         disordered_flag = 1
     properties.append(scalar_property(
         'crystalline_structure_flag',crystalline_flag,
@@ -108,13 +109,11 @@ def structure_properties(populations):
 
 def diffuse_specie_count_properties(populations):
     properties = []
-    if not isinstance(populations,list):
-        populations = [populations]
     n_diffuse = OrderedDict.fromkeys(diffuse_form_factor_names)
     for ff_name in diffuse_form_factor_names:
         n_diffuse[ff_name] = 0
     # TODO: vectorize
-    for popd in populations:
+    for pop_name,popd in populations.items():
         if popd['structure'] == 'diffuse':
             for coord, species in popd['basis'].items():
                 for specie_name, specie_params in species.items():
