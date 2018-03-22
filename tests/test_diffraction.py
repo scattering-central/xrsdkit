@@ -5,10 +5,9 @@ import numpy as np
 from xrsdkit import compute_intensity 
 from xrsdkit.diffraction import structure_factors,peak_math
     
-fcc_Al = dict(
+fcc_Al = {'Al':dict(
     structure='fcc',
     parameters=dict(
-        I0=1.,
         a=4.046,
         profile='voigt',
         hwhm_g=0.002,
@@ -16,10 +15,8 @@ fcc_Al = dict(
         q_min=1.,
         q_max=5.,
         ),
-    basis={(0,0,0):dict(
-        atomic={'symbol':'Al'}
-        )}
-    )
+    basis={(0,0,0):{'atomic':{'symbol':'Al'}}}
+    )}
 
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
@@ -73,7 +70,7 @@ def test_fcc_sf():
             qi*np.sin(th)*np.cos(ph),
             qi*np.sin(th)*np.sin(ph),
             qi*np.cos(th)]).reshape(3,1),
-        fcc_Al)
+        fcc_Al['Al']['basis'])
 
     ph,th = np.meshgrid(np.arange(0,np.pi,0.1),np.arange(0,2*np.pi,0.1))
     sf = np.zeros(ph.shape,dtype=complex)

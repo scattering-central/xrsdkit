@@ -44,7 +44,7 @@ def fcc_intensity(q,popd,source_wavelength):
         immhkl = tuple(hkl)
         if g_hkl > 0.:
             q_hkl = 2*np.pi*g_hkl
-            F_hkl = xrsf.fcc_sf(q_hkl,hkl.reshape(3,1),popd)
+            F_hkl = xrsf.fcc_sf(q_hkl,hkl.reshape(3,1),basis)
             I_hkl = (F_hkl * F_hkl.conjugate()).real
             # TODO: set this intensity threshold as a function input
             if I_hkl > 1.E-5:
@@ -68,7 +68,7 @@ def fcc_intensity(q,popd,source_wavelength):
         # compute the structure factor
         # along the line connecting (000) to (hkl)
         hkl_range = np.outer(q/q_pk,hkl).T
-        F_along_hkl = xrsf.fcc_sf(q_pk,hkl_range,popd)
+        F_along_hkl = xrsf.fcc_sf(q_pk,hkl_range,basis)
         # compute a line shape 
         line_shape = peak_math.peak_profile(q,q_pk,profile_name,popd['parameters'])
         I += (F_along_hkl*F_along_hkl.conjugate()).real\
