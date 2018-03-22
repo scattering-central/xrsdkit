@@ -12,23 +12,24 @@ A population is described by a dict with the following entries:
 
     - 'parameters' : dict describing the structure (lattice parameters, etc)
         as well as any other parameters used in the scattering computation.
-        Some of the keys are used for structural parameters:
-
-        - 'a', 'b', 'c' : a, b, and c lattice parameters
-        - 'alpha' : angle between b and c lattice vectors
-        - 'beta' : angle between a and c lattice vectors
-        - 'gamma' : angle between a and b lattice vectors
-    
-        Other keys are used for parameterizing intensities and diffraction peaks:
+        Some keys are used for parameterizing intensities and diffraction peaks:
 
         - 'I0' : the scattering or diffraction computed for each population 
-            is multiplied by this intensity prefactor 
+            is multiplied by this intensity prefactor,
+            assumed equal to 1 if not provided
         - 'q_min' : minimum q-value for reciprocal lattice analysis 
         - 'q_max' : maximum q-value for reciprocal lattice analysis 
         - 'profile' : 'gaussian', 'lorentzian', or 'voigt' 
         - 'hwhm_g' : half-width at half max of Gaussian functions 
         - 'hwhm_l' : half-width at half max of Lorentzian functions 
         - 'q_center' : center q-value for describing single 'disordered' peaks
+    
+        Other keys are used for structural parameters:
+
+        - 'a', 'b', 'c' : a, b, and c lattice parameters
+        - 'alpha' : angle between b and c lattice vectors
+        - 'beta' : angle between a and c lattice vectors
+        - 'gamma' : angle between a and b lattice vectors
 
     - 'basis' : dict containing fractional coordinates (as keys)
         and descriptions of site occupancy (as values).
@@ -135,7 +136,11 @@ from collections import OrderedDict
 
 import numpy as np
 
-from . import scattering, diffraction
+from .scattering import \
+    form_factor_names, \
+    diffuse_form_factor_names, \
+    diffuse_intensity
+from .diffraction import fcc_intensity
 
 # list of allowed structure specifications
 structures = list([
@@ -152,19 +157,6 @@ sf_parameters = OrderedDict(
     general = ['I0'],
     crystalline = ['profile','hwhm_g','hwhm_l','q_min','q_max'],
     fcc = ['a'])
-
-# list of allowed form factors:
-form_factors = list([
-    'flat',
-    'guinier_porod',
-    'spherical',
-    'spherical_normal',
-    'atomic'])
-
-# list of form factors that can only be used in a diffuse structure:
-diffuse_form_factors = list([
-    'spherical_normal',
-    'guinier_porod'])
 
 # dict of allowed form factor parameters
 ff_parameters = OrderedDict(
@@ -201,24 +193,23 @@ def compute_intensity(q,populations,source_wavelength):
     I = np.zeros(n_q)
     for popd in populations:
         st = popd['structure']
+        I0 = 1
+        if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
         if st == 'diffuse':
-            I += popd['parameters']['I0']\
-                * scattering.diffuse_intensity(q,popd,source_wavelength)
+            I += I0 * scattering.diffuse_intensity(q,popd,source_wavelength)
         elif st == 'fcc':
-            if any([ any([specie_name in diffuse_form_factors 
+            if any([ any([specie_name in diffuse_form_factor_names 
                 for specie_name in specie_dict.keys()])
                 for coord,specie_dict in popd['basis'].items()]):
                 msg = 'Populations of type {} are currently not supported '\
-                    'in crystalline arrangements.'.format(diffuse_form_factors)
+                    'in crystalline arrangements.'.format(diffuse_form_factor_names)
                 raise ValueError(msg)
-            I += popd['parameters']['I0']\
-                * diffraction.fcc_intensity(q,popd,source_wavelength)
+            I += I0 * diffraction.fcc_intensity(q,popd,source_wavelength)
         elif st == 'disordered':
             profile_name = popd['parameters']['profile']
             q_c = popd['parameters']['q_center']
             line_shape = peak_math.peak_profile(q,q_c,profile_name,popd['parameters'])
-            I += popd['parameters']['I0']\
-                * diffraction.fcc_intensity(q,popd,source_wavelength)
+            I += I0 * diffraction.fcc_intensity(q,popd,source_wavelength)
         else:
             msg = 'structure specification {} is not supported'.format(lat)
             raise ValueError(msg)
