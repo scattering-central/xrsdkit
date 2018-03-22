@@ -7,13 +7,15 @@ from xrsdkit.diffraction import structure_factors,peak_math
     
 fcc_Al = {'Al':dict(
     structure='fcc',
-    parameters=dict(
-        a=4.046,
-        profile='voigt',
-        hwhm_g=0.002,
-        hwhm_l=0.0018,
+    diffraction_setup=dict(
         q_min=1.,
         q_max=5.,
+        profile='voigt'
+        )
+    parameters=dict(
+        a=4.046,
+        hwhm_g=0.002,
+        hwhm_l=0.0018
         ),
     basis={(0,0,0):{'atomic':{'symbol':'Al'}}}
     )}
@@ -43,23 +45,6 @@ def test_voigt():
             print('approx. integral of voigt '\
                 'with gaussian hwhm {} and lorentzian hwhm {}: {}'\
                 .format(hwhm_g,hwhm_l,intv))
-
-#def test_fcc_flat():
-#    qvals = np.arange(0.01,4.,0.001)
-#    pops = dict(
-#            lattice='fcc',
-#            parameters=dict(
-#                a=30.,
-#                profile='voigt',
-#                hwhm=0.002,
-#                q_min=0.04,
-#                q_max=2.,
-#                ),
-#            basis={(0,0,0):dict(
-#                flat={'amplitude':1.}
-#                )}
-#            )
-#    Ivals = compute_intensity(qvals,pops,0.8265616)
 
 def test_fcc_sf():
     # take the q value of the (111) sphere

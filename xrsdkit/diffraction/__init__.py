@@ -12,8 +12,9 @@ def fcc_intensity(q,popd,source_wavelength):
     n_q = len(q)
     I = np.zeros(n_q)
     basis = popd['basis']
-    q_min = popd['parameters']['q_min']
-    q_max = popd['parameters']['q_max']
+    profile_name = popd['diffraction_setup']['profile']
+    q_min = popd['diffraction_setup']['q_min']
+    q_max = popd['diffraction_setup']['q_max']
     lat_a = popd['parameters']['a']
     # get d-spacings corresponding to the q-range limits
     d_min = 2*np.pi/q_max
@@ -64,7 +65,6 @@ def fcc_intensity(q,popd,source_wavelength):
                     I_pks[hkl_nearest_pk] += I_hkl
                     mult[hkl_nearest_pk] += 1
     for hkl, q_pk in q_pks.items():
-        profile_name = popd['parameters']['profile']
         # compute the structure factor
         # along the line connecting (000) to (hkl)
         hkl_range = np.outer(q/q_pk,hkl).T
