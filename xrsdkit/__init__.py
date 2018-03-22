@@ -10,6 +10,15 @@ Each dict parameters should have the following entries:
     - 'structure' : the structure of the population 
         (e.g. 'diffuse', 'disordered', 'fcc'). 
 
+    - 'diffraction_setup' : parameters defining
+        the treatment of diffraction peaks,
+        including peak profile specification and 
+        the q-limits for reciprocal space analysis.
+
+        - 'q_min' : minimum q-value for reciprocal lattice analysis 
+        - 'q_max' : maximum q-value for reciprocal lattice analysis 
+        - 'profile' : 'gaussian', 'lorentzian', or 'voigt' 
+
     - 'parameters' : dict describing the structure (lattice parameters, etc)
         as well as any other parameters used for the computation.
         Some keys are used for parameterizing intensities and diffraction peaks:
@@ -17,9 +26,6 @@ Each dict parameters should have the following entries:
         - 'I0' : the scattering or diffraction computed for each population 
             is multiplied by this intensity prefactor,
             assumed equal to 1 if not provided
-        - 'q_min' : minimum q-value for reciprocal lattice analysis 
-        - 'q_max' : maximum q-value for reciprocal lattice analysis 
-        - 'profile' : 'gaussian', 'lorentzian', or 'voigt' 
         - 'hwhm_g' : half-width at half max of Gaussian functions 
         - 'hwhm_l' : half-width at half max of Lorentzian functions 
         - 'q_center' : center q-value for describing single 'disordered' peaks
@@ -43,7 +49,7 @@ Each dict parameters should have the following entries:
         - Each set of form factor parameters is a dict (or list of dicts)
             containing the parameter names (as keys) and values (as values).
             A list of dicts is used to include 
-            multiple scatterers of the same type.
+            multiple scatterers of the same type at this basis site.
 
 The following structures are currently supported:
 
@@ -118,11 +124,13 @@ included in the summation:
 fcc_gp_population = dict(
     fcc_gp = dict(
         structure='fcc',
-        parameters=dict(
-            a=40.,
+        diffraction_setup=dict(
             q_min=0.1,
             q_max=1.,
             profile='voigt',
+            ),
+        parameters=dict(
+            a=40.,
             hwhm_g=0.01,
             hwhm_l=0.01
             ),
@@ -149,12 +157,6 @@ structures = list([
     'disordered',
     'fcc'])
 
-# dict of allowed structure parameters:
-sf_parameters = OrderedDict(
-    general = ['I0'],
-    crystalline = ['profile','hwhm_g','hwhm_l','q_min','q_max'],
-    fcc = ['a'])
-
 # dict of allowed form factor parameters
 ff_parameters = OrderedDict(
     general = ['occupancy'],
@@ -163,6 +165,14 @@ ff_parameters = OrderedDict(
     spherical_normal = ['r0','sigma'],
     guinier_porod = ['G','r_g','D'],
     atomic = ['symbol','Z','a','b'])
+
+# dict of allowed structure parameters:
+#sf_parameters = OrderedDict(
+#    general = ['I0'],
+#    disordered = ['hwhm_g','hwhm_l','q_center']
+#    crystalline = ['hwhm_g','hwhm_l'],
+#    fcc = ['a'])
+
 
 def compute_intensity(q,populations,source_wavelength):
     """Compute scattering/diffraction intensity for some `q` values.
