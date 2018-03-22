@@ -4,7 +4,8 @@ import numpy as np
 import pypif.obj as pifobj
 
 from . import profiler
-from .. import diffuse_form_factors, crystalline_structures 
+from ..scattering import diffuse_form_factor_names
+from ..diffraction import crystalline_structures 
 
 #parameter_description = OrderedDict.fromkeys(all_parameter_keys)
 #parameter_description['I0_floor'] = 'flat background intensity'
@@ -31,6 +32,9 @@ from .. import diffuse_form_factors, crystalline_structures
 #parameter_units['pk_hwhm'] = '1/Angstrom'
 
 #population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
+
+# property names for all of the modeling "outputs"
+model_output_names = ['crystalline_structure_flag','diffuse_structure_flag']
 
 def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     """Make a pypif.obj.ChemicalSystem object describing a SAXS experiment.
@@ -76,16 +80,6 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
 def id_tag(idname,idval,tags=None):
     return pifobj.Id(idname,idval,tags)
 
-def structure_classifications(populations):
-    c = []
-    if not isinstance(populations,list):
-        populations = [populations]
-    for popd in populations:
-        if not popd['name'] == 'noise':
-            c_struct = pifobj.Classification('{}_structure'.format(popd['name']),popd['structure'])
-            c.append(c_struct)        
-    return c
-
 def structure_properties(populations):
     properties = []
     if not isinstance(populations,list):
@@ -114,15 +108,15 @@ def diffuse_specie_count_properties(populations):
     properties = []
     if not isinstance(populations,list):
         populations = [populations]
-    n_diffuse = OrderedDict.fromkeys(diffuse_form_factors)
-    for ff_name in diffuse_form_factors:
+    n_diffuse = OrderedDict.fromkeys(diffuse_form_factor_names)
+    for ff_name in diffuse_form_factor_names:
         n_diffuse[ff_name] = 0
     # TODO: vectorize
     for popd in populations:
         if popd['structure'] == 'diffuse':
             for coord, species in popd['basis'].items():
                 for specie_name, specie_params in species.items():
-                    if specie_name in diffuse_form_factors:
+                    if specie_name in diffuse_form_factor_names:
                         n_params = 1
                         if isinstance(specie_params,list):
                             n_params = len(specie_params)
@@ -204,6 +198,16 @@ def profile_properties(prof):
 #        props.extend(pprops)
 #
 #    return props
+
+#def structure_classifications(populations):
+#    c = []
+#    if not isinstance(populations,list):
+#        populations = [populations]
+#    for popd in populations:
+#        if not popd['name'] == 'noise':
+#            c_struct = pifobj.Classification('{}_structure'.format(popd['name']),popd['structure'])
+#            c.append(c_struct)        
+#    return c
 
 
 def ml_population_properties(ml_pops):
@@ -300,8 +304,13 @@ def unpack_pif(pp): # I need to work on it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             populations.append(popd)
     return expt_id,t_utc,q_I,temp,features,populations
 
+def get_model_outputs(pp):
+    model_outputs = OrderedDict.fromkeys(model_output_names)
+    for pr in pp.properties:
+        if pr.name in model_output_names:
+            model_outputs[pr.name] = pr.scalars[0].value
+    return model_outputs
     #return expt_id,t_utc,q_I,temp,feats,pops,par,rpt
-
 
 #### obsolete functions below this line ####
 

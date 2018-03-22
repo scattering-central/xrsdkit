@@ -32,26 +32,17 @@ def get_data_from_Citrination(client, dataset_id_list):
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
-        feats = OrderedDict.fromkeys(profiler.profile_keys)
-        structs = OrderedDict.fromkeys(structures)
         expt_id,t_utc,q_I,temp,pp_feats,populations = piftools.unpack_pif(pp)
+        feats = OrderedDict.fromkeys(profiler.profile_keys)
         feats.update(pp_feats)
-
-        for struct_name in structures:
-            structs[struct_name] = False
-
-        for popd in populations:
-            if popd['structure'] in ['fcc']:
-                structs['crystalline'] = True
-            if popd['structure'] == 'diffuse':
-                structs['diffuse'] = True
-
-        data_row = [expt_id]+list(feats.values())+list(structs.values())
+        model_outputs = piftools.get_model_outputs(pp)
+        
+        data_row = [expt_id]+list(feats.values())+list(model_outputs.values())
         data.append(data_row)
 
     colnames = ['experiment_id']
     colnames.extend(profiler.profile_keys)
-    colnames.extend(structures)
+    colnames.extend(piftools.model_output_keys)
 
     d = pd.DataFrame(data=data, columns=colnames)
     d = d.where((pd.notnull(d)), None) # replace all NaN by None
