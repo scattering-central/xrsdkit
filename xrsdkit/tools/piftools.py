@@ -75,6 +75,8 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     #    csys.classifications = structure_classifications(populations)
         csys.properties.extend(structure_properties(populations))
         csys.properties.extend(diffuse_specie_count_properties(populations))
+    if q_I is not None:
+        csys.properties.extend(profile_properties(q_I))
     return csys
 
 def id_tag(idname,idval,tags=None):
@@ -130,17 +132,12 @@ def diffuse_specie_count_properties(populations):
 
 def q_I_properties(q_I,temp_C=None):
     properties = []
-    if q_I is not None:
-        # Process measured q_I into a property
-        pI = q_I_property(q_I)
-        if temp_C is not None:
-            pI.conditions.append(pifobj.Value('temperature',
-            [pifobj.Scalar(temp_C)],None,None,None,'degrees Celsius'))
-        properties.append(pI)
-        # Process featurization of q_I 
-        prof = profiler.full_profile(q_I)
-        prof_props = profile_properties(prof)
-        properties.extend(prof_props)
+    # Process measured q_I into a property
+    pI = q_I_property(q_I)
+    if temp_C is not None:
+        pI.conditions.append(pifobj.Value('temperature',
+        [pifobj.Scalar(temp_C)],None,None,None,'degrees Celsius'))
+    properties.append(pI)
     return properties
 
 def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='Intensity'):
@@ -155,7 +152,8 @@ def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='Intensity'):
     pI.name = propname 
     return pI 
 
-def profile_properties(prof):
+def profile_properties(q_I):
+    prof = profiler.full_profile(q_I)
     props = []
     for fnm,fval in prof.items():
         if fval is not None:
