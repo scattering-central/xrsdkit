@@ -5,7 +5,6 @@ import numpy as np
 from citrination_client import CitrinationClient
 from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
 
-from .. import structures
 from ..tools import profiler
 from ..tools import piftools
 

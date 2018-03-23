@@ -151,7 +151,7 @@ from .diffraction import \
     fcc_intensity
 
 # list of allowed structure specifications
-structures = list([
+structure_names = list([
     'unidentified',
     'diffuse',
     'disordered',

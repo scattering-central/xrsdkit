@@ -6,7 +6,7 @@ import sklearn
 from sklearn import preprocessing,linear_model
 import yaml
 
-from .. import structures
+from .. import structure_names
 
 class StructureClassifier(object):
     """Models for classifying structure from scattering/diffraction data"""
@@ -27,10 +27,10 @@ class StructureClassifier(object):
         # dict of accuracies
         acc_dict = s_and_m['accuracy']
 
-        self.models = OrderedDict.fromkeys(structures)
-        self.scalers = OrderedDict.fromkeys(structures)
-        self.accuracy = OrderedDict.fromkeys(structures)
-        for struct_name in structures:
+        self.models = OrderedDict.fromkeys(structure_names)
+        self.scalers = OrderedDict.fromkeys(structure_names)
+        self.accuracy = OrderedDict.fromkeys(structure_names)
+        for struct_name in structure_names:
             model_params = classifier_dict[struct_name]
             scaler_params = scalers_dict[struct_name]
             acc = acc_dict[struct_name]
@@ -71,10 +71,10 @@ class StructureClassifier(object):
         """
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)  
 
-        structs = OrderedDict.fromkeys(structures)
-        certainties = OrderedDict.fromkeys(structures)
+        structs = OrderedDict.fromkeys(structure_names)
+        certainties = OrderedDict.fromkeys(structure_names)
 
-        for struct_name in structures:
+        for struct_name in structure_names:
             structs[struct_name] = False
             certainties[struct_name] = 0. 
 
