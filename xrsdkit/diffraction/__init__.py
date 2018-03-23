@@ -12,8 +12,9 @@ def fcc_intensity(q,popd,source_wavelength):
     n_q = len(q)
     I = np.zeros(n_q)
     basis = popd['basis']
-    q_min = popd['parameters']['q_min']
-    q_max = popd['parameters']['q_max']
+    profile_name = popd['diffraction_setup']['profile']
+    q_min = popd['diffraction_setup']['q_min']
+    q_max = popd['diffraction_setup']['q_max']
     lat_a = popd['parameters']['a']
     # get d-spacings corresponding to the q-range limits
     d_min = 2*np.pi/q_max
@@ -44,7 +45,7 @@ def fcc_intensity(q,popd,source_wavelength):
         immhkl = tuple(hkl)
         if g_hkl > 0.:
             q_hkl = 2*np.pi*g_hkl
-            F_hkl = xrsf.fcc_sf(q_hkl,hkl.reshape(3,1),popd)
+            F_hkl = xrsf.fcc_sf(q_hkl,hkl.reshape(3,1),basis)
             I_hkl = (F_hkl * F_hkl.conjugate()).real
             # TODO: set this intensity threshold as a function input
             if I_hkl > 1.E-5:
@@ -64,11 +65,10 @@ def fcc_intensity(q,popd,source_wavelength):
                     I_pks[hkl_nearest_pk] += I_hkl
                     mult[hkl_nearest_pk] += 1
     for hkl, q_pk in q_pks.items():
-        profile_name = popd['parameters']['profile']
         # compute the structure factor
         # along the line connecting (000) to (hkl)
         hkl_range = np.outer(q/q_pk,hkl).T
-        F_along_hkl = xrsf.fcc_sf(q_pk,hkl_range,popd)
+        F_along_hkl = xrsf.fcc_sf(q_pk,hkl_range,basis)
         # compute a line shape 
         line_shape = peak_math.peak_profile(q,q_pk,profile_name,popd['parameters'])
         I += (F_along_hkl*F_along_hkl.conjugate()).real\

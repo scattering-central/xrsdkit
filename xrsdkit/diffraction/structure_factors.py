@@ -12,9 +12,8 @@ fcc_coords = np.array([
     (0.5,0.,0.5),
     (0.,0.5,0.5)])
 
-def fcc_sf(q_hkl,hkl,popd):
+def fcc_sf(q_hkl,hkl,basis):
     F_hkl = np.zeros(hkl.shape[1],dtype=complex) 
-    basis = popd['basis']
     for fcc_coord in fcc_coords:
         for coord, species in basis.items():
             # TODO: defend against weird or nonphysical occupancy choices

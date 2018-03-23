@@ -5,35 +5,38 @@ import numpy as np
 
 #from xrsdkit.models.saxs_classify import SaxsClassifier
 #from xrsdkit.models.saxs_regression import SaxsRegressor
+from xrsdkit import compute_intensity
 from xrsdkit.tools import profiler 
 from xrsdkit.fitting.xrsd_fitter import XRSDFitter 
 
 def test_fit():
-    pass
-    #datapath = os.path.join(os.path.dirname(__file__),
-    #    'test_data','solution_saxs','spheres','spheres_0.csv')
-    #print('testing SaxsFitter on {}'.format(datapath))
+    datapath = os.path.join(os.path.dirname(__file__),
+        'test_data','solution_saxs','spheres','spheres_0.csv')
     #datapath = os.path.join(os.path.dirname(__file__),
     #    'test_data','solution_saxs','peaks','peaks_0.csv')
-    #test_data = open(datapath,'r')
-    #q_I = np.loadtxt(test_data,dtype=float,delimiter=',')
-    #p = os.path.dirname(os.path.abspath(__file__))
-    #d = os.path.dirname(p)
-    #pmod_cls = os.path.join(d,'xrsdkit','models','modeling_data','scalers_and_models.yml')
-    #pmod_reg = os.path.join(d,'xrsdkit','models','modeling_data','scalers_and_models_regression.yml')
-    #sxc = SaxsClassifier(pmod_cls)
-    #prof = profiler.profile_spectrum(q_I)
+    print('testing XRSDFitter on {}'.format(datapath))
+    f = open(datapath,'r')
+    q_I = np.loadtxt(f,dtype=float,delimiter=',')
+    populations = OrderedDict() 
+    populations['noise'] = dict(
+        structure='diffuse',
+        parameters={'I0':0.1},
+        basis={(0,0,0):{'flat':{'amplitude':1}}}
+        )
+    populations['nanoparticles'] = dict(
+        structure='diffuse',
+        parameters={'I0':1000},
+        basis={(0,0,0):{'spherical_normal':{'r0':20,'sigma':0.05}}}
+        )
+    I_guess = compute_intensity(q_I[:,0],populations,0.8265616)
+    #from matplotlib import pyplot as plt
+    #plt.figure(3)
+    #plt.semilogy(q_I[:,0],q_I[:,1],'k')
+    #plt.semilogy(q_I[:,0],I_guess,'g')
+    #plt.show()
 
-    # TODO: make all models work with profile_spectrum() output
-    #tmp_prof = OrderedDict()
-    #for k in prof.keys():
-    #    if prof[k] is not None:
-    #        tmp_prof[k] = prof[k]
-
-    #pops,certs = sxc.classify(tmp_prof)
-    #sxr = SaxsRegressor(pmod_reg)
-    #params = sxr.predict_params(pops,tmp_prof,q_I)
-    #sxf = XRSDFitter(q_I,pops)
+    ftr = XRSDFitter(q_I,populations)
+    #fit_pops = ftr.fit()
     #params,rpt = sxf.fit_intensity_params(params)
     #p_opt,rpt_opt = sxf.fit(params)
     #obj_init = sxf.evaluate(params)

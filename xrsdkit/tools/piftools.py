@@ -75,6 +75,8 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     #    csys.classifications = structure_classifications(populations)
         csys.properties.extend(structure_properties(populations))
         csys.properties.extend(diffuse_specie_count_properties(populations))
+    if q_I is not None:
+        csys.properties.extend(profile_properties(q_I))
     return csys
 
 def id_tag(idname,idval,tags=None):
@@ -82,16 +84,17 @@ def id_tag(idname,idval,tags=None):
 
 def structure_properties(populations):
     properties = []
-    if not isinstance(populations,list):
-        populations = [populations]
     crystalline_flag = 0
-    if any([popd['structure'] in crystalline_structure_names for popd in populations]):
+    if any([popd['structure'] in crystalline_structure_names 
+        for pop_name,popd in populations.items()]):
         crystalline_flag = 1
     diffuse_flag = 0
-    if any([popd['structure'] == 'diffuse' and not popd['name'] == 'noise' for popd in populations]):
+    if any([popd['structure'] == 'diffuse' and not pop_name == 'noise' 
+        for pop_name,popd in populations.items()]):
         diffuse_flag = 1
     disordered_flag = 0
-    if any([popd['structure'] == 'disordered' for popd in populations]):
+    if any([popd['structure'] == 'disordered' 
+        for pop_name,popd in populations.items()]):
         disordered_flag = 1
     properties.append(scalar_property(
         'crystalline_structure_flag',crystalline_flag,
@@ -106,13 +109,11 @@ def structure_properties(populations):
 
 def diffuse_specie_count_properties(populations):
     properties = []
-    if not isinstance(populations,list):
-        populations = [populations]
     n_diffuse = OrderedDict.fromkeys(diffuse_form_factor_names)
     for ff_name in diffuse_form_factor_names:
         n_diffuse[ff_name] = 0
     # TODO: vectorize
-    for popd in populations:
+    for pop_name,popd in populations.items():
         if popd['structure'] == 'diffuse':
             for coord, species in popd['basis'].items():
                 for specie_name, specie_params in species.items():
@@ -130,17 +131,12 @@ def diffuse_specie_count_properties(populations):
 
 def q_I_properties(q_I,temp_C=None):
     properties = []
-    if q_I is not None:
-        # Process measured q_I into a property
-        pI = q_I_property(q_I)
-        if temp_C is not None:
-            pI.conditions.append(pifobj.Value('temperature',
-            [pifobj.Scalar(temp_C)],None,None,None,'degrees Celsius'))
-        properties.append(pI)
-        # Process featurization of q_I 
-        prof = profiler.full_profile(q_I)
-        prof_props = profile_properties(prof)
-        properties.extend(prof_props)
+    # Process measured q_I into a property
+    pI = q_I_property(q_I)
+    if temp_C is not None:
+        pI.conditions.append(pifobj.Value('temperature',
+        [pifobj.Scalar(temp_C)],None,None,None,'degrees Celsius'))
+    properties.append(pI)
     return properties
 
 def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='Intensity'):
@@ -155,7 +151,8 @@ def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='Intensity'):
     pI.name = propname 
     return pI 
 
-def profile_properties(prof):
+def profile_properties(q_I):
+    prof = profiler.full_profile(q_I)
     props = []
     for fnm,fval in prof.items():
         if fval is not None:

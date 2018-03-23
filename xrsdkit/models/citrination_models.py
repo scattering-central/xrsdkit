@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 from citrination_client import CitrinationClient
 
+from .. import structure_names
+
 class CitrinationStructureClassifier(object):
     """Citrination models for classifying structure from scattering/diffraction data"""
 
@@ -15,8 +17,8 @@ class CitrinationStructureClassifier(object):
 
     def classify(self,sample_features):
         """Determine the types of structures represented by the sample"""
-        struct_flags = OrderedDict.fromkeys(structures)
-        for struct_name in structures:
+        struct_flags = OrderedDict.fromkeys(structure_names)
+        for struct_name in structure_names:
             struct_flags[struct_name] = False
         return struct_flags
 

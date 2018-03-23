@@ -6,7 +6,8 @@ import sklearn
 from sklearn import preprocessing,linear_model
 import yaml
 
-from .. import structures
+from .. import structure_names
+from . import set_param
 
 class StructureClassifier(object):
     """Models for classifying structure from scattering/diffraction data"""
@@ -27,10 +28,10 @@ class StructureClassifier(object):
         # dict of accuracies
         acc_dict = s_and_m['accuracy']
 
-        self.models = OrderedDict.fromkeys(structures)
-        self.scalers = OrderedDict.fromkeys(structures)
-        self.accuracy = OrderedDict.fromkeys(structures)
-        for struct_name in structures:
+        self.models = OrderedDict.fromkeys(structure_names)
+        self.scalers = OrderedDict.fromkeys(structure_names)
+        self.cv_error = OrderedDict.fromkeys(structure_names)
+        for struct_name in structure_names:
             model_params = classifier_dict[struct_name]
             scaler_params = scalers_dict[struct_name]
             acc = acc_dict[struct_name]
@@ -41,15 +42,7 @@ class StructureClassifier(object):
                 self.set_param(m,model_params)
             self.models[struct_name] = m
             self.scalers[struct_name] = s
-            self.accuracy[struct_name] = acc
-
-    # helper function - to set parametrs for scalers and models
-    def set_param(self, m_s, param):
-        for k, v in param.items():
-            if isinstance(v, list):
-                setattr(m_s, k, np.array(v))
-            else:
-                setattr(m_s, k, v)
+            self.cv_error[struct_name] = acc
 
     def classify(self, sample_features):
         """Determine the types of structures represented by the sample
@@ -71,10 +64,10 @@ class StructureClassifier(object):
         """
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)  
 
-        structs = OrderedDict.fromkeys(structures)
-        certainties = OrderedDict.fromkeys(structures)
+        structs = OrderedDict.fromkeys(structure_names)
+        certainties = OrderedDict.fromkeys(structure_names)
 
-        for struct_name in structures:
+        for struct_name in structure_names:
             structs[struct_name] = False
             certainties[struct_name] = 0. 
 
@@ -95,15 +88,20 @@ class StructureClassifier(object):
 
         return populations, certainties
 
-    def get_accuracy(self):
-        """Get accuracy for all classification models.
+    def training_cv_error(self):
+        """Report cross-validation error for these classification models.
+
+        "Leave-2-Groups-Out" cross-validation is used.
+        For each train-test split, 
+        two experiments are used for testing 
+        and the rest are used for training. 
+        The reported error is the average over all train-test splits. 
+        TODO: what is the error metric for the classifier? 
+        TODO: verify that this docstring is correct
 
         Returns
         -------
-        accuracy : dict
-            Dictionary of models and their accuracies.
-            to calculate the accuracy "Leave-N-Groups-Out" technique is used.
-            Every cycle data from two experiments used for testing and the
-            other data for training. The average accuracy is reported.
+        cv_errors : dict
+            Dictionary of models and their cross-validation errors. 
         """
-        return self.accuracy
+        return self.cv_error
