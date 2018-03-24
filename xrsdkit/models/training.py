@@ -3,8 +3,10 @@ import numpy as np
 import yaml
 from sklearn import model_selection, preprocessing, linear_model
 from sklearn.metrics import mean_absolute_error
+from collections import OrderedDict
 
 from ..tools import profiler
+from ..tools.piftools import model_output_names
 
 def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
     """Train SAXS classification models, optionally searching for optimal hyperparameters.
@@ -50,73 +52,38 @@ def train_classifiers(all_data, hyper_parameters_search=False, model= 'all'):
         # use 5-fold cross validation
         leaveTwoGroupOut = False 
 
-    # diffuse scatterer population model
-    if possible_models['diffuse'] == True:
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(all_data[features])
-        transformed_data = scaler.transform(all_data[features])
-        if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['diffuse_structure_flag']],
-                all_data['experiment_id'], leaveTwoGroupOut, 2)
+    for m in model_output_names:
+        if possible_models[m] == True:
+            scaler = preprocessing.StandardScaler()
+            scaler.fit(all_data[features])
+            transformed_data = scaler.transform(all_data[features])
+            if hyper_parameters_search == True:
+                penalty, alpha, l1_ratio = hyperparameters_search(
+                    transformed_data, all_data[m],
+                    all_data['experiment_id'], leaveTwoGroupOut, 2)
+            else:
+                penalty = 'l1'
+                alpha = 0.001
+                l1_ratio = 1.0
+
+            logsgdc = linear_model.SGDClassifier(
+                alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
+            logsgdc.fit(transformed_data, all_data[m])
+
+            scalers[m] = scaler.__dict__
+            models[m] = logsgdc.__dict__
+
+            # save the accuracy
+            if leaveTwoGroupOut:
+                accuracy[m] = testing_by_experiments(
+                    all_data, m, features, alpha, l1_ratio, penalty)
+            else:
+                accuracy[m] = testing_using_crossvalidation(
+                    all_data, m, features, alpha, l1_ratio, penalty)
         else:
-            penalty = 'l1'
-            alpha = 0.001
-            l1_ratio = 1.0
-
-        logsgdc = linear_model.SGDClassifier(
-            alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['diffuse_structure_flag'])
-
-        # save the scaler and model for "bad_data"
-        scalers['diffuse'] = scaler.__dict__
-        models['diffuse'] = logsgdc.__dict__
-
-        # save the accuracy
-        if leaveTwoGroupOut:
-            accuracy['diffuse'] = testing_by_experiments(
-                all_data, 'diffuse_structure_flag', features, alpha, l1_ratio, penalty)
-        else:
-            accuracy['diffuse'] = testing_using_crossvalidation(
-                all_data, 'diffuse_structure_flag', features, alpha, l1_ratio, penalty)
-    else:
-        scalers['diffuse'] = None
-        models['diffuse'] = None
-        accuracy['diffuse'] = None
-
-    # crystalline scatterer population model
-    if possible_models['crystalline'] == True:
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(all_data[features])
-        transformed_data = scaler.transform(all_data[features])
-        if hyper_parameters_search == True:
-            penalty, alpha, l1_ratio = hyperparameters_search(
-                transformed_data, all_data[['crystalline_structure_flag']],
-                all_data['experiment_id'], leaveTwoGroupOut, 2)
-        else:
-            penalty = 'l1'
-            alpha = 0.001
-            l1_ratio = 1.0
-
-        logsgdc = linear_model.SGDClassifier(
-            alpha=alpha, loss='log', penalty=penalty, l1_ratio=l1_ratio)
-        logsgdc.fit(transformed_data, all_data['crystalline_structure_flag'])
-
-        # save the scaler and model for "bad_data"
-        scalers['crystalline'] = scaler.__dict__
-        models['crystalline'] = logsgdc.__dict__
-
-        # save the accuracy
-        if leaveTwoGroupOut:
-            accuracy['crystalline'] = testing_by_experiments(
-                all_data, 'crystalline_structure_flag', features, alpha, l1_ratio, penalty)
-        else:
-            accuracy['crystalline'] = testing_using_crossvalidation(
-                all_data, 'crystalline_structure_flag', features, alpha, l1_ratio, penalty)
-    else:
-        scalers['crystalline'] = None
-        models['crystalline'] = None
-        accuracy['crystalline'] = None
+            scalers[m] = None
+            models[m] = None
+            accuracy[m] = None
 
     # the next two classifiers for diffuse scattering populations only
     all_data = all_data[all_data['crystalline_structure_flag']==True]
@@ -404,16 +371,14 @@ def check_labels(dataframe):
         True and False labels were found
         for each of the possible models. 
     """
-    possible_models = {}
-    if len(dataframe.diffuse_structure_flag.unique()) > 1:
-        possible_models['diffuse'] = True
-    else:
-        possible_models['diffuse'] = False
 
-    if len(dataframe.crystalline_structure_flag.unique()) > 1:
-        possible_models['crystalline'] = True
-    else:
-        possible_models['crystalline'] = False
+    possible_models = OrderedDict.fromkeys(model_output_names)
+
+    for m in model_output_names:
+        if len(dataframe[m].unique()) > 1:
+            possible_models[m] = True
+        else:
+            possible_models[m] = False
 
     return possible_models
 
@@ -869,9 +834,9 @@ def save_models(new_scalers, new_models, cv_errors, file_path=None):
     s_and_m_old = yaml.load(s_and_m_file)
 
     if s_and_m_old == None: # for the first training: the file is empty
-        scalers = {'diffuse': None, 'crystalline': None}
-        models = {'diffuse': None, 'crystalline': None}
-        accuracy = {'diffuse': None, 'crystalline': None}
+        scalers = OrderedDict.fromkeys(model_output_names)
+        models = OrderedDict.fromkeys(model_output_names)
+        accuracy = OrderedDict.fromkeys(model_output_names)
         s_and_m_old = {'scalers': scalers, 'models': models, 'accuracy': accuracy}
 
     # update scalers, models, and accuracies using new models:

@@ -2,12 +2,12 @@ from collections import OrderedDict
 import os
 
 import numpy as np
-import sklearn
 from sklearn import preprocessing,linear_model
 import yaml
 
 from .. import structure_names
 from . import set_param
+from ..tools.piftools import model_output_names
 
 class StructureClassifier(object):
     """Models for classifying structure from scattering/diffraction data"""
@@ -17,6 +17,7 @@ class StructureClassifier(object):
             p = os.path.abspath(__file__)
             d = os.path.dirname(p)
             yml_file = os.path.join(d,'modeling_data','scalers_and_models.yml')
+
 
         s_and_m_file = open(yml_file,'rb')
         s_and_m = yaml.load(s_and_m_file)
@@ -28,21 +29,22 @@ class StructureClassifier(object):
         # dict of accuracies
         acc_dict = s_and_m['accuracy']
 
-        self.models = OrderedDict.fromkeys(structure_names)
-        self.scalers = OrderedDict.fromkeys(structure_names)
-        self.cv_error = OrderedDict.fromkeys(structure_names)
-        for struct_name in structure_names:
+        self.models = OrderedDict.fromkeys(model_output_names)
+        self.scalers = OrderedDict.fromkeys(model_output_names)
+        self.cv_error = OrderedDict.fromkeys(model_output_names)
+
+        for struct_name in model_output_names:
             model_params = classifier_dict[struct_name]
             scaler_params = scalers_dict[struct_name]
             acc = acc_dict[struct_name]
             if scaler_params is not None:
                 s = preprocessing.StandardScaler()
-                self.set_param(s,scaler_params)
+                set_param(s,scaler_params)
                 m = linear_model.SGDClassifier()
-                self.set_param(m,model_params)
-            self.models[struct_name] = m
-            self.scalers[struct_name] = s
-            self.cv_error[struct_name] = acc
+                set_param(m,model_params)
+                self.models[struct_name] = m
+                self.scalers[struct_name] = s
+                self.cv_error[struct_name] = acc
 
     def classify(self, sample_features):
         """Determine the types of structures represented by the sample
@@ -64,12 +66,21 @@ class StructureClassifier(object):
         """
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)  
 
-        structs = OrderedDict.fromkeys(structure_names)
-        certainties = OrderedDict.fromkeys(structure_names)
+        structs = OrderedDict.fromkeys(model_output_names)
+        certainties = OrderedDict.fromkeys(model_output_names)
 
-        for struct_name in structure_names:
+        for struct_name in model_output_names:
             structs[struct_name] = False
-            certainties[struct_name] = 0. 
+            certainties[struct_name] = 0.
+
+        for k in model_output_names:
+            if self.scalers[k] is not None:
+                x = self.scalers[k].transform(feature_array)
+                pop = int(self.models[k].predict(x)[0])
+                cert = self.models[k].predict_proba(x)[0,pop]
+                structs[k] = pop
+                certainties[k] = cert
+
 
         #x = self.scalers['unidentified'].transform(feature_array)
         #pop = int(self.models['unidentified'].predict(x)[0])
@@ -86,7 +97,7 @@ class StructureClassifier(object):
         #            populations[k] = pop 
         #            certainties[k] = cert 
 
-        return populations, certainties
+        return structs, certainties
 
     def training_cv_error(self):
         """Report cross-validation error for these classification models.

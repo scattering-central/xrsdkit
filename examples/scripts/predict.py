@@ -6,21 +6,22 @@ import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
-from saxskit.saxs_math import profile_spectrum
+from xrsdkit.tools.profiler import profile_spectrum
 
 # for using saxskit models:
-from saxskit.saxs_classify import SaxsClassifier
-from saxskit.saxs_regression import SaxsRegressor
+from xrsdkit.models.structure_classifier import StructureClassifier
+from xrsdkit.models.saxs_regression import SaxsRegressor
 
 # for using Citrination models:
-from saxskit.saxs_citrination import CitrinationSaxsModels
+from xrsdkit.models.citrination_models import CitrinationStructureClassifier
 
 # for computing parameters related with intensity:
-from saxskit import saxs_fit
+#from xrsdkit import saxs_fit
 
 p = os.path.abspath(__file__)
-d = os.path.dirname(os.path.dirname(p))
-path = os.path.join(d,'examples','sample_0.csv')
+d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
+#path = os.path.join(d,'tests','test_data','solution_saxs','peaks','peaks_0.csv')
+path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_1.csv')
 
 q_i = np.genfromtxt (path, delimiter=",")
 
@@ -30,13 +31,13 @@ features = profile_spectrum(q_i)
 #Using saxskit models:
 print("\033[1m" + "Prediction from saxskit models: " + "\033[0;0m", "\n")
 
-m = SaxsClassifier()
+m = StructureClassifier()
 populations, probabilities = m.classify(features)
 print("scatterer populations: ")
 for k,v in populations.items():
     print(k, ":", v, "  with probability: %1.3f" % (probabilities[k]))
 print()
-
+'''
 r = SaxsRegressor()
 params = r.predict_params(populations,features, q_i)
 
@@ -56,7 +57,7 @@ api_key_file = os.path.join(d, 'api_key.txt')
 if not os.path.exists(api_key_file):
     print("Citrination api key file did not find")
 
-saxs_models = CitrinationSaxsModels(api_key_file,'https://slac.citrination.com')
+saxs_models = CitrinationStructureClassifier(api_key_file,'https://slac.citrination.com')
 
 populations, uncertainties = saxs_models.classify(features)
 print("scatterer populations: ")
@@ -78,3 +79,4 @@ for k,v in params.items():
     for n in range(len(v)):
         print(" %10.3f" % (v[n]) )
 print()
+'''

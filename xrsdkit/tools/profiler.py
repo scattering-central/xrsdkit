@@ -169,8 +169,8 @@ def profile_spectrum(q_I):
     r_fftIcentroid = rfftI_rint / fftI_rint 
     r_fftImax = r_pos[np.argmax(fftampI_rpos)]
 
-    features = OrderedDict.fromkeys(profile_keys)
-    features['Imax_over_Imean'] = Imax_over_Imean
+    features = OrderedDict.fromkeys(profile_keys_1) # we need NOT EXTENDED profile_kesy. If we use extended version,
+    features['Imax_over_Imean'] = Imax_over_Imean   # we have NONs for "extra" features
     features['Imax_sharpness'] = Imax_sharpness
     features['I_fluctuation'] = I_fluctuation
     features['logI_fluctuation'] = logI_fluctuation
