@@ -830,10 +830,13 @@ def save_models(new_scalers, new_models, cv_errors, file_path=None):
 
     # if we want to save only a specific model,
     # the other models should not be changed
-    s_and_m_file = open(file_path,'rb')
-    s_and_m_old = yaml.load(s_and_m_file)
+    if os.path.isfile(file_path):
+        s_and_m_file = open(file_path,'rb')
+        s_and_m_old = yaml.load(s_and_m_file)
+    else:
+        s_and_m_old = None
 
-    if s_and_m_old == None: # for the first training: the file is empty
+    if s_and_m_old == None: # for the first training: the file is empty or not exist
         scalers = OrderedDict.fromkeys(model_output_names)
         models = OrderedDict.fromkeys(model_output_names)
         accuracy = OrderedDict.fromkeys(model_output_names)
