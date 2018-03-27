@@ -30,12 +30,16 @@ features = profile_spectrum(q_i)
 
 #Using saxskit models:
 print("\033[1m" + "Prediction from saxskit models: " + "\033[0;0m", "\n")
-
-m = StructureClassifier()
-populations, probabilities = m.classify(features)
 print("scatterer populations: ")
-for k,v in populations.items():
-    print(k, ":", v, "  with probability: %1.3f" % (probabilities[k]))
+
+crystalline_model = StructureClassifier('crystalline_structure_flag')
+crystalline_pop, probability = crystalline_model.classify(features)
+print('crystalline_structure_flag: ', crystalline_pop, "  with probability: %1.3f" % (probability))
+
+diffuse_model = StructureClassifier('diffuse_structure_flag')
+diffuse_pop, probability = diffuse_model.classify(features)
+print('diffuse_structure_flag: ', diffuse_pop, "  with probability: %1.3f" % (probability))
+
 print()
 '''
 r = SaxsRegressor()

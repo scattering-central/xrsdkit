@@ -7,17 +7,22 @@ import numpy as np
 from xrsdkit.tools import profiler
 from xrsdkit.models.structure_classifier import StructureClassifier
 #from xrsdkit.models.saxs_regression import SaxsRegressor
+from collections import OrderedDict
 
 from citrination_client import CitrinationClient
 from xrsdkit.tools.citrination_tools import get_data_from_Citrination
+from xrsdkit.tools.piftools import model_output_names
 from xrsdkit.models.training import train_classifiers, train_regressors, save_models
 
 
 def test_classifier():
     p = os.path.dirname(os.path.abspath(__file__))
     d = os.path.dirname(p)
-    model_file_path = os.path.join(d,'xrsdkit','models','modeling_data','scalers_and_models.yml')
-    sxc = StructureClassifier(model_file_path)
+
+    classifiers = OrderedDict.fromkeys(model_output_names)
+    for model in model_output_names:
+        classifiers[model] = StructureClassifier(model)
+
     for data_type in ['precursors','spheres','peaks']:
         data_path = os.path.join(os.getcwd(),'tests','test_data','solution_saxs',data_type)
         data_files = glob.glob(os.path.join(data_path,'*.csv'))
@@ -26,9 +31,9 @@ def test_classifier():
             q_I = np.loadtxt(fpath,delimiter=',')
             prof = profiler.profile_spectrum(q_I)
 
-            pops,certs = sxc.classify(prof)  # was tmp_prof
-            for popk in pops.keys():
-                print('\t{} populations: {} ({} certainty)'.format(popk,pops[popk],certs[popk]))
+            for k, v in classifiers.items():
+                pop,cert = v.classify(prof)  # was tmp_prof
+                print('\t{} populations: {} ({} certainty)'.format(k,pop,cert))
 #
 #def test_regression():
 #    p = os.path.dirname(os.path.abspath(__file__))
@@ -71,11 +76,13 @@ def test_training():
     train = data.iloc[:int(data_len*0.9),:]
 #    train_part = data.iloc[int(data_len*0.9):,:]
 
-    test_classifiers_path = os.path.join(d,'xrsdkit','models','modeling_data','test_classifiers.yml')
-#    test_regressors_path = os.path.join(d,'xrsdkit','models','modeling_data','test_regressors.yml')
+    for model in model_output_names:
+        cl = StructureClassifier(model)
+        fl_name = 'test_classifiers_' + model + '.yml'
+        test_classifiers_path = os.path.join(d,'xrsdkit','models','modeling_data',fl_name)
 
-    scalers, models, accuracy = train_classifiers(train, hyper_parameters_search=False, model='all')
-    save_models(scalers, models, accuracy, test_classifiers_path)
+        scaler, model, par, accuracy = cl.train(train, hyper_parameters_search=False)
+        cl.save_models(scaler, model, par, accuracy, test_classifiers_path)
 #
 #    scalers, models, accuracy = train_regressors(train, hyper_parameters_search=False, model='all')
 #    save_models(scalers, models, accuracy, test_regressors_path)
