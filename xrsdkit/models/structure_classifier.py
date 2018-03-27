@@ -22,7 +22,7 @@ class StructureClassifier(XrsdModel):
         -------
         structure_flags : bool
             a boolean inidicating whether or not
-            the sample exhibits various structures 
+            the sample exhibits the structure
         cert : float
             the certainty of the prediction
         """

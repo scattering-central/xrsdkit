@@ -55,7 +55,7 @@ class XrsdModel(object):
         Returns
         -------
         new_scalers : sklearn standard scaler
-            used for transforming new data.
+            used for transforming of new data.
         new_models : sklearn model
             trained on new data.
         new_parameters : dict
@@ -139,7 +139,7 @@ class XrsdModel(object):
 
         For rergession models:
         The function return "True" if the dataframe has at least
-        4 non-null values
+        5 non-null values
 
         Parameters
         ----------
@@ -212,11 +212,16 @@ class XrsdModel(object):
         ----------
         df : pandas.DataFrame
             pandas dataframe of features and labels
+        model : sklearn model
+            with specific parameters
+        label_std : float
+            is used for regression models only
 
         Returns
         -------
         float
-            average crossvalidation score (accuracy)
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
         """
         scaler = preprocessing.StandardScaler()
         scaler.fit(df[self.features])
@@ -237,15 +242,16 @@ class XrsdModel(object):
         ----------
         df : pandas.DataFrame
             pandas dataframe of features and labels
-        features : list of strings
-            specifies which features to use
-        model : sk-learn linear model
+        model : sk-learn
             with specific parameters
+        label_std : float
+            is used for regression models only
 
         Returns
         -------
         float
-            average crossvalidation score (accuracy)
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
         """
         experiments = df.experiment_id.unique()# we have at least 5 experiments
         test_scores_by_ex = []
@@ -304,18 +310,18 @@ class XrsdModel(object):
 
         Parameters
         ----------
-        new_scalers : dict
-            Dictionary of sklearn standard scalers (one scaler per model).
-        new_models : dict
-            Dictionary of sklearn models.
+        new_scaler : sklearn scaler
+        new_model : sklearn model
+            with specific parameters
         new_parameters : dict
             Dictionary of parameters found by hyperparameters_search().
-        cv_errors : dict
-            Dictionary of normalized cross-validation errors each model.
+        cv_errors : float
+            classifier: accuracy
+            regression: normalized cross-validation errors each model.
         file_path : str
             Full path to the YAML file where the models will be saved.
-            Scalers, models, sklearn version, and cross-validation errors
-            will be saved at this path, and the cross-validation errors
+            Scaler, model, and cross-validation error
+            will be saved at this path, and the cross-validation error
             are also saved in a .txt file of the same name, in the same directory.
         """
         self.scaler = new_scaler
