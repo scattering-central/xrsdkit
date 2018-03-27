@@ -34,7 +34,11 @@ from ..diffraction import crystalline_structure_names
 #population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
 
 # property names for all of the modeling "outputs"
-model_output_names = ['crystalline_structure_flag','diffuse_structure_flag']
+model_output_names = list([
+    'crystalline_structure_flag',
+    'diffuse_structure_flag',
+    'guinier_porod_population_count',
+    'spherical_normal_population_count'])
 
 def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     """Make a pypif.obj.ChemicalSystem object describing a SAXS experiment.
@@ -72,9 +76,7 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     if q_I is not None:
         csys.properties.extend(q_I_properties(q_I,temp_C))
     if populations is not None:
-    #    csys.classifications = structure_classifications(populations)
         csys.properties.extend(structure_properties(populations))
-        csys.properties.extend(diffuse_specie_count_properties(populations))
     if q_I is not None:
         csys.properties.extend(profile_properties(q_I))
     return csys
@@ -86,16 +88,37 @@ def structure_properties(populations):
     properties = []
     crystalline_flag = 0
     if any([popd['structure'] in crystalline_structure_names 
-        for pop_name,popd in populations.items()]):
+    for pop_name,popd in populations.items()]):
         crystalline_flag = 1
-    diffuse_flag = 0
-    if any([popd['structure'] == 'diffuse' and not pop_name == 'noise' 
-        for pop_name,popd in populations.items()]):
-        diffuse_flag = 1
     disordered_flag = 0
     if any([popd['structure'] == 'disordered' 
-        for pop_name,popd in populations.items()]):
+    for pop_name,popd in populations.items()]):
         disordered_flag = 1
+    diffuse_flag = 0
+    if any([popd['structure'] == 'diffuse' and not pop_name == 'noise' 
+    for pop_name,popd in populations.items()]):
+        diffuse_flag = 1
+
+        # ASIDE: properties describing diffuse populations
+        # TODO: make this better
+        diffuse_population_properties = []
+        n_diffuse = OrderedDict.fromkeys(diffuse_form_factor_names)
+        for ff_name in diffuse_form_factor_names:
+            n_diffuse[ff_name] = 0
+        for pop_name,popd in populations.items():
+            if popd['structure'] == 'diffuse':
+                for coord, species in popd['basis'].items():
+                    for specie_name, specie_params in species.items():
+                        if specie_name in diffuse_form_factor_names:
+                            n_diffuse[specie_name] = 1
+                            if isinstance(specie_params,list):
+                                n_diffuse[specie_name] = len(specie_params)
+        for specie_name, ns in n_diffuse.items():
+            diffuse_population_properties.append(scalar_property(
+                '{}_population_count'.format(specie_name),ns,
+                'number of diffuse {} populations'.format(specie_name),
+                'EXPERIMENTAL'))
+
     properties.append(scalar_property(
         'crystalline_structure_flag',crystalline_flag,
         'crystalline structure flag','EXPERIMENTAL'))
@@ -105,28 +128,8 @@ def structure_properties(populations):
     properties.append(scalar_property(
         'disordered_structure_flag',disordered_flag,
         'disordered structure flag','EXPERIMENTAL'))
-    return properties
-
-def diffuse_specie_count_properties(populations):
-    properties = []
-    n_diffuse = OrderedDict.fromkeys(diffuse_form_factor_names)
-    for ff_name in diffuse_form_factor_names:
-        n_diffuse[ff_name] = 0
-    # TODO: vectorize
-    for pop_name,popd in populations.items():
-        if popd['structure'] == 'diffuse':
-            for coord, species in popd['basis'].items():
-                for specie_name, specie_params in species.items():
-                    if specie_name in diffuse_form_factor_names:
-                        n_params = 1
-                        if isinstance(specie_params,list):
-                            n_params = len(specie_params)
-                        n_diffuse[specie_name] += n_params
-    for specie_name, ns in n_diffuse.items():
-        properties.append(scalar_property(
-            '{}_population_count'.format(specie_name),ns,
-            'number of diffuse {} populations'.format(specie_name),
-            'EXPERIMENTAL'))
+    if diffuse_flag:
+        properties.append(diffuse_population_properties)
     return properties
 
 def q_I_properties(q_I,temp_C=None):
