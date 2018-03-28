@@ -3,16 +3,16 @@
 A scattering/diffraction pattern is assumed to represent
 one or more populations of scattering objects.
 The populations are described by a dict,
-where each population has a name (dict key)
-and a set of parameters (dict value).
-Each dict parameters should have the following entries: 
+where each population has a name (key)
+and a sub-dict of parameters (value).
+Each population sub-dict should have the following entries: 
 
     - 'structure' : the structure of the population 
         (e.g. 'diffuse', 'disordered', 'fcc'). 
 
-    - 'diffraction_setup' : parameters defining
-        the treatment of diffraction peaks,
-        including peak profile specification and 
+    - 'settings' : dict of parameters defining
+        the computational treatment of the population,
+        such as peak profile specifications and 
         the q-limits for reciprocal space analysis.
 
         - 'q_min' : minimum q-value for reciprocal lattice analysis 
@@ -20,7 +20,7 @@ Each dict parameters should have the following entries:
         - 'profile' : 'gaussian', 'lorentzian', or 'voigt' 
 
     - 'parameters' : dict describing the structure (lattice parameters, etc)
-        as well as any other parameters used for the computation.
+        as well as any other scalar parameters used for the computation.
         Some keys are used for parameterizing intensities and diffraction peaks:
 
         - 'I0' : the scattering or diffraction computed for each population 
@@ -37,19 +37,19 @@ Each dict parameters should have the following entries:
         - 'beta' : angle between a and c lattice vectors
         - 'gamma' : angle between a and b lattice vectors
 
-    - 'basis' : dict containing fractional coordinates (as keys)
-        and descriptions of site occupancy (as values).
+    - 'basis' : dict containing site names (as keys)
+        and dicts specifying site location and content (as values).
+        The site content dicts are structured as:
 
-        - The coordinate (key) is a tuple of three floats.
+        - 'coordinates' : tuple of three floating point numbers,
+            the fractional coordinates relative to a lattice site.
 
-        - The occupancy is described by a dict containing  
-            any number of form factor specifiers (as keys)
-            and form factor parameters (as values).
-
-        - Each set of form factor parameters is a dict (or list of dicts)
-            containing the parameter names (as keys) and values (as values).
-            A list of dicts is used to include 
-            multiple scatterers of the same type at this basis site.
+        - The remaining entries are form factor specifiers,
+            referring to dicts or lists of dicts 
+            containing parameter names and values for that form factor.
+            A list of dicts is used to specify 
+            multiple scatterers of the same type,
+            e.g. for implementing fractional occupancies.
 
 The following structures are currently supported:
 
@@ -60,13 +60,14 @@ The following structures are currently supported:
 
     - 'disordered' : condensed, disordered material, 
         characterized by a single (probably broad) peak,
-        with parameters 'profile', 'q_center', 'hwhm_g', 'hwhm_l'.
+        defined by a 'profile' setting and
+        parameters 'q_center', 'hwhm_g', and 'hwhm_l'.
 
     - 'fcc' : crystalline fcc lattice,
         defined by one lattice parameter 'a'.
-        Peaks (with parameters 'profile', 'hwhm_g', 'hwhm_l')
-        are analyzed for reciprocal space vectors
-        between parameters 'q_min' and 'q_max'. 
+        Peaks computed for this population respect
+        the settings 'profile', 'q_min', and 'q_max',
+        with parameters 'hwhm_g' and 'hwhm_l'.
 
 The supported form factors and their parameters are:
 
@@ -121,10 +122,11 @@ For example, a single flat scatterer
 is placed in a 40-Angstrom fcc lattice,
 with peaks from q=0.1 to q=1.0 
 included in the summation:
-fcc_gp_population = dict(
-    fcc_gp = dict(
+
+my_populations = dict(
+    my_fcc_population = dict(
         structure='fcc',
-        diffraction_setup=dict(
+        settings=dict(
             q_min=0.1,
             q_max=1.,
             profile='voigt'
@@ -134,7 +136,12 @@ fcc_gp_population = dict(
             hwhm_g=0.01,
             hwhm_l=0.01
             ),
-        basis={(0,0,0):{'flat':{'amplitude':10}}}
+        basis=dict(
+            my_flat_scatterer=dict(
+                coordinates=(0,0,0),
+                flat={'amplitude':10}
+                )
+            )
         )
     )
 """
@@ -209,13 +216,13 @@ def compute_intensity(q,populations,source_wavelength):
                 raise ValueError(msg)
             I += diffraction.fcc_intensity(q,popd,source_wavelength)
         elif st == 'disordered':
-            profile_name = popd['parameters']['profile']
-            q_c = popd['parameters']['q_center']
             I0 = 1.
             if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
+            profile_name = popd['settings']['profile']
+            q_c = popd['parameters']['q_center']
             I += I0 * peak_math.peak_profile(q,q_c,profile_name,popd['parameters'])
         else:
-            msg = 'structure specification {} is not supported'.format(lat)
+            msg = 'structure specification {} is not supported'.format(st)
             raise ValueError(msg)
     return I
 
@@ -223,15 +230,19 @@ def fcc_crystal(atom_symbol,a_lat,q_min=None,q_max=None,pk_profile=None,hwhm_g=N
     fcc_pop = dict(
         name='fcc_{}'+atom_symbol,
         structure='fcc',
+        settings={},
         parameters={'a':a_lat},
-        basis={(0,0,0):{'atomic':{'symbol':atom_symbol}}}
+        basis={'{}_atom'.format(atom_symbol):dict(
+            coordinates=(0,0,0),
+            atomic={'symbol':atom_symbol}
+            )}
         )
     if q_min:
-        fcc_pop['parameters']['q_min'] = q_min
+        fcc_pop['settings']['q_min'] = q_min
     if q_max:
-        fcc_pop['parameters']['q_max'] = q_max
+        fcc_pop['settings']['q_max'] = q_max
     if pk_profile:
-        fcc_pop['parameters']['profile'] = pk_profile 
+        fcc_pop['settings']['profile'] = pk_profile 
     if hwhm_g:
         fcc_pop['parameters']['hwhm_g'] = hwhm_g
     if hwhm_l:

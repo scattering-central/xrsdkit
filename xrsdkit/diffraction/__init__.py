@@ -12,9 +12,9 @@ def fcc_intensity(q,popd,source_wavelength):
     n_q = len(q)
     I = np.zeros(n_q)
     basis = popd['basis']
-    profile_name = popd['diffraction_setup']['profile']
-    q_min = popd['diffraction_setup']['q_min']
-    q_max = popd['diffraction_setup']['q_max']
+    profile_name = popd['settings']['profile']
+    q_min = popd['settings']['q_min']
+    q_max = popd['settings']['q_max']
     lat_a = popd['parameters']['a']
     # get d-spacings corresponding to the q-range limits
     d_min = 2*np.pi/q_max
