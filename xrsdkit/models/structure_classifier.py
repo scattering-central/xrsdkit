@@ -20,16 +20,21 @@ class StructureClassifier(XrsdModel):
 
         Returns
         -------
-        structure_flags : bool
+        structure_flags : bool or None
             a boolean inidicating whether or not
             the sample exhibits the structure
-        cert : float
+            None is reterned for models that was not trained yet
+        cert : float or None
             the certainty of the prediction
+            None is reterned for models that was not trained yet
         """
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
 
-        x = self.scaler.transform(feature_array)
-        struct = int(self.model.predict(x)[0])
-        cert = self.model.predict_proba(x)[0,struct]
+        try:
+            x = self.scaler.transform(feature_array)
+            struct = int(self.model.predict(x)[0])
+            cert = self.model.predict_proba(x)[0,struct]
 
-        return struct, cert
+            return struct, cert
+        except:
+            return None, None
