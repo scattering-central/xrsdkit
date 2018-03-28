@@ -107,12 +107,13 @@ def structure_properties(populations):
             n_diffuse[ff_name] = 0
         for pop_name,popd in populations.items():
             if popd['structure'] == 'diffuse':
-                for coord, species in popd['basis'].items():
-                    for specie_name, specie_params in species.items():
-                        if specie_name in diffuse_form_factor_names:
-                            n_diffuse[specie_name] = 1
-                            if isinstance(specie_params,list):
-                                n_diffuse[specie_name] = len(specie_params)
+                if 'basis' in popd:
+                    for coord, species in popd['basis'].items():
+                        for specie_name, specie_params in species.items():
+                            if specie_name in diffuse_form_factor_names:
+                                n_diffuse[specie_name] = 1
+                                if isinstance(specie_params,list):
+                                    n_diffuse[specie_name] = len(specie_params)
         for specie_name, ns in n_diffuse.items():
             diffuse_population_properties.append(scalar_property(
                 '{}_population_count'.format(specie_name),ns,
