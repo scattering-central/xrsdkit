@@ -7,7 +7,7 @@ from xrsdkit.diffraction import structure_factors,peak_math
     
 fcc_Al = {'Al':dict(
     structure='fcc',
-    diffraction_setup=dict(
+    settings=dict(
         q_min=1.,
         q_max=5.,
         profile='voigt'

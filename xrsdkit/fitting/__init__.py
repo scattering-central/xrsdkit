@@ -30,14 +30,6 @@ param_limits = OrderedDict(
     I_pkcenter = (0.,None),
     pk_hwhm = (1.E-6,1.E-1))
 
-def update_params(p_old,p_new):
-    for k,vals in p_new.items():
-        npar = len(p_old[k])
-        for i,val in enumerate(vals):
-            if i < npar:
-                p_old[k][i] = val
-    return p_old
-
 def fit_I0(q,I,order=4):
     """Find an estimate for I(q=0) by polynomial fitting.
     

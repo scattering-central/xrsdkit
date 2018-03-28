@@ -3,7 +3,7 @@ import os
 import yaml
 import numpy as np
 
-fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yaml')
+fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yml')
 atomic_params = yaml.load(open(fpath,'r'))
 
 def compute_ff(q,specie_name,params):
