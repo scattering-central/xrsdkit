@@ -30,11 +30,11 @@ class StructureClassifier(XrsdModel):
         """
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
 
-        try:
+        if self.scaler: # we have a saved model
             x = self.scaler.transform(feature_array)
             struct = int(self.model.predict(x)[0])
             cert = self.model.predict_proba(x)[0,struct]
 
             return struct, cert
-        except:
+        else:
             return None, None
