@@ -12,7 +12,6 @@ from collections import OrderedDict
 from citrination_client import CitrinationClient
 from xrsdkit.tools.citrination_tools import get_data_from_Citrination
 from xrsdkit.tools.piftools import model_output_names
-from xrsdkit.models.training import train_classifiers, train_regressors, save_models
 
 
 def test_classifier():

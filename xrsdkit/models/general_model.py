@@ -22,20 +22,22 @@ class XrsdModel(object):
         except:
             s_and_m = None
 
-        self.model = linear_model.SGDClassifier()
+        self.model = None
         self.parameters = None
         self.parameters_to_try = \
             {'penalty':('none', 'l2', 'l1', 'elasticnet'), #default l2
               'alpha':[0.00001, 0.0001, 0.001, 0.01, 0.1], #regularisation coef, default 0.0001
              'l1_ratio': [0, 0.15, 0.5, 0.85, 1.0]} #using with elasticnet only; default 0.15
-        self.scaler = preprocessing.StandardScaler()
+        self.scaler = None
         self.cv_error = None
         self.target = label
         self.classifier = classifier
         self.features = profiler.profile_keys_1
 
         if s_and_m and s_and_m['scaler']: # we have a saved model
+            self.scaler = preprocessing.StandardScaler()
             set_param(self.scaler,s_and_m['scaler'])
+            self.model = linear_model.SGDClassifier()
             set_param(self.model,s_and_m['model'])
             self.cv_error = s_and_m['accuracy']
             self.parameters = s_and_m['parameters']
