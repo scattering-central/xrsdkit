@@ -6,29 +6,62 @@ import lmfit
 
 from ..tools import standardize_array
 
-param_defaults = OrderedDict(
-    I0_floor = 0.,
-    G_gp = 1.E-3,
-    rg_gp = 10.,
-    D_gp = 4.,
-    I0_sphere = 1.E-3,
-    r0_sphere = 20.,
-    sigma_sphere = 0.05,
-    q_pkcenter=0.1,
-    I_pkcenter=1.,
-    pk_hwhm = 0.001)
+# dict of allowed form factor parameters
+#ff_parameters = OrderedDict(
+#    all=['occupancy'],
+#    flat=['amplitude'],
+#    spherical=['r'],
+#    spherical_normal=['r0','sigma'],
+#    guinier_porod=['G','r_g','D'],
+#    atomic=['symbol','Z','a','b'])
 
-param_limits = OrderedDict(
-    I0_floor = (0.,100.),
-    G_gp = (0.,None),
-    rg_gp = (1.E-1,1000.),
-    D_gp = (0.,4.),
-    I0_sphere = (0.,None),
-    r0_sphere = (1.,1000.),
-    sigma_sphere = (0.,0.5),
-    q_pkcenter = (0.,1.),
-    I_pkcenter = (0.,None),
-    pk_hwhm = (1.E-6,1.E-1))
+# dict of allowed structure parameters:
+#sf_parameters = OrderedDict(
+#    all = ['I0'],
+#    diffuse = [],
+#    disordered = ['hwhm_g','hwhm_l','q_center'],
+#    crystalline = ['hwhm_g','hwhm_l'],
+#    fcc = ['a'])
+
+all_params = list([
+    'I0','occupancy','amplitude',
+    'coordinates',
+    'G','r_g','D',
+    'r', 'r0', 'sigma',
+    'hwhm_g','hwhm_l','q_center',
+    'a'])
+
+param_defaults = OrderedDict(
+    I0 = 1.E-3,
+    occupancy = 1.,
+    amplitude = 1.,
+    coordinates = 0.,
+    G = 1.,
+    r_g = 10.,
+    D = 4.,
+    r = 20.,
+    r0 = 20.,
+    sigma = 0.05,
+    hwhm_g = 1.E-3,
+    hwhm_l = 1.E-3,
+    q_center = 1.E-1,
+    a = 10.)
+
+param_bound_defaults = OrderedDict(
+    I0 = (0.,None),
+    occupancy = (0.,1.),
+    amplitude = (0.,None),
+    coordinates = (None,None),
+    G = (0.,None),
+    r_g = (1.E-6,None),
+    D = (0.,4.),
+    r = (1.E-6,None),
+    r0 = (1.E-6,None),
+    sigma = (0.,0.5),
+    hwhm_g = (1.E-6,None),
+    hwhm_l = (1.E-6,None),
+    q_center = (0.,None),
+    a = (0.,None))
 
 def fit_I0(q,I,order=4):
     """Find an estimate for I(q=0) by polynomial fitting.
@@ -106,4 +139,66 @@ def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
     p_fit = p_fit[::-1] # reverse coefs to get np.polyfit format
     return p_fit
 
+def compute_Rsquared(y1,y2):
+    """Compute the coefficient of determination.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+
+    Returns
+    -------
+    Rsquared : float
+        coefficient of determination between `y1` and `y2`
+    """
+    sum_var = np.sum( (y1-np.mean(y1))**2 )
+    sum_res = np.sum( (y1-y2)**2 ) 
+    return float(1)-float(sum_res)/sum_var
+
+def compute_pearson(y1,y2):
+    """Compute the Pearson correlation coefficient.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+
+    Returns
+    -------
+    pearson_r : float
+        Pearson's correlation coefficient between `y1` and `y2`
+    """
+    y1mean = np.mean(y1)
+    y2mean = np.mean(y2)
+    y1std = np.std(y1)
+    y2std = np.std(y2)
+    return np.sum((y1-y1mean)*(y2-y2mean))/(np.sqrt(np.sum((y1-y1mean)**2))*np.sqrt(np.sum((y2-y2mean)**2)))
+
+def compute_chi2(y1,y2,weights=None):
+    """Compute sum of difference squared between two arrays.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+    weights : array
+        array of weights to multiply each element of (`y2`-`y1`)**2 
+
+    Returns
+    -------
+    chi2 : float
+        sum of difference squared between `y1` and `y2`. 
+    """
+    if weights is None:
+        return np.sum( (y1 - y2)**2 )
+    else:
+        weights = weights / np.sum(weights)
+        return np.sum( (y1 - y2)**2*weights )
 

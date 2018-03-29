@@ -41,7 +41,7 @@ Each population sub-dict should have the following entries:
         and dicts specifying site location and content (as values).
         The site content dicts are structured as:
 
-        - 'coordinates' : tuple of three floating point numbers,
+        - 'coordinates' : list of three floating point numbers,
             the fractional coordinates relative to a lattice site.
 
         - The remaining entries are form factor specifiers,
@@ -138,7 +138,7 @@ my_populations = dict(
             ),
         basis=dict(
             my_flat_scatterer=dict(
-                coordinates=(0,0,0),
+                coordinates=[0,0,0],
                 flat={'amplitude':10}
                 )
             )
@@ -164,21 +164,6 @@ structure_names = list([
     'disordered',
     'fcc'])
 
-# dict of allowed form factor parameters
-ff_parameters = OrderedDict(
-    general = ['occupancy'],
-    flat = ['amplitude'],
-    spherical = ['r'],
-    spherical_normal = ['r0','sigma'],
-    guinier_porod = ['G','r_g','D'],
-    atomic = ['symbol','Z','a','b'])
-
-# dict of allowed structure parameters:
-#sf_parameters = OrderedDict(
-#    general = ['I0'],
-#    disordered = ['hwhm_g','hwhm_l','q_center']
-#    crystalline = ['hwhm_g','hwhm_l'],
-#    fcc = ['a'])
 
 
 def compute_intensity(q,populations,source_wavelength):
@@ -233,7 +218,7 @@ def fcc_crystal(atom_symbol,a_lat,q_min=None,q_max=None,pk_profile=None,hwhm_g=N
         settings={},
         parameters={'a':a_lat},
         basis={'{}_atom'.format(atom_symbol):dict(
-            coordinates=(0,0,0),
+            coordinates=[0,0,0],
             atomic={'symbol':atom_symbol}
             )}
         )
