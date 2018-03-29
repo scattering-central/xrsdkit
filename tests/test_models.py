@@ -75,12 +75,18 @@ def test_training():
     train = data.iloc[:int(data_len*0.9),:]
 #    train_part = data.iloc[int(data_len*0.9):,:]
 
+    data_diffuse_only = data[(data['diffuse_structure_flag']=="1") & (data['crystalline_structure_flag']!= "1")]
+    train_d = data_diffuse_only.iloc[:int(data_diffuse_only.shape[0] * 0.9), :]
+
     for model in model_output_names:
         cl = StructureClassifier(model)
         fl_name = 'test_classifiers_' + model + '.yml'
         test_classifiers_path = os.path.join(d,'xrsdkit','models','modeling_data',fl_name)
 
-        scaler, model, par, accuracy = cl.train(train, hyper_parameters_search=False)
+        if model in ['guinier_porod_population_count', 'spherical_normal_population_count']:
+            scaler, model, par, accuracy = cl.train(train_d, hyper_parameters_search=False)
+        else:
+            scaler, model, par, accuracy = cl.train(train, hyper_parameters_search=False)
         cl.save_models(scaler, model, par, accuracy, test_classifiers_path)
 #
 #    scalers, models, accuracy = train_regressors(train, hyper_parameters_search=False, model='all')

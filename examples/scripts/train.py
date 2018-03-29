@@ -24,7 +24,7 @@ cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36])
 data_diffuse_only = data[(data['diffuse_structure_flag']=="1") & (data['crystalline_structure_flag']!= "1")]
 print(data.shape)
-'''
+
 crystalline_model = StructureClassifier('crystalline_structure_flag')
 scaler, model, parameters,  accuracy = crystalline_model.train(data, hyper_parameters_search = True)
 classifiers_path = os.path.join(d,'xrsdkit','models','modeling_data','scalers_and_models_crystalline_structure_flag.yml')
@@ -44,7 +44,7 @@ spherical_normal_model = StructureClassifier('spherical_normal_population_count'
 scaler, model, parameters,  accuracy = spherical_normal_model.train(data_diffuse_only, hyper_parameters_search = True)
 classifiers_path = os.path.join(d,'xrsdkit','models','modeling_data','scalers_and_models_spherical_normal_population_count.yml')
 spherical_normal_model.save_models(scaler, model, parameters,  accuracy, classifiers_path)
-'''
+
 #scalers, models, accuracy = train_regressors(data, hyper_parameters_search = True, model= 'all')
 
 # if we want to train only "r0_sphere" model:
