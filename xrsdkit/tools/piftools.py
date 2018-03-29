@@ -130,7 +130,7 @@ def structure_properties(populations):
         'disordered_structure_flag',disordered_flag,
         'disordered structure flag','EXPERIMENTAL'))
     if diffuse_flag:
-        properties.append(diffuse_population_properties)
+        properties.extend(diffuse_population_properties)
     return properties
 
 def q_I_properties(q_I,temp_C=None):
