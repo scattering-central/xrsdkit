@@ -1,10 +1,17 @@
 from collections import OrderedDict
+import copy
+
 import numpy as np
+import lmfit
+
+from . import all_params, param_defaults, param_bound_defaults
+from .. import compute_intensity
+from . import compute_chi2
 
 class XRSDFitter(object):
     """Class for fitting x-ray scattering and diffraction profiles."""
 
-    def __init__(self,q_I,populations,dI=None):
+    def __init__(self,q_I,populations,source_wavelength,dI=None):
         """Initialize a XRSDFitter.
 
         Parameters
@@ -23,8 +30,11 @@ class XRSDFitter(object):
             If not provided, error-weighted fitting
             is performed using the square root of the intensity
             as the error estimate. 
+        source_wavelength : float
+            X-ray source wavelength used for computing diffraction patterns
         """
         self.populations = populations
+        self.source_wavelength = source_wavelength
         self.q = q_I[:,0]
         self.I = q_I[:,1]
         self.idx_fit = (self.I>0)
@@ -38,11 +48,14 @@ class XRSDFitter(object):
             self.dI.fill(np.nan)
             self.dI[self.idx_fit] = np.sqrt(self.I[self.idx_fit])
 
-    def fit(self,fixed_params=None,param_limits=None,error_weighted=True,objective='chi2log'):
+    def fit(self,fixed_params=None,param_bounds=None,param_constraints=None,error_weighted=True,objective='chi2log'):
         """Fit the SAXS spectrum, return an optimized populations dict.
     
         Parameters
         ----------
+        fixed_params : dict
+        param_bounds : dict
+        param_constraints : dict
         error_weighted : bool
             Flag for whether or not the fit 
             should be weighted by the intensity error estimates.
@@ -58,47 +71,48 @@ class XRSDFitter(object):
             Dict reporting quantities of interest
             about the fit result.
         """
+        p_opt = copy.deepcopy(self.populations)
+        rpt = OrderedDict()
 
-        if bool(self.populations['unidentified']):
-            return OrderedDict(),OrderedDict()
+        if 'unidentified' in p_opt.keys():
+            return p_opt,rpt 
 
-        obj_init = self.evaluate_residual(self.populations,error_weighted)
+        obj_init = self.evaluate_residual(p_opt,error_weighted)
+        #print('INITIAL OBJECTIVE: {}'.format(obj_init))
+        #print(p_opt)
 
-        if fixed_params is None:
-            fixed_params = self.default_fixed_params()
-        if param_limits is None:
-            param_limits = self.default_param_limits()
+        fp = self.empty_params()
+        pb = self.empty_params()
+        pc = self.empty_params()
+        if fixed_params is not None:
+            fp = self.update_params(fp,fixed_params)
+        if param_bounds is not None:
+            pb  = self.update_params(pb,param_bounds)
+        if param_constraints is not None:
+            pc  = self.update_params(pc,param_constraints)
 
-        #print('obj_init: {}'.format(obj_init))
-        #dp = self.default_params()
-        #if params is None:
-        #    params = dp
-        #else:
-        #    params = update_params(dp,params)
+        lmf_params = self.pack_lmfit_params(p_opt,fp,pb,pc) 
+        lmf_res = lmfit.minimize(self.lmf_evaluate,
+            lmf_params,method='nelder-mead',
+            kws={'error_weighted':error_weighted})
+        flat_params = self.unpack_lmfit_params(lmf_res.params)
+        p_opt = self.update_params(p_opt,self.unflatten_params(flat_params))
 
-        #lmf_params = self.lmfit_params(params,fixed_params,param_limits) 
-        #lmf_res = lmfit.minimize(self.lmf_evaluate,
-        #    lmf_params,method='nelder-mead',
-        #    kws={'error_weighted':error_weighted})
-        #p_opt = self.saxskit_params(lmf_res.params) 
-
-        #rpt = OrderedDict()
-        #rpt['success'] = lmf_res.success
-        #rpt['initial_objective'] = obj_init 
-        #fit_obj = self.lmf_evaluate(lmf_res.params,error_weighted)
-        #rpt['final_objective'] = fit_obj 
-        #I_opt = saxs_math.compute_saxs(self.q,self.populations,
-        #    self.saxskit_params(lmf_res.params)) 
-        #I_bg = self.I - I_opt
-        #snr = np.mean(I_opt)/np.std(I_bg) 
-        #rpt['fit_snr'] = snr
+        rpt['success'] = lmf_res.success
+        rpt['initial_objective'] = obj_init 
+        fit_obj = self.lmf_evaluate(lmf_res.params,error_weighted)
+        rpt['final_objective'] = fit_obj 
+        I_opt = compute_intensity(self.q,p_opt,self.source_wavelength)
+        I_bg = self.I - I_opt
+        snr = np.mean(I_opt)/np.std(I_bg) 
+        rpt['fit_snr'] = snr
 
         #print(p_opt)
-        #print('obj_opt: {}'.format(obj_opt))
+        #print('FINAL OBJECTIVE: {}'.format(fit_obj))
 
-        ####
-        #I_init = saxs_math.compute_saxs(self.q,self.populations,params)
-        #I_opt = saxs_math.compute_saxs(self.q,self.populations,p_opt)
+        I_init = compute_intensity(self.q,self.populations,self.source_wavelength)
+        I_opt = compute_intensity(self.q,p_opt,self.source_wavelength)
+
         #from matplotlib import pyplot as plt
         #plt.figure(1)
         #plt.semilogy(self.q,self.I)
@@ -108,42 +122,162 @@ class XRSDFitter(object):
 
         return p_opt,rpt
 
-    def default_fixed_params(self):
-        fp = OrderedDict()
+    def empty_params(self):
+        ep = OrderedDict()
         for pop_name,popd in self.populations.items():
-            fp[pop_name] = OrderedDict()
-            fp[pop_name]['parameters'] = OrderedDict()
-            fp[pop_name]['basis'] = OrderedDict()
-            for param_name in popd['parameters'].keys():
-                fp[pop_name]['parameters'][param_name] = False
-            for coord,species in popd['basis'].items():
-                fp[pop_name]['basis'][coord] = OrderedDict()
-                for specie_name, specie_params in species.items():
-                    if isinstance(specie_params,list):
-                        fp[pop_name]['basis'][coord][specie_name] = [OrderedDict() for sp in specie_params]
-                        for isp,sp in enumerate(specie_params):
-                            for param_name,param_val in sp.items():
-                                fp[pop_name]['basis'][coord][specie_name][isp][param_name] = False
+            ep[pop_name] = OrderedDict()
+            #ep[pop_name]['settings'] = OrderedDict()
+            ep[pop_name]['parameters'] = OrderedDict.fromkeys(popd['parameters'].keys())
+            ep[pop_name]['basis'] = OrderedDict.fromkeys(popd['basis'].keys())
+            #for setting_name in popd['settings'].keys():
+            #    ep[pop_name]['settings'][setting_name] = None
+            for site_name,site_def in popd['basis'].items():
+                ep[pop_name]['basis'][site_name] = OrderedDict()
+                for k,site_item in site_def.items():
+                    if k == 'coordinates': 
+                        ep[pop_name]['basis'][site_name][k] = [None,None,None] 
+                    elif isinstance(site_item,list):
+                        # list of form factor param dicts
+                        ep[pop_name]['basis'][site_name][k] = [OrderedDict.fromkeys(stitm.keys()) for stitm in site_item]
                     else:
-                        fp[pop_name]['basis'][coord][specie_name] = OrderedDict() 
-                        for param_name,param_val in specie_params.items():
-                            fp[pop_name]['basis'][coord][specie_name][param_name] = False
+                        # dict of form factor params
+                        ep[pop_name]['basis'][site_name][k] = OrderedDict.fromkeys(site_item.keys())
+        return ep
 
-    #def default_params(self):
-    #    pkeys = []
-    #    pd = OrderedDict()
-    #    if bool(self.populations['unidentified']):
-    #        return pd
-    #    pd['I0_floor'] = [float(param_defaults['I0_floor'])]
-    #    for p,v in self.populations.items():
-    #        if bool(v):
-    #            pkeys.extend(parameter_keys[p]) 
-    #            for pk in parameter_keys[p]:
-    #                pd[pk] = [float(param_defaults[pk]) for i in range(v)]
-    #    return pd
+    @staticmethod
+    def update_params(p_base,p_new):
+        p_base = copy.deepcopy(p_base)
+        for pop_name,popd in p_new.items():
+            #if pop_name in p_base.keys():
+            if 'parameters' in popd.keys():
+                for param_name,param_val in popd['parameters'].items():
+                    p_base[pop_name]['parameters'][param_name] = copy.deepcopy(param_val)
+            #if 'settings' in popd.keys():
+            #    for setting_name,setting_val in popd['settings'].items():
+            #        p_base[pop_name]['settings'][setting_name] = copy.deepcopy(setting_val)
+            if 'basis' in popd.keys():
+                for site_name,site_def in popd['basis'].items():
+                    for k,site_item in site_def.items():
+                        if k == 'coordinates':
+                            for coord_idx,coord_val in enumerate(site_item):
+                                p_base[pop_name]['basis'][site_name][k][coord_idx] = copy.deepcopy(coord_val)
+                        elif isinstance(site_item,list):
+                            for ist,stitm in enumerate(site_item):
+                                for ff_param_name, ff_param_val in stitm.items():
+                                    p_base[pop_name]['basis'][site_name][k][ist][ff_param_name] = \
+                                    copy.deepcopy(ff_param_val)
+                        else:
+                            for ff_param_name, ff_param_val in site_item.items():
+                                p_base[pop_name]['basis'][site_name][k][ff_param_name] = \
+                                copy.deepcopy(ff_param_val)
+        return p_base
 
-    def lmf_evaluate(self,lmf_params,error_weighted=True):
-        return self.evaluate(self.saxskit_params(lmf_params),error_weighted)
+    def pack_lmfit_params(self,populations=None,fixed_params=None,param_bounds=None,param_constraints=None):
+        if populations is None:
+            populations=self.populations
+        p = self.flatten_params(populations) 
+        fp = self.flatten_params(fixed_params) 
+        pb = self.flatten_params(param_bounds)
+        pc = self.flatten_params(param_constraints)
+        # lmfit 
+        lmfp = lmfit.Parameters()
+        for pkey,pval in p.items():
+            param_name = pkey.split('__')[-1]
+            p_bounds = param_bound_defaults[param_name] 
+            if pkey in pb:
+                if pb[pkey] is not None:
+                    p_bounds = pb[pkey] 
+            vary_flag = True
+            if pkey in fp:
+                if fp[pkey] is not None:
+                    vary_flag = not fp[pkey]
+            p_expr = None
+            if pkey in pc:
+                if pc[pkey] is not None:
+                    p_expr = pc[pkey] 
+            lmfp.add(pkey,value=pval,vary=vary_flag,min=p_bounds[0],max=p_bounds[1],expr=p_expr)
+        return lmfp
+
+    @staticmethod
+    def unpack_lmfit_params(lmfit_params):
+        pd = OrderedDict()
+        for par_name,par in lmfit_params.items():
+            pd[par_name] = copy.deepcopy(par.value)
+        return pd
+
+    @staticmethod
+    def flatten_params(populations):
+        pd = OrderedDict()
+        for pop_name,popd in populations.items():
+            if 'parameters' in popd:
+                for param_name,param_val in popd['parameters'].items():
+                    pd[pop_name+'__parameters__'+param_name] = copy.deepcopy(param_val)
+            if 'basis' in popd:
+                for site_name, site_def in popd['basis'].items():
+                    for k, site_item in site_def.items():
+                        if k == 'coordinates':
+                            pd[pop_name+'__basis__'+site_name+'coordinates__0'] = copy.deepcopy(site_item[0])
+                            pd[pop_name+'__basis__'+site_name+'coordinates__1'] = copy.deepcopy(site_item[1])
+                            pd[pop_name+'__basis__'+site_name+'coordinates__2'] = copy.deepcopy(site_item[2])
+                        elif isinstance(site_item,list):
+                            for ist,stitm in enumerate(site_item):
+                                for ff_param_name, ff_param_val in stitm.items():
+                                    pd[pop_name+'__basis__'+site_name+'__'+k+'__'+str(ist)+'__'+ff_param_name] = \
+                                    copy.deepcopy(ff_param_val)
+                        else:
+                            for ff_param_name, ff_param_val in site_item.items():
+                                pd[pop_name+'__basis__'+site_name+'__'+k+'__'+ff_param_name] = \
+                                copy.deepcopy(ff_param_val)
+        return pd
+
+    @staticmethod
+    def unflatten_params(flat_params):
+        pd = OrderedDict()
+        for pkey,pval in flat_params.items():
+            ks = pkey.split('__')
+            kdepth = len(ks)
+            pop_name = ks[0]
+            if not pop_name in pd:
+                pd[pop_name] = OrderedDict()
+            pop_item_name = ks[1]
+            if not pop_item_name in pd[pop_name]:
+                pd[pop_name][pop_item_name] = OrderedDict()
+            if pop_item_name == 'parameters':
+                param_name = ks[2]
+                pd[pop_name][pop_item_name][param_name] = copy.deepcopy(pval)
+            elif pop_item_name == 'basis':
+                basis_item_name = ks[2]
+                if not basis_item_name in pd[pop_name][pop_item_name]:
+                    if basis_item_name == 'coordinates':
+                        pd[pop_name][pop_item_name][basis_item_name] = [None,None,None]
+                    else:
+                        # expect dict of form factor specifiers 
+                        pd[pop_name][pop_item_name][basis_item_name] = OrderedDict() 
+                    #elif kdepth > 5:
+                    #    # expect list of ff param dicts
+                    #    pd[pop_name][pop_item_name][basis_item_name] = []
+                if basis_item_name == 'coordinates':
+                    coord_idx = int(ks[3])
+                    pd[pop_name][pop_item_name][basis_item_name][coord_idx] = copy.deepcopy(pval)
+                else:
+                    ff_id = ks[3]
+                    if not ff_id in pd[pop_name][pop_item_name][basis_item_name]:
+                        if kdepth > 5:
+                            # expect list of ff param dicts
+                            pd[pop_name][pop_item_name][basis_item_name][ff_id] = []
+                        else:
+                            # expect single ff param dict
+                            pd[pop_name][pop_item_name][basis_item_name][ff_id] = OrderedDict() 
+                    if kdepth > 5:
+                        ff_idx = int(ks[4])
+                        while ff_idx >= len(pd[pop_name][pop_item_name][basis_item_name][ff_id]):
+                            pd[pop_name][pop_item_name][basis_item_name][ff_id].append(OrderedDict())
+                        ff_param_name = ks[5]
+                        pd[pop_name][pop_item_name][basis_item_name][ff_id][ff_idx][ff_param_name] = copy.deepcopy(pval)
+                    else:
+                        ff_param_name = ks[4]
+                        pd[pop_name][pop_item_name][basis_item_name][ff_id][ff_param_name] = copy.deepcopy(pval)
+        return pd
 
     def evaluate_residual(self,populations,error_weighted=True):
         """Evaluate the fit residual for a given populations dict.
@@ -161,107 +295,72 @@ class XRSDFitter(object):
         res : float
             Value of the residual 
         """
-        I_comp = saxs_math.compute_saxs(
-            self.q,self.populations,params)
+        I_comp = compute_intensity(
+            self.q,populations,self.source_wavelength)
         #I_comp[I_comp<0.] = 1.E-12
         if error_weighted:
-            res = saxs_math.compute_chi2(
+            res = compute_chi2(
                     np.log(I_comp[self.idx_fit]),
                     self.logI[self.idx_fit],
                     self.dI[self.idx_fit])
         else:
-            res = saxs_math.compute_chi2(
+            res = compute_chi2(
                     np.log(I_comp[self.idx_fit]),
                     self.logI[self.idx_fit])
-        #print('params: {}'.format(params))
-        #print('chi2log: {}'.format(chi2log_total))
-        #from matplotlib import pyplot as plt
-        #plt.figure(1)
-        #plt.semilogy(self.q,self.logI)
-        #plt.semilogy(self.q,I_comp,'r-')
-        #plt.show()
         return res 
 
-    def lmfit_params(self,params=None,fixed_params=None,param_bounds=None):
-        # params
-        p = self.default_params()
-        if params is not None:
-            p = update_params(p,params)
-        # fixed params
-        fp = self.default_params()
-        for k,v in fp.items():
-            for idx in range(len(v)):
-                v[idx] = False
-        if fixed_params is not None:
-            fp = update_params(fp,fixed_params)
-        # param bounds
-        pb = self.default_params()
-        for k,v in pb.items():
-            for idx in range(len(v)):
-                v[idx] = param_limits[k]
-        if param_bounds is not None:
-            pb = update_params(pb,param_bounds) 
-        # lmfit 
-        lmfp = lmfit.Parameters()
-        for pkey,pvals in p.items():
-            for i,val in enumerate(pvals):
-                lmfp.add(pkey+str(i),value=val,vary=not fp[pkey][i],
-                    min=pb[pkey][i][0],max=pb[pkey][i][1])
-        return lmfp
+    def lmf_evaluate(self,lmf_params,error_weighted=True):
+        pd = self.unflatten_params(self.unpack_lmfit_params(lmf_params))
+        pops = copy.deepcopy(self.populations)
+        pops = self.update_params(pops,pd)
+        return self.evaluate_residual(pops,error_weighted)
 
-    def saxskit_params(self,lmfit_params):
-        p = self.default_params()
-        for pkey,pvals in p.items():
-            for validx,val in enumerate(pvals):
-                p[pkey][validx] = float(lmfit_params[pkey+str(validx)].value)
-        return p
+    #def fit_intensity_params(self,params):
+    #    """Fit the spectrum wrt only the intensity parameters."""
+    #    fp = self.default_params()
+    #    for k,v in fp.items():
+    #        if k in ['I0_floor','I0_sphere','G_gp','I_pkcenter']:
+    #            for idx in range(len(v)):
+    #                v[idx] = False
+    #        else:
+    #            for idx in range(len(v)):
+    #                v[idx] = True
+    #    return self.fit(params,fp)
 
-    def fit_intensity_params(self,params):
-        """Fit the spectrum wrt only the intensity parameters."""
-        fp = self.default_params()
-        for k,v in fp.items():
-            if k in ['I0_floor','I0_sphere','G_gp','I_pkcenter']:
-                for idx in range(len(v)):
-                    v[idx] = False
-            else:
-                for idx in range(len(v)):
-                    v[idx] = True
-        return self.fit(params,fp)
-
-    def estimate_peak_params(self,params=None):
-        if params is None:
-            params = self.default_params()
-        if bool(self.populations['diffraction_peaks']):
-            # 1) walk the spectrum, collect best diff. pk. candidates
-            pk_idx, pk_conf = peak_finder.peaks_by_window(self.q,self.I,20,0.)
-            conf_idx = np.argsort(pk_conf)[::-1]
-            params['q_pkcenter'] = []
-            params['I_pkcenter'] = []
-            params['pk_hwhm'] = []
-            npk = 0
-            # 2) for each peak (from best candidate to worst),
-            for idx in conf_idx:
-                if npk < self.populations['diffraction_peaks']:
-                    # a) record the q value
-                    q_pk = self.q[pk_idx[idx]]
-                    # b) estimate the intensity
-                    I_at_qpk = self.I[pk_idx[idx]]
-                    I_pk = I_at_qpk * 0.1
-                    #I_pk = I_at_qpk - I_nopeaks[pk_idx[idx]] 
-                    # c) estimate the width
-                    idx_around_pk = (self.q>0.95*q_pk) & (self.q<1.05*q_pk)
-                    qs,qmean,qstd = saxs_math.standardize_array(self.q[idx_around_pk])
-                    Is,Imean,Istd = saxs_math.standardize_array(self.I[idx_around_pk])
-                    p_pk = np.polyfit(qs,Is,2,None,False,np.ones(len(qs)),False)
-                    # quadratic vertex horizontal coord is -b/2a
-                    #qpk_quad = -1*p_pk[1]/(2*p_pk[0])
-                    # quadratic focal width is 1/a 
-                    p_pk_fwidth = abs(1./p_pk[0])*qstd
-                    params['q_pkcenter'].append(float(q_pk))
-                    params['I_pkcenter'].append(float(I_pk))
-                    params['pk_hwhm'].append(float(p_pk_fwidth*0.5))
-                    npk += 1    
-        return params
+    #def estimate_peak_params(self,params=None):
+    #    if params is None:
+    #        params = self.default_params()
+    #    if bool(self.populations['diffraction_peaks']):
+    #        # 1) walk the spectrum, collect best diff. pk. candidates
+    #        pk_idx, pk_conf = peak_finder.peaks_by_window(self.q,self.I,20,0.)
+    #        conf_idx = np.argsort(pk_conf)[::-1]
+    #        params['q_pkcenter'] = []
+    #        params['I_pkcenter'] = []
+    #        params['pk_hwhm'] = []
+    #        npk = 0
+    #        # 2) for each peak (from best candidate to worst),
+    #        for idx in conf_idx:
+    #            if npk < self.populations['diffraction_peaks']:
+    #                # a) record the q value
+    #                q_pk = self.q[pk_idx[idx]]
+    #                # b) estimate the intensity
+    #                I_at_qpk = self.I[pk_idx[idx]]
+    #                I_pk = I_at_qpk * 0.1
+    #                #I_pk = I_at_qpk - I_nopeaks[pk_idx[idx]] 
+    #                # c) estimate the width
+    #                idx_around_pk = (self.q>0.95*q_pk) & (self.q<1.05*q_pk)
+    #                qs,qmean,qstd = saxs_math.standardize_array(self.q[idx_around_pk])
+    #                Is,Imean,Istd = saxs_math.standardize_array(self.I[idx_around_pk])
+    #                p_pk = np.polyfit(qs,Is,2,None,False,np.ones(len(qs)),False)
+    #                # quadratic vertex horizontal coord is -b/2a
+    #                #qpk_quad = -1*p_pk[1]/(2*p_pk[0])
+    #                # quadratic focal width is 1/a 
+    #                p_pk_fwidth = abs(1./p_pk[0])*qstd
+    #                params['q_pkcenter'].append(float(q_pk))
+    #                params['I_pkcenter'].append(float(I_pk))
+    #                params['pk_hwhm'].append(float(p_pk_fwidth*0.5))
+    #                npk += 1    
+    #    return params
 
 
 ## TODO: refactor this
@@ -331,15 +430,15 @@ class XRSDFitter(object):
 #                if not pfix:
 #                    xi = x_new[idx]
 #                    ki = x_keys[idx]
-#                    param_range = param_limits[ki][1] - param_limits[ki][0]
+#                    param_range = param_bounds[ki][1] - param_bounds[ki][0]
 #                    if xi == 0.:
 #                        xi_trial = np.random.rand()*stepsize*param_range 
 #                    else:
 #                        xi_trial = xi*(1+2*(np.random.rand()-0.5)*stepsize)
-#                    if xi_trial < param_limits[ki][0]:
-#                        xi_trial = param_limits[ki][0] 
-#                    if xi_trial > param_limits[ki][1]:
-#                        xi_trial = param_limits[ki][1] 
+#                    if xi_trial < param_bounds[ki][0]:
+#                        xi_trial = param_bounds[ki][0] 
+#                    if xi_trial > param_bounds[ki][1]:
+#                        xi_trial = param_bounds[ki][1] 
 #                    x_new[idx] = xi_trial 
 #            p_new = self.pack_params(x_new,x_keys)
 #            # evaluate objective, determine acceptance
