@@ -4,6 +4,7 @@ import numpy as np
 import pypif.obj as pifobj
 
 from . import profiler
+from .. import structure_names
 from ..scattering import diffuse_form_factor_names
 from ..diffraction import crystalline_structure_names 
 
