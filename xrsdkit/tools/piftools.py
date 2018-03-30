@@ -41,7 +41,7 @@ model_output_names = list([
     'spherical_normal_population_count'])
 
 def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
-    """Make a pypif.obj.ChemicalSystem object describing a SAXS experiment.
+    """Make a pypif.obj.ChemicalSystem object describing XRSD data.
 
     Parameters
     ----------
@@ -67,7 +67,6 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     csys.uid = uid
     csys.ids = []
     csys.tags = []
-    #csys.classifications = []
     csys.properties = []
     if expt_id is not None:
         csys.ids.append(id_tag('EXPERIMENT_ID',expt_id))
@@ -76,7 +75,7 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     if q_I is not None:
         csys.properties.extend(q_I_properties(q_I,temp_C))
     if populations is not None:
-        csys.properties.extend(structure_properties(populations))
+        csys.properties.extend(populations_properties(populations))
     if q_I is not None:
         csys.properties.extend(profile_properties(q_I))
     return csys
@@ -84,7 +83,7 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
 def id_tag(idname,idval,tags=None):
     return pifobj.Id(idname,idval,tags)
 
-def structure_properties(populations):
+def populations_properties(populations):
     properties = []
     crystalline_flag = 0
     if any([popd['structure'] in crystalline_structure_names 
@@ -98,28 +97,6 @@ def structure_properties(populations):
     if any([popd['structure'] == 'diffuse' and not pop_name == 'noise' 
     for pop_name,popd in populations.items()]):
         diffuse_flag = 1
-
-        # ASIDE: properties describing diffuse populations
-        # TODO: make this better
-        diffuse_population_properties = []
-        n_diffuse = OrderedDict.fromkeys(diffuse_form_factor_names)
-        for ff_name in diffuse_form_factor_names:
-            n_diffuse[ff_name] = 0
-        for pop_name,popd in populations.items():
-            if popd['structure'] == 'diffuse':
-                if 'basis' in popd:
-                    for coord, species in popd['basis'].items():
-                        for specie_name, specie_params in species.items():
-                            if specie_name in diffuse_form_factor_names:
-                                n_diffuse[specie_name] = 1
-                                if isinstance(specie_params,list):
-                                    n_diffuse[specie_name] = len(specie_params)
-        for specie_name, ns in n_diffuse.items():
-            diffuse_population_properties.append(scalar_property(
-                '{}_population_count'.format(specie_name),ns,
-                'number of diffuse {} populations'.format(specie_name),
-                'EXPERIMENTAL'))
-
     properties.append(scalar_property(
         'crystalline_structure_flag',crystalline_flag,
         'crystalline structure flag','EXPERIMENTAL'))
@@ -129,8 +106,41 @@ def structure_properties(populations):
     properties.append(scalar_property(
         'disordered_structure_flag',disordered_flag,
         'disordered structure flag','EXPERIMENTAL'))
-    if diffuse_flag:
-        properties.extend(diffuse_population_properties)
+    structure_count = OrderedDict.fromkeys(structure_names)
+    diffuse_params = OrderedDict.fromkeys(diffuse_form_factor_names)
+    for k in structure_names: structure_count[k] = 0
+    for k in diffuse_form_factor_names: diffuse_params[k] = [] 
+    for pop_name,popd in populations.items():
+        structure_count[popd['structure']] += 1
+        if popd['structure'] == 'diffuse':
+            if 'basis' in popd:
+                for site_name,site_items in popd['basis'].items():
+                    for site_item_tag, site_item in site_items.items():
+                        if site_item_tag in diffuse_form_factor_names:
+                            if isinstance(site_item,list): 
+                                diffuse_params[site_item_tag].extend(site_item)
+                            else:
+                                diffuse_params[site_item_tag].append(site_item)
+    structure_properties = []
+    for structure_name,ns in structure_count.items():
+        structure_properties.append(scalar_property(
+            '{}_structure_count'.format(structure_name),ns,
+            'number of {} structures'.format(structure_name),
+            'EXPERIMENTAL'))
+    for specie_name,specie_params in diffuse_params.items():
+        structure_properties.append(scalar_property(
+            '{}_population_count'.format(specie_name),len(specie_params),
+            'number of diffuse {} populations'.format(specie_name),
+            'EXPERIMENTAL'))
+    properties.extend(structure_properties)
+    param_properties = []
+    for specie_name,specie_params in diffuse_params.items():
+        for specie_idx,p in enumerate(specie_params):
+            for param_name, param_val in p.items():
+                param_properties.append(scalar_property(
+                '{}_{}'.format(param_name,specie_idx),param_val,
+                'parameter {} for {} population {}'.format(param_name,specie_name,specie_idx))
+    properties.extend(param_properties)
     return properties
 
 def q_I_properties(q_I,temp_C=None):
@@ -164,51 +174,6 @@ def profile_properties(q_I):
             fnm,fval,'spectrum profiling quantity'))
     return props
 
-#        if populations is not None:
-#            # population-specific featurizations
-#            det_profiles = saxs_math.detailed_profile(q_I,populations)
-#            det_profile_props = profile_properties(det_profiles)
-#            props.extend(det_profile_props)
-#        # ML flags for this featurization
-#        sxc = saxs_classify.SaxsClassifier()
-#        ml_pops = sxc.classify(np.array(list(prof.values())).reshape(1,-1))
-#        ml_pop_props = ml_population_properties(ml_pops)
-#        props.extend(ml_pop_props)
-
-#    if q_I is not None and params is not None and populations is not None:
-#        if not bool(populations['unidentified']):
-#            qcomp = np.arange(0.,q_I[-1,0],0.001)
-#            I_computed = saxs_math.compute_saxs(qcomp,populations,params)
-#            pI_computed = q_I_property(
-#                np.array([qcomp,I_computed]).T,
-#                propname='computed SAXS intensity')
-#            props.append(pI_computed)
-#            # add properties for the fit report
-#            sxf = saxs_fit.SaxsFitter(q_I,populations)
-#            report = sxf.fit_report(params) 
-#            rprops = fitreport_properties(report)
-#            props.extend(rprops)
-#
-#
-#    if populations is not None:
-#        fprops = ground_truth_population_properties(populations)
-#        props.extend(fprops)
-#
-#    if params is not None:
-#        pprops = param_properties(params)
-#        props.extend(pprops)
-#
-#    return props
-
-#def structure_classifications(populations):
-#    c = []
-#    if not isinstance(populations,list):
-#        populations = [populations]
-#    for popd in populations:
-#        if not popd['name'] == 'noise':
-#            c_struct = pifobj.Classification('{}_structure'.format(popd['name']),popd['structure'])
-#            c.append(c_struct)        
-#    return c
 
 
 def ml_population_properties(ml_pops):
@@ -285,7 +250,7 @@ def unpack_pif(pp): # I need to work on it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 t_utc = float(ttgg.replace('time (utc): ',''))
     if pp.properties is not None: 
         for prop in pp.properties:
-            if prop.name == 'SAXS intensity':
+            if prop.name == 'Intensity':
                 I = [float(sca.value) for sca in prop.scalars]
                 for val in prop.conditions:
                     if val.name == 'scattering vector':
@@ -296,14 +261,7 @@ def unpack_pif(pp): # I need to work on it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             elif prop.tags is not None:
                 if 'spectrum profiling quantity' in prop.tags:
                     features[prop.name] = float(prop.scalars[0].value) 
-    populations = []
-    if pp.classifications is not None:
-        for cls in pp.classifications:
-            popd = OrderedDict()
-            popd['name'] = cls.name[:cls.name.rfind('_')]
-            popd['structure'] = cls.value 
-            populations.append(popd)
-    return expt_id,t_utc,q_I,temp,features,populations
+    return expt_id,t_utc,q_I,temp,features,populations,rpt
 
 def get_model_outputs(pp):
     model_outputs = OrderedDict.fromkeys(model_output_names)
