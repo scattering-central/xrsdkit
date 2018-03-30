@@ -37,7 +37,10 @@ class XrsdModel(object):
         if s_and_m and s_and_m['scaler']: # we have a saved model
             self.scaler = preprocessing.StandardScaler()
             set_param(self.scaler,s_and_m['scaler'])
-            self.model = linear_model.SGDClassifier()
+            if self.classifier:
+                self.model = linear_model.SGDClassifier()
+            else:
+                self.model = linear_model.SGDRegressor()
             set_param(self.model,s_and_m['model'])
             self.cv_error = s_and_m['accuracy']
             self.parameters = s_and_m['parameters']
