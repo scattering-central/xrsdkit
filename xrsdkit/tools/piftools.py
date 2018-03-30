@@ -36,8 +36,10 @@ from ..diffraction import crystalline_structure_names
 
 # property names for all of the modeling "outputs"
 model_output_names = list([
+    'unidentified_structure_flag',
     'crystalline_structure_flag',
     'diffuse_structure_flag',
+    'fcc_structure_count',
     'guinier_porod_population_count',
     'spherical_normal_population_count'])
 
@@ -86,6 +88,10 @@ def id_tag(idname,idval,tags=None):
 
 def populations_properties(populations):
     properties = []
+    unidentified_flag = 0
+    if any([popd['structure'] == 'unidentified' 
+    for pop_name,popd in populations.items()]):
+        unidentified_flag = 1
     crystalline_flag = 0
     if any([popd['structure'] in crystalline_structure_names 
     for pop_name,popd in populations.items()]):
@@ -99,6 +105,9 @@ def populations_properties(populations):
     for pop_name,popd in populations.items()]):
         diffuse_flag = 1
     properties.append(scalar_property(
+        'unidentified_structure_flag',unidentified_flag,
+        'unidentified structure flag','EXPERIMENTAL'))
+    properties.append(scalar_property(
         'crystalline_structure_flag',crystalline_flag,
         'crystalline structure flag','EXPERIMENTAL'))
     properties.append(scalar_property(
@@ -107,33 +116,36 @@ def populations_properties(populations):
     properties.append(scalar_property(
         'disordered_structure_flag',disordered_flag,
         'disordered structure flag','EXPERIMENTAL'))
-    structure_count = OrderedDict.fromkeys(structure_names)
+    structure_params = OrderedDict.fromkeys(structure_names)
+    structure_params.pop('unidentified')
     diffuse_params = OrderedDict.fromkeys(diffuse_form_factor_names)
-    for k in structure_names: structure_count[k] = 0
+    for k in structure_names: structure_params[k] = [] 
     for k in diffuse_form_factor_names: diffuse_params[k] = [] 
     for pop_name,popd in populations.items():
-        structure_count[popd['structure']] += 1
+        if not pop_name == 'noise' and not popd['structure'] == 'unidentified':
+            structure_params[popd['structure']].append(popd['parameters'])
         if popd['structure'] == 'diffuse':
-            if 'basis' in popd:
-                for site_name,site_items in popd['basis'].items():
-                    for site_item_tag, site_item in site_items.items():
-                        if site_item_tag in diffuse_form_factor_names:
-                            if isinstance(site_item,list): 
-                                diffuse_params[site_item_tag].extend(site_item)
-                            else:
-                                diffuse_params[site_item_tag].append(site_item)
+            #if 'basis' in popd:
+            for site_name,site_items in popd['basis'].items():
+                for site_item_tag, site_item in site_items.items():
+                    if site_item_tag in diffuse_form_factor_names:
+                        if isinstance(site_item,list): 
+                            diffuse_params[site_item_tag].extend(site_item)
+                        else:
+                            diffuse_params[site_item_tag].append(site_item)
     structure_properties = []
-    for structure_name,ns in structure_count.items():
+    for structure_name,param_list in structure_params.items():
         structure_properties.append(scalar_property(
-            '{}_structure_count'.format(structure_name),ns,
+            '{}_structure_count'.format(structure_name),len(param_list),
             'number of {} structures'.format(structure_name),
             'EXPERIMENTAL'))
-    for specie_name,specie_params in diffuse_params.items():
+    for specie_name,param_list in diffuse_params.items():
         structure_properties.append(scalar_property(
-            '{}_population_count'.format(specie_name),len(specie_params),
+            '{}_population_count'.format(specie_name),len(param_list),
             'number of diffuse {} populations'.format(specie_name),
             'EXPERIMENTAL'))
     properties.extend(structure_properties)
+
     param_properties = []
     for specie_name,specie_params in diffuse_params.items():
         for specie_idx,p in enumerate(specie_params):
@@ -141,7 +153,17 @@ def populations_properties(populations):
                 param_properties.append(scalar_property(
                 '{}_{}'.format(param_name,specie_idx),param_val,
                 'parameter {} for {} population {}'.format(param_name,specie_name,specie_idx)))
+    if 'noise' in populations and not unidentified_flag \
+    and not crystalline_flag:
+        # TODO: remove the crystalline_flag condition
+        # after we have noise floors fitted for crystalline populations
+        I0_noise = populations['noise']['parameters']['I0']
+        flat_amplitude = populations['noise']['basis']['flat_noise']['flat']['amplitude']
+        param_properties.append(scalar_property(
+        'I0_floor',I0_noise*flat_amplitude**2,
+        'magnitude of flat noise intensity'))
     properties.extend(param_properties)
+
     return properties
 
 def q_I_properties(q_I,temp_C=None):
