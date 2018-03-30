@@ -3,7 +3,7 @@ import os
 import yaml
 import numpy as np
 
-fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yaml')
+fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yml')
 atomic_params = yaml.load(open(fpath,'r'))
 
 def compute_ff(q,specie_name,params):
@@ -17,6 +17,8 @@ def compute_ff(q,specie_name,params):
         else:
             ff_atom = atomic_ff(q,params)
         return ff_atom
+    if specie_name == 'spherical':
+        return spherical_ff(q,params['r'])
 
 def compute_ff_squared(q,specie_name,params):
     if specie_name == 'guinier_porod':
