@@ -7,29 +7,48 @@ from xrsdkit import scattering
 from xrsdkit.scattering import form_factors as xrff
 
 fcc_coords = np.array([
-    (0.,0.,0.),
-    (0.5,0.5,0.),
-    (0.5,0.,0.5),
-    (0.,0.5,0.5)])
+    [0.,0.,0.],
+    [0.5,0.5,0.],
+    [0.5,0.,0.5],
+    [0.,0.5,0.5]])
 
 def fcc_sf(q_hkl,hkl,basis):
+    """Compute the FCC structure factor
+
+    Parameters
+    ----------
+    q_hkl : float
+        single q-value at which the structure factor is computed
+    hkl : array
+        array of plane indices to include in structure factor computation 
+    basis : dict
+        dict specifying scatterer coordinates and parameters 
+
+    Returns
+    -------
+    F_hkl : complex 
+        complex structure factor at `q_hkl`
+    """
+    # TODO: make this work for q_hkl as an array (hkl as a matrix)
     F_hkl = np.zeros(hkl.shape[1],dtype=complex) 
     for fcc_coord in fcc_coords:
-        for coord, species in basis.items():
-            # TODO: defend against weird or nonphysical occupancy choices
-            for specie_name, specie_params in species.items():
-                g_dot_r = np.dot(fcc_coord+coord,hkl)
-                if isinstance(specie_params,list):
-                    ff = np.sum([specie_params[i]['occupancy'] \
-                        * xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params[i]) \
+        for site_name, site_items in basis.items():
+            coord = site_items['coordinates']
+            g_dot_r = np.dot(fcc_coord+coord,hkl)
+            for site_item_name, site_item in site_items.items():
+                if not site_item_name == 'coordinates':
+                    if isinstance(site_item,list):
+                        # TODO: defend against weird or nonphysical occupancy choices?
+                        ff = np.sum([site_item[i]['occupancy'] \
+                        * xrff.compute_ff(np.array([q_hkl]),site_item_name,site_item[i]) \
                         * np.exp(2j*np.pi*g_dot_r) \
-                        for i in range(len(specie_params))]) 
-                else: 
-                    occ = 1.
-                    if 'occupancy' in specie_params: occ = specie_params['occupancy']
-                    ff = occ * xrff.compute_ff(np.array([q_hkl]),specie_name,specie_params)[0] \
+                        for i in range(len(site_item))]) 
+                    else: 
+                        occ = 1.
+                        if 'occupancy' in site_item: occ = site_item['occupancy']
+                        ff = occ * xrff.compute_ff(np.array([q_hkl]),site_item_name,site_item)[0] \
                         * np.exp(2j*np.pi*g_dot_r)
-                F_hkl += ff
+                    F_hkl += ff
     return F_hkl
 
 #def fcc_sf_spherical_average(q,popd):

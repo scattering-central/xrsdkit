@@ -182,7 +182,12 @@ class XRSDFitter(object):
         # lmfit 
         lmfp = lmfit.Parameters()
         for pkey,pval in p.items():
-            param_name = pkey.split('__')[-1]
+            param_key_parts = pkey.split('__')
+            param_name = param_key_parts[-1]
+            kdepth = len(param_key_parts)
+            if kdepth > 1:
+                if param_key_parts[-2] == 'coordinates':
+                    param_name = 'coordinates'
             p_bounds = param_bound_defaults[param_name] 
             if pkey in pb:
                 if pb[pkey] is not None:
@@ -216,9 +221,9 @@ class XRSDFitter(object):
                 for site_name, site_def in popd['basis'].items():
                     for k, site_item in site_def.items():
                         if k == 'coordinates':
-                            pd[pop_name+'__basis__'+site_name+'coordinates__0'] = copy.deepcopy(site_item[0])
-                            pd[pop_name+'__basis__'+site_name+'coordinates__1'] = copy.deepcopy(site_item[1])
-                            pd[pop_name+'__basis__'+site_name+'coordinates__2'] = copy.deepcopy(site_item[2])
+                            pd[pop_name+'__basis__'+site_name+'__coordinates__0'] = copy.deepcopy(site_item[0])
+                            pd[pop_name+'__basis__'+site_name+'__coordinates__1'] = copy.deepcopy(site_item[1])
+                            pd[pop_name+'__basis__'+site_name+'__coordinates__2'] = copy.deepcopy(site_item[2])
                         elif isinstance(site_item,list):
                             for ist,stitm in enumerate(site_item):
                                 for ff_param_name, ff_param_val in stitm.items():

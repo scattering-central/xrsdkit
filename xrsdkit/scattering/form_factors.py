@@ -17,6 +17,8 @@ def compute_ff(q,specie_name,params):
         else:
             ff_atom = atomic_ff(q,params)
         return ff_atom
+    if specie_name == 'spherical':
+        return spherical_ff(q,params['r'])
 
 def compute_ff_squared(q,specie_name,params):
     if specie_name == 'guinier_porod':
