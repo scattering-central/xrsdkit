@@ -139,7 +139,7 @@ def populations_properties(populations):
             for param_name, param_val in p.items():
                 param_properties.append(scalar_property(
                 '{}_{}'.format(param_name,specie_idx),param_val,
-                'parameter {} for {} population {}'.format(param_name,specie_name,specie_idx))
+                'parameter {} for {} population {}'.format(param_name,specie_name,specie_idx)))
     properties.extend(param_properties)
     return properties
 
