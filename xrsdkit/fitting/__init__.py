@@ -12,7 +12,7 @@ from ..tools import standardize_array
 #    flat=['amplitude'],
 #    spherical=['r'],
 #    spherical_normal=['r0','sigma'],
-#    guinier_porod=['G','r_g','D'],
+#    guinier_porod=['G','rg','D'],
 #    atomic=['symbol','Z','a','b'])
 
 # dict of allowed structure parameters:
@@ -26,7 +26,7 @@ from ..tools import standardize_array
 all_params = list([
     'I0','occupancy','amplitude',
     'coordinates',
-    'G','r_g','D',
+    'G','rg','D',
     'r', 'r0', 'sigma',
     'hwhm_g','hwhm_l','q_center',
     'a'])
@@ -37,7 +37,7 @@ param_defaults = OrderedDict(
     amplitude = 1.,
     coordinates = 0.,
     G = 1.,
-    r_g = 10.,
+    rg = 10.,
     D = 4.,
     r = 20.,
     r0 = 20.,
@@ -53,7 +53,7 @@ param_bound_defaults = OrderedDict(
     amplitude = (0.,None),
     coordinates = (None,None),
     G = (0.,None),
-    r_g = (1.E-6,None),
+    rg = (1.E-6,None),
     D = (0.,4.),
     r = (1.E-6,None),
     r0 = (1.E-6,None),
