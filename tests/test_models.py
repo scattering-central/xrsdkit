@@ -87,7 +87,9 @@ def test_training():
             scaler, model, par, accuracy = cl.train(train_d, hyper_parameters_search=False)
         else:
             scaler, model, par, accuracy = cl.train(train, hyper_parameters_search=False)
-        cl.save_models(scaler, model, par, accuracy, test_classifiers_path)
+        #cl.save_models(scaler, model, par, accuracy, test_classifiers_path)
+
+
 #
 #    scalers, models, accuracy = train_regressors(train, hyper_parameters_search=False, model='all')
 #    save_models(scalers, models, accuracy, test_regressors_path)

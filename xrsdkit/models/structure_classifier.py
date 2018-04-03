@@ -28,6 +28,9 @@ class StructureClassifier(XrsdModel):
             the certainty of the prediction
             None is reterned for models that was not trained yet
         """
+        struct = None
+        cert = None
+
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
 
         if self.scaler: # we have a saved model
@@ -35,6 +38,4 @@ class StructureClassifier(XrsdModel):
             struct = int(self.model.predict(x)[0])
             cert = self.model.predict_proba(x)[0,struct]
 
-            return struct, cert
-        else:
-            return None, None
+        return struct, cert

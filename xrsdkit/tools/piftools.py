@@ -47,6 +47,21 @@ model_output_names = list([
      'r0_0'# for samples with spherical_normal_population_count == 1])
     ])
 
+cl_model_output_names = list([
+    'unidentified_structure_flag',
+    'crystalline_structure_flag',
+    'diffuse_structure_flag',
+    #'fcc_structure_count',
+    'guinier_porod_population_count',
+    'spherical_normal_population_count',
+    ])
+
+reg_model_output_names = list([
+     'r_g_0', # for samples with guinier_porod_population_count == 1
+    'sigma_0', # for samples with spherical_normal_population_count == 1
+     'r0_0'# for samples with spherical_normal_population_count == 1])
+    ])
+
 def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     """Make a pypif.obj.ChemicalSystem object describing XRSD data.
 

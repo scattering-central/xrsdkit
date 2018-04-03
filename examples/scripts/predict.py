@@ -10,7 +10,7 @@ from xrsdkit.tools.profiler import profile_spectrum
 
 # for using saxskit models:
 from xrsdkit.models.structure_classifier import StructureClassifier
-from xrsdkit.models.saxs_regression import SaxsRegressor
+from xrsdkit.models.regressor import Regressor
 
 # for using Citrination models:
 from xrsdkit.models.citrination_models import CitrinationStructureClassifier

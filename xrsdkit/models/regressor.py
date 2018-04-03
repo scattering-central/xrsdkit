@@ -39,6 +39,19 @@ class Regressor(XrsdModel):
             predicted parameter
             None is reterned for models that was not trained yet
         """
+
+        # for now the regressor works only for data with duffuse only populations:
+        if populations['diffuse_structure_flag']== "0":
+            return None
+        if populations['crystalline_structure_flag']=='1': # diffuse and crystaline pops
+            return None
+
+        if self.target == 'r_g_0' and populations['guinier_porod_population_count']=='0':
+            return None
+
+        if (self.target == 'sigma_0' or self.target == 'r0_0')and populations['spherical_normal_population_count']=='0':
+            return None
+
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
 
         if self.scaler: # we have a saved model

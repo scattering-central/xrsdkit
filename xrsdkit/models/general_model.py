@@ -139,7 +139,8 @@ class XrsdModel(object):
         else:
             new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
 
-        return new_scaler, new_model, new_parameters, new_accuracy
+        return {'scaler' : new_scaler, 'model' : new_model,
+                'parameters' : new_parameters, 'accuracy' : new_accuracy}
 
     def check_label(self, dataframe):
         """Test whether or not `dataframe` has legal values for the label
