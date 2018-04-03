@@ -4,6 +4,7 @@ import numpy as np
 from pymatgen import Lattice
 
 from . import structure_factors as xrsf
+from .peak_math import peak_profile
 
 # list of structures that are crystalline
 crystalline_structure_names = ['fcc']
@@ -70,7 +71,7 @@ def fcc_intensity(q,popd,source_wavelength):
         hkl_range = np.outer(q/q_pk,hkl).T
         F_along_hkl = xrsf.fcc_sf(q_pk,hkl_range,basis)
         # compute a line shape 
-        line_shape = peak_math.peak_profile(q,q_pk,profile_name,popd['parameters'])
+        line_shape = peak_profile(q,q_pk,profile_name,popd['parameters'])
         I += (F_along_hkl*F_along_hkl.conjugate()).real\
             *mult[hkl]*line_shape
 

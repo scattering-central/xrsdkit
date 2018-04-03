@@ -22,7 +22,7 @@ def compute_ff(q,specie_name,params):
 
 def compute_ff_squared(q,specie_name,params):
     if specie_name == 'guinier_porod':
-        ff2_gp = guinier_porod_intensity(q,params['G'],params['r_g'],params['D'])
+        ff2_gp = guinier_porod_intensity(q,params['G'],params['rg'],params['D'])
         return ff2_gp 
     if specie_name == 'spherical_normal':
         ff2_sph = spherical_normal_intensity(q,params['r0'],params['sigma']) 
@@ -103,7 +103,7 @@ def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):
     I = I/I_0 
     return I 
 
-def guinier_porod_intensity(q,guinier_factor,r_g,porod_exponent):
+def guinier_porod_intensity(q,guinier_factor,rg,porod_exponent):
     """Compute a Guinier-Porod scattering intensity.
     
     Parameters
@@ -112,7 +112,7 @@ def guinier_porod_intensity(q,guinier_factor,r_g,porod_exponent):
         array of q values
     guinier_factor : float
         low-q Guinier prefactor (equal to intensity at q=0)
-    r_g : float
+    rg : float
         radius of gyration
     porod_exponent : float
         high-q Porod's law exponent
@@ -127,17 +127,17 @@ def guinier_porod_intensity(q,guinier_factor,r_g,porod_exponent):
     B. Hammouda, J. Appl. Cryst. (2010). 43, 716-719.
     """
     # q-domain boundary q_splice:
-    q_splice = 1./r_g * np.sqrt(3./2*porod_exponent)
+    q_splice = 1./rg * np.sqrt(3./2*porod_exponent)
     idx_guinier = (q <= q_splice)
     idx_porod = (q > q_splice)
     # porod prefactor D:
     porod_factor = guinier_factor*np.exp(-1./2*porod_exponent)\
                     * (3./2*porod_exponent)**(1./2*porod_exponent)\
-                    * 1./(r_g**porod_exponent)
+                    * 1./(rg**porod_exponent)
     I = np.zeros(q.shape)
     # Guinier equation:
     if any(idx_guinier):
-        I[idx_guinier] = guinier_factor * np.exp(-1./3*q[idx_guinier]**2*r_g**2)
+        I[idx_guinier] = guinier_factor * np.exp(-1./3*q[idx_guinier]**2*rg**2)
     # Porod equation:
     if any(idx_porod):
         I[idx_porod] = porod_factor * 1./(q[idx_porod]**porod_exponent)
