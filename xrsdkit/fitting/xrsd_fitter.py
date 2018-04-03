@@ -251,37 +251,43 @@ class XRSDFitter(object):
                 param_name = ks[2]
                 pd[pop_name][pop_item_name][param_name] = copy.deepcopy(pval)
             elif pop_item_name == 'basis':
-                basis_item_name = ks[2]
-                if not basis_item_name in pd[pop_name][pop_item_name]:
-                    if basis_item_name == 'coordinates':
-                        pd[pop_name][pop_item_name][basis_item_name] = [None,None,None]
-                    else:
-                        # expect dict of form factor specifiers 
-                        pd[pop_name][pop_item_name][basis_item_name] = OrderedDict() 
+                site_name = ks[2]
+                if not site_name in pd[pop_name][pop_item_name]:
+                    pd[pop_name][pop_item_name][site_name] = OrderedDict() 
+                    #if basis_item_name == 'coordinates':
+                    #else:
                     #elif kdepth > 5:
                     #    # expect list of ff param dicts
                     #    pd[pop_name][pop_item_name][basis_item_name] = []
-                if basis_item_name == 'coordinates':
-                    coord_idx = int(ks[3])
-                    pd[pop_name][pop_item_name][basis_item_name][coord_idx] = copy.deepcopy(pval)
-                else:
-                    ff_id = ks[3]
-                    if not ff_id in pd[pop_name][pop_item_name][basis_item_name]:
+                #if basis_item_name == 'coordinates':
+                #    coord_idx = int(ks[3])
+                #    pd[pop_name][pop_item_name][basis_item_name][coord_idx] = copy.deepcopy(pval)
+                #else:
+                site_item_name = ks[3]
+                if not site_item_name in pd[pop_name][pop_item_name][site_name]:
+                    if site_item_name == 'coordinates':
+                        pd[pop_name][pop_item_name][site_name][site_item_name] = [None,None,None]
+                    else:
                         if kdepth > 5:
                             # expect list of ff param dicts
-                            pd[pop_name][pop_item_name][basis_item_name][ff_id] = []
+                            pd[pop_name][pop_item_name][basis_item_name][site_item_name] = []
+                            ff_idx = int(ks[4])
+                            while ff_idx >= len(pd[pop_name][pop_item_name][site_name][site_item_name]):
+                                pd[pop_name][pop_item_name][site_name][site_item_name].append(OrderedDict())
                         else:
                             # expect single ff param dict
-                            pd[pop_name][pop_item_name][basis_item_name][ff_id] = OrderedDict() 
+                            pd[pop_name][pop_item_name][site_name][site_item_name] = OrderedDict() 
+                if site_item_name == 'coordinates':
+                    coord_idx = int(ks[4])
+                    pd[pop_name][pop_item_name][site_name][site_item_name][coord_idx] = copy.deepcopy(pval)
+                else:
                     if kdepth > 5:
                         ff_idx = int(ks[4])
-                        while ff_idx >= len(pd[pop_name][pop_item_name][basis_item_name][ff_id]):
-                            pd[pop_name][pop_item_name][basis_item_name][ff_id].append(OrderedDict())
                         ff_param_name = ks[5]
-                        pd[pop_name][pop_item_name][basis_item_name][ff_id][ff_idx][ff_param_name] = copy.deepcopy(pval)
+                        pd[pop_name][pop_item_name][site_name][site_item_name][ff_idx][ff_param_name] = copy.deepcopy(pval)
                     else:
                         ff_param_name = ks[4]
-                        pd[pop_name][pop_item_name][basis_item_name][ff_id][ff_param_name] = copy.deepcopy(pval)
+                        pd[pop_name][pop_item_name][site_name][site_item_name][ff_param_name] = copy.deepcopy(pval)
         return pd
 
     def evaluate_residual(self,populations,error_weighted=True):

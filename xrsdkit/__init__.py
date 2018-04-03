@@ -81,7 +81,7 @@ The supported form factors and their parameters are:
         This is currently only supported for 'diffuse' structures.
 
       - 'G': Guinier prefactor 
-      - 'r_g': radius of gyration 
+      - 'rg': radius of gyration 
       - 'D': Porod exponent 
 
     - 'spherical': solid spheres 
