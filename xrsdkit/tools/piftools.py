@@ -41,7 +41,11 @@ model_output_names = list([
     'diffuse_structure_flag',
     'fcc_structure_count',
     'guinier_porod_population_count',
-    'spherical_normal_population_count'])
+    'spherical_normal_population_count',
+     'r_g_0', # for samples with guinier_porod_population_count == 1
+    'sigma_0', # for samples with spherical_normal_population_count == 1
+     'r0_0'# for samples with spherical_normal_population_count == 1])
+    ])
 
 def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     """Make a pypif.obj.ChemicalSystem object describing XRSD data.
@@ -273,7 +277,7 @@ def unpack_pif(pp): # I need to work on it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 t_utc = float(ttgg.replace('time (utc): ',''))
     if pp.properties is not None: 
         for prop in pp.properties:
-            if prop.name == 'Intensity':
+            if prop.name == 'SAXS intensity':
                 I = [float(sca.value) for sca in prop.scalars]
                 for val in prop.conditions:
                     if val.name == 'scattering vector':
@@ -284,7 +288,7 @@ def unpack_pif(pp): # I need to work on it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             elif prop.tags is not None:
                 if 'spectrum profiling quantity' in prop.tags:
                     features[prop.name] = float(prop.scalars[0].value) 
-    return expt_id,t_utc,q_I,temp,features,populations,rpt
+    return expt_id,t_utc,q_I,temp,features
 
 def get_model_outputs(pp):
     model_outputs = OrderedDict.fromkeys(model_output_names)

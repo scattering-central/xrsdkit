@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 import yaml
 from sklearn import model_selection, preprocessing, linear_model
 from sklearn.metrics import mean_absolute_error
@@ -24,14 +25,24 @@ class XrsdModel(object):
 
         self.model = None
         self.parameters = None
-        self.parameters_to_try = \
-            {'penalty':('none', 'l2', 'l1', 'elasticnet'), #default l2
-              'alpha':[0.00001, 0.0001, 0.001, 0.01, 0.1], #regularisation coef, default 0.0001
-             'l1_ratio': [0, 0.15, 0.5, 0.85, 1.0]} #using with elasticnet only; default 0.15
+        if classifier:
+             self.parameters_to_try = \
+             {'penalty':('none', 'l2', 'l1', 'elasticnet'), #default l2
+               'alpha':[0.00001, 0.0001, 0.001, 0.01, 0.1], #regularisation coef, default 0.0001
+              'l1_ratio': [0, 0.15, 0.5, 0.85, 1.0]} #using with elasticnet only; default 0.15
+        else:
+             self.parameters_to_try = \
+             {'loss':('huber', 'squared_loss'), # huber with epsilon = 0 gives us abs error (MAE)
+               'epsilon': [1, 0.1, 0.01, 0.001, 0],
+               'penalty':['none', 'l2', 'l1', 'elasticnet'], #default l2
+               'alpha':[0.0001, 0.001, 0.01], #default 0.0001
+              'l1_ratio': [0, 0.15, 0.5, 0.95], #default 0.15
+              }
         self.scaler = None
         self.cv_error = None
         self.target = label
         self.classifier = classifier
+        self.n_groups_out = 2
         self.features = profiler.profile_keys_1
 
         if s_and_m and s_and_m['scaler']: # we have a saved model
@@ -97,7 +108,7 @@ class XrsdModel(object):
         if hyper_parameters_search == True:
             new_parameters = self.hyperparameters_search(
                         transformed_data, data[self.target],
-                        data['experiment_id'], leaveTwoGroupOut, 2)
+                        data['experiment_id'], leaveTwoGroupOut, self.n_groups_out)
         else:
             new_parameters = self.parameters
 
@@ -121,7 +132,7 @@ class XrsdModel(object):
         if self.classifier:
             label_std = None
         else:
-            label_std = data[self.target].std()# usefull for regressin only
+            label_std = pd.to_numeric(data[self.target]).std()# usefull for regressin only
 
         if leaveTwoGroupOut:
             new_accuracy = self.testing_by_experiments(data, new_model, label_std)
@@ -236,7 +247,7 @@ class XrsdModel(object):
             return scores.mean()
         else:
             scores = model_selection.cross_val_score(
-                    model,df[self.features], df[self.target], cv=5, scoring = 'neg_mean_absolute_error')
+                    model,scaler.transform(df[self.features]), df[self.target], cv=5, scoring = 'neg_mean_absolute_error')
             return -1.0 * scores.mean()/label_std
 
 
@@ -280,16 +291,12 @@ class XrsdModel(object):
                         scaler.transform(test[self.features]), test[self.target])
                     test_scores_by_ex.append(test_score)
                 else:
-                    pr = model.predict(test[self.features])
+                    pr = model.predict(scaler.transform(test[self.features]))
                     test_score = mean_absolute_error(pr, test[self.target])
                     test_scores_by_ex.append(test_score/label_std)
                 count +=1
 
-        if self.classifier:
-            result =  sum(test_scores_by_ex)/count # average accuracy
-        else:
-            result =  sum(test_scores_by_ex)/count # normalized error
-        return result
+        return sum(test_scores_by_ex)/count
 
     def training_cv_error(self):
         """Report cross-validation error for the model.

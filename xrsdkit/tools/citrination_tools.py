@@ -31,7 +31,7 @@ def get_data_from_Citrination(client, dataset_id_list):
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
-        expt_id,t_utc,q_I,temp,pp_feats,populations = piftools.unpack_pif(pp)
+        expt_id,t_utc,q_I,temp,pp_feats = piftools.unpack_pif(pp)
         feats = OrderedDict.fromkeys(profiler.profile_keys)
         feats.update(pp_feats)
         model_outputs = piftools.get_model_outputs(pp)
