@@ -3,7 +3,7 @@ accuracy: !!python/object/apply:numpy.core.multiarray.scalar
   args: [f8, 0, 1]
   state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
 - !!binary |
-  dezZVgGP7z8=
+  aee0krwI7z8=
 model:
   C: 1.0
   _expanded_class_weight: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -21,7 +21,7 @@ model:
       AAAAAAAA8D8AAAAAAADwPw==
   _max_iter: 5
   _tol: null
-  alpha: 0.0001
+  alpha: 0.1
   average: false
   class_weight: null
   classes_: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -51,8 +51,8 @@ model:
     - *id001
     - false
     - !!binary |
-      cUVjiisRSECSHQnyyV0zQDw2NzcPTxzAOje+c3UKQ0DyuphNvQMkwIfvRR4gfErAbUYEt+Xlnz9j
-      fqq3VTk8wJCtc3Gkw+I/kEGKdNm5E8AAAAAAAAAAAIKGtMEN2QvA1cTtCvoZGUA=
+      3BKWzH9TvT+jBQkHlH99P32YP1Kyx9G/N9rSqkXvmD+4FQnJgGXEvw1UtDrZ+M6/HJX0mQ6LhD9T
+      0A4hjwTGv5ZO/UbRgnC/qCA2Y/eiyr+pHfqzkkrMv4ywWlrHmcu/TqRBJAyZyT8=
   epsilon: 0.1
   eta0: 0.0
   fit_intercept: true
@@ -68,8 +68,8 @@ model:
     - *id001
     - false
     - !!binary |
-      EA4/4jHq5j8=
-  l1_ratio: 0.85
+      eI/0cdHlD0A=
+  l1_ratio: 0
   learning_rate: optimal
   loss: log
   loss_function_: !!python/object/apply:sklearn.linear_model.sgd_fast.Log []
@@ -81,11 +81,11 @@ model:
   power_t: 0.5
   random_state: null
   shuffle: true
-  t_: 8971.0
+  t_: 3816.0
   tol: null
   verbose: 0
   warm_start: false
-parameters: {alpha: 0.0001, l1_ratio: 0.85, penalty: elasticnet}
+parameters: {alpha: 0.1, l1_ratio: 0, penalty: elasticnet}
 scaler:
   copy: true
   mean_: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -100,9 +100,9 @@ scaler:
     - *id001
     - false
     - !!binary |
-      7oLQX3HHNUBLtBfWrj74P58NFRPCKXw/EUYq2Do/M0BZOyNt+nQKQOp8mmKfR7s/8MRKQRZ0YD/F
-      QTehTlXCP8yJNwnPBNi/R91tOw8U2783w1LtxznXv5vlA+htBNq/X7r9Vd8Z3D8=
-  n_samples_seen_: 1946
+      yVJ7N1kBO0DJKJhl+Vr5P6ubjur4tHg/w5tGQetqNUDDZBelFtAMQOB9f6egx7k/8uQ7u7CmXj86
+      qsLBhazAP4jTU2ccW+O/Q9hdu+YG2r8082XbHIXWv83tVVPEEdm/C0CCM0Tx2j8=
+  n_samples_seen_: 957
   scale_: !!python/object/apply:numpy.core.multiarray._reconstruct
     args:
     - *id002
@@ -115,8 +115,8 @@ scaler:
     - *id001
     - false
     - !!binary |
-      y3Hbe9lRNUCksMwX+JjnP87cpyh9foM/lF7Y0T91QEBIb7yZDbryPx/HZyhTCp8/WNb56DneQj+d
-      SwN+zPG4Pykt7sSAxiJAsVip2bqg1j8qhM6IGAHUP7oGnZvSxNU/SjlhTjSF1z8=
+      YaZlD0ExN0BBAtXuzK/mP6bsRNbtXoA/PA2sOROyOkAejr0/hS30P1vIOwlInZ8/kZsxePcjJj+H
+      Qzu2g024PwkhW5GUhydAbiWWiygd0T9crurhcF7PP1RjinSFgtA/vrFkovPZ0T8=
   var_: !!python/object/apply:numpy.core.multiarray._reconstruct
     args:
     - *id002
@@ -129,7 +129,7 @@ scaler:
     - *id001
     - false
     - !!binary |
-      80uymn1ofEBwx5vev2bhP+QLojdRwBc/2EgM2trtkEAU5ykWEuv1P3VsGnMEHE4/dtAE1BBAlj6p
-      y0nS1XGDP9RELnJACFZAhH8MPCgAwD83AztpvQK5P5DzNAsenr0/AsrMq6VJwT8=
+      Do3lVRnPgED0iPmWfxXgPxjq7uQOwBA/ebykMz5FhkA4IjahTnL5P16YYJ3AO08/W9cpZDmjXj6S
+      AlRVAXWCP4MzLwEkTWFAg87/SytOsj85KHRuEcCuP0S0E6YzCbE/K8AoqL7qsz8=
   with_mean: true
   with_std: true

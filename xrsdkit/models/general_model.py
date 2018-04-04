@@ -14,7 +14,7 @@ class XrsdModel(object):
         if yml_file is None:
             p = os.path.abspath(__file__)
             d = os.path.dirname(p)
-            file_name = 'scalers_and_models_' + label + '.yml'
+            file_name = label + '.yml'
             yml_file = os.path.join(d,'modeling_data',file_name)
 
         try:
@@ -70,6 +70,7 @@ class XrsdModel(object):
 
         Returns
         -------
+        dict wtih : # TODO update discription
         new_scalers : sklearn standard scaler
             used for transforming of new data.
         new_models : sklearn model
@@ -139,8 +140,11 @@ class XrsdModel(object):
         else:
             new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
 
-        return {'scaler' : new_scaler, 'model' : new_model,
-                'parameters' : new_parameters, 'accuracy' : new_accuracy}
+
+        #return {'scaler': new_scaler.__dict__, 'model': new_model.__dict__,
+                #'parameters' : new_parameters, 'accuracy': new_accuracy}
+        return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : new_parameters, 'accuracy': new_accuracy}
 
     def check_label(self, dataframe):
         """Test whether or not `dataframe` has legal values for the label
@@ -318,11 +322,12 @@ class XrsdModel(object):
         return self.cv_error
 
 
-    def save_models(self, new_scaler, new_model, new_parameters, cv_error, file_path=None):
+    def save_models(self, scaler_model, file_path=None):
         """Save model parameters and CV errors in YAML and .txt files.
 
         Parameters
         ----------
+        scaler_model : dict with  #TODO update
         new_scaler : sklearn scaler
         new_model : sklearn model
             with specific parameters
@@ -337,10 +342,10 @@ class XrsdModel(object):
             will be saved at this path, and the cross-validation error
             are also saved in a .txt file of the same name, in the same directory.
         """
-        self.scaler = new_scaler
-        self.model = new_model
-        self.parameters = new_parameters
-        self.cv_error = cv_error
+        self.scaler = scaler_model['scaler']
+        self.model = scaler_model['model']
+        self.parameters = scaler_model['parameters']
+        self.cv_error = scaler_model['accuracy']
 
         if file_path is None:
             p = os.path.abspath(__file__)
@@ -352,11 +357,16 @@ class XrsdModel(object):
                 suffix += 1
                 file_path = os.path.join(d,'modeling_data',
                     'custom_models_'+ self.target + str(suffix)+'.yml')
-        if not os.path.splitext(file_path)[1] == '.yml':
-            file_path = file_path+'.yml'
+
+
+        #if not os.path.splitext(file_path)[1] == '.yml':
+            #file_path = file_path+'.yml'
+        file_path = file_path + '/' + self.target + '.yml'
+        print(file_path)
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
 
-        s_and_m = {'scaler': new_scaler.__dict__, 'model': new_model.__dict__, 'parameters' : new_parameters, 'accuracy': cv_error}
+        s_and_m = {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
+                   'parameters' : self.parameters, 'accuracy': self.cv_error}
 
         # save scalers and models
         with open(file_path, 'w') as yaml_file:

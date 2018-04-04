@@ -4,14 +4,13 @@ from xrsdkit.tools.piftools import cl_model_output_names
 
 
 class Classifiers(object):
-    """Models for classifying structure from scattering/diffraction data"""
+    """To create all possible or specified classifiers, train, and save them; make a prediction."""
 
     def __init__(self, cl_models = ['all']):
 
         if "all" in cl_models:
             my_cl_models = []
             my_cl_models.extend(cl_model_output_names)
-            print(my_cl_models)
             self.models = OrderedDict.fromkeys(my_cl_models)
         else:
             my_cl_models = cl_models
@@ -21,7 +20,7 @@ class Classifiers(object):
             self.models[m] = StructureClassifier(m)
 
 
-    def train(self, data, hyper_parameters_search=False):
+    def train_classification_models(self, data, hyper_parameters_search=False):
         results = OrderedDict.fromkeys(self.models)
         data_diffuse_only = data[(data['diffuse_structure_flag']=="1") & (data['crystalline_structure_flag']== "0")]
         for k, v in self.models.items():
@@ -31,6 +30,10 @@ class Classifiers(object):
                 results[k] = v.train(data, hyper_parameters_search)
 
         return results
+
+    def save_classification_models(self, scalers_models, file_path=None):
+        for k, v in self.models.items():
+            v.save_models(scalers_models[k], file_path)
 
 
     def make_predictions(self, sample_features):
@@ -50,11 +53,11 @@ class Classifiers(object):
             Predictions from classifiers also
             have certainty of the prediction
         """
-        list_of_wanted_models = list(self.models.items())
+        list_of_wanted_models = list(self.models.keys())
         list_of_models_to_start = ['crystalline_structure_flag', 'diffuse_structure_flag']
         predictions = {}
 
-        for k,v in self.models.item():
+        for k,v in self.models.items():
             if k in list_of_wanted_models and k in list_of_models_to_start:
                 struct, cert = v.classify(sample_features)
                 predictions[k] = [struct, cert]
@@ -75,3 +78,5 @@ class Classifiers(object):
 
         predictions['guinier_porod_population_count'] = \
             self.models['guinier_porod_population_count'].classify(sample_features)
+
+        return predictions
