@@ -17,6 +17,7 @@ def fcc_intensity(q,popd,source_wavelength):
     q_min = popd['settings']['q_min']
     q_max = popd['settings']['q_max']
     lat_a = popd['parameters']['a']
+    I0 = popd['parameters']['I0']
     # get d-spacings corresponding to the q-range limits
     d_min = 2*np.pi/q_max
     if q_min > 0.:
@@ -75,14 +76,15 @@ def fcc_intensity(q,popd,source_wavelength):
         I += (F_along_hkl*F_along_hkl.conjugate()).real\
             *mult[hkl]*line_shape
 
+    th = np.arcsin(source_wavelength * q/(4.*np.pi))
+
+    # compute the polarization factor 
+    pz = 1. + np.cos(2.*th)**2 
     # compute the Lorentz factor 
-    # 
-
+    ltz = 1. / (np.sin(th)*np.sin(2*th))
     # compute Debye-Waller factors if parameters given
-    #
-
+    dbw = np.ones(n_q)
     # multiply correction factors into the intensity
-    #
-
+    I = I0*I*pz*ltz*dbw 
     return I
 

@@ -165,7 +165,6 @@ structure_names = list([
     'fcc'])
 
 
-
 def compute_intensity(q,populations,source_wavelength):
     """Compute scattering/diffraction intensity for some `q` values.
 
