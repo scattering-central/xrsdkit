@@ -8,29 +8,27 @@ from .. import structure_names
 from ..scattering import diffuse_form_factor_names
 from ..diffraction import crystalline_structure_names 
 
-#parameter_description = OrderedDict.fromkeys(all_parameter_keys)
-#parameter_description['I0_floor'] = 'flat background intensity'
-#parameter_description['G_gp'] = 'guinier_porod Guinier factor'
-#parameter_description['rg_gp'] = 'guinier_porod radius of gyration'
-#parameter_description['D_gp'] = 'guinier_porod Porod exponent'
-#parameter_description['I0_sphere'] = 'spherical_normal scattering intensity'
-#parameter_description['r0_sphere'] = 'spherical_normal mean radius'
-#parameter_description['sigma_sphere'] = 'spherical_normal polydispersity'
-#parameter_description['I_pkcenter'] = 'diffraction peak center intensity'
-#parameter_description['q_pkcenter'] = 'diffraction peak center in q'
-#parameter_description['pk_hwhm'] = 'diffraction peak half-width at half-max'
+parameter_description = OrderedDict()
+parameter_description['I0'] = 'flat background intensity'
+parameter_description['G'] = 'Guinier-Porod model Guinier factor'
+parameter_description['rg'] = 'Guinier-Porod model radius of gyration'
+parameter_description['D'] = 'Guinier-Porod model Porod exponent'
+parameter_description['r0'] = 'Mean radius of normally distributed sphere population'
+parameter_description['sigma'] = 'fractional standard deviation of normally distributed sphere population'
+parameter_description['q_center'] = 'peak center in q'
+parameter_description['hwhm_l'] = 'Lorentzian profile half-width at half-max'
+parameter_description['hwhm_g'] = 'Gaussian profile half-width at half-max'
 
-#parameter_units = OrderedDict.fromkeys(all_parameter_keys)
-#parameter_units['I0_floor'] = 'arb'
-#parameter_units['G_gp'] = 'arb'
-#parameter_units['rg_gp'] = 'Angstrom'
-#parameter_units['D_gp'] = 'unitless'
-#parameter_units['I0_sphere'] = 'arb'
-#parameter_units['r0_sphere'] = 'Angstrom'
-#parameter_units['sigma_sphere'] = 'unitless'
-#parameter_units['I_pkcenter'] = 'arb'
-#parameter_units['q_pkcenter'] = '1/Angstrom'
-#parameter_units['pk_hwhm'] = '1/Angstrom'
+parameter_units = OrderedDict()
+parameter_units['I0'] = 'arb'
+parameter_units['G'] = 'arb'
+parameter_units['rg'] = 'Angstrom'
+parameter_units['D'] = 'unitless'
+parameter_units['r0'] = 'Angstrom'
+parameter_units['sigma'] = 'unitless'
+parameter_units['q_center'] = '1/Angstrom'
+parameter_units['hwhm_l'] = '1/Angstrom'
+parameter_units['hwhm_g'] = '1/Angstrom'
 
 #population_keys = ['unidentified','guinier_porod','spherical_normal','diffraction_peaks']
 
