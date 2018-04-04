@@ -9,7 +9,7 @@ from xrsdkit.fitting.xrsd_fitter import XRSDFitter
     
 src_wl = 0.8265616
 
-def test_fit():
+def test_fit_spheres():
     datapath = os.path.join(os.path.dirname(__file__),
         'test_data','solution_saxs','spheres','spheres_0.csv')
     print('testing XRSDFitter on {}'.format(datapath))
@@ -26,25 +26,27 @@ def test_fit():
         parameters={'I0':1000},
         basis={'spherical_nanoparticles':{'spherical_normal':{'r0':20,'sigma':0.05}}}
         )
-    #I_guess = compute_intensity(q_I[:,0],populations,src_wl)
+    ftr = XRSDFitter(q_I,populations,src_wl)
+    fit_pops,rpt = ftr.fit()
+
+    print('optimization objective: {} --> {}'.format(rpt['initial_objective'],rpt['final_objective']))
+    init_flat_params = ftr.flatten_params(populations)
+    fit_flat_params = ftr.flatten_params(fit_pops)
+    for k, v in init_flat_params.items():
+        print('\t{}: {} --> {}'.format(k,v,fit_flat_params[k]))
+
+    I_guess = compute_intensity(q_I[:,0],populations,src_wl)
+    I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)
     #from matplotlib import pyplot as plt
-    #plt.figure(3)
+    #plt.figure(2)
     #plt.semilogy(q_I[:,0],q_I[:,1],'k')
-    #plt.semilogy(q_I[:,0],I_guess,'g')
+    #plt.semilogy(q_I[:,0],I_guess,'r')
+    #plt.semilogy(q_I[:,0],I_fit,'g')
     #plt.show()
 
-    #ftr = XRSDFitter(q_I,populations,src_wl)
-    #fit_pops,rpt = ftr.fit()
-    #print('optimization objective: {} --> {}'.format(rpt['initial_objective'],rpt['final_objective']))
-    #init_flat_params = ftr.flatten_params(populations)
-    #fit_flat_params = ftr.flatten_params(fit_pops)
-    #for k, v in init_flat_params.items():
-    #    print('\t{}: {} --> {}'.format(k,v,fit_flat_params[k]))
 
 
-
-
-
+def test_fit_sphere_diffraction():
     datapath = os.path.join(os.path.dirname(__file__),
         'test_data','solution_saxs','peaks','peaks_0.csv')
     f = open(datapath,'r')
@@ -52,7 +54,7 @@ def test_fit():
     populations = OrderedDict() 
     populations['noise'] = dict(
         structure='diffuse',
-        parameters={'I0':0.1},
+        parameters={'I0':0.01},
         basis={'flat_noise':{'flat':{'amplitude':1}}}
         )
     populations['nanoparticles'] = dict(
@@ -67,28 +69,26 @@ def test_fit():
             a=40.*4./np.sqrt(2),
             hwhm_g=0.001,
             hwhm_l=0.001,
-            I0=1.),
+            I0=1.E-3),
         basis={'spherical_nanoparticles':dict(
             spherical={'r':40},
             coordinates=[0.,0.,0.]
             )}
         )
-    ftr = XRSDFitter(q_I,populations,src_wl)
-    #fit_pops,rpt = ftr.fit()
+
+    print('optimization objective: {} --> {}'.format(rpt['initial_objective'],rpt['final_objective']))
+    init_flat_params = ftr.flatten_params(populations)
+    fit_flat_params = ftr.flatten_params(fit_pops)
+    for k, v in init_flat_params.items():
+        print('\t{}: {} --> {}'.format(k,v,fit_flat_params[k]))
     
-    #I_guess = compute_intensity(q_I[:,0],populations,src_wl)
-    #I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)
+    I_guess = compute_intensity(q_I[:,0],populations,src_wl)
+    I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)
     #from matplotlib import pyplot as plt
     #plt.figure(3)
     #plt.semilogy(q_I[:,0],q_I[:,1],'k')
     #plt.semilogy(q_I[:,0],I_guess,'r')
     #plt.semilogy(q_I[:,0],I_fit,'g')
     #plt.show()
-
-    #print('optimization objective: {} --> {}'.format(rpt['initial_objective'],rpt['final_objective']))
-    #init_flat_params = ftr.flatten_params(populations)
-    #fit_flat_params = ftr.flatten_params(fit_pops)
-    #for k, v in init_flat_params.items():
-    #    print('\t{}: {} --> {}'.format(k,v,fit_flat_params[k]))
 
 
