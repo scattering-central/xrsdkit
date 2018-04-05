@@ -7,10 +7,9 @@ fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yml')
 atomic_params = yaml.load(open(fpath,'r'))
 
 def compute_ff(q,specie_name,params):
-    nq = len(q)
-    ff = np.zeros(nq)
     if specie_name == 'flat':
-        return float(params['amplitude'])*np.ones(nq)
+        nq = len(q)
+        return np.ones(nq)
     if specie_name == 'atomic':
         if 'symbol' in params:
             ff_atom = standard_atomic_ff(q,params['symbol'])
@@ -21,6 +20,9 @@ def compute_ff(q,specie_name,params):
         return spherical_ff(q,params['r'])
 
 def compute_ff_squared(q,specie_name,params):
+    if specie_name == 'flat':
+        nq = len(q)
+        return np.ones(nq)
     if specie_name == 'guinier_porod':
         ff2_gp = guinier_porod_intensity(q,params['G'],params['rg'],params['D'])
         return ff2_gp 

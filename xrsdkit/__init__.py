@@ -8,7 +8,7 @@ and a sub-dict of parameters (value).
 Each population sub-dict should have the following entries: 
 
     - 'structure' : the structure of the population 
-        (e.g. 'diffuse', 'disordered', 'fcc'). 
+        (e.g. 'diffuse', 'fcc'). 
 
     - 'settings' : dict of parameters defining
         the computational treatment of the population,
@@ -55,26 +55,28 @@ The following structures are currently supported:
 
     - 'diffuse' : a diffuse (or dilute), 
         non-interfering scattering ensemble.
-        This structure has no parameters, 
-        and at least one basis site.
+
+    - 'hard_sphere' : condensed hard spheres,
+        computed via the Percus-Yevick
+        solution to the Ornstein-Zernike equation. 
+        TODO: Cite
+        (Ornstein-Zernike, 1918; Percus-Yevick, 1958; Hansen-McDonald, 1986, Hammouda)
 
     - 'disordered' : condensed, disordered material, 
-        characterized by a single (probably broad) peak,
-        defined by a 'profile' setting and
-        parameters 'q_center', 'hwhm_g', and 'hwhm_l'.
+        computed as a single broad intensity peak,
+        of either Gaussian, Lorentzian, or Voigt profile.
 
     - 'fcc' : crystalline fcc lattice,
         defined by one lattice parameter 'a'.
-        Peaks computed for this population respect
+        Peaks are computed for this population according to 
         the settings 'profile', 'q_min', and 'q_max',
-        with parameters 'hwhm_g' and 'hwhm_l'.
+        and parameters 'hwhm_g' and 'hwhm_l'.
 
 The supported form factors and their parameters are:
 
     - 'flat': a flat form factor for all q,
         implemented for simulating a noise floor.
-  
-      - 'amplitude': amplitude of the flat scattering
+        This form factor introduces no parameters.
 
     - 'guinier_porod': scatterer populations described 
         by the Guinier-Porod equations.
@@ -139,7 +141,7 @@ my_populations = dict(
         basis=dict(
             my_flat_scatterer=dict(
                 coordinates=[0,0,0],
-                flat={'amplitude':10}
+                flat={}
                 )
             )
         )

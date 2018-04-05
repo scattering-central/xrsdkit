@@ -9,7 +9,6 @@ from ..tools import standardize_array
 # dict of allowed form factor parameters
 #ff_parameters = OrderedDict(
 #    all=['occupancy'],
-#    flat=['amplitude'],
 #    spherical=['r'],
 #    spherical_normal=['r0','sigma'],
 #    guinier_porod=['G','rg','D'],
@@ -24,7 +23,7 @@ from ..tools import standardize_array
 #    fcc = ['a'])
 
 all_params = list([
-    'I0','occupancy','amplitude',
+    'I0','occupancy',
     'coordinates',
     'G','rg','D',
     'r', 'r0', 'sigma',
@@ -34,7 +33,6 @@ all_params = list([
 param_defaults = OrderedDict(
     I0 = 1.E-3,
     occupancy = 1.,
-    amplitude = 1.,
     coordinates = 0.,
     G = 1.,
     rg = 10.,
@@ -50,7 +48,6 @@ param_defaults = OrderedDict(
 param_bound_defaults = OrderedDict(
     I0 = (0.,None),
     occupancy = (0.,1.),
-    amplitude = (0.,None),
     coordinates = (None,None),
     G = (0.,None),
     rg = (1.E-6,None),

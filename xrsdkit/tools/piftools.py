@@ -156,9 +156,9 @@ def populations_properties(populations):
         # TODO: remove the crystalline_flag condition
         # after we have noise floors fitted for crystalline populations
         I0_noise = populations['noise']['parameters']['I0']
-        flat_amplitude = populations['noise']['basis']['flat_noise']['flat']['amplitude']
+        #flat_amplitude = populations['noise']['basis']['flat_noise']['flat']['amplitude']
         param_properties.append(scalar_property(
-        'I0_floor',I0_noise*flat_amplitude**2,
+        'I0_noise',I0_noise,
         'magnitude of flat noise intensity'))
     properties.extend(param_properties)
 

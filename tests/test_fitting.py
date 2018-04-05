@@ -19,7 +19,7 @@ def test_fit_spheres():
     populations['noise'] = dict(
         structure='diffuse',
         parameters={'I0':0.1},
-        basis={'flat_noise':{'flat':{'amplitude':1}}}
+        basis={'flat_noise':{'flat':{}}}
         )
     populations['nanoparticles'] = dict(
         structure='diffuse',
@@ -55,7 +55,7 @@ def test_fit_sphere_diffraction():
     populations['noise'] = dict(
         structure='diffuse',
         parameters={'I0':0.01},
-        basis={'flat_noise':{'flat':{'amplitude':1}}}
+        basis={'flat_noise':{'flat':{}}}
         )
     populations['nanoparticles'] = dict(
         structure='diffuse',
