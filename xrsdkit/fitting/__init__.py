@@ -27,6 +27,7 @@ all_params = list([
     'coordinates',
     'G','rg','D',
     'r', 'r0', 'sigma',
+    'v_fraction',
     'hwhm_g','hwhm_l','q_center',
     'a'])
 
@@ -40,6 +41,7 @@ param_defaults = OrderedDict(
     r = 20.,
     r0 = 20.,
     sigma = 0.05,
+    v_fraction = 0.1,
     hwhm_g = 1.E-3,
     hwhm_l = 1.E-3,
     q_center = 1.E-1,
@@ -55,6 +57,7 @@ param_bound_defaults = OrderedDict(
     r = (1.E-6,None),
     r0 = (1.E-6,None),
     sigma = (0.,0.5),
+    v_fraction = (0.,0.7405),
     hwhm_g = (1.E-6,None),
     hwhm_l = (1.E-6,None),
     q_center = (0.,None),

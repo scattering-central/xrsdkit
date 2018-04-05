@@ -18,7 +18,17 @@ def hard_sphere_intensity(q,popd,source_wavelength):
     if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
     F_q = xrsf.hard_sphere_sf(q,r,p)
     # compute the form factor in the dilute limit 
-    P_q = xrff.compute_ff(q,basis) 
+    P_q = xrff.compute_ff_squared(q,basis)
+
+    #if any(F_q < 0) or any(P_q < 0):
+        #import pdb; pdb.set_trace()
+        #from matplotlib import pyplot as plt
+        #plt.plot(q,F_q,'k')
+        #plt.plot(q,P_q,'r') 
+        #plt.plot(q,F_q*P_q,'r') 
+        #plt.legend(['F_q','P_q','FP'])
+        #plt.show()
+ 
     return I0 * F_q * P_q 
 
 def fcc_intensity(q,popd,source_wavelength):

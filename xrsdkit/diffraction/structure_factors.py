@@ -77,10 +77,6 @@ def hard_sphere_sf(q,r_sphere,volume_fraction):
         -p*l1/2*( (qd4*cosqd - 4*qd3*sinqd - 12*qd2*cosqd + 24*qd*sinqd + 24*cosqd - 24) / qd6 )
         )
     F = 1/(1-nc)
-    #from matplotlib import pyplot as plt
-    #plt.figure(2)
-    #plt.plot(q*r_sphere,F)
-    #plt.show()
     return F
 
 #def fcc_sf_spherical_average(q,popd):

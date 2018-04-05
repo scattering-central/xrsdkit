@@ -315,6 +315,7 @@ class XRSDFitter(object):
         """
         I_comp = compute_intensity(
             self.q,populations,self.source_wavelength)
+        #if any(I_comp<0): import pdb; pdb.set_trace()
         #I_comp[I_comp<0.] = 1.E-12
         if error_weighted:
             res = compute_chi2(
