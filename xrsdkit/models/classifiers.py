@@ -21,7 +21,7 @@ class Classifiers(object):
 
 
     def train_classification_models(self, data, hyper_parameters_search=False):
-        results = OrderedDict.fromkeys(self.models)
+        results = OrderedDict.fromkeys(list(self.models.keys()))
         data_diffuse_only = data[(data['diffuse_structure_flag']=="1") & (data['crystalline_structure_flag']== "0")]
         for k, v in self.models.items():
             if k in ['guinier_porod_population_count', 'spherical_normal_population_count']:
@@ -55,6 +55,7 @@ class Classifiers(object):
         """
         list_of_wanted_models = list(self.models.keys())
         list_of_models_to_start = ['crystalline_structure_flag', 'diffuse_structure_flag']
+        #predictions = OrderedDict.fromkeys(list(self.models.keys()))
         predictions = {}
 
         for k,v in self.models.items():

@@ -105,6 +105,8 @@ class XrsdModel(object):
         transformed_data = new_scaler.transform(data[self.features])
         #data.loc[ : , features] = scaler.transform(data[features])
 
+        print(self.target, leaveTwoGroupOut)
+
 
         if hyper_parameters_search == True:
             new_parameters = self.hyperparameters_search(
@@ -134,6 +136,7 @@ class XrsdModel(object):
             label_std = None
         else:
             label_std = pd.to_numeric(data[self.target]).std()# usefull for regressin only
+            print(self.target, label_std)
 
         if leaveTwoGroupOut:
             new_accuracy = self.testing_by_experiments(data, new_model, label_std)
@@ -362,7 +365,6 @@ class XrsdModel(object):
         #if not os.path.splitext(file_path)[1] == '.yml':
             #file_path = file_path+'.yml'
         file_path = file_path + '/' + self.target + '.yml'
-        print(file_path)
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
 
         s_and_m = {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,

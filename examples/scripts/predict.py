@@ -10,7 +10,7 @@ from xrsdkit.tools.profiler import profile_spectrum
 
 # for using saxskit models:
 from xrsdkit.models.classifiers import Classifiers
-from xrsdkit.models.regressor import Regressor
+from xrsdkit.models.regressors import Regressors
 
 # for using Citrination models:
 from xrsdkit.models.citrination_models import CitrinationStructureClassifier
@@ -21,7 +21,10 @@ from xrsdkit.models.citrination_models import CitrinationStructureClassifier
 p = os.path.abspath(__file__)
 d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
 #path = os.path.join(d,'tests','test_data','solution_saxs','peaks','peaks_0.csv')
-path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_1.csv')
+#path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_2.csv')
+#path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_0.csv')
+#path = os.path.join(d,'tests','test_data','solution_saxs','precursors','precursors_0.csv')
+path = os.path.join(d,'tests','test_data','solution_saxs','precursors','precursors_1.csv')
 
 q_i = np.genfromtxt (path, delimiter=",")
 
@@ -30,32 +33,21 @@ features = profile_spectrum(q_i)
 
 #Using saxskit models:
 print("\033[1m" + "Prediction from saxskit models: " + "\033[0;0m", "\n")
-
-cl_models = Classifiers()
-result = cl_models.make_predictions(sample_features=features)
-for k, v in result.items():
-    print(k, ' :', v[0], "  with probability: %1.3f" % (v[1]))
-
-
-'''
 print("scatterer populations: ")
 
-crystalline_model = StructureClassifier('crystalline_structure_flag')
-crystalline_pop, probability = crystalline_model.classify(features)
-print('crystalline_structure_flag: ', crystalline_pop, "  with probability: %1.3f" % (probability))
+cl_models = Classifiers()
+cl_result = cl_models.make_predictions(features)
+for k, v in cl_result.items():
+    print(k, ' :', v[0], "  with probability: %1.3f" % (v[1]))
 
-diffuse_model = StructureClassifier('diffuse_structure_flag')
-diffuse_pop, probability = diffuse_model.classify(features)
-print('diffuse_structure_flag: ', diffuse_pop, "  with probability: %1.3f" % (probability))
+print("\nscattering and intensity parameters: ")
 
-print()
+reg_models = Regressors()
+reg_result = reg_models.make_predictions(features, cl_result, q_i)
+for k, v in reg_result.items():
+    print(k, " :   %10.3f" % (v))
 
-r = SaxsRegressor()
-params = r.predict_params(populations,features, q_i)
-
-sxf = saxs_fit.SaxsFitter(q_i,populations)
-params, report = sxf.fit_intensity_params(params)
-print("scattering and intensity parameters: ")
+'''
 for k,v in params.items():
     print(k, ":", end="")
     for n in v:
