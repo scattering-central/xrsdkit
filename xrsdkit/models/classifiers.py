@@ -24,6 +24,8 @@ class Classifiers(object):
         results = OrderedDict.fromkeys(list(self.models.keys()))
         data_diffuse_only = data[(data['diffuse_structure_flag']=="1") & (data['crystalline_structure_flag']== "0")]
         for k, v in self.models.items():
+            if k == 'unidentified_structure_flag': # we do not build a model for this label
+                continue
             if k in ['guinier_porod_population_count', 'spherical_normal_population_count']:
                 results[k] = v.train(data_diffuse_only, hyper_parameters_search)
             else:
@@ -33,6 +35,8 @@ class Classifiers(object):
 
     def save_classification_models(self, scalers_models, file_path=None):
         for k, v in self.models.items():
+            if k == 'unidentified_structure_flag':
+                continue
             v.save_models(scalers_models[k], file_path)
 
 
@@ -69,7 +73,10 @@ class Classifiers(object):
             predictions['unidentified_structure_flag'] = [1, cert]
             return predictions
 
-        if predictions['crystalline_structure_flag'] == 1:
+        if predictions['unidentified_structure_flag'][0] == 1:
+            return predictions
+
+        if predictions['crystalline_structure_flag'][0] == 1:
             return predictions
 
         # we have diffuse pops only and can predict
