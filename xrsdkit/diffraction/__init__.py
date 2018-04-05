@@ -4,10 +4,22 @@ import numpy as np
 from pymatgen import Lattice
 
 from . import structure_factors as xrsf
+from ..scattering import form_factors as xrff
 from .peak_math import peak_profile
 
 # list of structures that are crystalline
 crystalline_structure_names = ['fcc']
+
+def hard_sphere_intensity(q,popd,source_wavelength):
+    basis = popd['basis']
+    r = popd['parameters']['r']
+    p = popd['parameters']['v_fraction']
+    I0 = 1.
+    if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
+    F_q = xrsf.hard_sphere_sf(q,r,p)
+    # compute the form factor in the dilute limit 
+    P_q = xrff.compute_ff(q,basis) 
+    return I0 * F_q * P_q 
 
 def fcc_intensity(q,popd,source_wavelength):
     n_q = len(q)
@@ -17,7 +29,8 @@ def fcc_intensity(q,popd,source_wavelength):
     q_min = popd['settings']['q_min']
     q_max = popd['settings']['q_max']
     lat_a = popd['parameters']['a']
-    I0 = popd['parameters']['I0']
+    I0 = 1.
+    if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
     # get d-spacings corresponding to the q-range limits
     d_min = 2*np.pi/q_max
     if q_min > 0.:
@@ -82,7 +95,7 @@ def fcc_intensity(q,popd,source_wavelength):
     pz = 1. + np.cos(2.*th)**2 
     # compute the Lorentz factor 
     ltz = 1. / (np.sin(th)*np.sin(2*th))
-    # compute Debye-Waller factors if parameters given
+    # TODO: compute Debye-Waller factors if parameters given
     dbw = np.ones(n_q)
     # multiply correction factors into the intensity
     I = I0*I*pz*ltz*dbw 

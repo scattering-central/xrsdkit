@@ -57,11 +57,11 @@ def test_fit_sphere_diffraction():
         parameters={'I0':0.01},
         basis={'flat_noise':{'flat':{}}}
         )
-    populations['nanoparticles'] = dict(
-        structure='diffuse',
-        parameters={'I0':100},
-        basis={'spherical_nanoparticles':{'spherical_normal':{'r0':40,'sigma':0.03}}}
-        )
+    #populations['nanoparticles'] = dict(
+    #    structure='diffuse',
+    #    parameters={'I0':100},
+    #    basis={'spherical_nanoparticles':{'spherical_normal':{'r0':40,'sigma':0.03}}}
+    #    )
     populations['superlattice'] = dict(
         structure='fcc',
         settings={'profile':'voigt','q_min':0.001,'q_max':0.4},
@@ -75,6 +75,8 @@ def test_fit_sphere_diffraction():
             coordinates=[0.,0.,0.]
             )}
         )
+    ftr = XRSDFitter(q_I,populations,src_wl)
+    fit_pops,rpt = ftr.fit()
 
     print('optimization objective: {} --> {}'.format(rpt['initial_objective'],rpt['final_objective']))
     init_flat_params = ftr.flatten_params(populations)

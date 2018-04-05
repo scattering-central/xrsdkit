@@ -13,7 +13,7 @@ fcc_coords = np.array([
     [0.,0.5,0.5]])
 
 def fcc_sf(q_hkl,hkl,basis):
-    """Compute the FCC structure factor
+    """Computes the FCC structure factor.
 
     Parameters
     ----------
@@ -37,19 +37,51 @@ def fcc_sf(q_hkl,hkl,basis):
             g_dot_r = np.dot(fcc_coord+coord,hkl)
             for site_item_name, site_item in site_items.items():
                 if not site_item_name == 'coordinates':
-                    if isinstance(site_item,list):
-                        # TODO: defend against weird or nonphysical occupancy choices?
-                        ff = np.sum([site_item[i]['occupancy'] \
-                        * xrff.compute_ff(np.array([q_hkl]),site_item_name,site_item[i]) \
-                        * np.exp(2j*np.pi*g_dot_r) \
-                        for i in range(len(site_item))]) 
-                    else: 
+                    if not isinstance(site_item,list): site_item = [site_item]
+                    # TODO: defend against weird or nonphysical occupancy choices?
+                    for itm in site_item:
                         occ = 1.
-                        if 'occupancy' in site_item: occ = site_item['occupancy']
-                        ff = occ * xrff.compute_ff(np.array([q_hkl]),site_item_name,site_item)[0] \
-                        * np.exp(2j*np.pi*g_dot_r)
-                    F_hkl += ff
+                        if 'occupancy' in itm: occ = itm['occupancy']
+                        F_hkl += occ * \
+                        xrff.specie_ff(np.array([q_hkl]),site_item_name,itm) \
+                        * np.exp(2j*np.pi*g_dot_r) 
     return F_hkl
+
+def hard_sphere_sf(q,r_sphere,volume_fraction):
+    """Computes the Percus-Yevick hard-sphere structure factor. 
+
+    Parameters
+    ----------
+    q : array
+        array of q values 
+
+    Returns
+    -------
+    F : float 
+        Structure factor at `q`
+    """
+    p = volume_fraction
+    d = 2*r_sphere
+    qd = q*d
+    qd2 = qd**2
+    qd3 = qd**3
+    qd4 = qd**4
+    qd6 = qd**6
+    sinqd = np.sin(qd)
+    cosqd = np.cos(qd)
+    l1 = (1+2*p)**2/(1-p)**4
+    l2 = -1*(1+p/2)**2/(1-p)**4
+    nc = -24*p*(
+        l1*( (sinqd - qd*cosqd) / qd3 )
+        -6*p*l2*( (qd2*cosqd - 2*qd*sinqd - 2*cosqd + 2) / qd4 )
+        -p*l1/2*( (qd4*cosqd - 4*qd3*sinqd - 12*qd2*cosqd + 24*qd*sinqd + 24*cosqd - 24) / qd6 )
+        )
+    F = 1/(1-nc)
+    #from matplotlib import pyplot as plt
+    #plt.figure(2)
+    #plt.plot(q*r_sphere,F)
+    #plt.show()
+    return F
 
 #def fcc_sf_spherical_average(q,popd):
 #    n_q = len(q)

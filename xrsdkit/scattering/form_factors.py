@@ -3,32 +3,62 @@ import os
 import yaml
 import numpy as np
 
+diffuse_form_factor_names = list([
+    'spherical_normal',
+    'guinier_porod'])
+
 fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yml')
 atomic_params = yaml.load(open(fpath,'r'))
+    
+def compute_ff(q,basis):
+    n_q = len(q)
+    ff_q = np.zeros(n_q)
+    for site_name, site_items in basis.items():
+        for site_item_name, site_item in site_items.items():
+            if not isinstance(site_item,list): site_item = [site_item]
+            for itm in site_item:
+                occ = 1.
+                if 'occupancy' in itm: occ = itm['occupancy']
+                ff_q += occ * specie_ff(q,site_item_name,itm)
+    return ff_q
 
-def compute_ff(q,specie_name,params):
+def compute_ff_squared(q,basis):
+    n_q = len(q)
+    F_q = np.zeros(n_q)
+    for site_name, site_items in basis.items():
+        for site_item_name, site_item in site_items.items():
+            if not isinstance(site_item,list): site_item = [site_item]
+            for itm in site_item:
+                if site_item_name in diffuse_form_factor_names:
+                    F_q += specie_ff_squared(q,site_item_name,itm)
+                else:
+                    occ = 1.
+                    if 'occupancy' in itm: occ = itm['occupancy']
+                    F_q += (occ*specie_ff(q,site_item_name,itm))**2
+    return F_q 
+
+def specie_ff(q,specie_name,params):
     if specie_name == 'flat':
         nq = len(q)
         return np.ones(nq)
-    if specie_name == 'atomic':
+    elif specie_name == 'atomic':
         if 'symbol' in params:
             ff_atom = standard_atomic_ff(q,params['symbol'])
         else:
             ff_atom = atomic_ff(q,params)
         return ff_atom
-    if specie_name == 'spherical':
+    elif specie_name == 'spherical':
         return spherical_ff(q,params['r'])
 
-def compute_ff_squared(q,specie_name,params):
-    if specie_name == 'flat':
-        nq = len(q)
-        return np.ones(nq)
+def specie_ff_squared(q,specie_name,params):
     if specie_name == 'guinier_porod':
         ff2_gp = guinier_porod_intensity(q,params['G'],params['rg'],params['D'])
         return ff2_gp 
-    if specie_name == 'spherical_normal':
+    elif specie_name == 'spherical_normal':
         ff2_sph = spherical_normal_intensity(q,params['r0'],params['sigma']) 
         return ff2_sph
+    else:
+        return specie_ff(q,specie_name,params)
 
 def standard_atomic_ff(q,atom_symbol):
     pars = atomic_params[atom_symbol]

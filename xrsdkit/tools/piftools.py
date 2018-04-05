@@ -5,7 +5,7 @@ import pypif.obj as pifobj
 
 from . import profiler
 from .. import structure_names
-from ..scattering import diffuse_form_factor_names
+from ..scattering.form_factors import diffuse_form_factor_names
 from ..diffraction import crystalline_structure_names 
 
 parameter_description = OrderedDict()

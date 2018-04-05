@@ -22,6 +22,12 @@ fcc_Al = {'fcc_Al':dict(
         atomic={'symbol':'Al'})}
     )}
 
+hard_spheres = {'hard_spheres':dict(
+    structure='hard_spheres',
+    parameters={'r':40,'v_fraction':0.3},
+    basis={'sphere':{'spherical':{'r':40}}}
+    )}
+
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm in [0.01,0.03,0.05,0.1]:
@@ -112,6 +118,9 @@ def test_fcc_Al():
     #plt.plot(qvals,Ivals)
     #plt.show()
     
-
+def test_hard_spheres():
+    qvals = np.arange(0.001,1.,0.001)
+    Ivals = compute_intensity(qvals,hard_spheres,0.8265616)
+    
 
 

@@ -51,26 +51,42 @@ Each population sub-dict should have the following entries:
             multiple scatterers of the same type,
             e.g. for implementing fractional occupancies.
 
-The following structures are currently supported:
+The supported structure factors and their parameters and settings are: 
 
     - 'diffuse' : a diffuse (or dilute), 
         non-interfering scattering ensemble.
+        This structure factor has no parameters,
+        except for its intensity prefactor.
 
-    - 'hard_sphere' : condensed hard spheres,
+    - 'hard_spheres' : condensed (interacting) hard spheres,
         computed via the Percus-Yevick
         solution to the Ornstein-Zernike equation. 
         TODO: Cite
         (Ornstein-Zernike, 1918; Percus-Yevick, 1958; Hansen-McDonald, 1986, Hammouda)
 
-    - 'disordered' : condensed, disordered material, 
-        computed as a single broad intensity peak,
-        of either Gaussian, Lorentzian, or Voigt profile.
+        - 'r' : radius of spheres
+        - 'v_fraction' : volume fraction of spheres
 
-    - 'fcc' : crystalline fcc lattice,
-        defined by one lattice parameter 'a'.
-        Peaks are computed for this population according to 
-        the settings 'profile', 'q_min', and 'q_max',
-        and parameters 'hwhm_g' and 'hwhm_l'.
+    - 'disordered' : condensed, disordered material, 
+        computed as a single peak, whose profile
+        is specified by the 'profile' setting.
+
+        - 'q_center' : q-location of the single peak 
+        - 'hwhm_g' : Gaussian half-width at half-max
+        - 'hwhm_l' : Lorentzian half-width at half-max
+
+    - 'fcc' : crystalline fcc lattice; 
+        peaks are computed according to 
+        the settings 'profile', 'q_min', and 'q_max'.
+
+        - 'a' : cubic lattice parameter 
+        - 'hwhm_g' : Gaussian half-width at half-max
+        - 'hwhm_l' : Lorentzian half-width at half-max
+        
+    - all structures:
+
+      - 'I0': intensity prefactor 
+
 
 The supported form factors and their parameters are:
 
@@ -151,13 +167,8 @@ from collections import OrderedDict
 
 import numpy as np
 
-from .scattering import \
-    form_factor_names, \
-    diffuse_form_factor_names, \
-    diffuse_intensity
-from .diffraction import \
-    crystalline_structure_names, \
-    fcc_intensity
+from . import scattering, diffraction
+from .scattering.form_factors import diffuse_form_factor_names
 
 # list of allowed structure specifications
 structure_names = list([
@@ -165,7 +176,6 @@ structure_names = list([
     'diffuse',
     'disordered',
     'fcc'])
-
 
 def compute_intensity(q,populations,source_wavelength):
     """Compute scattering/diffraction intensity for some `q` values.
@@ -193,6 +203,8 @@ def compute_intensity(q,populations,source_wavelength):
         st = popd['structure']
         if st == 'diffuse':
             I += scattering.diffuse_intensity(q,popd,source_wavelength)
+        elif st == 'hard_spheres':
+            I += diffraction.hard_sphere_intensity(q,popd,source_wavelength)
         elif st == 'fcc':
             if any([ any([specie_name in diffuse_form_factor_names 
                 for specie_name in specie_dict.keys()])
