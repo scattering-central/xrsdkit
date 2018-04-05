@@ -67,11 +67,14 @@ class Classifiers(object):
                 struct, cert = v.classify(sample_features)
                 predictions[k] = [struct, cert]
 
+        cert = predictions['crystalline_structure_flag'][1] + predictions['diffuse_structure_flag'][1]  - \
+               predictions['crystalline_structure_flag'][1] * predictions['diffuse_structure_flag'][1]
         if predictions['crystalline_structure_flag'][0] == 0 and \
                         predictions['diffuse_structure_flag'][0] == 0:
-            cert = predictions['crystalline_structure_flag'][1] * predictions['diffuse_structure_flag'][1]
             predictions['unidentified_structure_flag'] = [1, cert]
             return predictions
+        else:
+            predictions['unidentified_structure_flag'] = [0, cert]
 
         if predictions['unidentified_structure_flag'][0] == 1:
             return predictions
