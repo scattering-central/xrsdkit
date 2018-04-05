@@ -1,4 +1,3 @@
-from collections import OrderedDict
 import copy
 
 import numpy as np
@@ -72,7 +71,7 @@ class XRSDFitter(object):
             about the fit result.
         """
         p_opt = copy.deepcopy(self.populations)
-        rpt = OrderedDict()
+        rpt = {} 
 
         if 'unidentified' in p_opt.keys():
             return p_opt,rpt 
@@ -123,26 +122,35 @@ class XRSDFitter(object):
         return p_opt,rpt
 
     def empty_params(self):
-        ep = OrderedDict()
+        ep = {} 
         for pop_name,popd in self.populations.items():
-            ep[pop_name] = OrderedDict()
-            #ep[pop_name]['settings'] = OrderedDict()
-            ep[pop_name]['parameters'] = OrderedDict.fromkeys(popd['parameters'].keys())
-            ep[pop_name]['basis'] = OrderedDict.fromkeys(popd['basis'].keys())
+            ep[pop_name] = {} 
+            #ep[pop_name]['settings'] = {} 
+            ep[pop_name]['parameters'] = dict.fromkeys(popd['parameters'].keys())
+            ep[pop_name]['basis'] = dict.fromkeys(popd['basis'].keys())
             #for setting_name in popd['settings'].keys():
             #    ep[pop_name]['settings'][setting_name] = None
             for site_name,site_def in popd['basis'].items():
-                ep[pop_name]['basis'][site_name] = OrderedDict()
+                ep[pop_name]['basis'][site_name] = {} 
                 for k,site_item in site_def.items():
                     if k == 'coordinates': 
                         ep[pop_name]['basis'][site_name][k] = [None,None,None] 
                     elif isinstance(site_item,list):
                         # list of form factor param dicts
-                        ep[pop_name]['basis'][site_name][k] = [OrderedDict.fromkeys(stitm.keys()) for stitm in site_item]
+                        ep[pop_name]['basis'][site_name][k] = [dict.fromkeys(stitm.keys()) for stitm in site_item]
                     else:
                         # dict of form factor params
-                        ep[pop_name]['basis'][site_name][k] = OrderedDict.fromkeys(site_item.keys())
+                        ep[pop_name]['basis'][site_name][k] = dict.fromkeys(site_item.keys())
         return ep
+
+    def print_report(self,init_pops,fit_pops,report):
+        # TODO: make this return a string
+        print('optimization objective: {} --> {}'.
+        format(report['initial_objective'],report['final_objective']))
+        init_flat_params = self.flatten_params(init_pops)
+        fit_flat_params = self.flatten_params(fit_pops)
+        for k, v in init_flat_params.items():
+            print('\t{}: {} --> {}'.format(k,v,fit_flat_params[k]))
 
     @staticmethod
     def update_params(p_base,p_new):
@@ -205,14 +213,14 @@ class XRSDFitter(object):
 
     @staticmethod
     def unpack_lmfit_params(lmfit_params):
-        pd = OrderedDict()
+        pd = {} 
         for par_name,par in lmfit_params.items():
             pd[par_name] = copy.deepcopy(par.value)
         return pd
 
     @staticmethod
     def flatten_params(populations):
-        pd = OrderedDict()
+        pd = {} 
         for pop_name,popd in populations.items():
             if 'parameters' in popd:
                 for param_name,param_val in popd['parameters'].items():
@@ -237,23 +245,23 @@ class XRSDFitter(object):
 
     @staticmethod
     def unflatten_params(flat_params):
-        pd = OrderedDict()
+        pd = {} 
         for pkey,pval in flat_params.items():
             ks = pkey.split('__')
             kdepth = len(ks)
             pop_name = ks[0]
             if not pop_name in pd:
-                pd[pop_name] = OrderedDict()
+                pd[pop_name] = {} 
             pop_item_name = ks[1]
             if not pop_item_name in pd[pop_name]:
-                pd[pop_name][pop_item_name] = OrderedDict()
+                pd[pop_name][pop_item_name] = {} 
             if pop_item_name == 'parameters':
                 param_name = ks[2]
                 pd[pop_name][pop_item_name][param_name] = copy.deepcopy(pval)
             elif pop_item_name == 'basis':
                 site_name = ks[2]
                 if not site_name in pd[pop_name][pop_item_name]:
-                    pd[pop_name][pop_item_name][site_name] = OrderedDict() 
+                    pd[pop_name][pop_item_name][site_name] = {} 
                     #if basis_item_name == 'coordinates':
                     #else:
                     #elif kdepth > 5:
@@ -270,19 +278,18 @@ class XRSDFitter(object):
                     else:
                         if kdepth > 5:
                             # expect list of ff param dicts
-                            pd[pop_name][pop_item_name][basis_item_name][site_item_name] = []
-                            ff_idx = int(ks[4])
-                            while ff_idx >= len(pd[pop_name][pop_item_name][site_name][site_item_name]):
-                                pd[pop_name][pop_item_name][site_name][site_item_name].append(OrderedDict())
+                            pd[pop_name][pop_item_name][site_name][site_item_name] = []
                         else:
                             # expect single ff param dict
-                            pd[pop_name][pop_item_name][site_name][site_item_name] = OrderedDict() 
+                            pd[pop_name][pop_item_name][site_name][site_item_name] = {} 
                 if site_item_name == 'coordinates':
                     coord_idx = int(ks[4])
                     pd[pop_name][pop_item_name][site_name][site_item_name][coord_idx] = copy.deepcopy(pval)
                 else:
                     if kdepth > 5:
                         ff_idx = int(ks[4])
+                        while ff_idx >= len(pd[pop_name][pop_item_name][site_name][site_item_name]):
+                            pd[pop_name][pop_item_name][site_name][site_item_name].append({})
                         ff_param_name = ks[5]
                         pd[pop_name][pop_item_name][site_name][site_item_name][ff_idx][ff_param_name] = copy.deepcopy(pval)
                     else:

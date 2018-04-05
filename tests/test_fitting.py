@@ -28,12 +28,7 @@ def test_fit_spheres():
         )
     ftr = XRSDFitter(q_I,populations,src_wl)
     fit_pops,rpt = ftr.fit()
-
-    print('optimization objective: {} --> {}'.format(rpt['initial_objective'],rpt['final_objective']))
-    init_flat_params = ftr.flatten_params(populations)
-    fit_flat_params = ftr.flatten_params(fit_pops)
-    for k, v in init_flat_params.items():
-        print('\t{}: {} --> {}'.format(k,v,fit_flat_params[k]))
+    ftr.print_report()
 
     I_guess = compute_intensity(q_I[:,0],populations,src_wl)
     I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)
@@ -69,7 +64,7 @@ def test_fit_sphere_diffraction():
             a=40.*4./np.sqrt(2),
             hwhm_g=0.001,
             hwhm_l=0.001,
-            I0=1.E-3),
+            I0=1.E-4),
         basis={'spherical_nanoparticles':dict(
             spherical={'r':40},
             coordinates=[0.,0.,0.]
@@ -77,13 +72,11 @@ def test_fit_sphere_diffraction():
         )
     ftr = XRSDFitter(q_I,populations,src_wl)
     fit_pops,rpt = ftr.fit()
+<<<<<<< Updated upstream
+=======
+    ftr.print_report()
+>>>>>>> Stashed changes
 
-    print('optimization objective: {} --> {}'.format(rpt['initial_objective'],rpt['final_objective']))
-    init_flat_params = ftr.flatten_params(populations)
-    fit_flat_params = ftr.flatten_params(fit_pops)
-    for k, v in init_flat_params.items():
-        print('\t{}: {} --> {}'.format(k,v,fit_flat_params[k]))
-    
     I_guess = compute_intensity(q_I[:,0],populations,src_wl)
     I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)
     #from matplotlib import pyplot as plt

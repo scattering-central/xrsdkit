@@ -13,6 +13,7 @@ fcc_Al = {'fcc_Al':dict(
         profile='voigt'
         ),
     parameters=dict(
+        I0=1.,
         a=4.046,
         hwhm_g=0.002,
         hwhm_l=0.0018
