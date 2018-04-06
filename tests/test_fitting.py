@@ -28,7 +28,7 @@ def test_fit_spheres():
         )
     ftr = XRSDFitter(q_I,populations,src_wl)
     fit_pops,rpt = ftr.fit()
-    ftr.print_report()
+    print(ftr.print_report(populations,fit_pops,rpt))
 
     I_guess = compute_intensity(q_I[:,0],populations,src_wl)
     I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)
@@ -72,10 +72,7 @@ def test_fit_sphere_diffraction():
         )
     ftr = XRSDFitter(q_I,populations,src_wl)
     fit_pops,rpt = ftr.fit()
-<<<<<<< Updated upstream
-=======
-    ftr.print_report()
->>>>>>> Stashed changes
+    print(ftr.print_report(populations,fit_pops,rpt))
 
     I_guess = compute_intensity(q_I[:,0],populations,src_wl)
     I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)

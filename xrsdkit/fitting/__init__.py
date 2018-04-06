@@ -63,6 +63,22 @@ param_bound_defaults = OrderedDict(
     q_center = (0.,None),
     a = (0.,None))
 
+fixed_param_defaults = OrderedDict(
+    I0 = False,
+    occupancy = True,
+    coordinates = True,
+    G = False,
+    rg = False,
+    D = False,
+    r = False,
+    r0 = False,
+    sigma = False,
+    v_fraction = False,
+    hwhm_g = False,
+    hwhm_l = False,
+    q_center = False,
+    a = False)
+
 def fit_I0(q,I,order=4):
     """Find an estimate for I(q=0) by polynomial fitting.
     
