@@ -1,4 +1,13 @@
 import numpy as np
+import yaml
+
+def save_populations(populations,file_path):
+    with open(file_path, 'w') as yaml_file:
+        yaml.dump(populations,yaml_file)
+
+def load_populations(file_path):
+    with open(file_path, 'r') as yaml_file:
+        return yaml.load()
 
 def standardize_array(x):
     xmean = np.mean(x)
