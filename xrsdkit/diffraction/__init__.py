@@ -28,8 +28,14 @@ def hard_sphere_intensity(q,popd,source_wavelength):
         #plt.plot(q,F_q*P_q,'r') 
         #plt.legend(['F_q','P_q','FP'])
         #plt.show()
+
+    th = np.arcsin(source_wavelength * q/(4.*np.pi))
+    # compute the polarization factor 
+    pz = 1. + np.cos(2.*th)**2 
+    # compute the Lorentz factor 
+    ltz = 1. / (np.sin(th)*np.sin(2*th))
  
-    return I0 * F_q * P_q 
+    return I0*pz*ltz * F_q * P_q 
 
 def fcc_intensity(q,popd,source_wavelength):
     n_q = len(q)
@@ -100,7 +106,6 @@ def fcc_intensity(q,popd,source_wavelength):
             *mult[hkl]*line_shape
 
     th = np.arcsin(source_wavelength * q/(4.*np.pi))
-
     # compute the polarization factor 
     pz = 1. + np.cos(2.*th)**2 
     # compute the Lorentz factor 

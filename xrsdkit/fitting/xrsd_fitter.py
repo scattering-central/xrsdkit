@@ -1,5 +1,6 @@
 import copy
 import re
+import os
 
 import numpy as np
 import lmfit
@@ -150,7 +151,7 @@ class XRSDFitter(object):
         init_flat_params = self.flatten_params(init_pops)
         fit_flat_params = self.flatten_params(fit_pops)
         for k, v in init_flat_params.items():
-            p += '\t{}: {} --> {}'.format(k,v,fit_flat_params[k])
+            p += os.linesep+'{}: {} --> {}'.format(k,v,fit_flat_params[k])
         return p
 
     @staticmethod
@@ -206,10 +207,13 @@ class XRSDFitter(object):
                 if fp[pkey] is not None:
                     vary_flag = not fp[pkey]
             p_expr = None
+            lmfp.add(pkey,value=pval,vary=vary_flag,min=p_bounds[0],max=p_bounds[1])
+        for pkey,pval in p.items():
             if pkey in pc:
                 if pc[pkey] is not None:
                     p_expr = pc[pkey] 
-            lmfp.add(pkey,value=pval,vary=vary_flag,min=p_bounds[0],max=p_bounds[1],expr=p_expr)
+                    lmfp[pkey].set(expr=p_expr)
+        lmfp.pretty_print()
         return lmfp
 
     @staticmethod
