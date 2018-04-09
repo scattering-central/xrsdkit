@@ -117,16 +117,18 @@ class XrsdModel(object):
             if new_parameters:
                 new_model = linear_model.SGDClassifier(
                     alpha=new_parameters['alpha'], loss='log',
-                    penalty=new_parameters["penalty"], l1_ratio=new_parameters["l1_ratio"])
+                    penalty=new_parameters["penalty"], l1_ratio=new_parameters["l1_ratio"],
+                         max_iter=10)
             else:
-                new_model = linear_model.SGDClassifier(loss='log')
+                new_model = linear_model.SGDClassifier(loss='log', max_iter=10)
         else:
             if new_parameters:
                 new_model = linear_model.SGDRegressor(alpha=new_parameters['alpha'], loss= new_parameters['loss'],
                                         penalty = new_parameters["penalty"],l1_ratio = new_parameters["l1_ratio"],
-                                        epsilon = new_parameters["epsilon"], max_iter=1000)
+                                        epsilon = new_parameters["epsilon"],
+                                                      max_iter=1000)
             else:
-                new_model = linear_model.SGDRegressor(max_iter=1000)
+                new_model = linear_model.SGDRegressor(max_iter=1000) # max_iter is about 10^6 / number of tr samples
 
         new_model.fit(transformed_data, data[self.target])
 
@@ -140,9 +142,6 @@ class XrsdModel(object):
         else:
             new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
 
-
-        #return {'scaler': new_scaler.__dict__, 'model': new_model.__dict__,
-                #'parameters' : new_parameters, 'accuracy': new_accuracy}
         return {'scaler': new_scaler, 'model': new_model,
                 'parameters' : new_parameters, 'accuracy': new_accuracy}
 
@@ -216,7 +215,7 @@ class XrsdModel(object):
             cv = 5 # five folders cross validation
 
         if self.classifier:
-            model = linear_model.SGDClassifier(loss='log')
+            model = linear_model.SGDClassifier(loss='log',max_iter=10)
         else:
             model = linear_model.SGDRegressor(max_iter=1000)
 
@@ -342,6 +341,9 @@ class XrsdModel(object):
             will be saved at this path, and the cross-validation error
             are also saved in a .txt file of the same name, in the same directory.
         """
+        if scaler_model['model'] is None:
+            return
+
         self.scaler = scaler_model['scaler']
         self.model = scaler_model['model']
         self.parameters = scaler_model['parameters']
@@ -375,237 +377,48 @@ class XrsdModel(object):
         with open(cverr_txt_path, 'w') as txt_file:
             txt_file.write(str(s_and_m['accuracy']))
 
-'''
+    def train_partial(self, new_data, testing_data = None):
+        new_scaler = None
+        new_model = None
+        new_err = None
 
+        scaler_par = self.scaler.__dict__
+        model_par = self.model.__dict__
+        if scaler_par == None: # the model was not trained yet
+            return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : self.parameters, 'accuracy': new_err}
 
-def train_classifiers_partial(new_data, file_path=None, all_training_data=None, model='all'):
-    """Read SAXS classification models from a YAML file, then update them with new data.
+        d = new_data[new_data[self.target].isnull() == False]
+        data2 = d.dropna(subset=self.features)
+        training_possible = self.check_label(data2)
+        if not training_possible:
+            return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : self.parameters, 'accuracy': new_err} # TODO we also need to return a warning "The model was not updated"
 
-    Parameters
-    ----------
-    new_data : pandas.DataFrame
-        dataframe containing features and labels for updating models.
-    file_path : str (optional)
-        Full path to YAML file where scalers and models are saved.
-        If None, the default saxskit models are used.
-    all_training_data : pandas.DataFrame (optional)
-        dataframe containing all of the original training data,
-        for computing cross-validation errors of the updated models.
-    model : str
-        the name of model to train ("unidentified", "spherical_normal",
-        "guinier_porod", "diffraction_peaks", or "all" to train all models).
-
-    Returns
-    -------
-    scalers : dict
-        Dictionary of sklearn standard scalers (one scaler per model).
-    models : dict
-        Dictionary of sklearn models.
-    cv_errors : dict
-        Dictionary of cross-validation errors for each model.
-    """
-    if file_path is None:
-        p = os.path.abspath(__file__)
-        d = os.path.dirname(p)
-        file_path = os.path.join(d,'modeling_data','scalers_and_models.yml')
-    s_and_m_file = open(file_path,'rb')
-    s_and_m = yaml.load(s_and_m_file)
-
-    models = s_and_m['models']
-    scalers = s_and_m['scalers']
-    cv_errors = s_and_m['accuracy']
-
-    possible_models = check_labels(all_training_data)
-
-    if model != 'all':
-        for k in possible_models.keys():
-            if k != model:
-                # we do not want to train the other models
-                possible_models[k] = False
-
-    features = profile_keys['unidentified']
-
-    # unidentified scatterer population model
-    if possible_models['unidentified'] == True:
-        scaler, model, cverr = train_partial(True, new_data, features, 'unidentified',
-                                           models, scalers, all_training_data)
-        if scaler:
-            scalers['unidentified'] = scaler.__dict__
-        if model:
-            models['unidentified'] = model.__dict__
-        if cverr:
-            cv_errors['unidentified'] = cverr
-
-    # For the rest of the models,
-    # we will use only data with
-    # identifiable scattering populations
-    new_data = new_data[new_data['unidentified']==False]
-
-    for k, v in possible_models.items():
-        if v == True and k != 'unidentified':
-            scaler, model, cverr = train_partial(True, new_data, features, k,
-                                           models, scalers, all_training_data)
-            if scaler:
-                scalers[k] = scaler.__dict__
-            if model:
-                models[k] = model.__dict__
-            if cverr:
-                cv_errors[k] = cverr
-    if all_training_data is None:
-        cv_errors['NOTE'] = 'Cross-validation errors '\
-        'were not re-computed after partial model training'
-    return scalers, models, cv_errors
-
-def train_regressors_partial(new_data, file_path=None, all_training_data=None, model='all'):
-    """Read SAXS regression models from a YAML file, then update them with new data.
-
-    Parameters
-    ----------
-    data : pandas.DataFrame
-        dataframe containing features and labels for updating models
-    file_path : str (optional)
-        Full path to YAML file where scalers and models are saved.
-        If None, the default saxskit models are used.
-    all_training_data : pandas.DataFrame (optional)
-        dataframe containing all of the original training data
-        for computing the accuracy of the updated models.
-    model : str
-        the name of model to train ("r0_sphere", "sigma_sphere",
-        "rg_gp", or "all" to train all models).
-
-    Returns
-    -------
-    scalers : dict
-        Dictionary of sklearn standard scalers (one scaler per model).
-    models : dict
-        Dictionary of sklearn models.
-    accuracy : dict
-        Dictionary of accuracies for each model.
-    """
-    if file_path is None:
-        p = os.path.abspath(__file__)
-        d = os.path.dirname(p)
-        file_path = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')
-
-    s_and_m_file = open(file_path,'rb')
-    s_and_m = yaml.load(s_and_m_file)
-    models = s_and_m['models']
-    scalers = s_and_m['scalers']
-    cv_errors = s_and_m['accuracy']
-
-    possible_models = check_labels_regression(new_data)
-
-    if model != 'all':
-        for k in possible_models.keys():
-            if k != model:
-                # we do not want to train the other models
-                possible_models[k] = False
-
-    # r0_sphere model
-    if possible_models['r0_sphere'] == True:
-        features = []
-        features.extend(profile_keys['unidentified'])
-        scaler, model, cverr = train_partial(False, new_data, features, 'r0_sphere',
-                                           models, scalers, all_training_data)
-        if scaler:
-            scalers['r0_sphere'] = scaler.__dict__
-        if model:
-            models['r0_sphere'] = model.__dict__
-        if cverr:
-            cv_errors['r0_sphere'] = cverr
-
-    # sigma_shpere model
-    if possible_models['sigma_sphere'] == True:
-        features = []
-        features.extend(profile_keys['unidentified'])
-        features.extend(profile_keys['spherical_normal'])
-        scaler, model, cverr = train_partial(False, new_data, features, 'sigma_sphere',
-                                           models, scalers, all_training_data)
-        if scaler:
-            scalers['sigma_sphere'] = scaler.__dict__
-        if model:
-            models['sigma_sphere'] = model.__dict__
-        if cverr:
-            cv_errors['sigma_sphere'] = cverr
-
-    # rg_gp model
-    if possible_models['rg_gp'] == True:
-        features = []
-        features.extend(profile_keys['unidentified'])
-        features.extend(profile_keys['guinier_porod'])
-        scaler, model, cverr = train_partial(False, new_data, features, 'rg_gp',
-                                           models, scalers, all_training_data)
-        if scaler:
-            scalers['rg_gp'] = scaler.__dict__
-        if model:
-            models['rg_gp'] = model.__dict__
-        if cverr:
-            cv_errors['rg_gp'] = cverr
-    if all_training_data is None:
-        cv_errors['NOTE'] = 'Cross-validation errors '\
-        'were not re-computed after partial model training'
-    return scalers, models, cv_errors
-
-# helper function - to set parametrs for scalers and models
-def set_param(m_s, param):
-        for k, v in param.items():
-            if isinstance(v, list):
-                setattr(m_s, k, np.array(v))
-            else:
-                setattr(m_s, k, v)
-
-def train_partial(classifier, data, features, target, reg_models_dict, scalers_dict, testing_data):
-    model_params = reg_models_dict[target]
-    scaler_params = scalers_dict[target]
-    if scaler_params is not None:
-        scaler = preprocessing.StandardScaler()
-        set_param(scaler,scaler_params)
-        if classifier == True:
-            model = linear_model.SGDClassifier()
+        new_scaler = preprocessing.StandardScaler()
+        set_param(new_scaler,scaler_par)
+        if self.classifier:
+            new_model = linear_model.SGDClassifier()
         else:
-            model = linear_model.SGDRegressor()
-        set_param(model,model_params)
-        d = data[data[target].isnull() == False]
-        data2 = d.dropna(subset=features)
-        scaler.fit(data2[features])
-        data2.loc[ : , features] = scaler.transform(data2[features])
-        model.partial_fit(data2[features], data2[target])
-        if testing_data is None:
-            accuracy = None
-        else: # calculate training accuracy using all provided data
-            d = testing_data[testing_data[target].isnull() == False]
-            data = d.dropna(subset=features)
+            new_model = linear_model.SGDRegressor()
+
+        set_param(new_model,model_par)
+
+        data2.loc[ : , self.features] = new_scaler.transform(data2[self.features])
+        new_model.partial_fit(data2[self.features], data2[self.target])
+
+        if testing_data is not None:
+            d = testing_data[testing_data[self.target].isnull() == False]
+            data = d.dropna(subset=self.features)
+            if self.classifier:
+                label_std = None
+            else:
+                label_std = pd.to_numeric(data[self.target]).std()
+
             if len(data.experiment_id.unique()) > 4:
-                leaveNGroupOut = True
+                new_err = self.testing_by_experiments(data, new_model, label_std)
             else:
-                leaveNGroupOut = False
-            label_std = data[target].std()
-            if leaveNGroupOut:
-                if classifier == True:
-                    accuracy = testing_by_experiments(
-                        data, target, features, model_params['alpha'], model_params['l1_ratio'],
-                        model_params['penalty'])
-                else:
-                    accuracy = testing_by_experiments_regression(
-                        data, target, features, model_params['alpha'], model_params['l1_ratio'],
-                        model_params['penalty'], model_params['loss'],
-                        model_params['epsilon'], label_std)
-            else:
-                if classifier == True:
-                    accuracy = testing_using_crossvalidation(
-                        data, target, features,  model_params['alpha'], model_params['l1_ratio'],
-                        model_params['penalty'])
-                else:
-                    accuracy = testing_using_crossvalidation_regression(
-                        data, target, features,  model_params['alpha'], model_params['l1_ratio'],
-                        model_params['penalty'], model_params['loss'],
-                        model_params['epsilon'], label_std)
-    else:
-        scaler = None
-        model = None
-        accuracy = None
-    return scaler, model, accuracy
-'''
+                new_err = self.testing_using_crossvalidation(data, new_model, label_std)
 
-
-
+        return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : self.parameters, 'accuracy': new_err}

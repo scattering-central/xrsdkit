@@ -8,25 +8,49 @@ from xrsdkit.tools.piftools import reg_model_output_names
 class Regressors(object):
     """To create all possible or specified classifiers, train, and save them; make a prediction."""
 
-    def __init__(self, reg_models = ['all']):
+    def __init__(self):
+
+        self.models = OrderedDict.fromkeys(reg_model_output_names)
+        for k,v in self.models.items():
+            self.models[k] = Regressor(k)
+
+
+    def train_regression_models(self, data, hyper_parameters_search=False,
+                                     reg_models = ['all'], testing_data = None, partial = False):
 
         if "all" in reg_models:
-            my_reg_models = []
-            my_reg_models.extend(reg_model_output_names)
-            self.models = OrderedDict.fromkeys(my_reg_models)
+            results = OrderedDict.fromkeys(reg_model_output_names)
         else:
-            my_reg_models = reg_models
-            self.models = OrderedDict.fromkeys(my_reg_models)
+            results = OrderedDict.fromkeys(reg_models)
 
-        for m in my_reg_models:
-            self.models[m] = Regressor(m)
+        g_p_data = data[(data['guinier_porod_population_count']=="1")&
+                     (data['diffuse_structure_flag']=="1") &
+                     (data['crystalline_structure_flag']=="0") ]
+        spherical_data = data[(data['spherical_normal_population_count']=="1")
+                                &(data['diffuse_structure_flag']=="1")
+                                & (data['crystalline_structure_flag']=="0") ]
 
+        test_g_p = None
+        test_spherical = None
+        if testing_data is not None:
+            test_g_p = testing_data[(testing_data['guinier_porod_population_count']=="1")&
+                     (testing_data['diffuse_structure_flag']=="1") &
+                     (testing_data['crystalline_structure_flag']=="0") ]
+            test_spherical = testing_data[(testing_data['spherical_normal_population_count']=="1")
+                                &(testing_data['diffuse_structure_flag']=="1")
+                                & (testing_data['crystalline_structure_flag']=="0") ]
 
-    def train_regression_models(self, data, hyper_parameters_search=False):
-        #results = OrderedDict.fromkeys(self.models)
-        results = OrderedDict.fromkeys(list(self.models.keys()))
-        for k, v in self.models.items():
-            results[k] = v.train(data, hyper_parameters_search)
+        for k, v in results.items():
+            if k in ['sigma_0', 'r0_0']:
+                if partial:
+                    results[k] = self.models[k].train_partial(spherical_data, test_spherical)
+                else:
+                    results[k] = self.models[k].train(spherical_data, hyper_parameters_search)
+            else:
+                if partial:
+                    results[k] = self.models[k].train_partial(g_p_data, test_g_p)
+                else:
+                    results[k] = self.models[k].train(g_p_data, hyper_parameters_search)
 
         return results
 

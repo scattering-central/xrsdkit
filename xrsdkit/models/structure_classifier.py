@@ -11,13 +11,11 @@ class StructureClassifier(XrsdModel):
 
     def classify(self, sample_features):
         """Determine the types of structures represented by the sample
-
         Parameters
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
             similar to output of saxs_math.profile_spectrum()
-
         Returns
         -------
         structure_flags : bool or None

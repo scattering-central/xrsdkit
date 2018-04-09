@@ -1,4 +1,3 @@
-from collections import OrderedDict
 import os
 import glob
 
@@ -7,11 +6,9 @@ import numpy as np
 from xrsdkit.tools import profiler
 from xrsdkit.models.classifiers import Classifiers
 from xrsdkit.models.regressors import Regressors
-from collections import OrderedDict
 
 from citrination_client import CitrinationClient
 from xrsdkit.tools.citrination_tools import get_data_from_Citrination
-from xrsdkit.tools.piftools import model_output_names
 
 def test_classifiers_and_regressors():
     cl_models = Classifiers()
@@ -31,34 +28,6 @@ def test_classifiers_and_regressors():
                 print(k, " :   %10.3f" % (v))
 
 
-#
-#def test_regression():
-#    p = os.path.dirname(os.path.abspath(__file__))
-#    d = os.path.dirname(p)
-#    p_clsmod = os.path.join(d,'xrsdkit','models','modeling_data','scalers_and_models.yml')
-#    p_regmod = os.path.join(d,'xrsdkit','models','modeling_data','scalers_and_models_regression.yml')
-#    sxc = SaxsClassifier(p_clsmod)
-#    sxr = SaxsRegressor(p_regmod)
-#    for data_type in ['precursors','spheres','peaks']:
-#        data_path = os.path.join(p,'tests','test_data','solution_saxs',data_type)
-#        data_files = glob.glob(os.path.join(data_path,'*.csv'))
-#        for fpath in data_files:
-#            print('testing regression on {}'.format(fpath))
-#            q_I = np.loadtxt(fpath,delimiter=',')
-#            prof = profiler.profile_spectrum(q_I)
-#
-#            # TODO: make all models work with profile_spectrum() output
-#            tmp_prof = OrderedDict()
-#            for k in prof.keys():
-#                if prof[k] is not None:
-#                    tmp_prof[k] = prof[k]
-#
-#            pops,certs = sxc.classify(tmp_prof)
-#            params = sxr.predict_params(pops,prof,q_I)
-#            for k, v in params.items():
-#                print('\t{} parameter: {} '.format(k,v))
-#
-
 def test_training():
     p = os.path.dirname(os.path.abspath(__file__))
     d = os.path.dirname(p)
@@ -70,13 +39,13 @@ def test_training():
     cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
     data = get_data_from_Citrination(client=cl, dataset_id_list=[21,22,24,25,26,27])
-    #data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36])
     data_len = data.shape[0]
     train = data.iloc[:int(data_len*0.9),:]
-#    train_part = data.iloc[int(data_len*0.9):,:]
+    train_part = data.iloc[int(data_len*0.9):,:]
 
     test_path = os.path.join(d,'xrsdkit','models','modeling_data', 'test_classifiers')
 
+    # train from scratch
     my_classifiers = Classifiers() # we can specify the list of classifiers to train
     results = my_classifiers.train_classification_models(train, hyper_parameters_search = False)
     my_classifiers.save_classification_models(results, test_path)
@@ -85,20 +54,11 @@ def test_training():
     results = rg_models.train_regression_models(train, hyper_parameters_search = False)
     rg_models.save_regression_models(results, test_path)
 
+    # update models
+    my_classifiers = Classifiers() # we can specify the list of classifiers to train
+    results = my_classifiers.train_classification_models(train_part, testing_data = data, partial = True)
+    my_classifiers.save_classification_models(results, test_path)
 
-#
-#    scalers, models, accuracy = train_regressors(train, hyper_parameters_search=False, model='all')
-#    save_models(scalers, models, accuracy, test_regressors_path)
-#
-#    scalers, models, accuracy = train_classifiers_partial(
-#        train_part, test_classifiers_path, all_training_data=data, model='all')
-#    save_models(scalers, models, accuracy, test_classifiers_path)
-#
-#    scalers, models, accuracy = train_regressors_partial(
-#        train_part, test_regressors_path, all_training_data=data, model='all')
-#    save_models(scalers, models, accuracy, test_regressors_path)
-#
-#
-#
-#
-#
+    rg_models = Regressors()
+    results = rg_models.train_regression_models(train_part, testing_data = data, partial = True)
+    rg_models.save_regression_models(results, test_path)

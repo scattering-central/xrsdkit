@@ -73,14 +73,3 @@ class Regressor(XrsdModel):
             return prediction
         else:
             return None
-
-    def train(self, all_data, hyper_parameters_search=False):
-        if self.target.startswith('r_g'):
-            data = all_data[(all_data['guinier_porod_population_count']=="1")&
-                     (all_data['diffuse_structure_flag']=="1") &
-                     (all_data['crystalline_structure_flag']=="0") ]
-        else:
-            data = all_data[(all_data['spherical_normal_population_count']=="1")
-                                &(all_data['diffuse_structure_flag']=="1")
-                                & (all_data['crystalline_structure_flag']=="0") ]
-        return super().train(data, hyper_parameters_search)
