@@ -70,15 +70,23 @@ class XrsdModel(object):
 
         Returns
         -------
-        dict wtih : # TODO update discription
-        new_scalers : sklearn standard scaler
-            used for transforming of new data.
-        new_models : sklearn model
-            trained on new data.
-        new_parameters : dict
-            Dictionary of parameters found by hyperparameters_search().
-        new_accuracy : float
-            Accuracy of the model.
+        results : dict
+            Dictionary with training results.
+
+        The results include:
+
+        - 'scaler': sklearn standard scaler
+            used for transforming of new data
+
+        - 'model':sklearn model
+            trained on new data
+
+        - 'parameters': dict
+            Dictionary of parameters found by hyperparameters_search()
+
+        - 'accuracy': float
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
         """
         d = all_data[all_data[self.target].isnull() == False]
         training_possible = self.check_label(d)
@@ -103,8 +111,6 @@ class XrsdModel(object):
         new_scaler = preprocessing.StandardScaler()
         new_scaler.fit(data[self.features])
         transformed_data = new_scaler.transform(data[self.features])
-        #data.loc[ : , features] = scaler.transform(data[features])
-
 
         if hyper_parameters_search == True:
             new_parameters = self.hyperparameters_search(
@@ -144,6 +150,7 @@ class XrsdModel(object):
 
         return {'scaler': new_scaler, 'model': new_model,
                 'parameters' : new_parameters, 'accuracy': new_accuracy}
+
 
     def check_label(self, dataframe):
         """Test whether or not `dataframe` has legal values for the label
@@ -251,7 +258,8 @@ class XrsdModel(object):
             return scores.mean()
         else:
             scores = model_selection.cross_val_score(
-                    model,scaler.transform(df[self.features]), df[self.target], cv=5, scoring = 'neg_mean_absolute_error')
+                    model,scaler.transform(df[self.features]), df[self.target],
+                    cv=5, scoring = 'neg_mean_absolute_error')
             return -1.0 * scores.mean()/label_std
 
 
@@ -270,7 +278,7 @@ class XrsdModel(object):
         Returns
         -------
         float
-            average crossvalidation score (accuracy for classification,
+            average crossvalidation score by experiments (accuracy for classification,
             normalized mean absolute error for regression)
         """
         experiments = df.experiment_id.unique()# we have at least 5 experiments
@@ -302,16 +310,16 @@ class XrsdModel(object):
 
         return sum(test_scores_by_ex)/count
 
-    def training_cv_error(self):
+    def get_cv_error(self):
         """Report cross-validation error for the model.
 
-        "Leave-2-Groups-Out" cross-validation is used.
+        To calculate cv_error "Leave-2-Groups-Out" cross-validation is used.
         For each train-test split,
         two experiments are used for testing
         and the rest are used for training.
-        The reported error is the average over all train-test splits.
-        TODO: what is the error metric for the classifier?
-        TODO: verify that this docstring is correct
+        The reported error is the average over all train-test splits
+        (accuracy for classification,
+        normalized mean absolute error for regression)
 
         Returns
         -------
@@ -326,15 +334,23 @@ class XrsdModel(object):
 
         Parameters
         ----------
-        scaler_model : dict with  #TODO update
-        new_scaler : sklearn scaler
-        new_model : sklearn model
-            with specific parameters
-        new_parameters : dict
-            Dictionary of parameters found by hyperparameters_search().
-        cv_errors : float
-            classifier: accuracy
-            regression: normalized cross-validation errors each model.
+        scaler_model : dict
+            Dictionary with training results.
+
+        The results include:
+        - 'scaler': sklearn standard scaler
+            used for transforming of new data
+
+        - 'model':sklearn model
+            trained on new data
+
+        - 'parameters': dict
+            Dictionary of parameters found by hyperparameters_search()
+
+        - 'accuracy': float
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
+
         file_path : str
             Full path to the YAML file where the models will be saved.
             Scaler, model, and cross-validation error
@@ -360,9 +376,6 @@ class XrsdModel(object):
                 file_path = os.path.join(d,'modeling_data',
                     'custom_models_'+ self.target + str(suffix)+'.yml')
 
-
-        #if not os.path.splitext(file_path)[1] == '.yml':
-            #file_path = file_path+'.yml'
         file_path = file_path + '/' + self.target + '.yml'
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
 
@@ -377,7 +390,38 @@ class XrsdModel(object):
         with open(cverr_txt_path, 'w') as txt_file:
             txt_file.write(str(s_and_m['accuracy']))
 
+
     def train_partial(self, new_data, testing_data = None):
+        """
+        Parameters
+        ----------
+        new_data : pandas.DataFrame
+            dataframe with new data for updating models
+            (containing features and labels)
+        testing_data : pandas.DataFrame
+            dataframe with data we wish use for testing the models
+
+        Returns
+        -------
+        results : dict
+            Dictionary with training results.
+
+        The results include:
+
+        - 'scaler': sklearn standard scaler
+            used for transforming of new data
+
+        - 'model':sklearn model
+            trained on new data
+
+        - 'parameters': dict
+            dictionary of parameters that were used to train the model
+            (were not changed)
+
+        - 'accuracy': float
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
+        """
         new_scaler = None
         new_model = None
         new_err = None
