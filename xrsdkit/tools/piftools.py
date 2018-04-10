@@ -48,7 +48,7 @@ model_output_names = list([
     ])
 
 cl_model_output_names = list([
-    'unidentified_structure_flag',
+    #'unidentified_structure_flag', # crystalline and diffuse models are used to predict "unidentified" flag
     'crystalline_structure_flag',
     'diffuse_structure_flag',
     #'fcc_structure_count',

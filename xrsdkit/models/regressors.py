@@ -54,6 +54,15 @@ class Regressors(object):
 
         return results
 
+
+    def print_training_results(self, results):
+        for k, v in results.items():
+            print(k, ":")
+            print("accuracy :  %10.3f" % (results[k]['accuracy']))
+            print("parameters :", results[k]['parameters'])
+            print()
+
+
     def save_regression_models(self, scalers_models, file_path=None):
         for k, v in self.models.items():
             v.save_models(scalers_models[k], file_path)
@@ -86,3 +95,16 @@ class Regressors(object):
                 predictions[k] = pr
 
         return predictions
+
+    def print_errors(self):
+        """Report cross-validation error for the model.
+
+        To calculate cv_error "Leave-2-Groups-Out" cross-validation is used.
+        For each train-test split,
+        two experiments are used for testing
+        and the rest are used for training.
+        The reported error is normalized mean absolute error over all train-test splits
+        """
+        print("Normalized cross validation mean absolute error: ")
+        for k, v in self.models.items():
+            print(k," :  %10.3f" % (v.get_cv_error()))

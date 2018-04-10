@@ -48,17 +48,21 @@ def test_training():
     # train from scratch
     my_classifiers = Classifiers() # we can specify the list of classifiers to train
     results = my_classifiers.train_classification_models(train, hyper_parameters_search = False)
+    my_classifiers.print_training_results(results)
     my_classifiers.save_classification_models(results, test_path)
 
     rg_models = Regressors()
     results = rg_models.train_regression_models(train, hyper_parameters_search = False)
+    rg_models.print_training_results(results)
     rg_models.save_regression_models(results, test_path)
 
     # update models
     my_classifiers = Classifiers() # we can specify the list of classifiers to train
     results = my_classifiers.train_classification_models(train_part, testing_data = data, partial = True)
+    my_classifiers.print_training_results(results)
     my_classifiers.save_classification_models(results, test_path)
 
     rg_models = Regressors()
     results = rg_models.train_regression_models(train_part, testing_data = data, partial = True)
+    rg_models.print_training_results(results)
     rg_models.save_regression_models(results, test_path)
