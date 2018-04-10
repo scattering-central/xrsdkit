@@ -49,7 +49,9 @@ class XRSDFitter(object):
             self.dI.fill(np.nan)
             self.dI[self.idx_fit] = np.sqrt(self.I[self.idx_fit])
 
-    def fit(self,fixed_params=None,param_bounds=None,param_constraints=None,error_weighted=True,objective='chi2log'):
+    def fit(self,\
+        fixed_params=None,param_bounds=None,param_constraints=None,\
+        error_weighted=True,logI_weighted=True,logq_weighted=False):
         """Fit the SAXS spectrum, return an optimized populations dict.
     
         Parameters
@@ -78,7 +80,7 @@ class XRSDFitter(object):
         if 'unidentified' in p_opt.keys():
             return p_opt,rpt 
 
-        obj_init = self.evaluate_residual(p_opt,error_weighted)
+        obj_init = self.evaluate_residual(p_opt,error_weighted,logI_weighted,logq_weighted)
         #print('INITIAL OBJECTIVE: {}'.format(obj_init))
         #print(p_opt)
 
@@ -95,14 +97,17 @@ class XRSDFitter(object):
         lmf_params = self.pack_lmfit_params(p_opt,fp,pb,pc) 
         lmf_res = lmfit.minimize(self.lmf_evaluate,
             lmf_params,method='nelder-mead',
-            kws={'error_weighted':error_weighted})
+            kws={'error_weighted':error_weighted,'logI_weighted':logI_weighted,'logq_weighted':logq_weighted})
         flat_params = self.unpack_lmfit_params(lmf_res.params)
         p_opt = self.update_params(p_opt,self.unflatten_params(flat_params))
 
         rpt['success'] = lmf_res.success
         rpt['initial_objective'] = obj_init 
-        fit_obj = self.lmf_evaluate(lmf_res.params,error_weighted)
+        fit_obj = self.lmf_evaluate(lmf_res.params,error_weighted,logI_weighted,logq_weighted)
         rpt['final_objective'] = fit_obj 
+        rpt['error_weighted'] = error_weighted 
+        rpt['logI_weighted'] = logI_weighted 
+        rpt['logq_weighted'] = logq_weighted 
         I_opt = compute_intensity(self.q,p_opt,self.source_wavelength)
         I_bg = self.I - I_opt
         snr = np.mean(I_opt)/np.std(I_bg) 
@@ -295,7 +300,7 @@ class XRSDFitter(object):
                     pd[pop_name]['basis'][site_name][ff_name][ff_idx][ff_param_name] = copy.deepcopy(pval)
         return pd
 
-    def evaluate_residual(self,populations,error_weighted=True):
+    def evaluate_residual(self,populations,error_weighted=True,logI_weighted=True,logq_weighted=False):
         """Evaluate the fit residual for a given populations dict.
 
         Parameters
@@ -315,22 +320,36 @@ class XRSDFitter(object):
             self.q,populations,self.source_wavelength)
         #if any(I_comp<0): import pdb; pdb.set_trace()
         #I_comp[I_comp<0.] = 1.E-12
+        n_q = len(self.q)
+        wts = np.ones(n_q)
+        if logq_weighted:
+            d_logq = np.zeros(n_q)
+            d_logq[:-1] = np.log(self.q[1:])-np.log(self.q[:-1])
+            d_logq[-1] = d_logq[-2]
+            wts *= d_logq
         if error_weighted:
+            wts *= self.dI**2
+        if logI_weighted:
             res = compute_chi2(
-                    np.log(I_comp[self.idx_fit]),
-                    self.logI[self.idx_fit],
-                    self.dI[self.idx_fit])
+                np.log(I_comp[self.idx_fit]),
+                self.logI[self.idx_fit],
+                wts[self.idx_fit])
         else:
             res = compute_chi2(
-                    np.log(I_comp[self.idx_fit]),
-                    self.logI[self.idx_fit])
+                I_comp[self.idx_fit],
+                self.I[self.idx_fit],
+                wts[self.idx_fit])
+        #if error_weighted:
+        #    res = compute_chi2(
+        #            np.log(I_comp[self.idx_fit]),
+        #            self.logI[self.idx_fit])
         return res 
 
-    def lmf_evaluate(self,lmf_params,error_weighted=True):
+    def lmf_evaluate(self,lmf_params,error_weighted=True,logI_weighted=True,logq_weighted=False):
         pd = self.unflatten_params(self.unpack_lmfit_params(lmf_params))
         pops = copy.deepcopy(self.populations)
         pops = self.update_params(pops,pd)
-        return self.evaluate_residual(pops,error_weighted)
+        return self.evaluate_residual(pops,error_weighted,logI_weighted,logq_weighted)
 
     #def fit_intensity_params(self,params):
     #    """Fit the spectrum wrt only the intensity parameters."""
