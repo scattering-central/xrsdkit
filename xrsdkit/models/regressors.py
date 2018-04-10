@@ -58,8 +58,11 @@ class Regressors(object):
     def print_training_results(self, results):
         for k, v in results.items():
             print(k, ":")
-            print("accuracy :  %10.3f" % (results[k]['accuracy']))
-            print("parameters :", results[k]['parameters'])
+            if results[k]['accuracy']:
+                print("accuracy :  %10.3f" % (results[k]['accuracy']))
+                print("parameters :", results[k]['parameters'])
+            else:
+                print("training/updatin is not possible (not enough data)")
             print()
 
 

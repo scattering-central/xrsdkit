@@ -97,7 +97,8 @@ class XrsdModel(object):
         new_parameters = None
 
         if not training_possible:
-            return new_scaler, new_model,new_parameters, new_accuracy # TODO we also need to return a warning "The model was not updated"
+            print(self.target, "model was not trained.")# TODO decide what we should print (or not print) heare
+            return new_scaler, new_model,new_parameters, new_accuracy
 
         data = d.dropna(subset=self.features)
 
@@ -436,8 +437,9 @@ class XrsdModel(object):
         data2 = d.dropna(subset=self.features)
         training_possible = self.check_label(data2)
         if not training_possible:
+            print(self.target, "model was not updated.")# TODO decide what we should print (or not print) heare
             return {'scaler': new_scaler, 'model': new_model,
-                'parameters' : self.parameters, 'accuracy': new_err} # TODO we also need to return a warning "The model was not updated"
+                'parameters' : self.parameters, 'accuracy': new_err}
 
         new_scaler = preprocessing.StandardScaler()
         set_param(new_scaler,scaler_par)
