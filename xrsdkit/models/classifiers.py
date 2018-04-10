@@ -15,7 +15,30 @@ class Classifiers(object):
 
     def train_classification_models(self, data, hyper_parameters_search=False,
                                      cl_models = ['all'], testing_data = None, partial = False):
-
+        """Train classification models, optionally searching for optimal hyperparameters.
+        Parameters
+        ----------
+        data : pandas.DataFrame
+            dataframe containing features and labels
+        hyper_parameters_search : bool
+            If true, grid-search model hyperparameters
+            to seek high cross-validation accuracy.
+        model : array of str
+            the names of models to train ('crystalline_structure_flag',
+            'diffuse_structure_flag',
+            'guinier_porod_population_count',
+            'spherical_normal_population_count', or "all" to train all models).
+        partial : bool
+            If true, the models will be updataed using new data
+            (train_partial() instead of train() from sklearn is used).
+        Returns
+        -------
+        results : dict
+            keys : models names;
+            values : dictionaries with sklearn standard scalers,
+            sklearn models, models paramenters,
+            and cross validation accuracies.
+        """
         if "all" in cl_models:
             results = OrderedDict.fromkeys(cl_model_output_names)
         else:
@@ -46,6 +69,15 @@ class Classifiers(object):
         return results
 
     def print_training_results(self, results):
+        """Print parameters of models and cross validation accuracy.
+        Parameters
+        ----------
+        results : dict
+            keys : models names;
+            values : dictionaries with sklearn standard scalers,
+            sklearn models, models paramenters,
+            and cross validation accuracies.
+        """
         for k, v in results.items():
             print(k, ":")
             if results[k]['accuracy']:
@@ -57,7 +89,20 @@ class Classifiers(object):
 
 
     def save_classification_models(self, scalers_models, file_path=None):
-
+        """Save model parameters and CV errors in YAML and .txt files.
+        Parameters
+        ----------
+        scalers_models : dict
+            keys : models names;
+            values : dictionaries with sklearn standard scalers,
+            sklearn models, models paramenters,
+            and cross validation accuracies.
+        file_path : str
+            Full path to the YAML file where the models will be saved.
+            Scalers, models,parameters, and cross-validation errors
+            will be saved at this path, and the cross-validation errors
+            are also saved in a .txt file of the same name, in the same directory.
+        """
         for k, v in scalers_models.items():
             if k == 'unidentified_structure_flag': # we do not build a model for this label
                 continue
@@ -77,13 +122,10 @@ class Classifiers(object):
         -------
         prediction : dict
             dictionary of predictions
-            from classifiers and regressors.
-            Predictions from classifiers also
-            have certainty of the prediction
+            from classifiers and certainty of the predictions.
         """
         list_of_wanted_models = list(self.models.keys())
         list_of_models_to_start = ['crystalline_structure_flag', 'diffuse_structure_flag']
-        #predictions = OrderedDict.fromkeys(list(self.models.keys()))
         predictions = {}
 
         for k,v in self.models.items():
