@@ -4,7 +4,7 @@ from xrsdkit.tools.piftools import cl_model_output_names
 
 
 class Classifiers(object):
-    """To create all possible or specified classifiers, train, and save them; make a prediction."""
+    """To create all possible classifiers, train, update, and save them; make a prediction."""
 
     def __init__(self):
 
