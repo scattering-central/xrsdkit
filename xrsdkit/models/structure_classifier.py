@@ -3,7 +3,8 @@ from .general_model import XrsdModel
 
 
 class StructureClassifier(XrsdModel):
-    """Models for classifying structure from scattering/diffraction data"""
+    """To create classifier for classifying structure from scattering/diffraction data;
+    train, update, and save it; make a prediction."""
 
     def __init__(self,label,yml_file_cl=None):
         XrsdModel.__init__(self, label, yml_file=yml_file_cl)
@@ -15,7 +16,7 @@ class StructureClassifier(XrsdModel):
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
-            similar to output of saxs_math.profile_spectrum()
+            similar to output of xrsdkit.tools.profiler.profile_spectrum()
         Returns
         -------
         structure_flags : bool or None

@@ -4,7 +4,8 @@ from ..tools import profiler
 from xrsdkit.tools.profiler import guinier_porod_profile, spherical_normal_profile
 
 class Regressor(XrsdModel):
-    """Models for prediction continuous values from scattering/diffraction data"""
+    """To create regressor for prediction continuous value from scattering/diffraction data;
+    train, update, and save it; make a prediction."""
 
     def __init__(self,label,yml_file_cl=None):
 
@@ -29,10 +30,10 @@ class Regressor(XrsdModel):
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
-            similar to output of saxs_math.profile_spectrum()
+            similar to output of xrsdkit.tools.profiler.profile_spectrum()
         populations : dict
             dictionary counting scatterer populations,
-            similar to output of SaxsClassifier.classify()
+            similar to output of Classifiers.make_predictions()
         q_I : array
             n-by-2 array of scattering vector (1/Angstrom) and intensities.
 
