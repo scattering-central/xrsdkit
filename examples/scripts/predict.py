@@ -48,11 +48,6 @@ for k, v in reg_result.items():
     print(k, " :   %10.3f" % (v))
 
 '''
-for k,v in params.items():
-    print(k, ":", end="")
-    for n in v:
-        print(" %10.3f" % (n))
-print()
 
 #Using Citrination models:
 print("\033[1m" + "Prediction from Citrination models: " + "\033[0;0m", "\n")
