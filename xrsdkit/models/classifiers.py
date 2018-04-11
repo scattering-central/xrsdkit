@@ -23,11 +23,14 @@ class Classifiers(object):
         hyper_parameters_search : bool
             If true, grid-search model hyperparameters
             to seek high cross-validation accuracy.
-        model : array of str
+        cl_models : array of str
             the names of models to train ('crystalline_structure_flag',
             'diffuse_structure_flag',
             'guinier_porod_population_count',
             'spherical_normal_population_count', or "all" to train all models).
+        testing_data : pandas.DataFrame (optional)
+            dataframe containing original training data plus new data
+            for computing the accuracy of the updated models.
         partial : bool
             If true, the models will be updataed using new data
             (train_partial() instead of train() from sklearn is used).
@@ -97,7 +100,7 @@ class Classifiers(object):
             values : dictionaries with sklearn standard scalers,
             sklearn models, models paramenters,
             and cross validation accuracies.
-        file_path : str
+        file_path : str (optional)
             Full path to the YAML file where the models will be saved.
             Scalers, models,parameters, and cross-validation errors
             will be saved at this path, and the cross-validation errors
