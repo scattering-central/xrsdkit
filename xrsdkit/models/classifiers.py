@@ -30,7 +30,7 @@ class Classifiers(object):
             'spherical_normal_population_count', or "all" to train all models).
         testing_data : pandas.DataFrame (optional)
             dataframe containing original training data plus new data
-            for computing the accuracy of the updated models.
+            for computing the cross validation accuracies of the updated models.
         partial : bool
             If true, the models will be updataed using new data
             (train_partial() instead of train() from sklearn is used).
@@ -72,7 +72,7 @@ class Classifiers(object):
         return results
 
     def print_training_results(self, results):
-        """Print parameters of models and cross validation accuracy.
+        """Print parameters of models and cross validation accuracies.
         Parameters
         ----------
         results : dict
@@ -92,7 +92,7 @@ class Classifiers(object):
 
 
     def save_classification_models(self, scalers_models, file_path=None):
-        """Save model parameters and CV errors in YAML and .txt files.
+        """Save model parameters and CV accuracies in YAML and .txt files.
         Parameters
         ----------
         scalers_models : dict
@@ -102,7 +102,7 @@ class Classifiers(object):
             and cross validation accuracies.
         file_path : str (optional)
             Full path to the YAML file where the models will be saved.
-            Scalers, models,parameters, and cross-validation errors
+            Scalers, models,parameters, and cross-validation accuracies
             will be saved at this path, and the cross-validation errors
             are also saved in a .txt file of the same name, in the same directory.
         """
@@ -119,8 +119,7 @@ class Classifiers(object):
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
-            similar to output of saxs_math.profile_spectrum()
-
+            similar to output of xrsdkit.tools.profiler.profile_spectrum()
         Returns
         -------
         prediction : dict
@@ -168,7 +167,7 @@ class Classifiers(object):
         For each train-test split,
         two experiments are used for testing
         and the rest are used for training.
-        The reported error is the average accuracy over all train-test splits
+        The reported error is the average accuracy over all train-test splits.
         """
         print("Averaged cross validation accuracies: ")
         for k, v in self.models.items():

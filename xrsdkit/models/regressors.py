@@ -6,7 +6,7 @@ from xrsdkit.tools.piftools import reg_model_output_names
 
 
 class Regressors(object):
-    """To create all possible or specified classifiers, train, and save them; make a prediction."""
+    """To create all possible regressors, train, update, and save them; make a prediction."""
 
     def __init__(self):
 
@@ -17,7 +17,31 @@ class Regressors(object):
 
     def train_regression_models(self, data, hyper_parameters_search=False,
                                      reg_models = ['all'], testing_data = None, partial = False):
-
+        """Train regression models, optionally searching for optimal hyperparameters.
+        Parameters
+        ----------
+        data : pandas.DataFrame
+            dataframe containing features and labels
+        hyper_parameters_search : bool
+            If true, grid-search model hyperparameters
+            to seek high cross-validation R^2 score.
+        model : array of str
+            the names of models to train ('r_g_0','sigma_0',
+            'r0_0', or "all" to train all models).
+        testing_data : pandas.DataFrame (optional)
+            dataframe containing original training data plus new data
+            for computing the cross validation errors of the updated models.
+        partial : bool
+            If true, the models will be updataed using new data
+            (train_partial() instead of train() from sklearn is used).
+        Returns
+        -------
+        results : dict
+            keys : models names;
+            values : dictionaries with sklearn standard scalers,
+            sklearn models, models paramenters,
+            and cross validation accuracies.
+        """
         if "all" in reg_models:
             results = OrderedDict.fromkeys(reg_model_output_names)
         else:
@@ -56,6 +80,15 @@ class Regressors(object):
 
 
     def print_training_results(self, results):
+        """Print parameters of models and cross validation accuracies.
+        Parameters
+        ----------
+        results : dict
+            keys : models names;
+            values : dictionaries with sklearn standard scalers,
+            sklearn models, models paramenters,
+            and cross validation errors.
+        """
         for k, v in results.items():
             print(k, ":")
             if results[k]['accuracy']:
@@ -67,28 +100,40 @@ class Regressors(object):
 
 
     def save_regression_models(self, scalers_models, file_path=None):
+        """Save model parameters and CV errors in YAML and .txt files.
+        Parameters
+        ----------
+        scalers_models : dict
+            keys : models names;
+            values : dictionaries with sklearn standard scalers,
+            sklearn models, models paramenters,
+            and cross validation accuracies.
+        file_path : str (optional)
+            Full path to the YAML file where the models will be saved.
+            Scalers, models,parameters, and cross-validation errors
+            will be saved at this path, and the cross-validation errors
+            are also saved in a .txt file of the same name, in the same directory.
+        """
         for k, v in self.models.items():
             v.save_models(scalers_models[k], file_path)
 
 
     def make_predictions(self, sample_features, populations, q_I):
         """Determine the types of structures represented by the sample
-
         Parameters
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
-            similar to output of saxs_math.profile_spectrum()
+            similar to output of xrsdkit.tools.profiler.profile_spectrum()
         populations : dict
             dictionary counting scatterer populations,
-            similar to output of SaxsClassifier.classify()
+            similar to output of Classifiers.make_predictions()
         q_I : array
             n-by-2 array of scattering vector (1/Angstrom) and intensities.
-
         Returns
         -------
         prediction : dict
-            dictionary of with predicted parameters
+            dictionary with predicted parameters
         """
         predictions = {}
 
@@ -106,7 +151,7 @@ class Regressors(object):
         For each train-test split,
         two experiments are used for testing
         and the rest are used for training.
-        The reported error is normalized mean absolute error over all train-test splits
+        The reported error is normalized mean absolute error over all train-test splits.
         """
         print("Normalized cross validation mean absolute error: ")
         for k, v in self.models.items():
