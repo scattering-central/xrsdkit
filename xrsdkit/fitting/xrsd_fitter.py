@@ -5,9 +5,9 @@ import os
 import numpy as np
 import lmfit
 
-from . import all_params, param_defaults, fixed_param_defaults, param_bound_defaults
-from .. import compute_intensity
-from . import compute_chi2
+from .. import all_params, param_defaults, fixed_param_defaults, param_bound_defaults
+from ..scattering import compute_intensity
+from ..tools import compute_chi2
 
 class XRSDFitter(object):
     """Class for fitting x-ray scattering and diffraction profiles."""

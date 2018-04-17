@@ -10,10 +10,11 @@ Each population sub-dict should have the following entries:
     - 'structure' : the structure of the population 
         (e.g. 'diffuse', 'fcc'). 
 
-    - 'settings' : dict of parameters defining
+    - 'settings' : dict defining settings for 
         the computational treatment of the population,
-        such as peak profile specifications and 
-        the q-limits for reciprocal space analysis.
+        such as peak profile specifications, 
+        atomic symbols, and q-limits for reciprocal space analysis.
+        Settings are not intended to vary during optimization.
 
         - 'q_min' : minimum q-value for reciprocal lattice analysis 
         - 'q_max' : maximum q-value for reciprocal lattice analysis 
@@ -21,6 +22,8 @@ Each population sub-dict should have the following entries:
 
     - 'parameters' : dict describing the structure (lattice parameters, etc)
         as well as any other scalar parameters used for the computation.
+        Parameters are intended to be varied continuously,
+        e.g. during optimization problems.
         Some keys are used for parameterizing intensities and diffraction peaks:
 
         - 'I0' : the scattering or diffraction computed for each population 
@@ -51,7 +54,7 @@ Each population sub-dict should have the following entries:
             multiple scatterers of the same type,
             e.g. for implementing fractional occupancies.
 
-The supported structure factors and their parameters and settings are: 
+The supported structure factors and their parameters are: 
 
     - 'diffuse' : a diffuse (or dilute), 
         non-interfering scattering ensemble.
@@ -64,7 +67,7 @@ The supported structure factors and their parameters and settings are:
         TODO: Cite
         (Ornstein-Zernike, 1918; Percus-Yevick, 1958; Hansen-McDonald, 1986, Hammouda)
 
-        - 'r' : radius of spheres
+        - 'r_hard' : hard sphere radius 
         - 'v_fraction' : volume fraction of spheres
 
     - 'disordered' : condensed, disordered material, 
@@ -96,7 +99,6 @@ The supported form factors and their parameters are:
 
     - 'guinier_porod': scatterer populations described 
         by the Guinier-Porod equations.
-        This is currently only supported for 'diffuse' structures.
 
       - 'G': Guinier prefactor 
       - 'rg': radius of gyration 
@@ -108,32 +110,36 @@ The supported form factors and their parameters are:
 
     - 'spherical_normal': solid spheres 
         with a normal size distribution.
-        This is currently only supported for 'diffuse' structures.
 
       - 'r0': mean sphere radius (Angstrom) 
       - 'sigma': fractional standard deviation of radius
 
     - 'atomic': atomic form factors described by
         ff = Z - 41.78214 * s**2 * sum_i(a_i*exp(-b_i*s**2)),
-        where Z is the atomic number,
+        where Z is the atomic number
+        (defined by the 'symbol' or 'Z' settings),
         s = sin(theta)/lambda,
         and a_i, b_i are the form factor parameters.
+        These scatterers respect the following settings:
 
       - 'symbol': Atomic symbol (as on the periodic table),
         for using the standard scattering parameters
         (see atomic_scattering_parameters.yaml).
         Atomic sites outside the standard parameter set
-        must provide values for atomic number (Z),
+        must provide a setting for the atomic number (Z),
         and up to four pairs of scattering parameters (a, b).
       - 'Z': atomic number
-      - 'a': list of a coefficients 
-      - 'b': list of b coefficients 
+
+      The parameters for atomic scatterers are:
+
+      - 'a0', 'a1', 'a2', 'a3': a coefficients 
+      - 'b0', 'b1', 'b2', 'b3': b coefficients 
 
     - all form factors:
 
       - 'occupancy': occupancy fraction, used for basis sites 
         with multiple fractional occupancies.
-        If a single specie is specified for a basis site, 
+        If not specified, 
         an occupancy of 1 is assumed.
 
 For example, a single flat scatterer 
@@ -165,64 +171,108 @@ my_populations = dict(
 """
 from collections import OrderedDict
 
-import numpy as np
-
-from . import scattering, diffraction
-from .scattering.form_factors import diffuse_form_factor_names
-
 # list of allowed structure specifications
-structure_names = list([
-    'unidentified',
-    'diffuse',
-    'disordered',
-    'fcc'])
+structure_names = [\
+'unidentified',\
+'hard_spheres',\
+'diffuse',\
+'disordered',\
+'fcc']
 
-def compute_intensity(q,populations,source_wavelength):
-    """Compute scattering/diffraction intensity for some `q` values.
+# list of allowed form factors:
+form_factor_names = [\
+'flat',\
+'guinier_porod',\
+'spherical',\
+'spherical_normal',\
+'atomic']
 
-    TODO: Document the equation.
+# list of structures that are crystalline
+crystalline_structure_names = ['fcc']
 
-    Parameters
-    ----------
-    q : array
-        Array of q values at which intensities will be computed.
-    populations : dict
-        Each entry in the dict describes a population of scatterers.
-        See the module documentation for the dict specifications. 
-    source_wavelength : float 
-        Wavelength of radiation source in Angstroms
+# list of allowed parameters for each structure
+structure_params = OrderedDict.fromkeys(structure_names)
+structure_params.pop('unidentified')
+for nm in structure_names: structure_params[nm] = ['I0']
+structure_params['hard_spheres'].extend(['r_hard','v_fraction'])
+structure_params['disordered'].extend(['q_center','hwhm_g','hwhm_l'])
+structure_params['fcc'].extend(['a','hwhm_g','hwhm_l'])
 
-    Returns
-    ------- 
-    I : array
-        Array of scattering intensities for each of the input q values
-    """
-    n_q = len(q)
-    I = np.zeros(n_q)
-    for pop_name,popd in populations.items():
-        st = popd['structure']
-        if st == 'diffuse':
-            I += scattering.diffuse_intensity(q,popd,source_wavelength)
-        elif st == 'hard_spheres':
-            I += diffraction.hard_sphere_intensity(q,popd,source_wavelength)
-        elif st == 'fcc':
-            if any([ any([specie_name in diffuse_form_factor_names 
-                for specie_name in specie_dict.keys()])
-                for coord,specie_dict in popd['basis'].items()]):
-                msg = 'Populations of type {} are currently not supported '\
-                    'in crystalline arrangements.'.format(diffuse_form_factor_names)
-                raise ValueError(msg)
-            I += diffraction.fcc_intensity(q,popd,source_wavelength)
-        elif st == 'disordered':
-            I0 = 1.
-            if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
-            profile_name = popd['settings']['profile']
-            q_c = popd['parameters']['q_center']
-            I += I0 * peak_math.peak_profile(q,q_c,profile_name,popd['parameters'])
-        else:
-            msg = 'structure specification {} is not supported'.format(st)
-            raise ValueError(msg)
-    return I
+# list of allowed parameters for each form factor 
+form_factor_params = OrderedDict.fromkeys(form_factor_names)
+for nm in form_factor_names: form_factor_params[nm] = ['occupancy']
+form_factor_params['guinier_porod'].extend(['G','rg','D'])
+form_factor_params['spherical'].extend(['r'])
+form_factor_params['spherical_normal'].extend(['r0','sigma'])
+form_factor_params['atomic'].extend(['a0','a1','a2','a3','b0','b1','b2','b3'])
+
+all_params = [\
+'I0','occupancy',\
+'coordinates',\
+'a',\
+'G','rg','D',\
+'r',\
+'r0', 'sigma',\
+'r_hard','v_fraction',\
+'hwhm_g','hwhm_l','q_center',\
+'a0','a1','a2','a3','b0','b1','b2','b3']
+
+param_defaults = OrderedDict(
+    I0 = 1.E-3,
+    occupancy = 1.,
+    coordinates = 0.,
+    G = 1.,
+    rg = 10.,
+    D = 4.,
+    r = 20.,
+    r0 = 20.,
+    sigma = 0.05,
+    v_fraction = 0.1,
+    hwhm_g = 1.E-3,
+    hwhm_l = 1.E-3,
+    q_center = 1.E-1,
+    a = 10.,
+    Z = 1.,
+    a0=1.,a1=1.,a2=1.,a3=1.,
+    b0=1.,b1=1.,b2=1.,b3=1.)
+
+param_bound_defaults = OrderedDict(
+    I0 = (0.,None),
+    occupancy = (0.,1.),
+    coordinates = (None,None),
+    G = (0.,None),
+    rg = (1.E-1,None),
+    D = (0.,4.),
+    r = (1.E-1,None),
+    r0 = (1.E-1,None),
+    sigma = (0.,0.5),
+    v_fraction = (0.05,0.7405),
+    hwhm_g = (1.E-6,None),
+    hwhm_l = (1.E-6,None),
+    q_center = (0.,None),
+    a = (0.,None),
+    Z = (0.,120),
+    a0=(0.,None),a1=(0.,None),a2=(0.,None),a3=(0.,None),
+    b0=(0.,None),b1=(0.,None),b2=(0.,None),b3=(0.,None))
+
+fixed_param_defaults = OrderedDict(
+    I0 = False,
+    occupancy = True,
+    coordinates = True,
+    G = False,
+    rg = False,
+    D = False,
+    r = False,
+    r0 = False,
+    sigma = False,
+    v_fraction = False,
+    hwhm_g = False,
+    hwhm_l = False,
+    q_center = False,
+    a = False,
+    Z = True, 
+    a0=True, a1=True, a2=True, a3=True,
+    b0=True, b1=True, b2=True, b3=True)
 
 def fcc_crystal(atom_symbol,a_lat,q_min=None,q_max=None,pk_profile=None,hwhm_g=None,hwhm_l=None):
     fcc_pop = dict(
@@ -248,9 +298,6 @@ def fcc_crystal(atom_symbol,a_lat,q_min=None,q_max=None,pk_profile=None,hwhm_g=N
     return fcc_pop
 
 # TODO: add more convenience constructors for various populations
-
-
-
 
 
 

@@ -5,8 +5,8 @@ import pypif.obj as pifobj
 
 from . import profiler
 from .. import structure_names
-from ..scattering.form_factors import diffuse_form_factor_names
-from ..diffraction import crystalline_structure_names 
+from .. import form_factor_names
+from .. import crystalline_structure_names 
 
 parameter_description = OrderedDict()
 parameter_description['I0'] = 'flat background intensity'
@@ -116,9 +116,9 @@ def populations_properties(populations):
         'disordered structure flag','EXPERIMENTAL'))
     structure_params = OrderedDict.fromkeys(structure_names)
     structure_params.pop('unidentified')
-    diffuse_params = OrderedDict.fromkeys(diffuse_form_factor_names)
+    ff_params = OrderedDict.fromkeys(form_factor_names)
     for k in structure_names: structure_params[k] = [] 
-    for k in diffuse_form_factor_names: diffuse_params[k] = [] 
+    for k in form_factor_names: ff_params[k] = [] 
     for pop_name,popd in populations.items():
         if not pop_name == 'noise' and not popd['structure'] == 'unidentified':
             structure_params[popd['structure']].append(popd['parameters'])
@@ -126,21 +126,21 @@ def populations_properties(populations):
             #if 'basis' in popd:
             for site_name,site_items in popd['basis'].items():
                 for site_item_tag, site_item in site_items.items():
-                    if site_item_tag in diffuse_form_factor_names:
-                        if isinstance(site_item,list): 
-                            diffuse_params[site_item_tag].extend(site_item)
-                        else:
-                            diffuse_params[site_item_tag].append(site_item)
+                    #if site_item_tag in diffuse_form_factor_names:
+                    if isinstance(site_item,list): 
+                        ff_params[site_item_tag].extend(site_item)
+                    else:
+                        ff_params[site_item_tag].append(site_item)
     structure_properties = []
     for structure_name,param_list in structure_params.items():
         structure_properties.append(scalar_property(
             '{}_structure_count'.format(structure_name),len(param_list),
             'number of {} structures'.format(structure_name),
             'EXPERIMENTAL'))
-    for specie_name,param_list in diffuse_params.items():
+    for specie_name,param_list in ff_params.items():
         structure_properties.append(scalar_property(
             '{}_population_count'.format(specie_name),len(param_list),
-            'number of diffuse {} populations'.format(specie_name),
+            'number of {} populations'.format(specie_name),
             'EXPERIMENTAL'))
     properties.extend(structure_properties)
 

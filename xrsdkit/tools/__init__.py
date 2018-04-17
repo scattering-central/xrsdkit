@@ -92,7 +92,7 @@ def pearson(y1,y2):
     y2std = np.std(y2)
     return np.sum((y1-y1mean)*(y2-y2mean))/(np.sqrt(np.sum((y1-y1mean)**2))*np.sqrt(np.sum((y2-y2mean)**2)))
 
-def chi_squared(y1,y2,weights=None):
+def compute_chi2(y1,y2,weights=None):
     """Compute sum of difference squared between two arrays.
 
     Parameters
@@ -114,5 +114,46 @@ def chi_squared(y1,y2,weights=None):
     else:
         weights = weights / np.sum(weights)
         return np.sum( (y1 - y2)**2*weights )
+
+def compute_pearson(y1,y2):
+    """Compute the Pearson correlation coefficient.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+
+    Returns
+    -------
+    pearson_r : float
+        Pearson's correlation coefficient between `y1` and `y2`
+    """
+    y1mean = np.mean(y1)
+    y2mean = np.mean(y2)
+    y1std = np.std(y1)
+    y2std = np.std(y2)
+    return np.sum((y1-y1mean)*(y2-y2mean))/(np.sqrt(np.sum((y1-y1mean)**2))*np.sqrt(np.sum((y2-y2mean)**2)))
+
+def compute_Rsquared(y1,y2):
+    """Compute the coefficient of determination.
+
+    Parameters
+    ----------
+    y1 : array
+        an array of floats
+    y2 : array
+        an array of floats
+
+    Returns
+    -------
+    Rsquared : float
+        coefficient of determination between `y1` and `y2`
+    """
+    sum_var = np.sum( (y1-np.mean(y1))**2 )
+    sum_res = np.sum( (y1-y2)**2 ) 
+    return float(1)-float(sum_res)/sum_var
+
 
 

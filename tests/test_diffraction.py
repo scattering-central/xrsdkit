@@ -2,8 +2,9 @@ from __future__ import print_function
 
 import numpy as np
 
-from xrsdkit import compute_intensity 
-from xrsdkit.diffraction import structure_factors,peak_math
+from xrsdkit.scattering import compute_intensity 
+from xrsdkit.scattering import structure_factors as xrsf
+from xrsdkit.tools import peak_math
     
 fcc_Al = {'fcc_Al':dict(
     structure='fcc',
@@ -25,7 +26,7 @@ fcc_Al = {'fcc_Al':dict(
 
 hard_spheres = {'hard_spheres':dict(
     structure='hard_spheres',
-    parameters={'r':40,'v_fraction':0.3},
+    parameters={'r_hard':40,'v_fraction':0.3},
     basis={'sphere':{'spherical':{'r':40}}}
     )}
 
@@ -59,7 +60,7 @@ def test_fcc_sf():
     # take the q value of the (111) sphere
     q_111 = np.sqrt(3)
 
-    sf_func = lambda qi,ph,th: structure_factors.fcc_sf(qi,
+    sf_func = lambda qi,ph,th: xrsf.fcc_sf(qi,
         np.array([
             qi*np.sin(th)*np.cos(ph),
             qi*np.sin(th)*np.sin(ph),

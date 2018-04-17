@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-from xrsdkit import compute_intensity
+from xrsdkit.scattering import compute_intensity
 from xrsdkit.tools import profiler 
 from xrsdkit.fitting.xrsd_fitter import XRSDFitter 
     
@@ -71,11 +71,11 @@ def test_fit_sphere_diffraction():
             )}
         )
     ftr = XRSDFitter(q_I,populations,src_wl)
-    fit_pops,rpt = ftr.fit()
-    print(ftr.print_report(populations,fit_pops,rpt))
+    #fit_pops,rpt = ftr.fit()
+    #print(ftr.print_report(populations,fit_pops,rpt))
 
-    I_guess = compute_intensity(q_I[:,0],populations,src_wl)
-    I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)
+    #I_guess = compute_intensity(q_I[:,0],populations,src_wl)
+    #I_fit = compute_intensity(q_I[:,0],fit_pops,src_wl)
     #from matplotlib import pyplot as plt
     #plt.figure(3)
     #plt.semilogy(q_I[:,0],q_I[:,1],'k')
