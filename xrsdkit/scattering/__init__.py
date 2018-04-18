@@ -5,7 +5,7 @@ from pymatgen import Lattice
 
 from . import form_factors as xrff
 from . import structure_factors as xrsf
-from ..tools.peak_math import peak_profile
+from ..tools import peak_math
 
 def compute_intensity(q,populations,source_wavelength):
     """Compute scattering/diffraction intensity for some `q` values.
@@ -49,6 +49,8 @@ def compute_intensity(q,populations,source_wavelength):
             profile_name = popd['settings']['profile']
             q_c = popd['parameters']['q_center']
             I += I0 * peak_math.peak_profile(q,q_c,profile_name,popd['parameters'])
+        elif st == 'unidentified':
+            pass
         else:
             msg = 'structure specification {} is not supported'.format(st)
             raise ValueError(msg)
@@ -161,7 +163,7 @@ def fcc_intensity(q,popd,source_wavelength):
         hkl_range = np.outer(q/q_pk,hkl).T
         F_along_hkl = xrsf.fcc_sf(q_pk,hkl_range,basis)
         # compute a line shape 
-        line_shape = peak_profile(q,q_pk,profile_name,popd['parameters'])
+        line_shape = peak_math.peak_profile(q,q_pk,profile_name,popd['parameters'])
         I += (F_along_hkl*F_along_hkl.conjugate()).real\
             *mult[hkl]*line_shape
 

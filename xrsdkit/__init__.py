@@ -190,13 +190,22 @@ form_factor_names = [\
 # list of structures that are crystalline
 crystalline_structure_names = ['fcc']
 
+# list of form factors that are non-crystalline
+noncrystalline_ff_names = ['spherical_normal','guinier_porod']
+
 # list of allowed parameters for each structure
 structure_params = OrderedDict.fromkeys(structure_names)
-structure_params.pop('unidentified')
 for nm in structure_names: structure_params[nm] = ['I0']
+structure_params['unidentified'] = []
 structure_params['hard_spheres'].extend(['r_hard','v_fraction'])
 structure_params['disordered'].extend(['q_center','hwhm_g','hwhm_l'])
 structure_params['fcc'].extend(['a','hwhm_g','hwhm_l'])
+
+# list of allowed settings for each structure
+structure_settings = OrderedDict.fromkeys(structure_names)
+for nm in structure_settings: structure_settings[nm] = []
+structure_settings['fcc'].extend(['profile','q_min','q_max'])
+structure_settings['disordered'].extend(['profile'])
 
 # list of allowed parameters for each form factor 
 form_factor_params = OrderedDict.fromkeys(form_factor_names)
@@ -205,6 +214,11 @@ form_factor_params['guinier_porod'].extend(['G','rg','D'])
 form_factor_params['spherical'].extend(['r'])
 form_factor_params['spherical_normal'].extend(['r0','sigma'])
 form_factor_params['atomic'].extend(['a0','a1','a2','a3','b0','b1','b2','b3'])
+
+# list of allowed settings for each form factor 
+form_factor_settings = OrderedDict.fromkeys(form_factor_names)
+for nm in form_factor_settings: form_factor_settings[nm] = []
+form_factor_settings['atomic'].extend(['symbol','Z'])
 
 all_params = [\
 'I0','occupancy',\
@@ -227,6 +241,7 @@ param_defaults = OrderedDict(
     r = 20.,
     r0 = 20.,
     sigma = 0.05,
+    r_hard = 20.,
     v_fraction = 0.1,
     hwhm_g = 1.E-3,
     hwhm_l = 1.E-3,
@@ -235,6 +250,13 @@ param_defaults = OrderedDict(
     Z = 1.,
     a0=1.,a1=1.,a2=1.,a3=1.,
     b0=1.,b1=1.,b2=1.,b3=1.)
+
+setting_defaults = OrderedDict(
+    Z = 1,
+    symbol = 'H',
+    q_min = 0.,
+    q_max = 1.,
+    profile = 'voigt')
 
 param_bound_defaults = OrderedDict(
     I0 = (0.,None),
@@ -246,6 +268,7 @@ param_bound_defaults = OrderedDict(
     r = (1.E-1,None),
     r0 = (1.E-1,None),
     sigma = (0.,0.5),
+    r_hard = (1.E-1,None),
     v_fraction = (0.05,0.7405),
     hwhm_g = (1.E-6,None),
     hwhm_l = (1.E-6,None),
@@ -265,6 +288,7 @@ fixed_param_defaults = OrderedDict(
     r = False,
     r0 = False,
     sigma = False,
+    r_hard = False,
     v_fraction = False,
     hwhm_g = False,
     hwhm_l = False,
