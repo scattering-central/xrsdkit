@@ -8,6 +8,6 @@ setup(name='xrsdkit',
     author_email='paws-developers@slac.stanford.edu',
     packages=find_packages(),
     install_requires=[
-        'pyyaml','numpy','scipy','pandas','scikit-learn','lmfit'
+        'pyyaml','numpy','scipy','pandas','scikit-learn','lmfit','pymatgen'
     ],
 )
