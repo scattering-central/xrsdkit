@@ -51,15 +51,15 @@ To predict scatters populations we can use SAXSKIT models (built on Sklearn) or 
 
     from saxskit.saxs_classify import SaxsClassifier
     m = SaxsClassifier()
-    populations, propability = m.classify(features)
+    populations, probability = m.classify(features)
     for k,v in populations.items():
-        print(k, ":", v, "  with propability: %1.3f" % (propability[k]))
+        print(k, ":", v, "  with probability: %1.3f" % (probability[k]))
     print()
 
-| unidentified : 0   with propability: 0.998
-| guinier_porod : 0   with propability: 0.775
-| spherical_normal : 1   with propability: 0.996
-| diffraction_peaks : 0   with propability: 1.000
+| unidentified : 0   with probability: 0.998
+| guinier_porod : 0   with probability: 0.775
+| spherical_normal : 1   with probability: 0.996
+| diffraction_peaks : 0   with probability: 1.000
 
 
 * Initialize SaxsRegressor and **predict counting scatterer parameters**: ::
