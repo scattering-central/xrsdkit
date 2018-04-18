@@ -1,23 +1,22 @@
 import numpy as np
-from .general_model import XrsdModel
+from .general_model import XRSDModel
 
 
-class StructureClassifier(XrsdModel):
-    """Models for classifying structure from scattering/diffraction data"""
+class StructureClassifier(XRSDModel):
+    """To create classifier for classifying structure from scattering/diffraction data;
+    train, update, and save it; make a prediction."""
 
     def __init__(self,label,yml_file_cl=None):
-        XrsdModel.__init__(self, label, yml_file=yml_file_cl)
+        super(StructureClassifier,self).__init__(label, yml_file_cl)
         # use all default settings of xrsdModel
 
     def classify(self, sample_features):
         """Determine the types of structures represented by the sample
-
         Parameters
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
-            similar to output of saxs_math.profile_spectrum()
-
+            similar to output of xrsdkit.tools.profiler.profile_spectrum()
         Returns
         -------
         structure_flags : bool or None
@@ -28,6 +27,9 @@ class StructureClassifier(XrsdModel):
             the certainty of the prediction
             None is reterned for models that was not trained yet
         """
+        struct = None
+        cert = None
+
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
 
         if self.scaler: # we have a saved model
@@ -35,6 +37,4 @@ class StructureClassifier(XrsdModel):
             struct = int(self.model.predict(x)[0])
             cert = self.model.predict_proba(x)[0,struct]
 
-            return struct, cert
-        else:
-            return None, None
+        return struct, cert

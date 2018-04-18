@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 import yaml
 from sklearn import model_selection, preprocessing, linear_model
 from sklearn.metrics import mean_absolute_error
@@ -7,13 +8,13 @@ from sklearn.metrics import mean_absolute_error
 from ..tools import profiler
 from . import set_param
 
-class XrsdModel(object):
+class XRSDModel(object):
 
-    def __init__(self, label, yml_file=None, classifier = True):
+    def __init__(self, label, yml_file=None, classifier=True):
         if yml_file is None:
             p = os.path.abspath(__file__)
             d = os.path.dirname(p)
-            file_name = 'scalers_and_models_' + label + '.yml'
+            file_name = label + '.yml'
             yml_file = os.path.join(d,'modeling_data',file_name)
 
         try:
@@ -24,20 +25,33 @@ class XrsdModel(object):
 
         self.model = None
         self.parameters = None
-        self.parameters_to_try = \
-            {'penalty':('none', 'l2', 'l1', 'elasticnet'), #default l2
-              'alpha':[0.00001, 0.0001, 0.001, 0.01, 0.1], #regularisation coef, default 0.0001
-             'l1_ratio': [0, 0.15, 0.5, 0.85, 1.0]} #using with elasticnet only; default 0.15
+        if classifier:
+             self.parameters_to_try = \
+             {'penalty':('none', 'l2', 'l1', 'elasticnet'), #default l2
+               'alpha':[0.00001, 0.0001, 0.001, 0.01, 0.1], #regularisation coef, default 0.0001
+              'l1_ratio': [0, 0.15, 0.5, 0.85, 1.0]} #using with elasticnet only; default 0.15
+        else:
+             self.parameters_to_try = \
+             {'loss':('huber', 'squared_loss'), # huber with epsilon = 0 gives us abs error (MAE)
+               'epsilon': [1, 0.1, 0.01, 0.001, 0],
+               'penalty':['none', 'l2', 'l1', 'elasticnet'], #default l2
+               'alpha':[0.0001, 0.001, 0.01], #default 0.0001
+              'l1_ratio': [0, 0.15, 0.5, 0.95], #default 0.15
+              }
         self.scaler = None
         self.cv_error = None
         self.target = label
         self.classifier = classifier
+        self.n_groups_out = 2
         self.features = profiler.profile_keys_1
 
         if s_and_m and s_and_m['scaler']: # we have a saved model
             self.scaler = preprocessing.StandardScaler()
             set_param(self.scaler,s_and_m['scaler'])
-            self.model = linear_model.SGDClassifier()
+            if self.classifier:
+                self.model = linear_model.SGDClassifier()
+            else:
+                self.model = linear_model.SGDRegressor()
             set_param(self.model,s_and_m['model'])
             self.cv_error = s_and_m['accuracy']
             self.parameters = s_and_m['parameters']
@@ -56,14 +70,23 @@ class XrsdModel(object):
 
         Returns
         -------
-        new_scalers : sklearn standard scaler
-            used for transforming of new data.
-        new_models : sklearn model
-            trained on new data.
-        new_parameters : dict
-            Dictionary of parameters found by hyperparameters_search().
-        new_accuracy : float
-            Accuracy of the model.
+        results : dict
+            Dictionary with training results.
+
+        The results include:
+
+        - 'scaler': sklearn standard scaler
+            used for transforming of new data
+
+        - 'model':sklearn model
+            trained on new data
+
+        - 'parameters': dict
+            Dictionary of parameters found by hyperparameters_search()
+
+        - 'accuracy': float
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
         """
         d = all_data[all_data[self.target].isnull() == False]
         training_possible = self.check_label(d)
@@ -74,7 +97,8 @@ class XrsdModel(object):
         new_parameters = None
 
         if not training_possible:
-            return new_scaler, new_model,new_parameters, new_accuracy # TODO we also need to return a warning "The model was not updated"
+            print(self.target, "model was not trained.")# TODO decide what we should print (or not print) heare
+            return new_scaler, new_model,new_parameters, new_accuracy
 
         data = d.dropna(subset=self.features)
 
@@ -88,13 +112,11 @@ class XrsdModel(object):
         new_scaler = preprocessing.StandardScaler()
         new_scaler.fit(data[self.features])
         transformed_data = new_scaler.transform(data[self.features])
-        #data.loc[ : , features] = scaler.transform(data[features])
-
 
         if hyper_parameters_search == True:
             new_parameters = self.hyperparameters_search(
                         transformed_data, data[self.target],
-                        data['experiment_id'], leaveTwoGroupOut, 2)
+                        data['experiment_id'], leaveTwoGroupOut, self.n_groups_out)
         else:
             new_parameters = self.parameters
 
@@ -102,30 +124,34 @@ class XrsdModel(object):
             if new_parameters:
                 new_model = linear_model.SGDClassifier(
                     alpha=new_parameters['alpha'], loss='log',
-                    penalty=new_parameters["penalty"], l1_ratio=new_parameters["l1_ratio"])
+                    penalty=new_parameters["penalty"], l1_ratio=new_parameters["l1_ratio"],
+                         max_iter=10)
             else:
-                new_model = linear_model.SGDClassifier(loss='log')
+                new_model = linear_model.SGDClassifier(loss='log', max_iter=10)
         else:
             if new_parameters:
                 new_model = linear_model.SGDRegressor(alpha=new_parameters['alpha'], loss= new_parameters['loss'],
                                         penalty = new_parameters["penalty"],l1_ratio = new_parameters["l1_ratio"],
-                                        epsilon = new_parameters["epsilon"], max_iter=1000)
+                                        epsilon = new_parameters["epsilon"],
+                                                      max_iter=1000)
             else:
-                new_model = linear_model.SGDRegressor(max_iter=1000)
+                new_model = linear_model.SGDRegressor(max_iter=1000) # max_iter is about 10^6 / number of tr samples
 
         new_model.fit(transformed_data, data[self.target])
 
         if self.classifier:
             label_std = None
         else:
-            label_std = data[self.target].std()# usefull for regressin only
+            label_std = pd.to_numeric(data[self.target]).std()# usefull for regressin only
 
         if leaveTwoGroupOut:
             new_accuracy = self.testing_by_experiments(data, new_model, label_std)
         else:
             new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
 
-        return new_scaler, new_model, new_parameters, new_accuracy
+        return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : new_parameters, 'accuracy': new_accuracy}
+
 
     def check_label(self, dataframe):
         """Test whether or not `dataframe` has legal values for the label
@@ -197,7 +223,7 @@ class XrsdModel(object):
             cv = 5 # five folders cross validation
 
         if self.classifier:
-            model = linear_model.SGDClassifier(loss='log')
+            model = linear_model.SGDClassifier(loss='log',max_iter=10)
         else:
             model = linear_model.SGDRegressor(max_iter=1000)
 
@@ -233,7 +259,8 @@ class XrsdModel(object):
             return scores.mean()
         else:
             scores = model_selection.cross_val_score(
-                    model,df[self.features], df[self.target], cv=5, scoring = 'neg_mean_absolute_error')
+                    model,scaler.transform(df[self.features]), df[self.target],
+                    cv=5, scoring = 'neg_mean_absolute_error')
             return -1.0 * scores.mean()/label_std
 
 
@@ -252,7 +279,7 @@ class XrsdModel(object):
         Returns
         -------
         float
-            average crossvalidation score (accuracy for classification,
+            average crossvalidation score by experiments (accuracy for classification,
             normalized mean absolute error for regression)
         """
         experiments = df.experiment_id.unique()# we have at least 5 experiments
@@ -277,27 +304,23 @@ class XrsdModel(object):
                         scaler.transform(test[self.features]), test[self.target])
                     test_scores_by_ex.append(test_score)
                 else:
-                    pr = model.predict(test[self.features])
+                    pr = model.predict(scaler.transform(test[self.features]))
                     test_score = mean_absolute_error(pr, test[self.target])
                     test_scores_by_ex.append(test_score/label_std)
                 count +=1
 
-        if self.classifier:
-            result =  sum(test_scores_by_ex)/count # average accuracy
-        else:
-            result =  sum(test_scores_by_ex)/count # normalized error
-        return result
+        return sum(test_scores_by_ex)/count
 
-    def training_cv_error(self):
+    def get_cv_error(self):
         """Report cross-validation error for the model.
 
-        "Leave-2-Groups-Out" cross-validation is used.
+        To calculate cv_error "Leave-2-Groups-Out" cross-validation is used.
         For each train-test split,
         two experiments are used for testing
         and the rest are used for training.
-        The reported error is the average over all train-test splits.
-        TODO: what is the error metric for the classifier?
-        TODO: verify that this docstring is correct
+        The reported error is the average over all train-test splits
+        (accuracy for classification,
+        normalized mean absolute error for regression)
 
         Returns
         -------
@@ -307,29 +330,41 @@ class XrsdModel(object):
         return self.cv_error
 
 
-    def save_models(self, new_scaler, new_model, new_parameters, cv_error, file_path=None):
+    def save_models(self, scaler_model, file_path=None):
         """Save model parameters and CV errors in YAML and .txt files.
 
         Parameters
         ----------
-        new_scaler : sklearn scaler
-        new_model : sklearn model
-            with specific parameters
-        new_parameters : dict
-            Dictionary of parameters found by hyperparameters_search().
-        cv_errors : float
-            classifier: accuracy
-            regression: normalized cross-validation errors each model.
+        scaler_model : dict
+            Dictionary with training results.
+
+        The results include:
+        - 'scaler': sklearn standard scaler
+            used for transforming of new data
+
+        - 'model':sklearn model
+            trained on new data
+
+        - 'parameters': dict
+            Dictionary of parameters found by hyperparameters_search()
+
+        - 'accuracy': float
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
+
         file_path : str
             Full path to the YAML file where the models will be saved.
             Scaler, model, and cross-validation error
             will be saved at this path, and the cross-validation error
             are also saved in a .txt file of the same name, in the same directory.
         """
-        self.scaler = new_scaler
-        self.model = new_model
-        self.parameters = new_parameters
-        self.cv_error = cv_error
+        if scaler_model['model'] is None:
+            return
+
+        self.scaler = scaler_model['scaler']
+        self.model = scaler_model['model']
+        self.parameters = scaler_model['parameters']
+        self.cv_error = scaler_model['accuracy']
 
         if file_path is None:
             p = os.path.abspath(__file__)
@@ -341,11 +376,12 @@ class XrsdModel(object):
                 suffix += 1
                 file_path = os.path.join(d,'modeling_data',
                     'custom_models_'+ self.target + str(suffix)+'.yml')
-        if not os.path.splitext(file_path)[1] == '.yml':
-            file_path = file_path+'.yml'
+
+        file_path = file_path + '/' + self.target + '.yml'
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
 
-        s_and_m = {'scaler': new_scaler.__dict__, 'model': new_model.__dict__, 'parameters' : new_parameters, 'accuracy': cv_error}
+        s_and_m = {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
+                   'parameters' : self.parameters, 'accuracy': self.cv_error}
 
         # save scalers and models
         with open(file_path, 'w') as yaml_file:
@@ -355,237 +391,80 @@ class XrsdModel(object):
         with open(cverr_txt_path, 'w') as txt_file:
             txt_file.write(str(s_and_m['accuracy']))
 
-'''
 
+    def train_partial(self, new_data, testing_data = None):
+        """
+        Parameters
+        ----------
+        new_data : pandas.DataFrame
+            dataframe with new data for updating models
+            (containing features and labels)
+        testing_data : pandas.DataFrame
+            dataframe with data we wish use for testing the models
 
-def train_classifiers_partial(new_data, file_path=None, all_training_data=None, model='all'):
-    """Read SAXS classification models from a YAML file, then update them with new data.
+        Returns
+        -------
+        results : dict
+            Dictionary with training results.
 
-    Parameters
-    ----------
-    new_data : pandas.DataFrame
-        dataframe containing features and labels for updating models.
-    file_path : str (optional)
-        Full path to YAML file where scalers and models are saved.
-        If None, the default saxskit models are used.
-    all_training_data : pandas.DataFrame (optional)
-        dataframe containing all of the original training data,
-        for computing cross-validation errors of the updated models.
-    model : str
-        the name of model to train ("unidentified", "spherical_normal",
-        "guinier_porod", "diffraction_peaks", or "all" to train all models).
+        The results include:
 
-    Returns
-    -------
-    scalers : dict
-        Dictionary of sklearn standard scalers (one scaler per model).
-    models : dict
-        Dictionary of sklearn models.
-    cv_errors : dict
-        Dictionary of cross-validation errors for each model.
-    """
-    if file_path is None:
-        p = os.path.abspath(__file__)
-        d = os.path.dirname(p)
-        file_path = os.path.join(d,'modeling_data','scalers_and_models.yml')
-    s_and_m_file = open(file_path,'rb')
-    s_and_m = yaml.load(s_and_m_file)
+        - 'scaler': sklearn standard scaler
+            used for transforming of new data
 
-    models = s_and_m['models']
-    scalers = s_and_m['scalers']
-    cv_errors = s_and_m['accuracy']
+        - 'model':sklearn model
+            trained on new data
 
-    possible_models = check_labels(all_training_data)
+        - 'parameters': dict
+            dictionary of parameters that were used to train the model
+            (were not changed)
 
-    if model != 'all':
-        for k in possible_models.keys():
-            if k != model:
-                # we do not want to train the other models
-                possible_models[k] = False
+        - 'accuracy': float
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
+        """
+        new_scaler = None
+        new_model = None
+        new_err = None
 
-    features = profile_keys['unidentified']
+        scaler_par = self.scaler.__dict__
+        model_par = self.model.__dict__
+        if scaler_par == None: # the model was not trained yet
+            return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : self.parameters, 'accuracy': new_err}
 
-    # unidentified scatterer population model
-    if possible_models['unidentified'] == True:
-        scaler, model, cverr = train_partial(True, new_data, features, 'unidentified',
-                                           models, scalers, all_training_data)
-        if scaler:
-            scalers['unidentified'] = scaler.__dict__
-        if model:
-            models['unidentified'] = model.__dict__
-        if cverr:
-            cv_errors['unidentified'] = cverr
+        d = new_data[new_data[self.target].isnull() == False]
+        data2 = d.dropna(subset=self.features)
+        training_possible = self.check_label(data2)
+        if not training_possible:
+            print(self.target, "model was not updated.")# TODO decide what we should print (or not print) heare
+            return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : self.parameters, 'accuracy': new_err}
 
-    # For the rest of the models,
-    # we will use only data with
-    # identifiable scattering populations
-    new_data = new_data[new_data['unidentified']==False]
-
-    for k, v in possible_models.items():
-        if v == True and k != 'unidentified':
-            scaler, model, cverr = train_partial(True, new_data, features, k,
-                                           models, scalers, all_training_data)
-            if scaler:
-                scalers[k] = scaler.__dict__
-            if model:
-                models[k] = model.__dict__
-            if cverr:
-                cv_errors[k] = cverr
-    if all_training_data is None:
-        cv_errors['NOTE'] = 'Cross-validation errors '\
-        'were not re-computed after partial model training'
-    return scalers, models, cv_errors
-
-def train_regressors_partial(new_data, file_path=None, all_training_data=None, model='all'):
-    """Read SAXS regression models from a YAML file, then update them with new data.
-
-    Parameters
-    ----------
-    data : pandas.DataFrame
-        dataframe containing features and labels for updating models
-    file_path : str (optional)
-        Full path to YAML file where scalers and models are saved.
-        If None, the default saxskit models are used.
-    all_training_data : pandas.DataFrame (optional)
-        dataframe containing all of the original training data
-        for computing the accuracy of the updated models.
-    model : str
-        the name of model to train ("r0_sphere", "sigma_sphere",
-        "rg_gp", or "all" to train all models).
-
-    Returns
-    -------
-    scalers : dict
-        Dictionary of sklearn standard scalers (one scaler per model).
-    models : dict
-        Dictionary of sklearn models.
-    accuracy : dict
-        Dictionary of accuracies for each model.
-    """
-    if file_path is None:
-        p = os.path.abspath(__file__)
-        d = os.path.dirname(p)
-        file_path = os.path.join(d,'modeling_data','scalers_and_models_regression.yml')
-
-    s_and_m_file = open(file_path,'rb')
-    s_and_m = yaml.load(s_and_m_file)
-    models = s_and_m['models']
-    scalers = s_and_m['scalers']
-    cv_errors = s_and_m['accuracy']
-
-    possible_models = check_labels_regression(new_data)
-
-    if model != 'all':
-        for k in possible_models.keys():
-            if k != model:
-                # we do not want to train the other models
-                possible_models[k] = False
-
-    # r0_sphere model
-    if possible_models['r0_sphere'] == True:
-        features = []
-        features.extend(profile_keys['unidentified'])
-        scaler, model, cverr = train_partial(False, new_data, features, 'r0_sphere',
-                                           models, scalers, all_training_data)
-        if scaler:
-            scalers['r0_sphere'] = scaler.__dict__
-        if model:
-            models['r0_sphere'] = model.__dict__
-        if cverr:
-            cv_errors['r0_sphere'] = cverr
-
-    # sigma_shpere model
-    if possible_models['sigma_sphere'] == True:
-        features = []
-        features.extend(profile_keys['unidentified'])
-        features.extend(profile_keys['spherical_normal'])
-        scaler, model, cverr = train_partial(False, new_data, features, 'sigma_sphere',
-                                           models, scalers, all_training_data)
-        if scaler:
-            scalers['sigma_sphere'] = scaler.__dict__
-        if model:
-            models['sigma_sphere'] = model.__dict__
-        if cverr:
-            cv_errors['sigma_sphere'] = cverr
-
-    # rg_gp model
-    if possible_models['rg_gp'] == True:
-        features = []
-        features.extend(profile_keys['unidentified'])
-        features.extend(profile_keys['guinier_porod'])
-        scaler, model, cverr = train_partial(False, new_data, features, 'rg_gp',
-                                           models, scalers, all_training_data)
-        if scaler:
-            scalers['rg_gp'] = scaler.__dict__
-        if model:
-            models['rg_gp'] = model.__dict__
-        if cverr:
-            cv_errors['rg_gp'] = cverr
-    if all_training_data is None:
-        cv_errors['NOTE'] = 'Cross-validation errors '\
-        'were not re-computed after partial model training'
-    return scalers, models, cv_errors
-
-# helper function - to set parametrs for scalers and models
-def set_param(m_s, param):
-        for k, v in param.items():
-            if isinstance(v, list):
-                setattr(m_s, k, np.array(v))
-            else:
-                setattr(m_s, k, v)
-
-def train_partial(classifier, data, features, target, reg_models_dict, scalers_dict, testing_data):
-    model_params = reg_models_dict[target]
-    scaler_params = scalers_dict[target]
-    if scaler_params is not None:
-        scaler = preprocessing.StandardScaler()
-        set_param(scaler,scaler_params)
-        if classifier == True:
-            model = linear_model.SGDClassifier()
+        new_scaler = preprocessing.StandardScaler()
+        set_param(new_scaler,scaler_par)
+        if self.classifier:
+            new_model = linear_model.SGDClassifier()
         else:
-            model = linear_model.SGDRegressor()
-        set_param(model,model_params)
-        d = data[data[target].isnull() == False]
-        data2 = d.dropna(subset=features)
-        scaler.fit(data2[features])
-        data2.loc[ : , features] = scaler.transform(data2[features])
-        model.partial_fit(data2[features], data2[target])
-        if testing_data is None:
-            accuracy = None
-        else: # calculate training accuracy using all provided data
-            d = testing_data[testing_data[target].isnull() == False]
-            data = d.dropna(subset=features)
+            new_model = linear_model.SGDRegressor()
+
+        set_param(new_model,model_par)
+
+        data2.loc[ : , self.features] = new_scaler.transform(data2[self.features])
+        new_model.partial_fit(data2[self.features], data2[self.target])
+
+        if testing_data is not None:
+            d = testing_data[testing_data[self.target].isnull() == False]
+            data = d.dropna(subset=self.features)
+            if self.classifier:
+                label_std = None
+            else:
+                label_std = pd.to_numeric(data[self.target]).std()
+
             if len(data.experiment_id.unique()) > 4:
-                leaveNGroupOut = True
+                new_err = self.testing_by_experiments(data, new_model, label_std)
             else:
-                leaveNGroupOut = False
-            label_std = data[target].std()
-            if leaveNGroupOut:
-                if classifier == True:
-                    accuracy = testing_by_experiments(
-                        data, target, features, model_params['alpha'], model_params['l1_ratio'],
-                        model_params['penalty'])
-                else:
-                    accuracy = testing_by_experiments_regression(
-                        data, target, features, model_params['alpha'], model_params['l1_ratio'],
-                        model_params['penalty'], model_params['loss'],
-                        model_params['epsilon'], label_std)
-            else:
-                if classifier == True:
-                    accuracy = testing_using_crossvalidation(
-                        data, target, features,  model_params['alpha'], model_params['l1_ratio'],
-                        model_params['penalty'])
-                else:
-                    accuracy = testing_using_crossvalidation_regression(
-                        data, target, features,  model_params['alpha'], model_params['l1_ratio'],
-                        model_params['penalty'], model_params['loss'],
-                        model_params['epsilon'], label_std)
-    else:
-        scaler = None
-        model = None
-        accuracy = None
-    return scaler, model, accuracy
-'''
+                new_err = self.testing_using_crossvalidation(data, new_model, label_std)
 
-
-
+        return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : self.parameters, 'accuracy': new_err}
