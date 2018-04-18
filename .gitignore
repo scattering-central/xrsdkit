@@ -1,4 +1,6 @@
 build
+_build
+doc/_build
 dist
 man
 bin
@@ -14,3 +16,6 @@ pip-selfcheck.json
 *.swp
 *__pycache__
 *.egg-info
+*.ipynb-checkpoints
+*api_key.txt
+examples/.ipynb_checkpoints/*.ipynb
