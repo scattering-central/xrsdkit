@@ -26,7 +26,7 @@ class Regressors(object):
             If true, grid-search model hyperparameters
             to seek high cross-validation R^2 score.
         model : array of str
-            the names of models to train ('r_g_0','sigma_0',
+            the names of models to train ('rg_0','sigma_0',
             'r0_0', or "all" to train all models).
         testing_data : pandas.DataFrame (optional)
             dataframe containing original training data plus new data

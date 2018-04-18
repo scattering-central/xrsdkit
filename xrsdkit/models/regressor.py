@@ -15,7 +15,7 @@ class Regressor(XrsdModel):
 
         f = []
         f.extend(profiler.profile_keys_1)
-        if label.startswith( 'r_g' ): # 'r_g_0', 'r_g_1', 'r_g_2'....
+        if label.startswith( 'r_g' ): # 'rg_0', 'rg_1', 'rg_2'....
             f.extend(profiler.gp_profile_keys)
             self.features = f
         else:
@@ -50,14 +50,14 @@ class Regressor(XrsdModel):
         if populations['crystalline_structure_flag'][0]==1: # diffuse and crystaline pops
             return None
 
-        if self.target == 'r_g_0' and populations['guinier_porod_population_count'][0]==0:
+        if self.target == 'rg_0' and populations['guinier_porod_population_count'][0]==0:
             return None
 
         if (self.target == 'sigma_0' or self.target == 'r0_0')\
                 and populations['spherical_normal_population_count'][0]==0:
             return None
 
-        if self.target == 'r_g_0':
+        if self.target == 'rg_0':
             additional_features = guinier_porod_profile(q_I)
             my_features = np.append(np.array(list(sample_features.values())),
                                     np.array(list(additional_features.values()))).reshape(1,-1)

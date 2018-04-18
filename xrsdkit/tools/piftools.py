@@ -42,7 +42,7 @@ model_output_names = list([
     'fcc_structure_count',
     'guinier_porod_population_count',
     'spherical_normal_population_count',
-     'r_g_0', # for samples with guinier_porod_population_count == 1
+     'rg_0', # for samples with guinier_porod_population_count == 1
     'sigma_0', # for samples with spherical_normal_population_count == 1
      'r0_0'# for samples with spherical_normal_population_count == 1])
     ])
@@ -57,7 +57,7 @@ cl_model_output_names = list([
     ])
 
 reg_model_output_names = list([
-     'r_g_0', # for samples with guinier_porod_population_count == 1
+     'rg_0', # for samples with guinier_porod_population_count == 1
     'sigma_0', # for samples with spherical_normal_population_count == 1
      'r0_0'# for samples with spherical_normal_population_count == 1])
     ])
