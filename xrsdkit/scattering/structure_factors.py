@@ -1,10 +1,8 @@
 from functools import partial
 
 import numpy as np
-#import quadpy
 
-from xrsdkit import scattering
-from xrsdkit.scattering import form_factors as xrff
+from . import form_factors as xrff
 
 fcc_coords = np.array([
     [0.,0.,0.],
@@ -87,6 +85,7 @@ def hard_sphere_sf(q,r_sphere,volume_fraction):
 #            qi*np.sin(th)*np.sin(ph),
 #            qi*np.cos(th)]),
 #            popd)
+#    import quadpy
 #    sf_integral_func = lambda qi: quadpy.sphere.integrate_spherical(
 #        partial(sf_func,qi),rule=quadpy.sphere.Lebedev(35))
 #    sf = 1./(2*np.pi**2)*np.array(
