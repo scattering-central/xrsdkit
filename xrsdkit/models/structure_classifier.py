@@ -1,13 +1,13 @@
 import numpy as np
-from .general_model import XrsdModel
+from .general_model import XRSDModel
 
 
-class StructureClassifier(XrsdModel):
+class StructureClassifier(XRSDModel):
     """To create classifier for classifying structure from scattering/diffraction data;
     train, update, and save it; make a prediction."""
 
     def __init__(self,label,yml_file_cl=None):
-        XrsdModel.__init__(self, label, yml_file=yml_file_cl)
+        super(StructureClassifier,self).__init__(label, yml_file_cl)
         # use all default settings of xrsdModel
 
     def classify(self, sample_features):

@@ -8,9 +8,9 @@ from sklearn.metrics import mean_absolute_error
 from ..tools import profiler
 from . import set_param
 
-class XrsdModel(object):
+class XRSDModel(object):
 
-    def __init__(self, label, yml_file=None, classifier = True):
+    def __init__(self, label, yml_file=None, classifier=True):
         if yml_file is None:
             p = os.path.abspath(__file__)
             d = os.path.dirname(p)

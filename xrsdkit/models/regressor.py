@@ -1,15 +1,15 @@
 import numpy as np
-from .general_model import XrsdModel
+from .general_model import XRSDModel
 from ..tools import profiler
 from xrsdkit.tools.profiler import guinier_porod_profile, spherical_normal_profile
 
-class Regressor(XrsdModel):
+class Regressor(XRSDModel):
     """To create regressor for prediction continuous value from scattering/diffraction data;
     train, update, and save it; make a prediction."""
 
-    def __init__(self,label,yml_file_cl=None):
+    def __init__(self,label,yml_file=None):
 
-        XrsdModel.__init__(self, label, yml_file=yml_file_cl, classifier = False)
+        super(Regressor,self).__init__(label, yml_file, False)
 
         self.n_groups_out = 1
 
