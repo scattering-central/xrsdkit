@@ -58,7 +58,7 @@ def specie_ff_squared(q,specie_name,params):
         ff2_sph = spherical_normal_intensity(q,params['r0'],params['sigma']) 
         return ff2_sph
     else:
-        return specie_ff(q,specie_name,params)
+        return specie_ff(q,specie_name,params)**2
 
 def standard_atomic_ff(q,atom_symbol):
     pars = atomic_params[atom_symbol]
