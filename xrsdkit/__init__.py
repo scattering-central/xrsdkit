@@ -298,30 +298,26 @@ fixed_param_defaults = OrderedDict(
     a0=True, a1=True, a2=True, a3=True,
     b0=True, b1=True, b2=True, b3=True)
 
-def fcc_crystal(atom_symbol,a_lat,q_min=None,q_max=None,pk_profile=None,hwhm_g=None,hwhm_l=None):
-    fcc_pop = dict(
-        name='fcc_{}'+atom_symbol,
+def fcc_crystal(atom_symbol,a_lat=10.,pk_profile='voigt',I0=1.E-3,q_min=0.,q_max=1.,hwhm_g=0.001,hwhm_l=0.001):
+    return dict(
         structure='fcc',
-        settings={},
-        parameters={'a':a_lat},
+        settings={'q_min':q_min,'q_max':q_max,'profile':pk_profile},
+        parameters={'I0':I0,'a':a_lat,'hwhm_g':hwhm_g,'hwhm_l':hwhm_l},
         basis={'{}_atom'.format(atom_symbol):dict(
             coordinates=[0,0,0],
             atomic={'symbol':atom_symbol}
             )}
         )
-    if q_min:
-        fcc_pop['settings']['q_min'] = q_min
-    if q_max:
-        fcc_pop['settings']['q_max'] = q_max
-    if pk_profile:
-        fcc_pop['settings']['profile'] = pk_profile 
-    if hwhm_g:
-        fcc_pop['parameters']['hwhm_g'] = hwhm_g
-    if hwhm_l:
-        fcc_pop['parameters']['hwhm_l'] = hwhm_l
-    return fcc_pop
 
-# TODO: add more convenience constructors for various populations
+def flat_noise(I0=1.E-3):
+    return dict(
+        structure='diffuse',
+        settings={},
+        parameters={'I0':I0},
+        basis={'flat_noise':{'flat':{}}}
+        )
+
+# TODO: more convenience constructors for various populations
 
 
 
