@@ -298,6 +298,19 @@ fixed_param_defaults = OrderedDict(
     a0=True, a1=True, a2=True, a3=True,
     b0=True, b1=True, b2=True, b3=True)
 
+def contains_param(populations,pop_nm,param_nm):
+    if pop_nm in populations:
+        if 'parameters' in populations[pop_nm]:
+            if param_nm in populations[pop_nm]['parameters']:
+                return True
+    return False 
+def contains_setting(populations,pop_nm,setting_nm):
+    if pop_nm in populations:
+        if 'settings' in populations[pop_nm]:
+            if setting_nm in populations[pop_nm]['settings']:
+                return True
+    return False 
+
 def fcc_crystal(atom_symbol,a_lat=10.,pk_profile='voigt',I0=1.E-3,q_min=0.,q_max=1.,hwhm_g=0.001,hwhm_l=0.001):
     return dict(
         structure='fcc',
