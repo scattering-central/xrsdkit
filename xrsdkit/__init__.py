@@ -304,12 +304,27 @@ def contains_param(populations,pop_nm,param_nm):
             if param_nm in populations[pop_nm]['parameters']:
                 return True
     return False 
+
+def update_param(populations,pop_nm,param_nm,param_val):
+    if not pop_nm in populations:
+        populations[pop_nm] = {}
+    if not 'parameters' in populations[pop_nm]:
+        populations[pop_nm]['parameters'] = {}
+    populations[pop_nm]['parameters'][param_nm] = param_val
+
 def contains_setting(populations,pop_nm,setting_nm):
     if pop_nm in populations:
         if 'settings' in populations[pop_nm]:
             if setting_nm in populations[pop_nm]['settings']:
                 return True
     return False 
+
+def update_setting(populations,pop_nm,setting_nm,setting_val):
+    if not pop_nm in populations:
+        populations[pop_nm] = {}
+    if not 'settings' in populations[pop_nm]:
+        populations[pop_nm]['settings'] = {}
+    populations[pop_nm]['settings'][setting_nm] = setting_val
 
 def fcc_crystal(atom_symbol,a_lat=10.,pk_profile='voigt',I0=1.E-3,q_min=0.,q_max=1.,hwhm_g=0.001,hwhm_l=0.001):
     return dict(
