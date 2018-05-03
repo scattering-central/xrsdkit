@@ -116,8 +116,7 @@ The supported form factors and their parameters are:
 
     - 'atomic': atomic form factors described by
         ff = Z - 41.78214 * s**2 * sum_i(a_i*exp(-b_i*s**2)),
-        where Z is the atomic number
-        (defined by the 'symbol' or 'Z' settings),
+        where Z is the atomic number,
         s = sin(theta)/lambda,
         and a_i, b_i are the form factor parameters.
         These scatterers respect the following settings:
@@ -258,25 +257,32 @@ setting_defaults = OrderedDict(
     q_max = 1.,
     profile = 'voigt')
 
+setting_datatypes = OrderedDict(
+    Z = int,
+    symbol = str,
+    q_min = float,
+    q_max = float,
+    profile = str)
+
 param_bound_defaults = OrderedDict(
-    I0 = (0.,None),
-    occupancy = (0.,1.),
-    coordinates = (None,None),
-    G = (0.,None),
-    rg = (1.E-1,None),
-    D = (0.,4.),
-    r = (1.E-1,None),
-    r0 = (1.E-1,None),
-    sigma = (0.,0.5),
-    r_hard = (1.E-1,None),
-    v_fraction = (0.05,0.7405),
-    hwhm_g = (1.E-6,None),
-    hwhm_l = (1.E-6,None),
-    q_center = (0.,None),
-    a = (0.,None),
-    Z = (0.,120),
-    a0=(0.,None),a1=(0.,None),a2=(0.,None),a3=(0.,None),
-    b0=(0.,None),b1=(0.,None),b2=(0.,None),b3=(0.,None))
+    I0 = [0.,None],
+    occupancy = [0.,1.],
+    coordinates = [None,None],
+    G = [0.,None],
+    rg = [1.E-1,None],
+    D = [0.,4.],
+    r = [1.E-1,None],
+    r0 = [1.E-1,None],
+    sigma = [0.,0.5],
+    r_hard = [1.E-1,None],
+    v_fraction = [0.05,0.7405],
+    hwhm_g = [1.E-6,None],
+    hwhm_l = [1.E-6,None],
+    q_center = [0.,None],
+    a = [0.,None],
+    Z = [0.,120],
+    a0=[0.,None],a1=[0.,None],a2=[0.,None],a3=[0.,None],
+    b0=[0.,None],b1=[0.,None],b2=[0.,None],b3=[0.,None])
 
 fixed_param_defaults = OrderedDict(
     I0 = False,
