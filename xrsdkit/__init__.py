@@ -116,8 +116,7 @@ The supported form factors and their parameters are:
 
     - 'atomic': atomic form factors described by
         ff = Z - 41.78214 * s**2 * sum_i(a_i*exp(-b_i*s**2)),
-        where Z is the atomic number
-        (defined by the 'symbol' or 'Z' settings),
+        where Z is the atomic number,
         s = sin(theta)/lambda,
         and a_i, b_i are the form factor parameters.
         These scatterers respect the following settings:
