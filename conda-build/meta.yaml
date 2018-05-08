@@ -1,0 +1,62 @@
+{% set name = "xrsdkit" %}
+{% set version = "0.0.11" %}
+{% set file_ext = "tar.gz" %}
+{% set hash_type = "sha256" %}
+{% set hash_value = "c4d785e785f4b902a3c1a6add435920bd359acec7cec168224b9df298a794234" %}
+
+package:
+  name: '{{ name|lower }}'
+  version: '{{ version }}'
+
+source:
+  fn: '{{ name }}-{{ version }}.{{ file_ext }}'
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
+  '{{ hash_type }}': '{{ hash_value }}'
+
+build:
+  noarch: python
+  number: 0
+  script: python setup.py install --single-version-externally-managed --record=record.txt
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - pyyaml
+    - numpy
+    - scipy
+    - pandas
+    - scikit-learn
+    - lmfit
+    - pymatgen
+  run:
+    - python
+    - pyyaml
+    - numpy
+    - scipy
+    - pandas
+    - scikit-learn
+    - lmfit
+    - pymatgen
+
+test:
+  imports:
+    - xrsdkit
+    - xrsdkit.fitting
+    - xrsdkit.models
+    - xrsdkit.models.modeling_data
+    - xrsdkit.scattering
+    - xrsdkit.tools
+
+about:
+  home: https://github.com/scattering-central/xrsdkit.git
+  license: BSD
+  license_family: BSD
+  license_file: ''
+  summary: Scattering and diffraction analysis and modeling toolkit
+  description: ''
+  doc_url: ''
+  dev_url: ''
+
+extra:
+  recipe-maintainers: ''
