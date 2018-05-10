@@ -304,6 +304,23 @@ fixed_param_defaults = OrderedDict(
     a0=True, a1=True, a2=True, a3=True,
     b0=True, b1=True, b2=True, b3=True)
 
+def contains_coordinates(populations,pop_nm,site_nm):
+    if pop_nm in populations:
+        if 'basis' in populations[pop_nm]:
+            if site_nm in populations[pop_nm]['basis']:
+                if 'coordinates' in populations[pop_nm]['basis'][site_nm]:
+                    return True
+    return False    
+
+def update_coordinates(populations,pop_nm,site_nm,new_values):
+    if not pop_nm in populations:
+        populations[pop_nm] = {}
+    if not 'basis' in populations[pop_nm]:
+        populations[pop_nm]['basis'] = {}
+    if not site_nm in populations[pop_nm]['basis']:
+        populations[pop_nm]['basis'][site_nm] = {}
+    populations[pop_nm]['basis'][site_nm]['coordinates'] = new_values
+
 def contains_param(populations,pop_nm,param_nm):
     if pop_nm in populations:
         if 'parameters' in populations[pop_nm]:
