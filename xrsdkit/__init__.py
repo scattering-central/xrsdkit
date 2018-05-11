@@ -287,7 +287,7 @@ def contains_coordinates(populations,pop_nm,site_nm):
                     return True
     return False    
 
-def site_contains_param(populations,pop_nm,site_nm,param_nm):
+def contains_site_param(populations,pop_nm,site_nm,param_nm):
     if pop_nm in populations:
         if 'basis' in populations[pop_nm]:
             if site_nm in populations[pop_nm]['basis']:
@@ -296,7 +296,7 @@ def site_contains_param(populations,pop_nm,site_nm,param_nm):
                     if param_nm in site_def['parameters']: 
                         return True
 
-def update_specie_param(populations,pop_nm,site_nm,specie_nm,param_nm,new_value):
+def update_site_param(populations,pop_nm,site_nm,specie_nm,param_nm,new_value):
     if not pop_nm in populations:
         populations[pop_nm] = {}
     if not 'basis' in populations[pop_nm]:
