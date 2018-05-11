@@ -257,16 +257,6 @@ fixed_param_defaults = OrderedDict(
     a0=True, a1=True, a2=True, a3=True,
     b0=True, b1=True, b2=True, b3=True)
 
-def default_specie_definition(specie_nm):
-    pd = OrderedDict.fromkeys(
-        form_factor_settings[specie_nm]
-        +form_factor_params[specie_nm]) 
-    for snm in form_factor_settings[specie_nm]:
-        pd[snm] = setting_defaults[snm] 
-    for pnm in form_factor_params[specie_nm]:
-        pd[pnm] = param_defaults[pnm] 
-    return pd
-
 def contains_coordinates(populations,pop_nm,site_nm):
     if pop_nm in populations:
         if 'basis' in populations[pop_nm]:
@@ -344,6 +334,21 @@ def fcc_crystal(atom_symbol,a_lat=10.,pk_profile='voigt',I0=1.E-3,q_min=0.,q_max
             )}
         )
 
+def unidentified_population():
+    return dict(
+        structure='unidentified',
+        settings={}, 
+        parameters={},
+        basis={}
+        )
+
+def empty_site():
+    return dict(
+        form='diffuse',
+        settings={},
+        parameters={}
+        )
+        
 def flat_noise(I0=1.E-3):
     return dict(
         structure='diffuse',
@@ -352,7 +357,21 @@ def flat_noise(I0=1.E-3):
         basis={'flat_noise':{'form':'flat'}}
         )
 
+def default_site_definition(ff_nm,crystalline=False):
+    pd = OrderedDict()
+    pd['form'] = ff_nm
+    pd['settings'] = OrderedDict.fromkeys(form_factor_settings[ff_nm])
+    pd['parameters'] = OrderedDict.fromkeys(form_factor_params[ff_nm])
+    if crystalline:
+        cdef = param_defaults['coordinates']
+        pd['coordinates'] = [float(cdef),float(cdef),float(cdef)]
+    for snm in form_factor_settings[ff_nm]:
+        pd['settings'][snm] = setting_defaults[snm] 
+    for pnm in form_factor_params[ff_nm]:
+        pd['parameters'][pnm] = param_defaults[pnm] 
+    return pd
+
+
+
 # TODO: more convenience constructors for various populations
-
-
 
