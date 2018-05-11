@@ -158,7 +158,6 @@ class XRSDFitter(object):
         p_base = copy.deepcopy(p_base)
         for pop_name,popd in p_new.items():
             #if pop_name in p_base.keys():
-            print('popd.keys()', popd.keys()) # dict_keys(['basis', 'parameters'])
             if 'parameters' in popd.keys():
                 for param_name,param_val in popd['parameters'].items():
                     p_base[pop_name]['parameters'][param_name] = copy.deepcopy(param_val)
@@ -178,13 +177,6 @@ class XRSDFitter(object):
                                     copy.deepcopy(ff_param_val)
                         else:
                             for ff_param_name, ff_param_val in site_item.items():
-                                print(pop_name, site_name, k, ff_param_name) # k is "parameters"
-                                print(p_base[pop_name]['basis'][site_name]) # {}
-
-                                #p_base[pop_name]['basis'][site_name][k][ff_param_name] = \
-                                        #copy.deepcopy(ff_param_val)
-
-                                # check if we have p_base[pop_name]['basis'][site_name][k]
                                 update_site_param(p_base,pop_name,site_name,ff_param_name,copy.deepcopy(ff_param_val))
         return p_base
 
