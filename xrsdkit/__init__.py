@@ -284,7 +284,7 @@ def contains_site_param(populations,pop_nm,site_nm,param_nm):
                     if param_nm in site_def['parameters']: 
                         return True
 
-def update_site_param(populations,pop_nm,site_nm,specie_nm,param_nm,new_value):
+def update_site_param(populations,pop_nm,site_nm,param_nm,new_value):
     if not pop_nm in populations:
         populations[pop_nm] = {}
     if not 'basis' in populations[pop_nm]:
