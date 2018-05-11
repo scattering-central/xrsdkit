@@ -5,7 +5,7 @@ import os
 import numpy as np
 import lmfit
 
-from .. import all_params, param_defaults, fixed_param_defaults, param_bound_defaults
+from .. import all_params, param_defaults, fixed_param_defaults, param_bound_defaults, update_site_param
 from ..scattering import compute_intensity
 from ..tools import compute_chi2
 
@@ -158,6 +158,7 @@ class XRSDFitter(object):
         p_base = copy.deepcopy(p_base)
         for pop_name,popd in p_new.items():
             #if pop_name in p_base.keys():
+            print('popd.keys()', popd.keys()) # dict_keys(['basis', 'parameters'])
             if 'parameters' in popd.keys():
                 for param_name,param_val in popd['parameters'].items():
                     p_base[pop_name]['parameters'][param_name] = copy.deepcopy(param_val)
@@ -177,8 +178,14 @@ class XRSDFitter(object):
                                     copy.deepcopy(ff_param_val)
                         else:
                             for ff_param_name, ff_param_val in site_item.items():
-                                p_base[pop_name]['basis'][site_name][k][ff_param_name] = \
-                                copy.deepcopy(ff_param_val)
+                                print(pop_name, site_name, k, ff_param_name) # k is "parameters"
+                                print(p_base[pop_name]['basis'][site_name]) # {}
+
+                                #p_base[pop_name]['basis'][site_name][k][ff_param_name] = \
+                                        #copy.deepcopy(ff_param_val)
+
+                                # check if we have p_base[pop_name]['basis'][site_name][k]
+                                update_site_param(p_base,pop_name,site_name,ff_param_name,copy.deepcopy(ff_param_val))
         return p_base
 
     def pack_lmfit_params(self,populations=None,fixed_params={},param_bounds={},param_constraints={}):
