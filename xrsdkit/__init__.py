@@ -48,15 +48,6 @@ The supported structure factors and their settings and parameters are:
         - parameter 'r_hard' : hard sphere radius 
         - parameter 'v_fraction' : volume fraction of spheres
 
-    - 'disordered' : condensed, disordered material, 
-        computed as a single peak, whose profile
-        is specified by the 'profile' setting.
-
-        - setting 'profile' : choice of peak profile ('gaussian','lorentzian','voigt')
-        - parameter 'q_center' : q-location of the single peak 
-        - parameter 'hwhm_g' : Gaussian half-width at half-max
-        - parameter 'hwhm_l' : Lorentzian half-width at half-max
-
     - 'fcc' : crystalline fcc lattice; 
         peaks are computed according to 
         the settings 'profile', 'q_min', and 'q_max'.
@@ -143,7 +134,6 @@ structure_names = [\
 'unidentified',\
 'hard_spheres',\
 'diffuse',\
-'disordered',\
 'fcc']
 
 # list of allowed form factors:
@@ -165,14 +155,12 @@ structure_params = OrderedDict.fromkeys(structure_names)
 for nm in structure_names: structure_params[nm] = ['I0']
 structure_params['unidentified'] = []
 structure_params['hard_spheres'].extend(['r_hard','v_fraction'])
-structure_params['disordered'].extend(['q_center','hwhm_g','hwhm_l'])
 structure_params['fcc'].extend(['a','hwhm_g','hwhm_l'])
 
 # list of allowed settings for each structure
 structure_settings = OrderedDict.fromkeys(structure_names)
 for nm in structure_settings: structure_settings[nm] = []
 structure_settings['fcc'].extend(['profile','q_min','q_max'])
-structure_settings['disordered'].extend(['profile'])
 
 # list of allowed parameters for each form factor 
 form_factor_params = OrderedDict.fromkeys(form_factor_names)
