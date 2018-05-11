@@ -138,15 +138,10 @@ class XRSDFitter(object):
             #    ep[pop_name]['settings'][setting_name] = None
             for site_name,site_def in popd['basis'].items():
                 ep[pop_name]['basis'][site_name] = {} 
-                for k,site_item in site_def.items():
-                    if k == 'coordinates': 
-                        ep[pop_name]['basis'][site_name][k] = [None,None,None] 
-                    elif isinstance(site_item,list):
-                        # list of form factor param dicts
-                        ep[pop_name]['basis'][site_name][k] = [dict.fromkeys(stitm.keys()) for stitm in site_item]
-                    else:
-                        # dict of form factor params
-                        ep[pop_name]['basis'][site_name][k] = dict.fromkeys(site_item.keys())
+                if 'coordinates' in site_def: 
+                    ep[pop_name]['basis'][site_name]['coordinates'] = [None,None,None] 
+                if 'coordinates' in site_def: 
+                    ep[pop_name]['basis'][site_name]['parameters'] = dict.fromkeys(site_def['parameters'].keys())
         return ep
 
     def print_report(self,init_pops,fit_pops,report):
@@ -236,20 +231,14 @@ class XRSDFitter(object):
                     pd[pop_name+'__'+param_name] = copy.deepcopy(param_val)
             if 'basis' in popd:
                 for site_name, site_def in popd['basis'].items():
-                    for k, site_item in site_def.items():
-                        if k == 'coordinates':
-                            pd[pop_name+'__'+site_name+'__coordinate_0'] = copy.deepcopy(site_item[0])
-                            pd[pop_name+'__'+site_name+'__coordinate_1'] = copy.deepcopy(site_item[1])
-                            pd[pop_name+'__'+site_name+'__coordinate_2'] = copy.deepcopy(site_item[2])
-                        elif isinstance(site_item,list):
-                            for ist,stitm in enumerate(site_item):
-                                for ff_param_name, ff_param_val in stitm.items():
-                                    pd[pop_name+'__'+site_name+'__'+k+'__'+str(ist)+'__'+ff_param_name] = \
-                                    copy.deepcopy(ff_param_val)
-                        else:
-                            for ff_param_name, ff_param_val in site_item.items():
-                                pd[pop_name+'__'+site_name+'__'+k+'__'+ff_param_name] = \
-                                copy.deepcopy(ff_param_val)
+                    if 'coordinates' in site_def:
+                        pd[pop_name+'__'+site_name+'__coordinate_0'] = copy.deepcopy(site_def['coordinates'][0])
+                        pd[pop_name+'__'+site_name+'__coordinate_1'] = copy.deepcopy(site_def['coordinates'][1])
+                        pd[pop_name+'__'+site_name+'__coordinate_2'] = copy.deepcopy(site_def['coordinates'][2])
+                    if 'parameters' in site_def:
+                        for ff_param_name, ff_param_val in site_def['parameters'].items():
+                            pd[pop_name+'__'+site_name+'__'+ff_param_name] = \
+                            copy.deepcopy(ff_param_val)
         return pd
 
     @staticmethod
@@ -274,29 +263,18 @@ class XRSDFitter(object):
                     pd[pop_name]['basis'] = {} 
                 if not site_name in pd[pop_name]['basis']:
                     pd[pop_name]['basis'][site_name] = {}
-                if kdepth == 3:
+                if ks[2] in ['coordinate_0','coordinate_1','coordinate_2']:
                     # a coordinate
-                    coord_idx = int(ks[2][-1])
                     if not 'coordinates' in pd[pop_name]['basis'][site_name]:
                         pd[pop_name]['basis'][site_name]['coordinates'] = [None,None,None]
+                    coord_idx = int(ks[2][-1])
                     pd[pop_name]['basis'][site_name]['coordinates'][coord_idx] = copy.deepcopy(pval) 
-                elif kdepth == 4:
+                else:
                     # a parameter for a form factor
-                    ff_name = ks[2]
-                    ff_param_name = ks[3]
-                    if not ff_name in pd[pop_name]['basis'][site_name]:
-                        pd[pop_name]['basis'][site_name][ff_name] = {}
-                    pd[pop_name]['basis'][site_name][ff_name][ff_param_name] = copy.deepcopy(pval)
-                elif kdepth == 5:
-                    # a parameter for one of multiple form factors
-                    ff_name = ks[2]
-                    ff_idx = int(ks[3])
-                    ff_param_name = ks[4]
-                    if not ff_name in pd[pop_name]['basis'][site_name]:
-                        pd[pop_name]['basis'][site_name][ff_name] = []
-                    while ff_idx >= len(pd[pop_name]['basis'][site_name][ff_name]):
-                        pd[pop_name][pop_item_name][site_name][ff_name].append({})
-                    pd[pop_name]['basis'][site_name][ff_name][ff_idx][ff_param_name] = copy.deepcopy(pval)
+                    if not 'parameters' in pd[pop_name]['basis'][site_name]:
+                        pd[pop_name]['basis'][site_name]['parameters'] = {} 
+                    param_name = ks[2]
+                    pd[pop_name]['basis'][site_name]['parameters'][param_name] = copy.deepcopy(pval)
         return pd
 
     def evaluate_residual(self,populations,error_weighted=True,logI_weighted=True):

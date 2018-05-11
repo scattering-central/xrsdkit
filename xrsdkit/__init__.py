@@ -176,6 +176,7 @@ structure_settings['disordered'].extend(['profile'])
 
 # list of allowed parameters for each form factor 
 form_factor_params = OrderedDict.fromkeys(form_factor_names)
+for nm in form_factor_params: form_factor_params[nm] = []
 form_factor_params['guinier_porod'].extend(['G','rg','D'])
 form_factor_params['spherical'].extend(['r'])
 form_factor_params['spherical_normal'].extend(['r0','sigma'])

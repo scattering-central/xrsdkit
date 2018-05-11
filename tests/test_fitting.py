@@ -19,12 +19,15 @@ def test_fit_spheres():
     populations['noise'] = dict(
         structure='diffuse',
         parameters={'I0':0.1},
-        basis={'flat_noise':{'flat':{}}}
+        basis={'flat_noise':{'form':'flat'}}
         )
     populations['nanoparticles'] = dict(
         structure='diffuse',
         parameters={'I0':1000},
-        basis={'spherical_nanoparticles':{'spherical_normal':{'r0':20,'sigma':0.05}}}
+        basis={'spherical_nanoparticles':{
+            'form':'spherical_normal',
+            'parameters':{'r0':20,'sigma':0.05}
+            }}
         )
     ftr = XRSDFitter(q_I,populations,src_wl)
     fit_pops,rpt = ftr.fit()
@@ -50,7 +53,7 @@ def test_fit_sphere_diffraction():
     populations['noise'] = dict(
         structure='diffuse',
         parameters={'I0':0.01},
-        basis={'flat_noise':{'flat':{}}}
+        basis={'flat_noise':{'form':'flat'}}
         )
     #populations['nanoparticles'] = dict(
     #    structure='diffuse',
@@ -66,8 +69,9 @@ def test_fit_sphere_diffraction():
             hwhm_l=0.001,
             I0=1.E-4),
         basis={'spherical_nanoparticles':dict(
-            spherical={'r':40},
-            coordinates=[0.,0.,0.]
+            form='spherical',
+            coordinates=[0.,0.,0.],
+            parameters={'r':40},
             )}
         )
     ftr = XRSDFitter(q_I,populations,src_wl)
