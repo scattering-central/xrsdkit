@@ -7,54 +7,32 @@ where each population has a name (key)
 and a sub-dict of parameters (value).
 Each population sub-dict should have the following entries: 
 
-    - 'structure' : the structure of the population 
-        (e.g. 'diffuse', 'fcc'). 
+    - 'structure' : structure identifier (e.g. 'diffuse', 'fcc'). 
 
-    - 'settings' : dict defining settings for 
-        the computational treatment of the population,
-        such as peak profile specifications, 
-        atomic symbols, and q-limits for reciprocal space analysis.
-        Settings are not intended to vary during optimization.
-
-        - 'q_min' : minimum q-value for reciprocal lattice analysis 
-        - 'q_max' : maximum q-value for reciprocal lattice analysis 
-        - 'profile' : 'gaussian', 'lorentzian', or 'voigt' 
-
-    - 'parameters' : dict describing the structure (lattice parameters, etc)
-        as well as any other scalar parameters used for the computation.
-        Parameters are intended to be varied continuously,
-        e.g. during optimization problems.
-        Some keys are used for parameterizing intensities and diffraction peaks:
-
-        - 'I0' : the scattering or diffraction computed for each population 
-            is multiplied by this intensity prefactor,
-            assumed equal to 1 if not provided
-        - 'hwhm_g' : half-width at half max of Gaussian functions 
-        - 'hwhm_l' : half-width at half max of Lorentzian functions 
-        - 'q_center' : center q-value for describing single 'disordered' peaks
-    
-        Other keys are used for structural parameters:
-
-        - 'a', 'b', 'c' : a, b, and c lattice parameters
-        - 'alpha' : angle between b and c lattice vectors
-        - 'beta' : angle between a and c lattice vectors
-        - 'gamma' : angle between a and b lattice vectors
+    - 'settings' : any settings needed for computing the structure factor
+        
+    - 'parameters' : computational and physical parameters of the structure 
 
     - 'basis' : dict containing site names (as keys)
         and dicts specifying site location and content (as values).
         The site content dicts are structured as:
 
         - 'coordinates' : list of three floating point numbers,
-            the fractional coordinates relative to a lattice site.
+            the fractional coordinates relative to a lattice site,
+            required only for crystalline structures.
 
-        - The remaining entries are form factor specifiers,
-            referring to dicts or lists of dicts 
-            containing parameter names and values for that form factor.
-            A list of dicts is used to specify 
-            multiple scatterers of the same type,
-            e.g. for implementing fractional occupancies.
+        - 'form' : form factor identifier
+    
+        - 'settings' : any settings needed for computing the form factor
 
-The supported structure factors and their parameters are: 
+        - 'parameters' : form factor parameters 
+
+
+The supported structure factors and their settings and parameters are: 
+
+    - all structures:
+
+      - parameter 'I0': intensity prefactor 
 
     - 'diffuse' : a diffuse (or dilute), 
         non-interfering scattering ensemble.
@@ -67,31 +45,31 @@ The supported structure factors and their parameters are:
         TODO: Cite
         (Ornstein-Zernike, 1918; Percus-Yevick, 1958; Hansen-McDonald, 1986, Hammouda)
 
-        - 'r_hard' : hard sphere radius 
-        - 'v_fraction' : volume fraction of spheres
+        - parameter 'r_hard' : hard sphere radius 
+        - parameter 'v_fraction' : volume fraction of spheres
 
     - 'disordered' : condensed, disordered material, 
         computed as a single peak, whose profile
         is specified by the 'profile' setting.
 
-        - 'q_center' : q-location of the single peak 
-        - 'hwhm_g' : Gaussian half-width at half-max
-        - 'hwhm_l' : Lorentzian half-width at half-max
+        - setting 'profile' : choice of peak profile ('gaussian','lorentzian','voigt')
+        - parameter 'q_center' : q-location of the single peak 
+        - parameter 'hwhm_g' : Gaussian half-width at half-max
+        - parameter 'hwhm_l' : Lorentzian half-width at half-max
 
     - 'fcc' : crystalline fcc lattice; 
         peaks are computed according to 
         the settings 'profile', 'q_min', and 'q_max'.
 
-        - 'a' : cubic lattice parameter 
-        - 'hwhm_g' : Gaussian half-width at half-max
-        - 'hwhm_l' : Lorentzian half-width at half-max
+        - setting 'profile' : choice of peak profile ('gaussian','lorentzian','voigt')
+        - setting 'q_min' : minimum q-value for reciprocal space summation 
+        - setting 'q_max' : minimum q-value for reciprocal space summation 
+        - parameter 'a' : cubic lattice parameter 
+        - parameter 'hwhm_g' : Gaussian half-width at half-max
+        - parameter 'hwhm_l' : Lorentzian half-width at half-max
         
-    - all structures:
 
-      - 'I0': intensity prefactor 
-
-
-The supported form factors and their parameters are:
+The supported form factors and their settings and parameters are:
 
     - 'flat': a flat form factor for all q,
         implemented for simulating a noise floor.
@@ -100,19 +78,19 @@ The supported form factors and their parameters are:
     - 'guinier_porod': scatterer populations described 
         by the Guinier-Porod equations.
 
-      - 'G': Guinier prefactor 
-      - 'rg': radius of gyration 
-      - 'D': Porod exponent 
+      - parameter 'G': Guinier prefactor 
+      - parameter 'rg': radius of gyration 
+      - parameter 'D': Porod exponent 
 
     - 'spherical': solid spheres 
 
-      - 'r': sphere radius (Angstrom) 
+      - parameter 'r': sphere radius (Angstrom) 
 
     - 'spherical_normal': solid spheres 
         with a normal size distribution.
 
-      - 'r0': mean sphere radius (Angstrom) 
-      - 'sigma': fractional standard deviation of radius
+      - parameter 'r0': mean sphere radius (Angstrom) 
+      - parameter 'sigma': fractional standard deviation of radius
 
     - 'atomic': atomic form factors described by
         ff = Z - 41.78214 * s**2 * sum_i(a_i*exp(-b_i*s**2)),
@@ -121,25 +99,15 @@ The supported form factors and their parameters are:
         and a_i, b_i are the form factor parameters.
         These scatterers respect the following settings:
 
-      - 'symbol': Atomic symbol (as on the periodic table),
+      - setting 'symbol': Atomic symbol (as on the periodic table),
         for using the standard scattering parameters
         (see atomic_scattering_parameters.yaml).
         Atomic sites outside the standard parameter set
         must provide a setting for the atomic number (Z),
         and up to four pairs of scattering parameters (a, b).
-      - 'Z': atomic number
-
-      The parameters for atomic scatterers are:
-
-      - 'a0', 'a1', 'a2', 'a3': a coefficients 
-      - 'b0', 'b1', 'b2', 'b3': b coefficients 
-
-    - all form factors:
-
-      - 'occupancy': occupancy fraction, used for basis sites 
-        with multiple fractional occupancies.
-        If not specified, 
-        an occupancy of 1 is assumed.
+      - setting 'Z': atomic number
+      - parameters 'a0', 'a1', 'a2', 'a3' coefficients 
+      - parameters 'b0', 'b1', 'b2', 'b3' exponents 
 
 For example, a single flat scatterer 
 is placed in a 40-Angstrom fcc lattice,
@@ -162,16 +130,13 @@ my_populations = dict(
         basis=dict(
             my_flat_scatterer=dict(
                 coordinates=[0,0,0],
-                flat={}
+                form='flat'
                 )
             )
         )
     )
 """
 from collections import OrderedDict
-
-# TODO: shelve occupancy and multiple site occupants 
-# TODO: remove optional lists from populations specification
 
 # list of allowed structure specifications
 structure_names = [\
@@ -211,7 +176,6 @@ structure_settings['disordered'].extend(['profile'])
 
 # list of allowed parameters for each form factor 
 form_factor_params = OrderedDict.fromkeys(form_factor_names)
-for nm in form_factor_names: form_factor_params[nm] = ['occupancy']
 form_factor_params['guinier_porod'].extend(['G','rg','D'])
 form_factor_params['spherical'].extend(['r'])
 form_factor_params['spherical_normal'].extend(['r0','sigma'])
@@ -223,7 +187,7 @@ for nm in form_factor_settings: form_factor_settings[nm] = []
 form_factor_settings['atomic'].extend(['symbol','Z'])
 
 all_params = [\
-'I0','occupancy',\
+'I0',\
 'coordinates',\
 'a',\
 'G','rg','D',\
@@ -235,7 +199,6 @@ all_params = [\
 
 param_defaults = OrderedDict(
     I0 = 1.E-3,
-    occupancy = 1.,
     coordinates = 0.,
     G = 1.,
     rg = 10.,
@@ -269,7 +232,6 @@ setting_datatypes = OrderedDict(
 
 param_bound_defaults = OrderedDict(
     I0 = [0.,None],
-    occupancy = [0.,1.],
     coordinates = [None,None],
     G = [0.,None],
     rg = [1.E-1,None],
@@ -289,7 +251,6 @@ param_bound_defaults = OrderedDict(
 
 fixed_param_defaults = OrderedDict(
     I0 = False,
-    occupancy = True,
     coordinates = True,
     G = False,
     rg = False,
@@ -325,37 +286,25 @@ def contains_coordinates(populations,pop_nm,site_nm):
                     return True
     return False    
 
-def contains_specie_param(populations,pop_nm,site_nm,specie_nm,iispec,sparam_nm):
+def site_contains_param(populations,pop_nm,site_nm,param_nm):
     if pop_nm in populations:
         if 'basis' in populations[pop_nm]:
             if site_nm in populations[pop_nm]['basis']:
                 site_def = populations[pop_nm]['basis'][site_nm]
-                if specie_nm in site_def:
-                    specie_def = site_def[specie_nm]
-                    if not isinstance(specie_def,list):
-                        if iispec == 0 and sparam_nm in specie_def:
-                            return True
-                    else:
-                        if iispec < len(specie_def):
-                            sparams = specie_def[iispec] 
-                            if sparam_nm in sparams:
-                                return True
+                if 'parameters' in site_def: 
+                    if param_nm in site_def['parameters']: 
+                        return True
 
-def update_specie_param(populations,pop_nm,site_nm,specie_nm,iispec,sparam_nm,new_value):
+def update_specie_param(populations,pop_nm,site_nm,specie_nm,param_nm,new_value):
     if not pop_nm in populations:
         populations[pop_nm] = {}
     if not 'basis' in populations[pop_nm]:
         populations[pop_nm]['basis'] = {}
     if not site_nm in populations[pop_nm]['basis']:
         populations[pop_nm]['basis'][site_nm] = {}
-    if not specie_nm in populations[pop_nm]['basis'][site_nm]:
-        populations[pop_nm]['basis'][site_nm][specie_nm] = {} 
-    specie_def = populations[pop_nm]['basis'][site_nm][specie_nm]
-    if isinstance(specie_def,list):
-        sparams = specie_def[iispec]
-    else:
-        sparams = specie_def
-    sparams[sparam_nm] = new_value
+    if not 'parameters' in populations[pop_nm]['basis'][site_nm]:
+        populations[pop_nm]['basis'][site_nm]['parameters'] = {} 
+    populations[pop_nm]['basis'][site_nm]['parameters'][param_nm] = new_value
 
 def update_coordinates(populations,pop_nm,site_nm,new_values):
     if not pop_nm in populations:
@@ -399,9 +348,10 @@ def fcc_crystal(atom_symbol,a_lat=10.,pk_profile='voigt',I0=1.E-3,q_min=0.,q_max
         structure='fcc',
         settings={'q_min':q_min,'q_max':q_max,'profile':pk_profile},
         parameters={'I0':I0,'a':a_lat,'hwhm_g':hwhm_g,'hwhm_l':hwhm_l},
-        basis={'{}_atom'.format(atom_symbol):dict(
+        basis={atom_symbol+'_atom':dict(
             coordinates=[0,0,0],
-            atomic={'symbol':atom_symbol}
+            form='atomic',
+            settings={'symbol':atom_symbol}
             )}
         )
 
@@ -410,7 +360,7 @@ def flat_noise(I0=1.E-3):
         structure='diffuse',
         settings={},
         parameters={'I0':I0},
-        basis={'flat_noise':{'flat':{}}}
+        basis={'flat_noise':{'form':'flat'}}
         )
 
 # TODO: more convenience constructors for various populations
