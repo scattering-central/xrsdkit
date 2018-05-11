@@ -113,10 +113,6 @@ def populations_properties(populations):
     if any([popd['structure'] in crystalline_structure_names 
     for pop_name,popd in populations.items()]):
         crystalline_flag = 1
-    disordered_flag = 0
-    if any([popd['structure'] == 'disordered' 
-    for pop_name,popd in populations.items()]):
-        disordered_flag = 1
     diffuse_flag = 0
     if any([popd['structure'] == 'diffuse' and not pop_name == 'noise' 
     for pop_name,popd in populations.items()]):
@@ -130,56 +126,54 @@ def populations_properties(populations):
     properties.append(scalar_property(
         'diffuse_structure_flag',diffuse_flag,
         'diffuse structure flag','EXPERIMENTAL'))
-    properties.append(scalar_property(
-        'disordered_structure_flag',disordered_flag,
-        'disordered structure flag','EXPERIMENTAL'))
-    structure_params = OrderedDict.fromkeys(structure_names)
-    structure_params.pop('unidentified')
-    ff_params = OrderedDict.fromkeys(form_factor_names)
-    for k in structure_names: structure_params[k] = [] 
-    for k in form_factor_names: ff_params[k] = [] 
-    for pop_name,popd in populations.items():
-        if not pop_name == 'noise' and not popd['structure'] == 'unidentified':
-            structure_params[popd['structure']].append(popd['parameters'])
-        if popd['structure'] == 'diffuse':
-            #if 'basis' in popd:
-            for site_name,site_items in popd['basis'].items():
-                for site_item_tag, site_item in site_items.items():
-                    #if site_item_tag in diffuse_form_factor_names:
-                    if isinstance(site_item,list): 
-                        ff_params[site_item_tag].extend(site_item)
-                    else:
-                        ff_params[site_item_tag].append(site_item)
-    structure_properties = []
-    for structure_name,param_list in structure_params.items():
-        structure_properties.append(scalar_property(
-            '{}_structure_count'.format(structure_name),len(param_list),
-            'number of {} structures'.format(structure_name),
-            'EXPERIMENTAL'))
-    for specie_name,param_list in ff_params.items():
-        structure_properties.append(scalar_property(
-            '{}_population_count'.format(specie_name),len(param_list),
-            'number of {} populations'.format(specie_name),
-            'EXPERIMENTAL'))
-    properties.extend(structure_properties)
-
-    param_properties = []
-    for specie_name,specie_params in diffuse_params.items():
-        for specie_idx,p in enumerate(specie_params):
-            for param_name, param_val in p.items():
-                param_properties.append(scalar_property(
-                '{}_{}'.format(param_name,specie_idx),param_val,
-                'parameter {} for {} population {}'.format(param_name,specie_name,specie_idx)))
-    if 'noise' in populations and not unidentified_flag \
-    and not crystalline_flag:
-        # TODO: remove the crystalline_flag condition
-        # after we have noise floors fitted for crystalline populations
-        I0_noise = populations['noise']['parameters']['I0']
-        #flat_amplitude = populations['noise']['basis']['flat_noise']['flat']['amplitude']
-        param_properties.append(scalar_property(
-        'I0_noise',I0_noise,
-        'magnitude of flat noise intensity'))
-    properties.extend(param_properties)
+# TODO: refactor
+#    structure_params = OrderedDict.fromkeys(structure_names)
+#    structure_params.pop('unidentified')
+#    ff_params = OrderedDict.fromkeys(form_factor_names)
+#    for k in structure_names: structure_params[k] = [] 
+#    for k in form_factor_names: ff_params[k] = [] 
+#    for pop_name,popd in populations.items():
+#        if not pop_name == 'noise' and not popd['structure'] == 'unidentified':
+#            structure_params[popd['structure']].append(popd['parameters'])
+#        if popd['structure'] == 'diffuse':
+#            #if 'basis' in popd:
+#            for site_name,site_def in popd['basis'].items():
+#                for site_item_tag, site_item in site_items.items():
+#                    #if site_item_tag in diffuse_form_factor_names:
+#                    if isinstance(site_item,list): 
+#                        ff_params[site_item_tag].extend(site_item)
+#                    else:
+#                        ff_params[site_item_tag].append(site_item)
+#    structure_properties = []
+#    for structure_name,param_list in structure_params.items():
+#        structure_properties.append(scalar_property(
+#            '{}_structure_count'.format(structure_name),len(param_list),
+#            'number of {} structures'.format(structure_name),
+#            'EXPERIMENTAL'))
+#    for specie_name,param_list in ff_params.items():
+#        structure_properties.append(scalar_property(
+#            '{}_population_count'.format(specie_name),len(param_list),
+#            'number of {} populations'.format(specie_name),
+#            'EXPERIMENTAL'))
+#    properties.extend(structure_properties)
+#
+#    param_properties = []
+#    for specie_name,specie_params in diffuse_params.items():
+#        for specie_idx,p in enumerate(specie_params):
+#            for param_name, param_val in p.items():
+#                param_properties.append(scalar_property(
+#                '{}_{}'.format(param_name,specie_idx),param_val,
+#                'parameter {} for {} population {}'.format(param_name,specie_name,specie_idx)))
+#    if 'noise' in populations and not unidentified_flag \
+#    and not crystalline_flag:
+#        # TODO: remove the crystalline_flag condition
+#        # after we have noise floors fitted for crystalline populations
+#        I0_noise = populations['noise']['parameters']['I0']
+#        #flat_amplitude = populations['noise']['basis']['flat_noise']['flat']['amplitude']
+#        param_properties.append(scalar_property(
+#        'I0_noise',I0_noise,
+#        'magnitude of flat noise intensity'))
+#    properties.extend(param_properties)
 
     return properties
 
@@ -274,7 +268,7 @@ def scalar_property(fname,fval,desc=None,data_type=None,funits=None):
         pf.units = funits
     return pf
 
-def unpack_pif(pp): # I need to work on it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+def unpack_pif(pp): # TODO: refactor
     expt_id = None
     t_utc = None
     q_I = None

@@ -43,12 +43,6 @@ def compute_intensity(q,populations,source_wavelength):
             #        'in crystalline arrangements.'.format(diffuse_form_factor_names)
             #    raise ValueError(msg)
             I += fcc_intensity(q,popd,source_wavelength)
-        elif st == 'disordered':
-            I0 = 1.
-            if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
-            profile_name = popd['settings']['profile']
-            q_c = popd['parameters']['q_center']
-            I += I0 * peak_math.peak_profile(q,q_c,profile_name,popd['parameters'])
         elif st == 'unidentified':
             pass
         else:
