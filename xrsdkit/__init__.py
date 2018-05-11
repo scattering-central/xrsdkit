@@ -170,6 +170,9 @@ my_populations = dict(
 """
 from collections import OrderedDict
 
+# TODO: shelve occupancy and multiple site occupants 
+# TODO: remove optional lists from populations specification
+
 # list of allowed structure specifications
 structure_names = [\
 'unidentified',\
@@ -321,6 +324,38 @@ def contains_coordinates(populations,pop_nm,site_nm):
                 if 'coordinates' in populations[pop_nm]['basis'][site_nm]:
                     return True
     return False    
+
+def contains_specie_param(populations,pop_nm,site_nm,specie_nm,iispec,sparam_nm):
+    if pop_nm in populations:
+        if 'basis' in populations[pop_nm]:
+            if site_nm in populations[pop_nm]['basis']:
+                site_def = populations[pop_nm]['basis'][site_nm]
+                if specie_nm in site_def:
+                    specie_def = site_def[specie_nm]
+                    if not isinstance(specie_def,list):
+                        if iispec == 0 and sparam_nm in specie_def:
+                            return True
+                    else:
+                        if iispec < len(specie_def):
+                            sparams = specie_def[iispec] 
+                            if sparam_nm in sparams:
+                                return True
+
+def update_specie_param(populations,pop_nm,site_nm,specie_nm,iispec,sparam_nm,new_value):
+    if not pop_nm in populations:
+        populations[pop_nm] = {}
+    if not 'basis' in populations[pop_nm]:
+        populations[pop_nm]['basis'] = {}
+    if not site_nm in populations[pop_nm]['basis']:
+        populations[pop_nm]['basis'][site_nm] = {}
+    if not specie_nm in populations[pop_nm]['basis'][site_nm]:
+        populations[pop_nm]['basis'][site_nm][specie_nm] = {} 
+    specie_def = populations[pop_nm]['basis'][site_nm][specie_nm]
+    if isinstance(specie_def,list):
+        sparams = specie_def[iispec]
+    else:
+        sparams = specie_def
+    sparams[sparam_nm] = new_value
 
 def update_coordinates(populations,pop_nm,site_nm,new_values):
     if not pop_nm in populations:
