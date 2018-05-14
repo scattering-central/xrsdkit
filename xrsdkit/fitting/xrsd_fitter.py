@@ -308,8 +308,7 @@ class XRSDFitter(object):
         if q_range[1] is None:
             q_range[1] = self.q[-1]
 
-        idx_fit = self.idx_fit & self.q>q_range[0] & self.q<q_range[1]
-        # TODO: incorporate q-range
+        idx_fit = (self.idx_fit) & (self.q>=q_range[0]) & (self.q<=q_range[1])
 
         n_q = len(self.q)
         wts = np.ones(n_q)
