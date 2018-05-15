@@ -322,6 +322,8 @@ def update_setting(populations,pop_nm,setting_nm,setting_val):
         populations[pop_nm]['settings'] = {}
     populations[pop_nm]['settings'][setting_nm] = setting_val
 
+# TODO: more convenience constructors for various populations
+
 def fcc_crystal(atom_symbol,a_lat=10.,pk_profile='voigt',I0=1.E-3,q_min=0.,q_max=1.,hwhm_g=0.001,hwhm_l=0.001):
     return dict(
         structure='fcc',
@@ -357,21 +359,85 @@ def flat_noise(I0=1.E-3):
         basis={'flat_noise':{'form':'flat'}}
         )
 
-def default_site_definition(ff_nm,crystalline=False):
+def new_site(pop_dict,pop_name,site_name,ff_name):
+    structure_name = pop_dict[pop_name]['structure']
     pd = OrderedDict()
-    pd['form'] = ff_nm
-    pd['settings'] = OrderedDict.fromkeys(form_factor_settings[ff_nm])
-    pd['parameters'] = OrderedDict.fromkeys(form_factor_params[ff_nm])
-    if crystalline:
+    pd[pop_name] = OrderedDict()
+    pd[pop_name]['basis'] = OrderedDict()
+    pd[pop_name]['basis'][site_name] = OrderedDict()
+    sd = pd[pop_name]['basis'][site_name]
+    fp = OrderedDict()
+    pb = OrderedDict()
+    pc = OrderedDict()
+    sd['form'] = ff_name
+    sd['settings'] = OrderedDict.fromkeys(form_factor_settings[ff_name])
+    sd['parameters'] = OrderedDict.fromkeys(form_factor_params[ff_name])
+    if structure_name in crystalline_structure_names:
         cdef = param_defaults['coordinates']
-        pd['coordinates'] = [float(cdef),float(cdef),float(cdef)]
-    for snm in form_factor_settings[ff_nm]:
-        pd['settings'][snm] = setting_defaults[snm] 
-    for pnm in form_factor_params[ff_nm]:
-        pd['parameters'][pnm] = param_defaults[pnm] 
-    return pd
+        sd['coordinates'] = [float(cdef),float(cdef),float(cdef)]
+    for snm in form_factor_settings[ff_name]:
+        sd['settings'][snm] = setting_defaults[snm] 
+    for pnm in form_factor_params[ff_name]:
+        sd['parameters'][pnm] = param_defaults[pnm] 
+    if structure_name == 'fcc' and ff_name == 'spherical':
+        expr = pop_name+'__'+'a'+'*sqrt(2)/4'
+        rval = pop_dict[pop_name]['parameters']['a']*sqrt(2)/4
+        sd['parameters']['r'] = rval
+        update_site_param(pc,pop_name,site_name,'r',expr)
+    # NOTE: any more default bounds or constraints should be inserted here
+    return pd,fp,pb,pc
 
-
-
-# TODO: more convenience constructors for various populations
+def update_populations(pops,new_pops):
+    for pop_name,pd_new in new_pops.items():
+        if not pop_name in pops:
+            pops[pop_name] = {}
+        pd = pops[pop_name]
+        if 'structure' in pd_new:
+            if 'structure' in pd:
+                if not pd_new['structure'] == pd['structure']:
+                    pd['parameters'] = OrderedDict()
+                    pd['settings'] = OrderedDict()
+            pd['structure'] = pd_new['structure']
+        if 'parameters' in pd_new:
+            if not 'parameters' in pd:
+                pd['parameters'] = OrderedDict()
+            for param_nm, pval in pd_new['parameters'].items():
+                pd['parameters'][param_nm] = pval
+        if 'settings' in pd_new:
+            if not 'settings' in pd:
+                pd['settings'] = OrderedDict()
+            for stg_nm, sval in pd_new['settings'].items():
+                pd['settings'][stg_nm] = sval
+        if 'basis' in pd_new:
+            if not 'basis' in pd:
+                pd['basis'] = OrderedDict()
+            for site_nm,sd_new in pd_new['basis'].items():
+                if not site_nm in pd['basis']:
+                    pd['basis'][site_nm] = OrderedDict() 
+                sd = pd['basis'][site_nm]
+                if 'form' in sd_new:
+                    if 'form' in sd:
+                        if not sd_new['form'] == sd['structure']:
+                            sd['parameters'] = OrderedDict()
+                            sd['settings'] = OrderedDict()
+                            if pd['structure'] not in crystalline_structure_names:
+                                if 'coordinates' in sd:
+                                    sd.pop('coordinates')
+                    sd['form'] = sd_new['form']
+                if 'parameters' in sd_new:
+                    if not 'parameters' in sd:
+                        sd['parameters'] = OrderedDict() 
+                    for param_nm, pval in sd_new['parameters'].items():
+                        sd['parameters'][param_nm] = pval
+                if 'settings' in sd_new:
+                    if not 'settings' in sd:
+                        sd['settings'] = OrderedDict() 
+                    for stg_nm, sval in sd_new['settings'].items():
+                        sd['settings'][stg_nm] = sval
+                if 'coordinates' in sd_new:
+                    if not 'coordinates' in sd:
+                        sd['coordinates'] = [None,None,None] 
+                    for cidx, cval in enumerate(sd_new['coordinates']):
+                        if cval is not None: 
+                            sd['coordinates'][cidx] = cval
 
