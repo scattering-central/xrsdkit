@@ -195,8 +195,6 @@ class XRSDFitter(object):
         for pkey,pval in p.items():
             ks = pkey.split('__')
             kdepth = len(ks)
-            #if kdepth > 1:
-            #    if param_key_parts[-2] == 'coordinates':
             param_name = ks[-1]
             if re.match('coordinate_.',param_name):
                 param_name = 'coordinates'
@@ -300,8 +298,6 @@ class XRSDFitter(object):
         """
         I_comp = compute_intensity(
             self.q,populations,self.source_wavelength)
-        #if any(I_comp<0): import pdb; pdb.set_trace()
-        #I_comp[I_comp<0.] = 1.E-12
 
         if q_range[0] is None:
             q_range[0] = self.q[0]

@@ -129,6 +129,8 @@ my_populations = dict(
 """
 from collections import OrderedDict
 
+import numpy as np
+
 # list of allowed structure specifications
 structure_names = [\
 'unidentified',\
@@ -381,7 +383,7 @@ def new_site(pop_dict,pop_name,site_name,ff_name):
         sd['parameters'][pnm] = param_defaults[pnm] 
     if structure_name == 'fcc' and ff_name == 'spherical':
         expr = pop_name+'__'+'a'+'*sqrt(2)/4'
-        rval = pop_dict[pop_name]['parameters']['a']*sqrt(2)/4
+        rval = pop_dict[pop_name]['parameters']['a']*np.sqrt(2)/4
         sd['parameters']['r'] = rval
         update_site_param(pc,pop_name,site_name,'r',expr)
     # NOTE: any more default bounds or constraints should be inserted here
@@ -417,7 +419,7 @@ def update_populations(pops,new_pops):
                 sd = pd['basis'][site_nm]
                 if 'form' in sd_new:
                     if 'form' in sd:
-                        if not sd_new['form'] == sd['structure']:
+                        if not sd_new['form'] == sd['form']:
                             sd['parameters'] = OrderedDict()
                             sd['settings'] = OrderedDict()
                             if pd['structure'] not in crystalline_structure_names:
