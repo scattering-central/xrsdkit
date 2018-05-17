@@ -386,6 +386,16 @@ def new_site(pop_dict,pop_name,site_name,ff_name):
         rval = pop_dict[pop_name]['parameters']['a']*np.sqrt(2)/4
         sd['parameters']['r'] = rval
         update_site_param(pc,pop_name,site_name,'r',expr)
+    if structure_name == 'hard_spheres' and ff_name == 'spherical':
+        expr = pop_name+'__'+'r_hard'
+        rval = pop_dict[pop_name]['parameters']['r_hard']
+        sd['parameters']['r'] = rval
+        update_site_param(pc,pop_name,site_name,'r',expr)
+    if structure_name == 'hard_spheres' and ff_name == 'spherical_normal':
+        expr = pop_name+'__'+'r_hard'
+        rval = pop_dict[pop_name]['parameters']['r_hard']
+        sd['parameters']['r0'] = rval
+        update_site_param(pc,pop_name,site_name,'r0',expr)
     # NOTE: any more default bounds or constraints should be inserted here
     return pd,fp,pb,pc
 
