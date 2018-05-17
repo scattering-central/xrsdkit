@@ -51,7 +51,7 @@ class XRSDFitter(object):
 
     def fit(self,\
         fixed_params=None,param_bounds=None,param_constraints=None,\
-        error_weighted=True,logI_weighted=True,q_range=[None,None]):
+        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
         """Fit the self.q_I pattern, return an optimized populations dict.
     
         Parameters
@@ -111,6 +111,7 @@ class XRSDFitter(object):
         rpt['final_objective'] = fit_obj 
         rpt['error_weighted'] = error_weighted 
         rpt['logI_weighted'] = logI_weighted 
+        rpt['q_range'] = q_range 
         I_opt = compute_intensity(self.q,p_opt,self.source_wavelength)
         I_bg = self.I - I_opt
         snr = np.mean(I_opt)/np.std(I_bg) 
@@ -277,7 +278,7 @@ class XRSDFitter(object):
                     pd[pop_name]['basis'][site_name]['parameters'][param_name] = copy.deepcopy(pval)
         return pd
 
-    def evaluate_residual(self,populations,error_weighted=True,logI_weighted=True,q_range=[None,None]):
+    def evaluate_residual(self,populations,error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
         """Evaluate the fit residual for a given populations dict.
 
         Parameters
@@ -299,10 +300,10 @@ class XRSDFitter(object):
         I_comp = compute_intensity(
             self.q,populations,self.source_wavelength)
 
-        if q_range[0] is None:
-            q_range[0] = self.q[0]
-        if q_range[1] is None:
-            q_range[1] = self.q[-1]
+        #if q_range[0] is None:
+        #    q_range[0] = self.q[0]
+        #if q_range[1] is None:
+        #    q_range[1] = self.q[-1]
 
         idx_fit = (self.idx_fit) & (self.q>=q_range[0]) & (self.q<=q_range[1])
 
