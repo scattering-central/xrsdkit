@@ -11,7 +11,7 @@ def save_fit(file_path,populations,fixed_params,param_bounds,param_constraints,r
 
 def load_fit(file_path):
     with open(file_path, 'r') as yaml_file:
-        data = yaml.load()
+        data = yaml.load(yaml_file)
     return data['populations'],data['fixed_params'],data['param_bounds'],data['param_constraints'],data['report']
 
 def primitives(v):
