@@ -5,7 +5,7 @@ import os
 import numpy as np
 import lmfit
 
-from .. import all_params, param_defaults, fixed_param_defaults, param_bound_defaults
+from .. import all_params, param_defaults, fixed_param_defaults, param_bound_defaults, update_site_param
 from ..scattering import compute_intensity
 from ..tools import compute_chi2
 
@@ -51,7 +51,7 @@ class XRSDFitter(object):
 
     def fit(self,\
         fixed_params=None,param_bounds=None,param_constraints=None,\
-        error_weighted=True,logI_weighted=True):
+        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
         """Fit the self.q_I pattern, return an optimized populations dict.
     
         Parameters
@@ -62,6 +62,10 @@ class XRSDFitter(object):
         error_weighted : bool
             Flag for whether or not the fit 
             should be weighted by the intensity error estimates.
+        logI_weighted : bool
+        q_range : list
+            Two floats indicating the lower and 
+            upper q-limits for objective evaluation
         objective : string
             Choice of objective function 
             (currently the only option is 'chi2log').
@@ -80,7 +84,7 @@ class XRSDFitter(object):
         if 'unidentified' in p_opt.keys():
             return p_opt,rpt 
 
-        obj_init = self.evaluate_residual(p_opt,error_weighted,logI_weighted)
+        obj_init = self.evaluate_residual(p_opt,error_weighted,logI_weighted,q_range)
         #print('INITIAL OBJECTIVE: {}'.format(obj_init))
         #print(p_opt)
 
@@ -97,16 +101,17 @@ class XRSDFitter(object):
         lmf_params = self.pack_lmfit_params(p_opt,fp,pb,pc) 
         lmf_res = lmfit.minimize(self.lmf_evaluate,
             lmf_params,method='nelder-mead',
-            kws={'error_weighted':error_weighted,'logI_weighted':logI_weighted})
+            kws={'error_weighted':error_weighted,'logI_weighted':logI_weighted,'q_range':q_range})
         flat_params = self.unpack_lmfit_params(lmf_res.params)
         p_opt = self.update_params(p_opt,self.unflatten_params(flat_params))
 
         rpt['success'] = lmf_res.success
         rpt['initial_objective'] = obj_init 
-        fit_obj = self.lmf_evaluate(lmf_res.params,error_weighted,logI_weighted)
+        fit_obj = self.lmf_evaluate(lmf_res.params,error_weighted,logI_weighted,q_range)
         rpt['final_objective'] = fit_obj 
         rpt['error_weighted'] = error_weighted 
         rpt['logI_weighted'] = logI_weighted 
+        rpt['q_range'] = q_range 
         I_opt = compute_intensity(self.q,p_opt,self.source_wavelength)
         I_bg = self.I - I_opt
         snr = np.mean(I_opt)/np.std(I_bg) 
@@ -138,15 +143,10 @@ class XRSDFitter(object):
             #    ep[pop_name]['settings'][setting_name] = None
             for site_name,site_def in popd['basis'].items():
                 ep[pop_name]['basis'][site_name] = {} 
-                for k,site_item in site_def.items():
-                    if k == 'coordinates': 
-                        ep[pop_name]['basis'][site_name][k] = [None,None,None] 
-                    elif isinstance(site_item,list):
-                        # list of form factor param dicts
-                        ep[pop_name]['basis'][site_name][k] = [dict.fromkeys(stitm.keys()) for stitm in site_item]
-                    else:
-                        # dict of form factor params
-                        ep[pop_name]['basis'][site_name][k] = dict.fromkeys(site_item.keys())
+                if 'coordinates' in site_def: 
+                    ep[pop_name]['basis'][site_name]['coordinates'] = [None,None,None] 
+                if 'coordinates' in site_def: 
+                    ep[pop_name]['basis'][site_name]['parameters'] = dict.fromkeys(site_def['parameters'].keys())
         return ep
 
     def print_report(self,init_pops,fit_pops,report):
@@ -182,8 +182,7 @@ class XRSDFitter(object):
                                     copy.deepcopy(ff_param_val)
                         else:
                             for ff_param_name, ff_param_val in site_item.items():
-                                p_base[pop_name]['basis'][site_name][k][ff_param_name] = \
-                                copy.deepcopy(ff_param_val)
+                                update_site_param(p_base,pop_name,site_name,ff_param_name,copy.deepcopy(ff_param_val))
         return p_base
 
     def pack_lmfit_params(self,populations=None,fixed_params={},param_bounds={},param_constraints={}):
@@ -197,8 +196,6 @@ class XRSDFitter(object):
         for pkey,pval in p.items():
             ks = pkey.split('__')
             kdepth = len(ks)
-            #if kdepth > 1:
-            #    if param_key_parts[-2] == 'coordinates':
             param_name = ks[-1]
             if re.match('coordinate_.',param_name):
                 param_name = 'coordinates'
@@ -217,7 +214,6 @@ class XRSDFitter(object):
                 if pc[pkey] is not None:
                     p_expr = pc[pkey] 
                     lmfp[pkey].set(expr=p_expr)
-        lmfp.pretty_print()
         return lmfp
 
     @staticmethod
@@ -236,20 +232,14 @@ class XRSDFitter(object):
                     pd[pop_name+'__'+param_name] = copy.deepcopy(param_val)
             if 'basis' in popd:
                 for site_name, site_def in popd['basis'].items():
-                    for k, site_item in site_def.items():
-                        if k == 'coordinates':
-                            pd[pop_name+'__'+site_name+'__coordinate_0'] = copy.deepcopy(site_item[0])
-                            pd[pop_name+'__'+site_name+'__coordinate_1'] = copy.deepcopy(site_item[1])
-                            pd[pop_name+'__'+site_name+'__coordinate_2'] = copy.deepcopy(site_item[2])
-                        elif isinstance(site_item,list):
-                            for ist,stitm in enumerate(site_item):
-                                for ff_param_name, ff_param_val in stitm.items():
-                                    pd[pop_name+'__'+site_name+'__'+k+'__'+str(ist)+'__'+ff_param_name] = \
-                                    copy.deepcopy(ff_param_val)
-                        else:
-                            for ff_param_name, ff_param_val in site_item.items():
-                                pd[pop_name+'__'+site_name+'__'+k+'__'+ff_param_name] = \
-                                copy.deepcopy(ff_param_val)
+                    if 'coordinates' in site_def:
+                        pd[pop_name+'__'+site_name+'__coordinate_0'] = copy.deepcopy(site_def['coordinates'][0])
+                        pd[pop_name+'__'+site_name+'__coordinate_1'] = copy.deepcopy(site_def['coordinates'][1])
+                        pd[pop_name+'__'+site_name+'__coordinate_2'] = copy.deepcopy(site_def['coordinates'][2])
+                    if 'parameters' in site_def:
+                        for ff_param_name, ff_param_val in site_def['parameters'].items():
+                            pd[pop_name+'__'+site_name+'__'+ff_param_name] = \
+                            copy.deepcopy(ff_param_val)
         return pd
 
     @staticmethod
@@ -274,32 +264,21 @@ class XRSDFitter(object):
                     pd[pop_name]['basis'] = {} 
                 if not site_name in pd[pop_name]['basis']:
                     pd[pop_name]['basis'][site_name] = {}
-                if kdepth == 3:
+                if ks[2] in ['coordinate_0','coordinate_1','coordinate_2']:
                     # a coordinate
-                    coord_idx = int(ks[2][-1])
                     if not 'coordinates' in pd[pop_name]['basis'][site_name]:
                         pd[pop_name]['basis'][site_name]['coordinates'] = [None,None,None]
+                    coord_idx = int(ks[2][-1])
                     pd[pop_name]['basis'][site_name]['coordinates'][coord_idx] = copy.deepcopy(pval) 
-                elif kdepth == 4:
+                else:
                     # a parameter for a form factor
-                    ff_name = ks[2]
-                    ff_param_name = ks[3]
-                    if not ff_name in pd[pop_name]['basis'][site_name]:
-                        pd[pop_name]['basis'][site_name][ff_name] = {}
-                    pd[pop_name]['basis'][site_name][ff_name][ff_param_name] = copy.deepcopy(pval)
-                elif kdepth == 5:
-                    # a parameter for one of multiple form factors
-                    ff_name = ks[2]
-                    ff_idx = int(ks[3])
-                    ff_param_name = ks[4]
-                    if not ff_name in pd[pop_name]['basis'][site_name]:
-                        pd[pop_name]['basis'][site_name][ff_name] = []
-                    while ff_idx >= len(pd[pop_name]['basis'][site_name][ff_name]):
-                        pd[pop_name][pop_item_name][site_name][ff_name].append({})
-                    pd[pop_name]['basis'][site_name][ff_name][ff_idx][ff_param_name] = copy.deepcopy(pval)
+                    if not 'parameters' in pd[pop_name]['basis'][site_name]:
+                        pd[pop_name]['basis'][site_name]['parameters'] = {} 
+                    param_name = ks[2]
+                    pd[pop_name]['basis'][site_name]['parameters'][param_name] = copy.deepcopy(pval)
         return pd
 
-    def evaluate_residual(self,populations,error_weighted=True,logI_weighted=True):
+    def evaluate_residual(self,populations,error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
         """Evaluate the fit residual for a given populations dict.
 
         Parameters
@@ -309,6 +288,9 @@ class XRSDFitter(object):
         error_weighted : bool
             Flag for whether or not to weight the result
             by the intensity error estimate.
+        q_range : list
+            List of two floats for the lower and
+            upper q-range for objective evaluation
 
         Returns
         -------
@@ -317,33 +299,35 @@ class XRSDFitter(object):
         """
         I_comp = compute_intensity(
             self.q,populations,self.source_wavelength)
-        #if any(I_comp<0): import pdb; pdb.set_trace()
-        #I_comp[I_comp<0.] = 1.E-12
+
+        #if q_range[0] is None:
+        #    q_range[0] = self.q[0]
+        #if q_range[1] is None:
+        #    q_range[1] = self.q[-1]
+
+        idx_fit = (self.idx_fit) & (self.q>=q_range[0]) & (self.q<=q_range[1])
+
         n_q = len(self.q)
         wts = np.ones(n_q)
         if error_weighted:
             wts *= self.dI**2
         if logI_weighted:
             res = compute_chi2(
-                np.log(I_comp[self.idx_fit]),
-                self.logI[self.idx_fit],
-                wts[self.idx_fit])
+                np.log(I_comp[idx_fit]),
+                self.logI[idx_fit],
+                wts[idx_fit])
         else:
             res = compute_chi2(
-                I_comp[self.idx_fit],
-                self.I[self.idx_fit],
-                wts[self.idx_fit])
-        #if error_weighted:
-        #    res = compute_chi2(
-        #            np.log(I_comp[self.idx_fit]),
-        #            self.logI[self.idx_fit])
+                I_comp[idx_fit],
+                self.I[idx_fit],
+                wts[idx_fit])
         return res 
 
-    def lmf_evaluate(self,lmf_params,error_weighted=True,logI_weighted=True):
+    def lmf_evaluate(self,lmf_params,error_weighted=True,logI_weighted=True,q_range=[None,None]):
         pd = self.unflatten_params(self.unpack_lmfit_params(lmf_params))
         pops = copy.deepcopy(self.populations)
         pops = self.update_params(pops,pd)
-        return self.evaluate_residual(pops,error_weighted,logI_weighted)
+        return self.evaluate_residual(pops,error_weighted,logI_weighted,q_range)
 
     #def fit_intensity_params(self,params):
     #    """Fit the spectrum wrt only the intensity parameters."""

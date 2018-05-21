@@ -21,13 +21,16 @@ fcc_Al = {'fcc_Al':dict(
         ),
     basis={'Al_atom':dict(
         coordinates=[0,0,0],
-        atomic={'symbol':'Al'})}
+        form='atomic',
+        settings={'symbol':'Al'})}
     )}
 
 hard_spheres = {'hard_spheres':dict(
     structure='hard_spheres',
     parameters={'r_hard':40,'v_fraction':0.3},
-    basis={'sphere':{'spherical':{'r':40}}}
+    basis={'sphere':dict(
+        form='spherical',
+        parameters={'r':40})}
     )}
 
 def test_gaussian():

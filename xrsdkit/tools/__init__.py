@@ -1,13 +1,33 @@
 import numpy as np
 import yaml
 
-def save_populations(populations,file_path):
+def save_fit(file_path,populations,fixed_params,param_bounds,param_constraints,report):
     with open(file_path, 'w') as yaml_file:
-        yaml.dump(populations,yaml_file)
+        yaml.dump({'populations':primitives(populations),
+            'fixed_params':primitives(fixed_params),
+            'param_bounds':primitives(param_bounds),
+            'param_constraints':primitives(param_constraints),
+            'report':primitives(report)},yaml_file)
 
-def load_populations(file_path):
+def load_fit(file_path):
     with open(file_path, 'r') as yaml_file:
-        return yaml.load()
+        data = yaml.load()
+    return data['populations'],data['fixed_params'],data['param_bounds'],data['param_constraints'],data['report']
+
+def primitives(v):
+    if isinstance(v,dict):
+        rd = {}
+        for kk,vv in v.items():
+            rd[kk] = primitives(vv)
+        return rd
+    elif isinstance(v,list):
+        return [primitives(vv) for vv in v]
+    elif isinstance(v,str):
+        return str(v)
+    elif isinstance(v,int):
+        return int(v)
+    else:
+        return float(v)
 
 def standardize_array(x):
     xmean = np.mean(x)

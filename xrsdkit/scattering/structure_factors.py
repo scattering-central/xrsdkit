@@ -30,19 +30,11 @@ def fcc_sf(q_hkl,hkl,basis):
     # TODO: make this work for q_hkl as an array (hkl as a matrix)
     F_hkl = np.zeros(hkl.shape[1],dtype=complex) 
     for fcc_coord in fcc_coords:
-        for site_name, site_items in basis.items():
-            coord = site_items['coordinates']
-            g_dot_r = np.dot(fcc_coord+coord,hkl)
-            for site_item_name, site_item in site_items.items():
-                if not site_item_name == 'coordinates':
-                    if not isinstance(site_item,list): site_item = [site_item]
-                    # TODO: defend against weird or nonphysical occupancy choices?
-                    for itm in site_item:
-                        occ = 1.
-                        if 'occupancy' in itm: occ = itm['occupancy']
-                        F_hkl += occ * \
-                        xrff.specie_ff(np.array([q_hkl]),site_item_name,itm) \
-                        * np.exp(2j*np.pi*g_dot_r) 
+        for site_name, site_def in basis.items():
+            c = site_def['coordinates']
+            g_dot_r = np.dot(fcc_coord+c,hkl)
+            F_hkl += xrff.site_ff(np.array([q_hkl]),site_def) \
+            * np.exp(2j*np.pi*g_dot_r) 
     return F_hkl
 
 def hard_sphere_sf(q,r_sphere,volume_fraction):
