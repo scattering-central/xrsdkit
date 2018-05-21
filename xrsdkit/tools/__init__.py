@@ -2,7 +2,6 @@ import numpy as np
 import yaml
 
 def save_fit(file_path,populations,fixed_params,param_bounds,param_constraints,report):
-    import pdb; pdb.set_trace()
     with open(file_path, 'w') as yaml_file:
         yaml.dump({'populations':primitives(populations),
             'fixed_params':primitives(fixed_params),
