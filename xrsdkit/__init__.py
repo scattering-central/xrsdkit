@@ -381,21 +381,33 @@ def new_site(pop_dict,pop_name,site_name,ff_name):
         sd['settings'][snm] = setting_defaults[snm] 
     for pnm in form_factor_params[ff_name]:
         sd['parameters'][pnm] = param_defaults[pnm] 
-    if structure_name == 'fcc' and ff_name == 'spherical':
-        expr = pop_name+'__'+'a'+'*sqrt(2)/4'
-        rval = pop_dict[pop_name]['parameters']['a']*np.sqrt(2)/4
-        sd['parameters']['r'] = rval
-        update_site_param(pc,pop_name,site_name,'r',expr)
-    if structure_name == 'hard_spheres' and ff_name == 'spherical':
-        expr = pop_name+'__'+'r_hard'
-        rval = pop_dict[pop_name]['parameters']['r_hard']
-        sd['parameters']['r'] = rval
-        update_site_param(pc,pop_name,site_name,'r',expr)
-    if structure_name == 'hard_spheres' and ff_name == 'spherical_normal':
-        expr = pop_name+'__'+'r_hard'
-        rval = pop_dict[pop_name]['parameters']['r_hard']
-        sd['parameters']['r0'] = rval
-        update_site_param(pc,pop_name,site_name,'r0',expr)
+    if structure_name == 'fcc': 
+        if ff_name == 'spherical':
+            expr = pop_name+'__'+'a'+'*sqrt(2)/4'
+            rval = pop_dict[pop_name]['parameters']['a']*np.sqrt(2)/4
+            sd['parameters']['r'] = rval
+            update_site_param(pc,pop_name,site_name,'r',expr)
+        elif ff_name == 'guinier_porod':
+            expr = pop_name+'__'+'a'+'*sqrt(2)/4'
+            rgval = pop_dict[pop_name]['parameters']['a']*np.sqrt(2)/4
+            sd['parameters']['rg'] = rgval
+            update_site_param(pc,pop_name,site_name,'rg',expr)
+    if structure_name == 'hard_spheres':
+        if ff_name == 'spherical':
+            expr = pop_name+'__'+'r_hard'
+            rval = pop_dict[pop_name]['parameters']['r_hard']
+            sd['parameters']['r'] = rval
+            update_site_param(pc,pop_name,site_name,'r',expr)
+        elif ff_name == 'spherical_normal':
+            expr = pop_name+'__'+'r_hard'
+            rval = pop_dict[pop_name]['parameters']['r_hard']
+            sd['parameters']['r0'] = rval
+            update_site_param(pc,pop_name,site_name,'r0',expr)
+        elif ff_name == 'guinier_porod':
+            expr = pop_name+'__'+'r_hard * sqrt(3./5)'
+            rgval = pop_dict[pop_name]['parameters']['r_hard'] * np.sqrt(3./5)
+            sd['parameters']['rg'] = rgval
+            update_site_param(pc,pop_name,site_name,'rg',expr)
     # NOTE: any more default bounds or constraints should be inserted here
     return pd,fp,pb,pc
 

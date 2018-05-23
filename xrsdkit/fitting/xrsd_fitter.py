@@ -81,8 +81,9 @@ class XRSDFitter(object):
         p_opt = copy.deepcopy(self.populations)
         rpt = {} 
 
-        if 'unidentified' in p_opt.keys():
-            return p_opt,rpt 
+        for pop_name,pd in p_opt.items():
+            if pd['structure'] == 'unidentified':
+                return p_opt,rpt 
 
         obj_init = self.evaluate_residual(p_opt,error_weighted,logI_weighted,q_range)
         #print('INITIAL OBJECTIVE: {}'.format(obj_init))
@@ -150,13 +151,16 @@ class XRSDFitter(object):
         return ep
 
     def print_report(self,init_pops,fit_pops,report):
-        p = 'optimization objective: {} --> {}'.\
-        format(report['initial_objective'],report['final_objective'])
-        init_flat_params = self.flatten_params(init_pops)
-        fit_flat_params = self.flatten_params(fit_pops)
-        for k, v in init_flat_params.items():
-            p += os.linesep+'{}: {} --> {}'.format(k,v,fit_flat_params[k])
-        return p
+        if 'initial_objective' in report and 'final_objective' in report:
+            p = 'optimization objective: {} --> {}'.\
+            format(report['initial_objective'],report['final_objective'])
+            init_flat_params = self.flatten_params(init_pops)
+            fit_flat_params = self.flatten_params(fit_pops)
+            for k, v in init_flat_params.items():
+                p += os.linesep+'{}: {} --> {}'.format(k,v,fit_flat_params[k])
+            return p
+        else:
+            return '' 
 
     @staticmethod
     def update_params(p_base,p_new):
