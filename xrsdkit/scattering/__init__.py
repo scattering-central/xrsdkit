@@ -74,24 +74,15 @@ def hard_sphere_intensity(q,popd,source_wavelength):
     I0 = 1.
     if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
     F_q = xrsf.hard_sphere_sf(q,r,p)
-    # compute the form factor in the dilute limit 
     P_q = xrff.compute_ff_squared(q,basis)
 
-    #if any(F_q < 0) or any(P_q < 0):
-        #import pdb; pdb.set_trace()
-        #from matplotlib import pyplot as plt
-        #plt.plot(q,F_q,'k')
-        #plt.plot(q,P_q,'r') 
-        #plt.plot(q,F_q*P_q,'r') 
-        #plt.legend(['F_q','P_q','FP'])
-        #plt.show()
-
-    th = np.arcsin(source_wavelength * q/(4.*np.pi))
+    #th = np.arcsin(source_wavelength * q/(4.*np.pi))
     # compute the polarization factor 
-    pz = 1. + np.cos(2.*th)**2 
+    #pz = 1. + np.cos(2.*th)**2 
     # compute the Lorentz factor 
-    ltz = 1. / (np.sin(th)*np.sin(2*th))
-    return I0*pz*ltz * F_q * P_q 
+    #ltz = 1. / (np.sin(th)*np.sin(2*th))
+    #return I0*pz*ltz * F_q * P_q 
+    return I0 * F_q * P_q 
 
 def fcc_intensity(q,popd,source_wavelength):
     n_q = len(q)
