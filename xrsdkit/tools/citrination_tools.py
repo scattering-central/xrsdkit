@@ -61,13 +61,13 @@ def get_pifs_from_Citrination(client, dataset_id_list):
                     id=Filter(
                     equal=dataset))))
 
-        current_result = client.search(query)
-        while current_result.hits is not None:
+        current_result = client.search.pif_search(query)
+        while current_result.hits!=[]:
             all_hits.extend(current_result.hits)
             n_current_hits = len(current_result.hits)
             #n_hits += n_current_hits
             query.from_index += n_current_hits 
-            current_result = client.search(query)
+            current_result = client.search.pif_search(query)
 
     pifs = [x.system for x in all_hits]
     return pifs
