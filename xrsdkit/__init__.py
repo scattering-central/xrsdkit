@@ -131,6 +131,9 @@ from collections import OrderedDict
 
 import numpy as np
 
+# TODO: separate standard atomic scatterers 
+# from parameterized atomic form factors
+
 # list of allowed structure specifications
 structure_names = [\
 'unidentified',\
@@ -229,14 +232,13 @@ param_bound_defaults = OrderedDict(
     D = [0.,4.],
     r = [1.E-1,None],
     r0 = [1.E-1,None],
-    sigma = [0.,0.5],
+    sigma = [0.,2.0],
     r_hard = [1.E-1,None],
-    v_fraction = [0.05,0.7405],
-    hwhm_g = [1.E-6,None],
-    hwhm_l = [1.E-6,None],
+    v_fraction = [0.01,0.7405],
+    hwhm_g = [1.E-9,None],
+    hwhm_l = [1.E-9,None],
     q_center = [0.,None],
     a = [0.,None],
-    Z = [0.,120],
     a0=[0.,None],a1=[0.,None],a2=[0.,None],a3=[0.,None],
     b0=[0.,None],b1=[0.,None],b2=[0.,None],b3=[0.,None])
 
