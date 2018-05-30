@@ -131,20 +131,23 @@ from collections import OrderedDict
 
 import numpy as np
 
+# TODO: separate standard atomic scatterers 
+# from parameterized atomic form factors
+
 # list of allowed structure specifications
 structure_names = [\
 'unidentified',\
-'hard_spheres',\
 'diffuse',\
+'hard_spheres',\
 'fcc']
 
 # list of allowed form factors:
 form_factor_names = [\
 'flat',\
+'atomic',\
 'guinier_porod',\
 'spherical',\
-'spherical_normal',\
-'atomic']
+'spherical_normal']
 
 # list of structures that are crystalline
 crystalline_structure_names = ['fcc']
@@ -183,13 +186,13 @@ all_params = [\
 'a',\
 'G','rg','D',\
 'r',\
-'r0', 'sigma',\
+'r0','sigma',\
 'r_hard','v_fraction',\
-'hwhm_g','hwhm_l','q_center',\
+'hwhm_g','hwhm_l',
 'a0','a1','a2','a3','b0','b1','b2','b3']
 
 param_defaults = OrderedDict(
-    I0 = 1.E-3,
+    I0 = 1.,
     coordinates = 0.,
     G = 1.,
     rg = 10.,
@@ -198,12 +201,10 @@ param_defaults = OrderedDict(
     r0 = 20.,
     sigma = 0.05,
     r_hard = 20.,
-    v_fraction = 0.1,
+    v_fraction = 0.5,
     hwhm_g = 1.E-3,
     hwhm_l = 1.E-3,
-    q_center = 1.E-1,
     a = 10.,
-    Z = 1.,
     a0=1.,a1=1.,a2=1.,a3=1.,
     b0=1.,b1=1.,b2=1.,b3=1.)
 
@@ -212,14 +213,16 @@ setting_defaults = OrderedDict(
     symbol = 'H',
     q_min = 0.,
     q_max = 1.,
-    profile = 'voigt')
+    profile = 'voigt'
+    )
 
 setting_datatypes = OrderedDict(
     Z = int,
     symbol = str,
     q_min = float,
     q_max = float,
-    profile = str)
+    profile = str
+    )
 
 param_bound_defaults = OrderedDict(
     I0 = [0.,None],
@@ -229,23 +232,22 @@ param_bound_defaults = OrderedDict(
     D = [0.,4.],
     r = [1.E-1,None],
     r0 = [1.E-1,None],
-    sigma = [0.,0.5],
+    sigma = [0.,2.0],
     r_hard = [1.E-1,None],
-    v_fraction = [0.05,0.7405],
-    hwhm_g = [1.E-6,None],
-    hwhm_l = [1.E-6,None],
-    q_center = [0.,None],
+    v_fraction = [0.01,0.7405],
+    hwhm_g = [1.E-9,None],
+    hwhm_l = [1.E-9,None],
     a = [0.,None],
-    Z = [0.,120],
     a0=[0.,None],a1=[0.,None],a2=[0.,None],a3=[0.,None],
-    b0=[0.,None],b1=[0.,None],b2=[0.,None],b3=[0.,None])
+    b0=[0.,None],b1=[0.,None],b2=[0.,None],b3=[0.,None]
+    )
 
 fixed_param_defaults = OrderedDict(
     I0 = False,
     coordinates = True,
-    G = False,
+    G = True,
     rg = False,
-    D = False,
+    D = True,
     r = False,
     r0 = False,
     sigma = False,
@@ -253,11 +255,57 @@ fixed_param_defaults = OrderedDict(
     v_fraction = False,
     hwhm_g = False,
     hwhm_l = False,
-    q_center = False,
     a = False,
-    Z = True, 
     a0=True, a1=True, a2=True, a3=True,
     b0=True, b1=True, b2=True, b3=True)
+
+param_descriptions = OrderedDict(
+    I0 = 'Intensity prefactor',
+    coordinates = 'reduced site coordinate along corresponding unit cell axis',
+    G = 'Guinier-Porod model Guinier factor',
+    rg = 'Guinier-Porod model radius of gyration',
+    D = 'Guinier-Porod model Porod exponent',
+    r = 'Radius of spherical population',
+    r0 = 'Mean radius of spherical population with normal distribution of size',
+    sigma = 'fractional standard deviation of radius for normally distributed sphere population',
+    r_hard = 'Radius of hard-sphere potential for hard sphere (Percus-Yevick) structure factor',
+    v_fraction = 'volume fraction of particles in hard sphere (Percus-Yevick) structure factor',
+    hwhm_g = 'Gaussian profile half-width at half-max',
+    hwhm_l = 'Lorentzian profile half-width at half-max',
+    a = 'First lattice parameter',
+    a0 = 'atomic form factor coefficient',
+    b0 = 'atomic form factor exponent',
+    a1 = 'atomic form factor coefficient',
+    b1 = 'atomic form factor exponent',
+    a2 = 'atomic form factor coefficient',
+    b2 = 'atomic form factor exponent',
+    a3 = 'atomic form factor coefficient',
+    b3 = 'atomic form factor exponent'
+    )
+
+parameter_units = OrderedDict(
+    I0 = 'arbitrary',
+    coordinates = 'unitless',
+    G = 'arbitrary',
+    rg = 'Angstrom',
+    D = 'unitless',
+    r = 'Angstrom',
+    r0 = 'Angstrom',
+    sigma = 'unitless',
+    r_hard = 'Angstrom',
+    v_fraction = 'unitless',
+    hwhm_g = '1/Angstrom',
+    hwhm_l = '1/Angstrom',
+    a = 'Angstrom',
+    a0 = 'arbitrary',
+    b0 = 'arbitrary',
+    a1 = 'arbitrary',
+    b1 = 'arbitrary',
+    a2 = 'arbitrary',
+    b2 = 'arbitrary',
+    a3 = 'arbitrary',
+    b3 = 'arbitrary'
+    )
 
 def contains_coordinates(populations,pop_nm,site_nm):
     if pop_nm in populations:
@@ -381,34 +429,6 @@ def new_site(pop_dict,pop_name,site_name,ff_name):
         sd['settings'][snm] = setting_defaults[snm] 
     for pnm in form_factor_params[ff_name]:
         sd['parameters'][pnm] = param_defaults[pnm] 
-    if structure_name == 'fcc': 
-        if ff_name == 'spherical':
-            expr = pop_name+'__'+'a'+'*sqrt(2)/4'
-            rval = pop_dict[pop_name]['parameters']['a']*np.sqrt(2)/4
-            sd['parameters']['r'] = rval
-            update_site_param(pc,pop_name,site_name,'r',expr)
-        elif ff_name == 'guinier_porod':
-            expr = pop_name+'__'+'a'+'*sqrt(2)/4'
-            rgval = pop_dict[pop_name]['parameters']['a']*np.sqrt(2)/4
-            sd['parameters']['rg'] = rgval
-            update_site_param(pc,pop_name,site_name,'rg',expr)
-    if structure_name == 'hard_spheres':
-        if ff_name == 'spherical':
-            expr = pop_name+'__'+'r_hard'
-            rval = pop_dict[pop_name]['parameters']['r_hard']
-            sd['parameters']['r'] = rval
-            update_site_param(pc,pop_name,site_name,'r',expr)
-        elif ff_name == 'spherical_normal':
-            expr = pop_name+'__'+'r_hard'
-            rval = pop_dict[pop_name]['parameters']['r_hard']
-            sd['parameters']['r0'] = rval
-            update_site_param(pc,pop_name,site_name,'r0',expr)
-        elif ff_name == 'guinier_porod':
-            expr = pop_name+'__'+'r_hard * sqrt(3./5)'
-            rgval = pop_dict[pop_name]['parameters']['r_hard'] * np.sqrt(3./5)
-            sd['parameters']['rg'] = rgval
-            update_site_param(pc,pop_name,site_name,'rg',expr)
-    # NOTE: any more default bounds or constraints should be inserted here
     return pd,fp,pb,pc
 
 def update_populations(pops,new_pops):

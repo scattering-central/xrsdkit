@@ -71,7 +71,7 @@ def spherical_ff(q,r):
     else:
         return 3.*(np.sin(x)-x*np.cos(x))*x**-3
 
-def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):  
+def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.05):  
     """Compute the form factor for a normally-distributed sphere population.
 
     The returned form factor is normalized 
