@@ -8,6 +8,7 @@ import lmfit
 from .. import all_params, param_defaults, fixed_param_defaults, param_bound_defaults, update_site_param
 from ..scattering import compute_intensity
 from ..tools import compute_chi2
+from . import flatten_params,unflatten_params
 
 class XRSDFitter(object):
     """Class for fitting x-ray scattering and diffraction profiles."""
@@ -104,7 +105,7 @@ class XRSDFitter(object):
             lmf_params,method='nelder-mead',
             kws={'error_weighted':error_weighted,'logI_weighted':logI_weighted,'q_range':q_range})
         flat_params = self.unpack_lmfit_params(lmf_res.params)
-        p_opt = self.update_params(p_opt,self.unflatten_params(flat_params))
+        p_opt = self.update_params(p_opt,unflatten_params(flat_params))
 
         rpt['success'] = lmf_res.success
         rpt['initial_objective'] = obj_init 
@@ -154,8 +155,8 @@ class XRSDFitter(object):
         if 'initial_objective' in report and 'final_objective' in report:
             p = 'optimization objective: {} --> {}'.\
             format(report['initial_objective'],report['final_objective'])
-            init_flat_params = self.flatten_params(init_pops)
-            fit_flat_params = self.flatten_params(fit_pops)
+            init_flat_params = flatten_params(init_pops)
+            fit_flat_params = flatten_params(fit_pops)
             for k, v in init_flat_params.items():
                 p += os.linesep+'{}: {} --> {}'.format(k,v,fit_flat_params[k])
             return p
@@ -192,10 +193,10 @@ class XRSDFitter(object):
     def pack_lmfit_params(self,populations=None,fixed_params={},param_bounds={},param_constraints={}):
         if populations is None:
             populations=self.populations
-        p = self.flatten_params(populations) 
-        fp = self.flatten_params(fixed_params) 
-        pb = self.flatten_params(param_bounds)
-        pc = self.flatten_params(param_constraints)
+        p = flatten_params(populations) 
+        fp = flatten_params(fixed_params) 
+        pb = flatten_params(param_bounds)
+        pc = flatten_params(param_constraints)
         lmfp = lmfit.Parameters()
         for pkey,pval in p.items():
             ks = pkey.split('__')
@@ -225,61 +226,6 @@ class XRSDFitter(object):
         pd = {} 
         for par_name,par in lmfit_params.items():
             pd[par_name] = copy.deepcopy(par.value)
-        return pd
-
-    @staticmethod
-    def flatten_params(populations):
-        pd = {} 
-        for pop_name,popd in populations.items():
-            if 'parameters' in popd:
-                for param_name,param_val in popd['parameters'].items():
-                    pd[pop_name+'__'+param_name] = copy.deepcopy(param_val)
-            if 'basis' in popd:
-                for site_name, site_def in popd['basis'].items():
-                    if 'coordinates' in site_def:
-                        pd[pop_name+'__'+site_name+'__coordinate_0'] = copy.deepcopy(site_def['coordinates'][0])
-                        pd[pop_name+'__'+site_name+'__coordinate_1'] = copy.deepcopy(site_def['coordinates'][1])
-                        pd[pop_name+'__'+site_name+'__coordinate_2'] = copy.deepcopy(site_def['coordinates'][2])
-                    if 'parameters' in site_def:
-                        for ff_param_name, ff_param_val in site_def['parameters'].items():
-                            pd[pop_name+'__'+site_name+'__'+ff_param_name] = \
-                            copy.deepcopy(ff_param_val)
-        return pd
-
-    @staticmethod
-    def unflatten_params(flat_params):
-        pd = {} 
-        for pkey,pval in flat_params.items():
-            ks = pkey.split('__')
-            kdepth = len(ks)
-            pop_name = ks[0]
-            if not pop_name in pd:
-                pd[pop_name] = {} 
-            if kdepth == 2: 
-                # a structure parameter 
-                if not 'parameters' in pd[pop_name]:
-                    pd[pop_name]['parameters'] = {} 
-                param_name = ks[1]
-                pd[pop_name]['parameters'][param_name] = copy.deepcopy(pval)
-            else:
-                # a basis or form factor parameter
-                site_name = ks[1]
-                if not 'basis' in pd[pop_name]:
-                    pd[pop_name]['basis'] = {} 
-                if not site_name in pd[pop_name]['basis']:
-                    pd[pop_name]['basis'][site_name] = {}
-                if ks[2] in ['coordinate_0','coordinate_1','coordinate_2']:
-                    # a coordinate
-                    if not 'coordinates' in pd[pop_name]['basis'][site_name]:
-                        pd[pop_name]['basis'][site_name]['coordinates'] = [None,None,None]
-                    coord_idx = int(ks[2][-1])
-                    pd[pop_name]['basis'][site_name]['coordinates'][coord_idx] = copy.deepcopy(pval) 
-                else:
-                    # a parameter for a form factor
-                    if not 'parameters' in pd[pop_name]['basis'][site_name]:
-                        pd[pop_name]['basis'][site_name]['parameters'] = {} 
-                    param_name = ks[2]
-                    pd[pop_name]['basis'][site_name]['parameters'][param_name] = copy.deepcopy(pval)
         return pd
 
     def evaluate_residual(self,populations,error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
@@ -328,7 +274,7 @@ class XRSDFitter(object):
         return res 
 
     def lmf_evaluate(self,lmf_params,error_weighted=True,logI_weighted=True,q_range=[None,None]):
-        pd = self.unflatten_params(self.unpack_lmfit_params(lmf_params))
+        pd = unflatten_params(self.unpack_lmfit_params(lmf_params))
         pops = copy.deepcopy(self.populations)
         pops = self.update_params(pops,pd)
         return self.evaluate_residual(pops,error_weighted,logI_weighted,q_range)

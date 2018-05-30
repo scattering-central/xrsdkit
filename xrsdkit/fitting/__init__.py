@@ -1,4 +1,6 @@
 """Modules for fitting intensity versus q profiles"""
+import copy
+
 import numpy as np
 
 from ..tools import standardize_array
@@ -78,4 +80,58 @@ def fit_with_slope_constraint(q,I,q_cons,dIdq_cons,order,weights=None):
     p_fit = p_fit[:-1]  # throw away Lagrange multiplier term 
     p_fit = p_fit[::-1] # reverse coefs to get np.polyfit format
     return p_fit
+
+def flatten_params(populations):
+    pd = {} 
+    for pop_name,popd in populations.items():
+        if 'parameters' in popd:
+            for param_name,param_val in popd['parameters'].items():
+                pd[pop_name+'__'+param_name] = copy.deepcopy(param_val)
+        if 'basis' in popd:
+            for site_name, site_def in popd['basis'].items():
+                if 'coordinates' in site_def:
+                    pd[pop_name+'__'+site_name+'__coordinate_0'] = copy.deepcopy(site_def['coordinates'][0])
+                    pd[pop_name+'__'+site_name+'__coordinate_1'] = copy.deepcopy(site_def['coordinates'][1])
+                    pd[pop_name+'__'+site_name+'__coordinate_2'] = copy.deepcopy(site_def['coordinates'][2])
+                if 'parameters' in site_def:
+                    for ff_param_name, ff_param_val in site_def['parameters'].items():
+                        pd[pop_name+'__'+site_name+'__'+ff_param_name] = \
+                        copy.deepcopy(ff_param_val)
+    return pd
+
+def unflatten_params(flat_params):
+    pd = {} 
+    for pkey,pval in flat_params.items():
+        ks = pkey.split('__')
+        kdepth = len(ks)
+        pop_name = ks[0]
+        if not pop_name in pd:
+            pd[pop_name] = {} 
+        if kdepth == 2: 
+            # a structure parameter 
+            if not 'parameters' in pd[pop_name]:
+                pd[pop_name]['parameters'] = {} 
+            param_name = ks[1]
+            pd[pop_name]['parameters'][param_name] = copy.deepcopy(pval)
+        else:
+            # a basis or form factor parameter
+            site_name = ks[1]
+            if not 'basis' in pd[pop_name]:
+                pd[pop_name]['basis'] = {} 
+            if not site_name in pd[pop_name]['basis']:
+                pd[pop_name]['basis'][site_name] = {}
+            if ks[2] in ['coordinate_0','coordinate_1','coordinate_2']:
+                # a coordinate
+                if not 'coordinates' in pd[pop_name]['basis'][site_name]:
+                    pd[pop_name]['basis'][site_name]['coordinates'] = [None,None,None]
+                coord_idx = int(ks[2][-1])
+                pd[pop_name]['basis'][site_name]['coordinates'][coord_idx] = copy.deepcopy(pval) 
+            else:
+                # a parameter for a form factor
+                if not 'parameters' in pd[pop_name]['basis'][site_name]:
+                    pd[pop_name]['basis'][site_name]['parameters'] = {} 
+                param_name = ks[2]
+                pd[pop_name]['basis'][site_name]['parameters'][param_name] = copy.deepcopy(pval)
+    return pd
+
 
