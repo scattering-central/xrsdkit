@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import numpy as np
 from .regressor import Regressor
-from xrsdkit.tools.piftools import reg_model_output_names
+#from xrsdkit.tools.piftools import reg_model_output_names
 
 
 
@@ -10,7 +10,8 @@ class Regressors(object):
 
     def __init__(self):
 
-        self.models = OrderedDict.fromkeys(reg_model_output_names)
+        #self.models = OrderedDict.fromkeys(reg_model_output_names)
+        self.models = OrderedDict()
         for k,v in self.models.items():
             self.models[k] = Regressor(k)
 
@@ -43,7 +44,8 @@ class Regressors(object):
             and cross validation accuracies.
         """
         if "all" in reg_models:
-            results = OrderedDict.fromkeys(reg_model_output_names)
+            #results = OrderedDict.fromkeys(reg_model_output_names)
+            results = OrderedDict()
         else:
             results = OrderedDict.fromkeys(reg_models)
 
