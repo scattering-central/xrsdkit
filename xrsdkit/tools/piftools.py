@@ -8,7 +8,7 @@ from .. import structure_names
 from .. import form_factor_names
 from .. import crystalline_structure_names 
 
-def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
+def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,src_wl=None,populations=None):
     """Make a pypif.obj.ChemicalSystem object describing XRSD data.
 
     Parameters
@@ -23,6 +23,8 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
         n-by-2 array of q (1/Angstrom) and intensity (arb)
     temp_C : float
         temperature of the sample in degrees C
+    src_wl : float
+        wavelength of light source in Angstroms 
     populations : dict
         dict defining sample populations and parameters 
 
@@ -41,7 +43,7 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
     if t_utc is not None:
         csys.tags.append('time (utc): '+str(int(t_utc)))
     if q_I is not None:
-        csys.properties.extend(q_I_properties(q_I,temp_C))
+        csys.properties.extend(q_I_properties(q_I,temp_C,src_wl))
     if populations is not None:
         csys.properties.extend(populations_properties(populations))
     if q_I is not None:
@@ -51,13 +53,16 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,populations=None):
 def id_tag(idname,idval,tags=None):
     return pifobj.Id(idname,idval,tags)
 
-def q_I_properties(q_I,temp_C=None):
+def q_I_properties(q_I,temp_C=None,src_wl=None):
     properties = []
     # Process measured q_I into a property
     pI = q_I_property(q_I)
     if temp_C is not None:
         pI.conditions.append(pifobj.Value('temperature',
         [pifobj.Scalar(temp_C)],None,None,None,'degrees Celsius'))
+    if src_wl is not None:
+        pI.conditions.append(pifobj.Value('source wavelength',
+        [pifobj.Scalar(src_wl)],None,None,None,'Angstroms'))
     properties.append(pI)
     return properties
 
@@ -89,18 +94,23 @@ def populations_properties(populations):
     for ip,popnm in enumerate(populations.keys()):
         popd = populations[popnm]
         properties.append(pop_structure_property(popnm,popd))
-        for ist, stnm in enumerate(popd['basis'].items()):
+        for ist, stnm in enumerate(popd['basis'].keys()):
             stdef = popd['basis'][stnm]
-            properties.append(site_name_property(popnm,ist,stnm)
-            properties.append(site_ff_property(popnm,stnm,stdef)
+            properties.append(site_name_property(popnm,ist,stnm))
+            properties.append(site_ff_property(popnm,stnm,stdef))
     for ip,popnm in enumerate(populations.keys()):
         popd = populations[popnm]
-        properties.extend(setting_properties(popnm,popd))
-        properties.extend(param_properties(popnm,popd))
-        for ist, stnm in enumerate(popd['basis'].items()):
+        if 'settings' in popd:
+            properties.extend(setting_properties(popnm,popd))
+        if 'parameters' in popd:
+            properties.extend(param_properties(popnm,popd))
+        for ist, stnm in enumerate(popd['basis'].keys()):
             stdef = popd['basis'][stnm]
-            properties.extend(site_setting_properties(popnm,stnm,stdef)
-            properties.extend(site_param_properties(popnm,stnm,stdef)
+            if 'settings' in stdef:
+                properties.extend(site_setting_properties(popnm,stnm,stdef))
+            if 'parameters' in stdef:
+                properties.extend(site_param_properties(popnm,stnm,stdef))
+    return properties
 
 def pop_name_property(ip,popnm):
     pp = pifobj.Property('population_{}_name'.format(ip))
