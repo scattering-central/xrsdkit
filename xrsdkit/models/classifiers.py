@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from .structure_classifier import StructureClassifier
-from xrsdkit.tools.piftools import cl_model_output_names
+#from xrsdkit.tools.piftools import cl_model_output_names
 
 
 class Classifiers(object):
@@ -8,7 +8,8 @@ class Classifiers(object):
 
     def __init__(self):
 
-        self.models = OrderedDict.fromkeys(cl_model_output_names)
+        #self.models = OrderedDict.fromkeys(cl_model_output_names)
+        self.models = OrderedDict()
         for k,v in self.models.items():
             self.models[k] = StructureClassifier(k)
 
@@ -43,7 +44,8 @@ class Classifiers(object):
             and cross validation accuracies.
         """
         if "all" in cl_models:
-            results = OrderedDict.fromkeys(cl_model_output_names)
+            #results = OrderedDict.fromkeys(cl_model_output_names)
+            results = OrderedDict()
         else:
             results = OrderedDict.fromkeys(cl_models)
 

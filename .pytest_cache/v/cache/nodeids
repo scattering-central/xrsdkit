@@ -1,0 +1,16 @@
+[
+  "tests/test_citrination.py::test_citrination_models",
+  "tests/test_citrination.py::test_getdata",
+  "tests/test_diffraction.py::test_gaussian",
+  "tests/test_diffraction.py::test_lorentzian",
+  "tests/test_diffraction.py::test_voigt",
+  "tests/test_diffraction.py::test_fcc_sf",
+  "tests/test_diffraction.py::test_fcc_Al",
+  "tests/test_diffraction.py::test_hard_spheres",
+  "tests/test_fitting.py::test_fit_spheres",
+  "tests/test_fitting.py::test_fit_sphere_diffraction",
+  "tests/test_scattering.py::test_guinier_porod",
+  "tests/test_scattering.py::test_spherical_normal",
+  "tests/test_scattering.py::test_plot_ff",
+  "tests/test_tools.py::test_profile_spectrum"
+]
