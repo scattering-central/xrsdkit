@@ -96,37 +96,41 @@ def system_classifications(opd):
     main_cls = ''
     for ip,pop_nm in enumerate(opd.keys()):
         popd = opd[pop_nm]
-        if not pop_nm in ['noise','unidentified'] \
-        and not popd['structure'] == 'unidentified': 
-            main_cls += 'pop{}_{}'.format(ip,popd['structure'])
+        if not pop_nm == 'noise':
+        #and not popd['structure'] == 'unidentified': 
+            main_cls += 'pop{}_{}__'.format(ip,popd['structure'])
             popnm_cls = Classification('pop{}_name'.format(ip),pop_nm)
             pop_cls = Classification('pop{}_structure'.format(ip),popd['structure'])
             clss.extend([popnm_cls,pop_cls])
             for ist,site_nm in enumerate(popd['basis'].keys()):
                 sited = popd['basis'][site_nm]
-                main_cls += 'site{}_{}'.format(ist,sited['form'])
+                main_cls += 'site{}_{}__'.format(ist,sited['form'])
                 sitenm_cls = Classification('pop{}_site{}_name'.format(ip,ist),site_nm)
                 site_cls = Classification('pop{}_site{}_form'.format(ip,ist),sited['form'])
                 clss.extend([sitenm_cls,site_cls])
-            if ip < len(opd)-1:
-                main_cls += '__'
+    if main_cls[-2:] == '__':
+        main_cls = main_cls[:-2]
     clss.append(Classification('system_classification',main_cls))
     return clss
 
 def system_properties(opd):
     properties = []
     for ip,popnm in enumerate(opd.keys()):
-        popd = opd[popnm]
-        if 'settings' in popd:
-            properties.extend(setting_properties(ip,popd))
-        if 'parameters' in popd:
-            properties.extend(param_properties(ip,popd))
-        for ist, stnm in enumerate(popd['basis'].keys()):
-            stdef = popd['basis'][stnm]
-            if 'settings' in stdef:
-                properties.extend(site_setting_properties(ip,ist,stdef))
-            if 'parameters' in stdef:
-                properties.extend(site_param_properties(ip,ist,stdef))
+        if popnm == 'noise' and not opd[popnm]['structure'] == 'unidentified':
+            properties.append(Property('noise_intensity',opd[popnm]['parameters']['I0']))
+        else:
+            popd = opd[popnm]
+            if 'settings' in popd:
+                properties.extend(setting_properties(ip,popd))
+            if 'parameters' in popd:
+                properties.extend(param_properties(ip,popd))
+            if 'basis' in popd:
+                for ist, stnm in enumerate(popd['basis'].keys()):
+                    stdef = popd['basis'][stnm]
+                    if 'settings' in stdef:
+                        properties.extend(site_setting_properties(ip,ist,stdef))
+                    if 'parameters' in stdef:
+                        properties.extend(site_param_properties(ip,ist,stdef))
     return properties
 
 def setting_properties(ip,popd):
