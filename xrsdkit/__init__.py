@@ -184,13 +184,19 @@ form_factor_settings['atomic'].extend(['symbol','Z'])
 all_params = [\
 'I0',\
 'coordinates',\
-'a',\
+'a','hwhm_g','hwhm_l',
 'G','rg','D',\
 'r',\
 'r0','sigma',\
 'r_hard','v_fraction',\
-'hwhm_g','hwhm_l',
 'a0','a1','a2','a3','b0','b1','b2','b3']
+
+regression_params = [
+'a','hwhm_g','hwhm_l',\
+'rg','D',\
+'r',\
+'r0','sigma',\
+'r_hard','v_fraction']
 
 param_defaults = OrderedDict(
     I0 = 1.,
