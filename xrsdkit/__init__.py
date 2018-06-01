@@ -128,6 +128,7 @@ my_populations = dict(
     )
 """
 from collections import OrderedDict
+import copy
 
 import numpy as np
 
@@ -484,4 +485,30 @@ def update_populations(pops,new_pops):
                     for cidx, cval in enumerate(sd_new['coordinates']):
                         if cval is not None: 
                             sd['coordinates'][cidx] = cval
+
+def ordered_populations(pops):
+    opd = OrderedDict()
+    ## Step 1: Standardize order of populations by structure,
+    ## excluding hypothetical entries for noise or unidentified structures
+    for stnm in structure_names:
+        for pop_nm,popdef in pops.items():
+            if not pop_nm == 'noise' \
+            and not popdef['structure'] == 'unidentified':
+                if popdef['structure'] == stnm:
+                    opd[pop_nm] = copy.deepcopy(popdef)
+    ## Step 2: Standardize order of sites by form factor
+    for pop_nm,popdef in opd.items():
+        obd = OrderedDict()
+        for ffnm in form_factor_names:
+            for site_nm,sited in popdef['basis'].items(): 
+                if sited['form'] == ffnm:
+                    obd[site_nm] = copy.deepcopy(sited)
+        opd[pop_nm]['basis'] = obd
+    ## Step 3: if noise or unidentified populations, put at the end
+    for pop_nm,popdef in pops.items():
+        if pop_nm == 'noise' \
+        or popdef['structure'] == 'unidentified':
+            opd[pop_nm] = copy.deepcopy(popdef)
+    return opd
+
 
