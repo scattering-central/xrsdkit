@@ -5,7 +5,7 @@ import numpy as np
 from pypif.obj import ChemicalSystem, Property, Classification, Id, Value, Scalar
 
 from . import profiler
-from .. import structure_names, form_factor_names, crystalline_structure_names 
+from .. import structure_names, form_factor_names, crystalline_structure_names, regression_params
 from .. import ordered_populations
 
 def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,src_wl=None,populations=None):
@@ -52,6 +52,84 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,src_wl=None,popula
     if q_I is not None:
         csys.properties.extend(profile_properties(q_I))
     return csys
+
+def unpack_pif1(pp): # TODO: refactor
+    if pp.properties is not None:
+        for cl in pp.classifications:
+            print(cl.name, cl.value)
+        for p in pp.properties:
+            print(p.name)
+            for s in p.scalars:
+                print(s.value)
+
+#expt_id,t_utc,q_I,temp,pp_feats = piftools.unpack_pif(pp)
+def unpack_pif(pp): # TODO: refactor
+    expt_id = None
+    t_utc = None
+    q_I = None
+    temp = None
+    features = OrderedDict()
+    reg_pp_outputs={}
+    for cl in pp.classifications:
+        if cl.name== 'system_classification':
+            cl_pp_output=cl.value
+    if pp.ids is not None:
+        for iidd in pp.ids:
+            if iidd.name == 'EXPERIMENT_ID':
+                expt_id = iidd.value
+    if pp.tags is not None:
+        for ttgg in pp.tags:
+            if 'time (utc): ' in ttgg:
+                t_utc = float(ttgg.replace('time (utc): ',''))
+    if pp.properties is not None:
+        for prop in pp.properties:
+            if prop.name == 'Intensity':
+                I = [float(sca.value) for sca in prop.scalars]
+                for val in prop.conditions:
+                    if val.name == 'scattering vector magnitude':
+                        q = [float(sca.value) for sca in val.scalars]
+                    if val.name == 'temperature':
+                        temp = float(val.scalars[0].value)
+                    if val.name == 'source wavelength':
+                        wavel = float(val.scalars[0].value) #TODO check if we need it
+                q_I = np.vstack([q,I]).T
+            elif prop.name in profiler.profile_keys:
+                features[prop.name] = float(prop.scalars[0].value)
+            elif prop.name.split("_")[-1] in regression_params:
+                reg_pp_outputs[prop.name]= prop.scalars[0].value
+    print(features)
+    print(cl_pp_output, reg_pp_outputs)
+    return expt_id,t_utc,q_I,temp,features, cl_pp_output, reg_pp_outputs
+
+def unpack_pif_old(pp): # TODO: refactor
+    expt_id = None
+    t_utc = None
+    q_I = None
+    temp = None
+    features = OrderedDict()
+    if pp.ids is not None:
+        for iidd in pp.ids:
+            if iidd.name == 'EXPERIMENT_ID':
+                expt_id = iidd.value
+    if pp.tags is not None:
+        for ttgg in pp.tags:
+            if 'time (utc): ' in ttgg:
+                t_utc = float(ttgg.replace('time (utc): ',''))
+    if pp.properties is not None:
+        for prop in pp.properties:
+            if prop.name == 'SAXS intensity':
+                I = [float(sca.value) for sca in prop.scalars]
+                for val in prop.conditions:
+                    if val.name == 'scattering vector':
+                        q = [float(sca.value) for sca in val.scalars]
+                    if val.name == 'temperature':
+                        temp = float(val.scalars[0].value)
+                q_I = np.vstack([q,I]).T
+            elif prop.tags is not None:
+                if 'spectrum profiling quantity' in prop.tags:
+                    features[prop.name] = float(prop.scalars[0].value)
+
+    return expt_id,t_utc,q_I,temp,features
 
 def id_tag(idname,idval,tags=None):
     return Id(idname,idval,tags)
