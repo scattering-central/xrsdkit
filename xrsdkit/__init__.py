@@ -128,6 +128,7 @@ my_populations = dict(
     )
 """
 from collections import OrderedDict
+import copy
 
 import numpy as np
 
@@ -484,4 +485,23 @@ def update_populations(pops,new_pops):
                     for cidx, cval in enumerate(sd_new['coordinates']):
                         if cval is not None: 
                             sd['coordinates'][cidx] = cval
+
+def ordered_populations(pops):
+    op = OrderedDict()
+    ## Step 1: Standardize order of populations by structure
+    for stnm in structure_names:
+        for pop_nm,popd in pops.items():
+            if popd['structure'] == stnm:
+                op[pop_nm] = copy.deepcopy(popd)
+    ## Step 2: Standardize order of sites by form factor
+    for pop_nm,popd in pops.items():
+        if not popd['structure'] == 'unidentified':
+            ob = OrderedDict()
+            for ffnm in form_factor_names:
+                for site_nm,sited in popd['basis'].items(): 
+                    if sited['form'] == ffnm:
+                        ob[site_nm] = copy.deepcopy(sited)
+            popd['basis'] = ob
+    return op
+
 
