@@ -3,7 +3,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from citrination_client import CitrinationClient
-from xrsdkit.models.classifiers import Classifiers
+from xrsdkit.models.structure_classifier import StructureClassifier
 from xrsdkit.models.regressors import Regressors
 
 from xrsdkit.tools.citrination_tools import get_data_from_Citrination
@@ -21,31 +21,32 @@ cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
 
 #data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36])
-data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33])
+
+#data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33])
+
+data = get_data_from_Citrination(client = cl, dataset_id_list= [30,31,32,33,34,35,36])
 
 models_path = os.path.join(d,'xrsdkit','models','modeling_data')
 
-my_classifiers = Classifiers() # we can specify the list of classifiers to train
+my_classifier = StructureClassifier("populations")
 print("Old accuracies for classifiers:")
-my_classifiers.print_accuracies()
+my_classifier.print_accuracies()
 
-results = my_classifiers.train_classification_models(data, hyper_parameters_search = True)
+results = my_classifier.train(data, hyper_parameters_search = True)
 # to train 'guinier_porod_population_count' model only:
 #results = my_classifiers.train_classification_models(data, hyper_parameters_search = True, cl_models = ['guinier_porod_population_count'])
 print("New accuracies and parameters for classifiers:")
-my_classifiers.print_training_results(results)
-my_classifiers.save_classification_models(results, models_path)
+my_classifier.print_training_results(results)
+my_classifier.save_models(results, models_path)
 
-
+'''
 # regression models:
 rg_models = Regressors()
 print("Old accuracies for regressors:")
 rg_models.print_errors()
-
 results = rg_models.train_regression_models(data, hyper_parameters_search = True)
 print("New accuracies and parameters for regressors:")
 rg_models.print_training_results(results)
 rg_models.save_regression_models(results, models_path)
-
-
+'''
 

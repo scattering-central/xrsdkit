@@ -15,7 +15,10 @@ class XRSDModel(object):
             p = os.path.abspath(__file__)
             d = os.path.dirname(p)
             file_name = label + '.yml'
-            yml_file = os.path.join(d,'modeling_data',file_name)
+            if classifier:
+                yml_file = os.path.join(d,'modeling_data','classifiers',file_name)
+            else:
+                yml_file = os.path.join(d,'modeling_data','regressors',file_name)
 
         try:
             s_and_m_file = open(yml_file,'rb')
@@ -42,7 +45,7 @@ class XRSDModel(object):
         self.cv_error = None
         self.target = label
         self.classifier = classifier
-        self.n_groups_out = 2
+        self.n_groups_out = 1
         self.features = profiler.profile_keys_1
 
         if s_and_m and s_and_m['scaler']: # we have a saved model
@@ -52,6 +55,7 @@ class XRSDModel(object):
                 self.model = linear_model.SGDClassifier()
             else:
                 self.model = linear_model.SGDRegressor()
+                self.population = s_and_m['population']
             set_param(self.model,s_and_m['model'])
             self.cv_error = s_and_m['accuracy']
             self.parameters = s_and_m['parameters']
@@ -59,7 +63,6 @@ class XRSDModel(object):
 
     def train(self, all_data, hyper_parameters_search=False):
         """Train SAXS classification models, optionally searching for optimal hyperparameters.
-
         Parameters
         ----------
         all_data : pandas.DataFrame
@@ -67,23 +70,17 @@ class XRSDModel(object):
         hyper_parameters_search : bool
             If true, grid-search model hyperparameters
             to seek high cross-validation accuracy.
-
         Returns
         -------
         results : dict
             Dictionary with training results.
-
         The results include:
-
         - 'scaler': sklearn standard scaler
             used for transforming of new data
-
         - 'model':sklearn model
             trained on new data
-
         - 'parameters': dict
             Dictionary of parameters found by hyperparameters_search()
-
         - 'accuracy': float
             average crossvalidation score (accuracy for classification,
             normalized mean absolute error for regression)
@@ -97,17 +94,17 @@ class XRSDModel(object):
         new_parameters = None
 
         if not training_possible:
-            print(self.target, "model was not trained.")# TODO decide what we should print (or not print) heare
+            print(self.target, "model was not trained.")# TODO decide what we should print (or not print) here
             return new_scaler, new_model,new_parameters, new_accuracy
 
-        data = d.dropna(subset=self.features)
+        data = d.dropna(subset=self.features)# TODO update it when we will have new features for crystalline only
 
-        # using leaveTwoGroupOut makes sense when we have at least 5 groups
-        if len(data.experiment_id.unique()) > 4:
-            leaveTwoGroupOut = True
+        # using leaveGroupOut makes sense when we have at least 3 groups
+        if len(data.experiment_id.unique()) > 2:
+            leaveGroupOut = True
         else:
             # use 5-fold cross validation
-            leaveTwoGroupOut = False
+            leaveGroupOut = False
 
         new_scaler = preprocessing.StandardScaler()
         new_scaler.fit(data[self.features])
@@ -116,7 +113,7 @@ class XRSDModel(object):
         if hyper_parameters_search == True:
             new_parameters = self.hyperparameters_search(
                         transformed_data, data[self.target],
-                        data['experiment_id'], leaveTwoGroupOut, self.n_groups_out)
+                        data['experiment_id'], leaveGroupOut, self.n_groups_out)
         else:
             new_parameters = self.parameters
 
@@ -137,14 +134,14 @@ class XRSDModel(object):
             else:
                 new_model = linear_model.SGDRegressor(max_iter=1000) # max_iter is about 10^6 / number of tr samples
 
-        new_model.fit(transformed_data, data[self.target])
+        new_model.fit(transformed_data, data[self.target]) # using all data for final training
 
         if self.classifier:
             label_std = None
         else:
             label_std = pd.to_numeric(data[self.target]).std()# usefull for regressin only
 
-        if leaveTwoGroupOut:
+        if leaveGroupOut:
             new_accuracy = self.testing_by_experiments(data, new_model, label_std)
         else:
             new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
@@ -155,7 +152,6 @@ class XRSDModel(object):
 
     def check_label(self, dataframe):
         """Test whether or not `dataframe` has legal values for the label
-
         For classification models:
         Because a model requires a distribution of training samples,
         this function checks `dataframe` to ensure that its
@@ -164,16 +160,13 @@ class XRSDModel(object):
         this function returns False,
         indicating that this `dataframe`
         cannot be used to train that model.
-
         For rergession models:
         The function return "True" if the dataframe has at least
         5 non-null values
-
         Parameters
         ----------
         dataframe : pandas.DataFrame
             dataframe of sample features and corresponding labels
-
         Returns
         -------
         boolean
@@ -181,13 +174,13 @@ class XRSDModel(object):
         """
 
         if self.classifier:
-            if len(dataframe[self.target].unique()) > 1:
+            if len(dataframe[self.target].unique()) > 1 and dataframe.shape[0] > 30:
                 return True
             else:
                 return False
 
         else:
-            if dataframe.shape[0] > 4:
+            if dataframe.shape[0] > 30:
                 return True
             else:
                 return False
@@ -195,7 +188,6 @@ class XRSDModel(object):
 
     def hyperparameters_search(self, transformed_data, data_labels, group_by, leaveNGroupOut, n):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
-
         Parameters
         ----------
         transformed_data : array
@@ -209,7 +201,6 @@ class XRSDModel(object):
             to cross-validate by the leave-two-groups-out approach
         n: integer
             number of groups to leave out
-
         Returns
         -------
         clf.best_params_ : dict
@@ -235,7 +226,6 @@ class XRSDModel(object):
 
     def testing_using_crossvalidation(self, df, model, label_std):
         """Fit a model, then test it using 5-fold crossvalidation
-
         Parameters
         ----------
         df : pandas.DataFrame
@@ -244,7 +234,6 @@ class XRSDModel(object):
             with specific parameters
         label_std : float
             is used for regression models only
-
         Returns
         -------
         float
@@ -266,7 +255,6 @@ class XRSDModel(object):
 
     def testing_by_experiments(self, df, model, label_std):
         """Fit a model, then test it by leaveTwoGroupsOut cross-validation
-
         Parameters
         ----------
         df : pandas.DataFrame
@@ -275,7 +263,49 @@ class XRSDModel(object):
             with specific parameters
         label_std : float
             is used for regression models only
+        Returns
+        -------
+        float
+            average crossvalidation score by experiments (accuracy for classification,
+            normalized mean absolute error for regression)
+        """
+        experiments = df.experiment_id.unique()# we have at least 5 experiments
+        test_scores_by_ex = []
+        count = 0
+        for i in range(len(experiments)):
+                tr = df[(df['experiment_id']!= experiments[i])]
+                test = df[(df['experiment_id']== experiments[i])]
 
+                # The number of class labels must be greater than one
+                if len(tr[self.target].unique()) < 2:
+                    continue
+
+                scaler = preprocessing.StandardScaler()
+                scaler.fit(tr[self.features])
+                model.fit(scaler.transform(tr[self.features]), tr[self.target])
+                if self.classifier:
+                    test_score = model.score(
+                        scaler.transform(test[self.features]), test[self.target])
+                    test_scores_by_ex.append(test_score)
+                else:
+                    pr = model.predict(scaler.transform(test[self.features]))
+                    test_score = mean_absolute_error(pr, test[self.target])
+                    test_scores_by_ex.append(test_score/label_std)
+                count +=1
+
+        return sum(test_scores_by_ex)/count
+
+
+    def testing_by_experimentsOld(self, df, model, label_std):
+        """Fit a model, then test it by leaveTwoGroupsOut cross-validation
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            pandas dataframe of features and labels
+        model : sk-learn
+            with specific parameters
+        label_std : float
+            is used for regression models only
         Returns
         -------
         float
@@ -313,7 +343,6 @@ class XRSDModel(object):
 
     def get_cv_error(self):
         """Report cross-validation error for the model.
-
         To calculate cv_error "Leave-2-Groups-Out" cross-validation is used.
         For each train-test split,
         two experiments are used for testing
@@ -321,7 +350,6 @@ class XRSDModel(object):
         The reported error is the average over all train-test splits
         (accuracy for classification,
         normalized mean absolute error for regression)
-
         Returns
         -------
         cv_errors : float
@@ -332,26 +360,20 @@ class XRSDModel(object):
 
     def save_models(self, scaler_model, file_path=None):
         """Save model parameters and CV errors in YAML and .txt files.
-
         Parameters
         ----------
         scaler_model : dict
             Dictionary with training results.
-
         The results include:
         - 'scaler': sklearn standard scaler
             used for transforming of new data
-
         - 'model':sklearn model
             trained on new data
-
         - 'parameters': dict
             Dictionary of parameters found by hyperparameters_search()
-
         - 'accuracy': float
             average crossvalidation score (accuracy for classification,
             normalized mean absolute error for regression)
-
         file_path : str
             Full path to the YAML file where the models will be saved.
             Scaler, model, and cross-validation error
@@ -365,19 +387,25 @@ class XRSDModel(object):
         self.model = scaler_model['model']
         self.parameters = scaler_model['parameters']
         self.cv_error = scaler_model['accuracy']
+        if self.classifier == False:
+            self.population = scaler_model['population']
 
         if file_path is None:
             p = os.path.abspath(__file__)
             d = os.path.dirname(p)
             suffix = 0
-            file_path = os.path.join(d,'modeling_data',
+            file_path = os.path.join(d,'modeling_data',  #TODO check if we need add "classifiers"
                 'custom_models_'+ self.target +str(suffix)+'.yml')
             while os.path.exists(file_path):
                 suffix += 1
                 file_path = os.path.join(d,'modeling_data',
                     'custom_models_'+ self.target + str(suffix)+'.yml')
 
-        file_path = file_path + '/' + self.target + '.yml'
+        if self.classifier:
+            file_path = file_path + '/classifiers/' + self.target + '.yml'
+        else:
+            file_path = file_path + '/regressors/' + self.target + '.yml'
+
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
 
         s_and_m = {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
@@ -401,24 +429,18 @@ class XRSDModel(object):
             (containing features and labels)
         testing_data : pandas.DataFrame
             dataframe with data we wish use for testing the models
-
         Returns
         -------
         results : dict
             Dictionary with training results.
-
         The results include:
-
         - 'scaler': sklearn standard scaler
             used for transforming of new data
-
         - 'model':sklearn model
             trained on new data
-
         - 'parameters': dict
             dictionary of parameters that were used to train the model
             (were not changed)
-
         - 'accuracy': float
             average crossvalidation score (accuracy for classification,
             normalized mean absolute error for regression)

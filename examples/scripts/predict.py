@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 from xrsdkit.tools.profiler import profile_spectrum
 
 # for using saxskit models:
-from xrsdkit.models.classifiers import Classifiers
+from xrsdkit.models.structure_classifier import StructureClassifier
 from xrsdkit.models.regressors import Regressors
 
 # for using Citrination models:
@@ -35,11 +35,11 @@ features = profile_spectrum(q_i)
 print("\033[1m" + "Prediction from saxskit models: " + "\033[0;0m", "\n")
 print("scatterer populations: ")
 
-cl_models = Classifiers()
-cl_result = cl_models.make_predictions(features)
-for k, v in cl_result.items():
-    print(k, ' :', v[0], "  with probability: %1.3f" % (v[1]))
+cl_model = StructureClassifier("populations")
+cl_result = cl_model.classify(features)
+print(cl_result[0], "  with probability: %1.3f" % (cl_result[1]))
 
+'''
 print("\nscattering and intensity parameters: ")
 
 reg_models = Regressors()
@@ -47,7 +47,7 @@ reg_result = reg_models.make_predictions(features, cl_result, q_i)
 for k, v in reg_result.items():
     print(k, " :   %10.3f" % (v))
 
-'''
+
 
 #Using Citrination models:
 print("\033[1m" + "Prediction from Citrination models: " + "\033[0;0m", "\n")
@@ -79,3 +79,4 @@ for k,v in params.items():
         print(" %10.3f" % (v[n]) )
 print()
 '''
+
