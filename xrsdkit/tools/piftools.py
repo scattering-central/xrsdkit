@@ -97,8 +97,6 @@ def unpack_pif(pp): # TODO: refactor
                 features[prop.name] = float(prop.scalars[0].value)
             elif prop.name.split("_")[-1] in regression_params:
                 reg_pp_outputs[prop.name]= prop.scalars[0].value
-    print(features)
-    print(cl_pp_output, reg_pp_outputs)
     return expt_id,t_utc,q_I,temp,features, cl_pp_output, reg_pp_outputs
 
 def unpack_pif_old(pp): # TODO: refactor

@@ -27,20 +27,35 @@ def get_data_from_Citrination(client, dataset_id_list):
         listed in `dataset_id_list`
     """
     data = []
+    reg_labels = []
+    all_reg_labels = set()
 
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for pp in pifs:
         expt_id,t_utc,q_I,temp,pp_feats, cl_model_outputs, reg_model_outputs = piftools.unpack_pif(pp)
+        #print(reg_model_outputs)
         feats = OrderedDict.fromkeys(profiler.profile_keys)
         feats.update(pp_feats)
         
-        data_row = [expt_id]+list(feats.values())+list(reg_model_outputs.values())#TODO change
+        data_row = [expt_id]+list(feats.values())+[cl_model_outputs]
         data.append(data_row)
+        for k,v in reg_model_outputs.items():
+            all_reg_labels.add(k)
+        reg_labels.append(reg_model_outputs)
+
+    reg_labels_list = list(all_reg_labels)
+    reg_labels_list.sort()
+
+    for i in range(len(reg_labels)):
+        lb = OrderedDict.fromkeys(reg_labels_list)
+        lb.update(reg_labels[i])
+        data[i] = data[i] + list(lb.values())
 
     colnames = ['experiment_id']
     colnames.extend(profiler.profile_keys)
-    colnames.extend(piftools.model_output_names)
+    colnames.extend(['populations'])
+    colnames.extend(reg_labels_list)
 
     d = pd.DataFrame(data=data, columns=colnames)
     d = d.where((pd.notnull(d)), None) # replace all NaN by None
