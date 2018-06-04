@@ -23,6 +23,7 @@ cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 #data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36])
 
 #data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33])
+#data = get_data_from_Citrination(client = cl, dataset_id_list= [34])
 
 data = get_data_from_Citrination(client = cl, dataset_id_list= [30,31,32,33,34,35,36])
 
@@ -39,14 +40,14 @@ print("New accuracies and parameters for classifiers:")
 my_classifier.print_training_results(results)
 my_classifier.save_models(results, models_path)
 
-'''
+
 # regression models:
 rg_models = Regressors()
-print("Old accuracies for regressors:")
-rg_models.print_errors()
+#print("Old accuracies for regressors:")
+#rg_models.print_errors()
 results = rg_models.train_regression_models(data, hyper_parameters_search = True)
 print("New accuracies and parameters for regressors:")
 rg_models.print_training_results(results)
 rg_models.save_regression_models(results, models_path)
-'''
+
 

@@ -15,17 +15,15 @@ class Regressor(XRSDModel):
 
         f = []
         f.extend(profiler.profile_keys_1)
-        if label.startswith( 'r_g' ): # 'rg_0', 'rg_1', 'rg_2'....
+        if 'rg' in label:
             f.extend(profiler.gp_profile_keys)
-            self.features = f
-        else:
+        elif 'r0' or 'sigma' in label:
             f.extend(profiler.spherical_profile_keys)
-            self.features = f
+        self.features = f
 
 
     def predict(self, sample_features, populations, q_I):
         """Determine the types of structures represented by the sample
-
         Parameters
         ----------
         sample_features : OrderedDict
@@ -36,7 +34,6 @@ class Regressor(XRSDModel):
             similar to output of Classifiers.make_predictions()
         q_I : array
             n-by-2 array of scattering vector (1/Angstrom) and intensities.
-
         Returns
         -------
         prediction : float or None

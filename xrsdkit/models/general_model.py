@@ -95,7 +95,8 @@ class XRSDModel(object):
 
         if not training_possible:
             print(self.target, "model was not trained.")# TODO decide what we should print (or not print) here
-            return new_scaler, new_model,new_parameters, new_accuracy
+            return {'scaler': new_scaler, 'model': new_model,
+                'parameters' : new_parameters, 'accuracy': new_accuracy}
 
         data = d.dropna(subset=self.features)# TODO update it when we will have new features for crystalline only
 
@@ -143,6 +144,8 @@ class XRSDModel(object):
 
         if leaveGroupOut:
             new_accuracy = self.testing_by_experiments(data, new_model, label_std)
+            if new_accuracy is None:
+                new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
         else:
             new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
 
@@ -174,13 +177,13 @@ class XRSDModel(object):
         """
 
         if self.classifier:
-            if len(dataframe[self.target].unique()) > 1 and dataframe.shape[0] > 30:
+            if len(dataframe[self.target].unique()) > 1 and dataframe.shape[0] > 10:#TODO change to 100 when we willl have more data
                 return True
             else:
                 return False
 
         else:
-            if dataframe.shape[0] > 30:
+            if dataframe.shape[0] > 10:#TODO change to 100 when we willl have more data
                 return True
             else:
                 return False
@@ -292,6 +295,9 @@ class XRSDModel(object):
                     test_score = mean_absolute_error(pr, test[self.target])
                     test_scores_by_ex.append(test_score/label_std)
                 count +=1
+
+        if count == 0:
+            return None
 
         return sum(test_scores_by_ex)/count
 
