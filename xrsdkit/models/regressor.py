@@ -22,15 +22,13 @@ class Regressor(XRSDModel):
         self.features = f
 
 
-    def predict(self, sample_features, population, q_I):
+    def predict(self, sample_features, q_I):
         """Determine the types of structures represented by the sample
         Parameters
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
             similar to output of xrsdkit.tools.profiler.profile_spectrum()
-        population : str
-            Scatterer population.
         q_I : array
             n-by-2 array of scattering vector (1/Angstrom) and intensities.
         Returns
@@ -39,18 +37,12 @@ class Regressor(XRSDModel):
             predicted parameter
             None is reterned for models that was not trained yet
         """
-
-        # for now the regressor works only for data with duffuse only populations:
-        if population=='Noise' or population=='pop0_unidentified':
-            return None
-
-
-        if self.target == 'rg_0':
+        if 'rg' in self.target:
             additional_features = guinier_porod_profile(q_I)
             my_features = np.append(np.array(list(sample_features.values())),
                                     np.array(list(additional_features.values()))).reshape(1,-1)
 
-        else:
+        elif 'r0' or 'sigma' in self.target:
             additional_features = spherical_normal_profile(q_I)
             my_features = np.append(np.array(list(sample_features.values())),
                                     np.array(list(additional_features.values()))).reshape(1,-1)

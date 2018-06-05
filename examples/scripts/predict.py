@@ -39,7 +39,7 @@ cl_model = StructureClassifier("populations")
 cl_result = cl_model.classify(features)
 print(cl_result[0], "  with probability: %1.3f" % (cl_result[1]))
 
-'''
+
 print("\nscattering and intensity parameters: ")
 
 reg_models = Regressors()
@@ -47,7 +47,7 @@ reg_result = reg_models.make_predictions(features, cl_result, q_i)
 for k, v in reg_result.items():
     print(k, " :   %10.3f" % (v))
 
-
+'''
 
 #Using Citrination models:
 print("\033[1m" + "Prediction from Citrination models: " + "\033[0;0m", "\n")

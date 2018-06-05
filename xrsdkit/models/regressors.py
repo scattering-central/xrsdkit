@@ -15,9 +15,11 @@ class Regressors(object):
         p = os.path.abspath(__file__)
         d = os.path.dirname(p)
         models = []
-        for file in os.listdir(d):
+        regression_dir = os.path.join(d,'modeling_data','regressors')
+
+        for file in os.listdir(regression_dir):
             if file.endswith(".yml"):
-                name = file.split(".")
+                name = file.split(".")[0]
                 models.append(name)
 
         self.models = OrderedDict.fromkeys(models)
@@ -126,18 +128,16 @@ class Regressors(object):
         prediction : dict
             dictionary with predicted parameters
         """
+        pop = population[0]
         predictions = {}
-        if population=='Noise' or population=='pop0_unidentified':
+        if pop=='Noise' or pop=='pop0_unidentified':
             return predictions
 
         for k,v in self.models.items():
-            print(k)
-            '''
-            pr = v.predict(sample_features, population, q_I)
-            if pr:
-                predictions[k] = pr
-            '''
-
+            if v.population == pop:
+                pr = v.predict(sample_features, q_I)
+                if pr:
+                    predictions[k] = pr
         return predictions
 
     def print_errors(self):

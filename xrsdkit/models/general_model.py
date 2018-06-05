@@ -48,8 +48,6 @@ class XRSDModel(object):
         self.n_groups_out = 1
         self.features = profiler.profile_keys_1
 
-
-
         if s_and_m and s_and_m['scaler']: # we have a saved model
             self.scaler = preprocessing.StandardScaler()
             set_param(self.scaler,s_and_m['scaler'])
