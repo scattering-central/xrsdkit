@@ -58,8 +58,6 @@ class Regressors(object):
         for k,v in results.items():
             results[k] = {}
 
-        print(possible_models.items())
-
         for k, v in possible_models.items(): # v is the list of possible models for given population
             pop_data = data[(data['populations']==k)]
             for m in v:
@@ -112,16 +110,15 @@ class Regressors(object):
                 self.models[k].save_models(v, file_path)
 
 
-    def make_predictions(self, sample_features, populations, q_I):
+    def make_predictions(self, sample_features, population, q_I):
         """Determine the types of structures represented by the sample
         Parameters
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
             similar to output of xrsdkit.tools.profiler.profile_spectrum()
-        populations : dict
-            dictionary counting scatterer populations,
-            similar to output of Classifiers.make_predictions()
+        population : str
+            Scatterer populations.
         q_I : array
             n-by-2 array of scattering vector (1/Angstrom) and intensities.
         Returns
@@ -130,11 +127,16 @@ class Regressors(object):
             dictionary with predicted parameters
         """
         predictions = {}
+        if population=='Noise' or population=='pop0_unidentified':
+            return predictions
 
         for k,v in self.models.items():
-            pr = v.predict(sample_features, populations, q_I)
+            print(k)
+            '''
+            pr = v.predict(sample_features, population, q_I)
             if pr:
                 predictions[k] = pr
+            '''
 
         return predictions
 

@@ -48,6 +48,8 @@ class XRSDModel(object):
         self.n_groups_out = 1
         self.features = profiler.profile_keys_1
 
+
+
         if s_and_m and s_and_m['scaler']: # we have a saved model
             self.scaler = preprocessing.StandardScaler()
             set_param(self.scaler,s_and_m['scaler'])
@@ -416,6 +418,8 @@ class XRSDModel(object):
 
         s_and_m = {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
                    'parameters' : self.parameters, 'accuracy': self.cv_error}
+        if self.classifier == False:
+            s_and_m['population']=self.population
 
         # save scalers and models
         with open(file_path, 'w') as yaml_file:
