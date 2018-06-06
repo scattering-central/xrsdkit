@@ -25,8 +25,7 @@ cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 #data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33])
 #data = get_data_from_Citrination(client = cl, dataset_id_list= [34])
 
-data = get_data_from_Citrination(client = cl, dataset_id_list= [30,31,32,33,34,35,36])
-
+data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,28,29,30,31,32,33,34,35,36])
 models_path = os.path.join(d,'xrsdkit','models','modeling_data')
 
 my_classifier = StructureClassifier("populations")

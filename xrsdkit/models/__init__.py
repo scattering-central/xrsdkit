@@ -12,7 +12,7 @@ def set_param(m_s, param):
             setattr(m_s, k, v)
 
 def get_possible_regression_models(data):
-    """Get list of models that we can train
+    """Get dictionary of models that we can train
     using provided data.
     Parameters
     ----------
@@ -26,7 +26,11 @@ def get_possible_regression_models(data):
         (can be trained using provided data)
     """
 
-    pops = data.populations.unique()
+    pops = list(data.populations.unique())
+    if "Noise" in pops:
+        pops.remove("Noise")
+    if "pop0_unidentified"in pops:
+        pops.remove("pop0_unidentified")
     result = OrderedDict.fromkeys(pops)
     for p in pops:
         pop_data = data[(data['populations']==p)]

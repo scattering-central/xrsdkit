@@ -1,4 +1,6 @@
 import numpy as np
+import os
+import yaml
 from .general_model import XRSDModel
 
 
@@ -66,6 +68,65 @@ class StructureClassifier(XRSDModel):
         print()
 
 
+    def save_models(self, scaler_model, file_path=None):
+        """Save model parameters and CV errors in YAML and .txt files.
+        Parameters
+        ----------
+        scaler_model : dict
+            Dictionary with training results.
+        The results include:
+        - 'scaler': sklearn standard scaler
+            used for transforming of new data
+        - 'model':sklearn model
+            trained on new data
+        - 'parameters': dict
+            Dictionary of parameters found by hyperparameters_search()
+        - 'accuracy': float
+            average crossvalidation score (accuracy for classification,
+            normalized mean absolute error for regression)
+        file_path : str
+            Full path to the YAML file where the models will be saved.
+            Scaler, model, and cross-validation error
+            will be saved at this path, and the cross-validation error
+            are also saved in a .txt file of the same name, in the same directory.
+        """
+        print(file_path)
+        if scaler_model['model'] is None:
+            return
+
+        self.scaler = scaler_model['scaler']
+        self.model = scaler_model['model']
+        self.parameters = scaler_model['parameters']
+        self.cv_error = scaler_model['accuracy']
+
+        if file_path is None:
+            p = os.path.abspath(__file__)
+            d = os.path.dirname(p)
+            suffix = 0
+            file_path = os.path.join(d,'modeling_data', 'classifiers',
+                'custom_models_'+ self.target +str(suffix)+'.yml')
+            while os.path.exists(file_path):
+                suffix += 1
+                file_path = os.path.join(d,'modeling_data', 'classifiers',
+                    'custom_models_'+ self.target + str(suffix)+'.yml')
+
+        file_path = file_path + '/classifiers/' + self.target + '.yml'
+
+        cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
+
+        s_and_m = {self.target : {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
+                   'parameters' : self.parameters, 'accuracy': self.cv_error}}
+
+        # save scalers and models
+        with open(file_path, 'w') as yaml_file:
+            yaml.dump(s_and_m, yaml_file)
+
+        # save accuracy
+        with open(cverr_txt_path, 'w') as txt_file:
+            txt_file.write(str(s_and_m[self.target]['accuracy']))
+
+
+
     def print_accuracies(self):
         """Report cross-validation error for the model.
         To calculate cv_error "Leave-2-Groups-Out" cross-validation is used.
@@ -74,5 +135,8 @@ class StructureClassifier(XRSDModel):
         and the rest are used for training.
         The reported error is the average accuracy over all train-test splits.
         """
-        print("Averaged cross validation accuracies: ")
-        print("populations :  %10.3f" % (self.get_cv_error()))
+        if self.get_cv_error():
+            print("Averaged cross validation accuracies: ")
+            print("populations :  %10.3f" % (self.get_cv_error()))
+        else:
+            print("The model was not trained yet.")

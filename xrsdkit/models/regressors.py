@@ -1,8 +1,8 @@
 from collections import OrderedDict
-import numpy as np
 from .regressor import Regressor
 from . import get_possible_regression_models
 import os
+import yaml
 
 
 
@@ -14,17 +14,24 @@ class Regressors(object):
         #find all existing regression models:
         p = os.path.abspath(__file__)
         d = os.path.dirname(p)
-        models = []
+        system_classes = []
         regression_dir = os.path.join(d,'modeling_data','regressors')
 
         for file in os.listdir(regression_dir):
             if file.endswith(".yml"):
-                name = file.split(".")[0]
-                models.append(name)
+                cl = file.split(".")[0]
+                system_classes.append(cl)
 
-        self.models = OrderedDict.fromkeys(models)
-        for k,v in self.models.items():
-            self.models[k] = Regressor(k)
+        self.models = OrderedDict.fromkeys(system_classes)
+        for sys_class,v in self.models.items():
+            self.models[sys_class] = {}
+            file_name = sys_class + ".yml"
+            yml_file = os.path.join(regression_dir,file_name)
+            s_and_m_file = open(yml_file,'rb')
+            content = yaml.load(s_and_m_file)
+            labels = content.keys()
+            for l in labels:
+                self.models[sys_class][l] = Regressor(l, sys_class)
 
 
     def train_regression_models(self, data, hyper_parameters_search=False,
@@ -63,7 +70,7 @@ class Regressors(object):
         for k, v in possible_models.items(): # v is the list of possible models for given population
             pop_data = data[(data['populations']==k)]
             for m in v:
-                reg_model = Regressor(m)
+                reg_model = Regressor(m, k)
                 res =  reg_model.train(pop_data, hyper_parameters_search)
                 res['population'] = k
                 results[k][m] = res
@@ -105,11 +112,51 @@ class Regressors(object):
             will be saved at this path, and the cross-validation errors
             are also saved in a .txt file of the same name, in the same directory.
         """
-        for pops, models in results.items():
+        for pop, models in results.items():
             for k,v in models.items():
+                if v['model'] is None:
+                    continue
                 if self.models.get(k, 0) == 0:
-                    self.models[k] = Regressor(k)
-                self.models[k].save_models(v, file_path)
+                    self.models[k] = Regressor(k, pop)
+                    self.models[k].scaler = v['scaler']
+                    self.models[k].model = v['model']
+                    self.models[k].parameters = v['parameters']
+                    self.models[k].cv_error = v['accuracy']
+                    self.models[k].population = v['population']
+
+        for pop, models in results.items():
+            if file_path is None: # TODO test and update this block
+                p = os.path.abspath(__file__)
+                d = os.path.dirname(p)
+                suffix = 0
+                file_path = os.path.join(d,'modeling_data', 'regressors',
+                    'custom_models_'+ pop +str(suffix)+'.yml')
+                while os.path.exists(file_path):
+                    suffix += 1
+                    file_path = os.path.join(d,'modeling_data', 'regressors'
+                        'custom_models_'+ pop + str(suffix)+'.yml')
+
+            save_path = file_path + '/regressors/' + pop + '.yml'
+            cverr_txt_path = os.path.splitext(save_path)[0]+'.txt'
+
+            s_and_m = {}
+            for reg_label, m in models.items():
+                if m['model'] is None:
+                    continue
+                s_and_m[reg_label] = {'scaler': m['scaler'].__dict__, 'model': m['model'].__dict__,
+                   'parameters' : m['parameters'], 'accuracy': m['accuracy'], 'population': m['population']}
+
+            if not s_and_m: # we do not have regression models for this system class
+                continue
+            with open(save_path, 'w') as yaml_file:
+                yaml.dump(s_and_m, yaml_file)
+
+            acc = {}
+            for k,v in models.items():
+                acc[k] = v['accuracy']
+
+            with open(cverr_txt_path, 'w') as txt_file:
+                txt_file.write(str(acc))
 
 
     def make_predictions(self, sample_features, population, q_I):
@@ -133,11 +180,10 @@ class Regressors(object):
         if pop=='Noise' or pop=='pop0_unidentified':
             return predictions
 
-        for k,v in self.models.items():
-            if v.population == pop:
-                pr = v.predict(sample_features, q_I)
-                if pr:
-                    predictions[k] = pr
+        for k,v in self.models[pop].items():
+            pr = v.predict(sample_features, q_I)
+            if pr:
+                predictions[k] = pr
         return predictions
 
     def print_errors(self):

@@ -10,19 +10,22 @@ from . import set_param
 
 class XRSDModel(object):
 
-    def __init__(self, label, yml_file=None, classifier=True):
+    def __init__(self, label, system_class=None, yml_file=None, classifier=True): #system_class for reg only
         if yml_file is None:
             p = os.path.abspath(__file__)
             d = os.path.dirname(p)
-            file_name = label + '.yml'
+
             if classifier:
+                file_name = label + '.yml'
                 yml_file = os.path.join(d,'modeling_data','classifiers',file_name)
             else:
+                file_name = system_class + '.yml'
                 yml_file = os.path.join(d,'modeling_data','regressors',file_name)
 
         try:
             s_and_m_file = open(yml_file,'rb')
-            s_and_m = yaml.load(s_and_m_file)
+            content = yaml.load(s_and_m_file)
+            s_and_m = content[label]
         except:
             s_and_m = None
 
@@ -364,68 +367,6 @@ class XRSDModel(object):
         return self.cv_error
 
 
-    def save_models(self, scaler_model, file_path=None):
-        """Save model parameters and CV errors in YAML and .txt files.
-        Parameters
-        ----------
-        scaler_model : dict
-            Dictionary with training results.
-        The results include:
-        - 'scaler': sklearn standard scaler
-            used for transforming of new data
-        - 'model':sklearn model
-            trained on new data
-        - 'parameters': dict
-            Dictionary of parameters found by hyperparameters_search()
-        - 'accuracy': float
-            average crossvalidation score (accuracy for classification,
-            normalized mean absolute error for regression)
-        file_path : str
-            Full path to the YAML file where the models will be saved.
-            Scaler, model, and cross-validation error
-            will be saved at this path, and the cross-validation error
-            are also saved in a .txt file of the same name, in the same directory.
-        """
-        if scaler_model['model'] is None:
-            return
-
-        self.scaler = scaler_model['scaler']
-        self.model = scaler_model['model']
-        self.parameters = scaler_model['parameters']
-        self.cv_error = scaler_model['accuracy']
-        if self.classifier == False:
-            self.population = scaler_model['population']
-
-        if file_path is None:
-            p = os.path.abspath(__file__)
-            d = os.path.dirname(p)
-            suffix = 0
-            file_path = os.path.join(d,'modeling_data',  #TODO check if we need add "classifiers"
-                'custom_models_'+ self.target +str(suffix)+'.yml')
-            while os.path.exists(file_path):
-                suffix += 1
-                file_path = os.path.join(d,'modeling_data',
-                    'custom_models_'+ self.target + str(suffix)+'.yml')
-
-        if self.classifier:
-            file_path = file_path + '/classifiers/' + self.target + '.yml'
-        else:
-            file_path = file_path + '/regressors/' + self.target + '.yml'
-
-        cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
-
-        s_and_m = {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
-                   'parameters' : self.parameters, 'accuracy': self.cv_error}
-        if self.classifier == False:
-            s_and_m['population']=self.population
-
-        # save scalers and models
-        with open(file_path, 'w') as yaml_file:
-            yaml.dump(s_and_m, yaml_file)
-
-        # save accuracy
-        with open(cverr_txt_path, 'w') as txt_file:
-            txt_file.write(str(s_and_m['accuracy']))
 
 
     def train_partial(self, new_data, testing_data = None):
