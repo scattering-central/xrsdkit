@@ -146,14 +146,14 @@ class XRSDModel(object):
             label_std = pd.to_numeric(data[self.target]).std()# usefull for regressin only
 
         if leaveGroupOut:
-            new_accuracy = self.testing_by_experiments(data, new_model, label_std)
+            new_accuracy, vis_data = self.testing_by_experiments(data, new_model, label_std)
             if new_accuracy is None:
                 new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
         else:
             new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
 
         return {'scaler': new_scaler, 'model': new_model,
-                'parameters' : new_parameters, 'accuracy': new_accuracy}
+                'parameters' : new_parameters, 'accuracy': new_accuracy}, vis_data
 
 
     def check_label(self, dataframe):
@@ -275,12 +275,21 @@ class XRSDModel(object):
             average crossvalidation score by experiments (accuracy for classification,
             normalized mean absolute error for regression)
         """
+        vis_data = []
         experiments = df.experiment_id.unique()# we have at least 5 experiments
         test_scores_by_ex = []
         count = 0
         for i in range(len(experiments)):
+                print(experiments[i])
                 tr = df[(df['experiment_id']!= experiments[i])]
                 test = df[(df['experiment_id']== experiments[i])]
+                if self.classifier:
+                    # for testing, we want only the samples with labels that are
+                    # included in training set:
+                    tr_labels = tr[self.target].unique()
+                    test = test[test[self.target].isin(tr_labels)]
+                    if len(test)==0:
+                        continue
 
                 # The number of class labels must be greater than one
                 if len(tr[self.target].unique()) < 2:
@@ -289,66 +298,27 @@ class XRSDModel(object):
                 scaler = preprocessing.StandardScaler()
                 scaler.fit(tr[self.features])
                 model.fit(scaler.transform(tr[self.features]), tr[self.target])
+                transformed_data = scaler.transform(test[self.features])
                 if self.classifier:
                     test_score = model.score(
-                        scaler.transform(test[self.features]), test[self.target])
+                        transformed_data, test[self.target])
                     test_scores_by_ex.append(test_score)
+                    test['predicted_class'] = model.predict(transformed_data)
+                    vis_data.append(test)
+                    print(test_score)
                 else:
-                    pr = model.predict(scaler.transform(test[self.features]))
+                    pr = model.predict(transformed_data)
                     test_score = mean_absolute_error(pr, test[self.target])
                     test_scores_by_ex.append(test_score/label_std)
+                    vis_data.append(test)
                 count +=1
+
 
         if count == 0:
-            return None
+            return None, vis_data
 
-        return sum(test_scores_by_ex)/count
+        return sum(test_scores_by_ex)/count, vis_data
 
-
-    def testing_by_experimentsOld(self, df, model, label_std):
-        """Fit a model, then test it by leaveTwoGroupsOut cross-validation
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            pandas dataframe of features and labels
-        model : sk-learn
-            with specific parameters
-        label_std : float
-            is used for regression models only
-        Returns
-        -------
-        float
-            average crossvalidation score by experiments (accuracy for classification,
-            normalized mean absolute error for regression)
-        """
-        experiments = df.experiment_id.unique()# we have at least 5 experiments
-        test_scores_by_ex = []
-        count = 0
-        for i in range(len(experiments)):
-            for j in range(i+1, len(experiments)):
-                tr = df[(df['experiment_id']!= experiments[i]) \
-                    & (df['experiment_id']!= experiments[j])]
-                test = df[(df['experiment_id']== experiments[i]) \
-                    | (df['experiment_id']== experiments[j])]
-
-                # The number of class labels must be greater than one
-                if len(tr[self.target].unique()) < 2:
-                    continue
-
-                scaler = preprocessing.StandardScaler()
-                scaler.fit(tr[self.features])
-                model.fit(scaler.transform(tr[self.features]), tr[self.target])
-                if self.classifier:
-                    test_score = model.score(
-                        scaler.transform(test[self.features]), test[self.target])
-                    test_scores_by_ex.append(test_score)
-                else:
-                    pr = model.predict(scaler.transform(test[self.features]))
-                    test_score = mean_absolute_error(pr, test[self.target])
-                    test_scores_by_ex.append(test_score/label_std)
-                count +=1
-
-        return sum(test_scores_by_ex)/count
 
     def get_cv_error(self):
         """Report cross-validation error for the model.
@@ -365,8 +335,6 @@ class XRSDModel(object):
             the cross-validation errors.
         """
         return self.cv_error
-
-
 
 
     def train_partial(self, new_data, testing_data = None):

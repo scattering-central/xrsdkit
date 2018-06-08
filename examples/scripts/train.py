@@ -39,7 +39,7 @@ print("New accuracies and parameters for classifiers:")
 my_classifier.print_training_results(results)
 my_classifier.save_models(results, models_path)
 
-
+'''
 # regression models:
 rg_models = Regressors()
 #print("Old accuracies for regressors:")
@@ -49,4 +49,4 @@ print("New accuracies and parameters for regressors:")
 rg_models.print_training_results(results)
 rg_models.save_regression_models(results, models_path)
 
-
+'''
