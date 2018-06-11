@@ -58,7 +58,7 @@ class XRSDModel(object):
                 self.model = linear_model.SGDClassifier()
             else:
                 self.model = linear_model.SGDRegressor()
-                self.population = s_and_m['population']
+                self.system_class = s_and_m['system_class']
             set_param(self.model,s_and_m['model'])
             self.cv_error = s_and_m['accuracy']
             self.parameters = s_and_m['parameters']
@@ -146,14 +146,14 @@ class XRSDModel(object):
             label_std = pd.to_numeric(data[self.target]).std()# usefull for regressin only
 
         if leaveGroupOut:
-            new_accuracy, vis_data = self.testing_by_experiments(data, new_model, label_std)
+            new_accuracy = self.testing_by_experiments(data, new_model, label_std)
             if new_accuracy is None:
                 new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
         else:
             new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
 
         return {'scaler': new_scaler, 'model': new_model,
-                'parameters' : new_parameters, 'accuracy': new_accuracy}, vis_data
+                'parameters' : new_parameters, 'accuracy': new_accuracy}
 
 
     def check_label(self, dataframe):
@@ -275,12 +275,10 @@ class XRSDModel(object):
             average crossvalidation score by experiments (accuracy for classification,
             normalized mean absolute error for regression)
         """
-        vis_data = []
         experiments = df.experiment_id.unique()# we have at least 5 experiments
         test_scores_by_ex = []
         count = 0
         for i in range(len(experiments)):
-                print(experiments[i])
                 tr = df[(df['experiment_id']!= experiments[i])]
                 test = df[(df['experiment_id']== experiments[i])]
                 if self.classifier:
@@ -291,9 +289,9 @@ class XRSDModel(object):
                     if len(test)==0:
                         continue
 
-                # The number of class labels must be greater than one
-                if len(tr[self.target].unique()) < 2:
-                    continue
+                    # The number of class labels must be greater than one
+                    if len(tr[self.target].unique()) < 2:
+                        continue
 
                 scaler = preprocessing.StandardScaler()
                 scaler.fit(tr[self.features])
@@ -303,21 +301,16 @@ class XRSDModel(object):
                     test_score = model.score(
                         transformed_data, test[self.target])
                     test_scores_by_ex.append(test_score)
-                    test['predicted_class'] = model.predict(transformed_data)
-                    vis_data.append(test)
-                    print(test_score)
                 else:
                     pr = model.predict(transformed_data)
                     test_score = mean_absolute_error(pr, test[self.target])
                     test_scores_by_ex.append(test_score/label_std)
-                    vis_data.append(test)
                 count +=1
 
-
         if count == 0:
-            return None, vis_data
+            return None
 
-        return sum(test_scores_by_ex)/count, vis_data
+        return sum(test_scores_by_ex)/count
 
 
     def get_cv_error(self):
@@ -336,7 +329,8 @@ class XRSDModel(object):
         """
         return self.cv_error
 
-
+    '''
+    #TODO update if we need it
     def train_partial(self, new_data, testing_data = None):
         """
         Parameters
@@ -407,3 +401,4 @@ class XRSDModel(object):
 
         return {'scaler': new_scaler, 'model': new_model,
                 'parameters' : self.parameters, 'accuracy': new_err}
+        '''

@@ -19,27 +19,19 @@ with open(api_key_file, "r") as g:
     a_key = g.readline().strip()
 cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
-
-#data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36])
-
-#data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,24,25,26,27,28,29,30,31,32,33])
-#data = get_data_from_Citrination(client = cl, dataset_id_list= [34])
-
+#data = get_data_from_Citrination(client = cl, dataset_id_list= [21])
 data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,28,29,30,31,32,33,34,35,36])
 models_path = os.path.join(d,'xrsdkit','models','modeling_data')
 
-my_classifier = StructureClassifier("populations")
+my_classifier = StructureClassifier("system_class")
 print("Old accuracies for classifiers:")
 my_classifier.print_accuracies()
 
 results = my_classifier.train(data, hyper_parameters_search = True)
-# to train 'guinier_porod_population_count' model only:
-#results = my_classifiers.train_classification_models(data, hyper_parameters_search = True, cl_models = ['guinier_porod_population_count'])
 print("New accuracies and parameters for classifiers:")
 my_classifier.print_training_results(results)
 my_classifier.save_models(results, models_path)
 
-'''
 # regression models:
 rg_models = Regressors()
 #print("Old accuracies for regressors:")
@@ -49,4 +41,3 @@ print("New accuracies and parameters for regressors:")
 rg_models.print_training_results(results)
 rg_models.save_regression_models(results, models_path)
 
-'''

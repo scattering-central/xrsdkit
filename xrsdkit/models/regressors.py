@@ -7,7 +7,7 @@ import yaml
 
 
 class Regressors(object):
-    """To create all possible regressors for every type of population,
+    """To create all possible regressors for every type of system_class,
      train, update, and save them; make a prediction."""
 
     def __init__(self):
@@ -35,7 +35,7 @@ class Regressors(object):
 
 
     def train_regression_models(self, data, hyper_parameters_search=False,
-                                     populations = ['all'], testing_data = None, partial = False):
+                                     system_class = ['all'], testing_data = None, partial = False):
         """Train regression models, optionally searching for optimal hyperparameters.
         Parameters
         ----------
@@ -44,8 +44,8 @@ class Regressors(object):
         hyper_parameters_search : bool
             If true, grid-search model hyperparameters
             to seek high cross-validation R^2 score.
-        populations : array of str
-            the names of populations for which we want to train
+        system_class : array of str
+            the names of system_class for which we want to train
             regression models.
         testing_data : pandas.DataFrame (optional)
             dataframe containing original training data plus new data
@@ -56,8 +56,8 @@ class Regressors(object):
         Returns
         -------
         results : dict
-            keys : population names;
-            values : dictionaries with regression models for given population.
+            keys : system_class names;
+            values : dictionaries with regression models for given system_class.
         """
 
         possible_models = get_possible_regression_models(data)
@@ -67,12 +67,12 @@ class Regressors(object):
         for k,v in results.items():
             results[k] = {}
 
-        for k, v in possible_models.items(): # v is the list of possible models for given population
-            pop_data = data[(data['populations']==k)]
+        for k, v in possible_models.items(): # v is the list of possible models for given system_class
+            pop_data = data[(data['system_class']==k)]
             for m in v:
                 reg_model = Regressor(m, k)
                 res =  reg_model.train(pop_data, hyper_parameters_search)
-                res['population'] = k
+                res['system_class'] = k
                 results[k][m] = res
         return results
 
@@ -82,8 +82,8 @@ class Regressors(object):
         Parameters
         ----------
         results : dict
-            keys : population names;
-            values : dictionaries with regression models for given population.
+            keys : system_class names;
+            values : dictionaries with regression models for given system_class.
         """
         for pop, models in results.items():
             if results[pop] == {}:
@@ -104,8 +104,8 @@ class Regressors(object):
         Parameters
         ----------
         results : dict
-            keys : population names;
-            values : dictionaries with regression models for given population.
+            keys : system_class names;
+            values : dictionaries with regression models for given system_class.
         file_path : str (optional)
             Full path to the YAML file where the models will be saved.
             Scalers, models,parameters, and cross-validation errors
@@ -122,7 +122,7 @@ class Regressors(object):
                     self.models[k].model = v['model']
                     self.models[k].parameters = v['parameters']
                     self.models[k].cv_error = v['accuracy']
-                    self.models[k].population = v['population']
+                    self.models[k].system_class = v['system_class']
 
         for pop, models in results.items():
             if file_path is None: # TODO test and update this block
@@ -144,7 +144,7 @@ class Regressors(object):
                 if m['model'] is None:
                     continue
                 s_and_m[reg_label] = {'scaler': m['scaler'].__dict__, 'model': m['model'].__dict__,
-                   'parameters' : m['parameters'], 'accuracy': m['accuracy'], 'population': m['population']}
+                   'parameters' : m['parameters'], 'accuracy': m['accuracy'], 'system_class': m['system_class']}
 
             if not s_and_m: # we do not have regression models for this system class
                 continue
@@ -159,15 +159,15 @@ class Regressors(object):
                 txt_file.write(str(acc))
 
 
-    def make_predictions(self, sample_features, population, q_I):
+    def make_predictions(self, sample_features, system_class, q_I):
         """Determine the types of structures represented by the sample
         Parameters
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
             similar to output of xrsdkit.tools.profiler.profile_spectrum()
-        population : str
-            Scatterer populations.
+        system_class : str
+            Scatterer system_class.
         q_I : array
             n-by-2 array of scattering vector (1/Angstrom) and intensities.
         Returns
@@ -175,7 +175,7 @@ class Regressors(object):
         prediction : dict
             dictionary with predicted parameters
         """
-        pop = population[0]
+        pop = system_class[0]
         predictions = {}
         if pop=='Noise' or pop=='pop0_unidentified':
             return predictions

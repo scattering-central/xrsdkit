@@ -22,18 +22,18 @@ def get_possible_regression_models(data):
     Returns
     -------
     result : dict
-        dictionary of possible regression models for each population
+        dictionary of possible regression models for each system_class
         (can be trained using provided data)
     """
 
-    pops = list(data.populations.unique())
+    pops = list(data.system_class.unique())
     if "Noise" in pops:
         pops.remove("Noise")
     if "pop0_unidentified"in pops:
         pops.remove("pop0_unidentified")
     result = OrderedDict.fromkeys(pops)
     for p in pops:
-        pop_data = data[(data['populations']==p)]
+        pop_data = data[(data['system_class']==p)]
 
         #to find the list of possible models and train all possible regression models
         #drop the collumns where all values are None:

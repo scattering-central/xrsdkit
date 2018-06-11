@@ -9,8 +9,8 @@ class StructureClassifier(XRSDModel):
     train, update, and save it; make a prediction."""
 
     def __init__(self,label,yml_file_cl=None):
-        # 'populations' is the column name for target
-        super(StructureClassifier,self).__init__('populations', yml_file_cl)
+        # 'system_class' is the column name for target
+        super(StructureClassifier,self).__init__('system_class', yml_file_cl)
 
     def classify(self, sample_features):
         """Determine the types of structures represented by the sample
@@ -59,7 +59,7 @@ class StructureClassifier(XRSDModel):
             average crossvalidation score (accuracy for classification,
             normalized mean absolute error for regression)
         """
-        print('population', ":")
+        print('system_class', ":")
         if results['accuracy']:
             print("accuracy :  %10.3f" % (results['accuracy']))
             print("parameters :", results['parameters'])
@@ -137,6 +137,6 @@ class StructureClassifier(XRSDModel):
         """
         if self.get_cv_error():
             print("Averaged cross validation accuracies: ")
-            print("populations :  %10.3f" % (self.get_cv_error()))
+            print("system_class :  %10.3f" % (self.get_cv_error()))
         else:
             print("The model was not trained yet.")

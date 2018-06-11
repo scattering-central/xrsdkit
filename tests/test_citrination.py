@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 from citrination_client import CitrinationClient
+from xrsdkit.tools.citrination_tools import get_data_from_Citrination
 
 from xrsdkit.tools import profiler
 #from xrsdkit.models.saxs_citrination import CitrinationSaxsModels 
@@ -9,7 +10,7 @@ from xrsdkit.tools import profiler
 #from saxskit.saxs_models import train_classifiers, train_regressors
 #from saxskit.saxs_models import train_classifiers_partial, train_regressors_partial
 #from saxskit.saxs_models import save_models
-
+'''
 def test_citrination_models():
     p = os.path.dirname(os.path.abspath(__file__))
     api_key_file = os.path.join(p,'api_key.txt')
@@ -29,7 +30,7 @@ def test_citrination_models():
     print("scattering and intensity parameters: ")
     for popk in params.keys():
         print('\t{} populations: {} ({} certainty)'.format(popk,params[popk],uncertainties[popk]))
-
+'''
 
 #def test_citrination_classifier(address,api_key_file):
 #    model_file_path = os.path.join(os.getcwd(),'saxskit','modeling_data','scalers_and_models.yml')
@@ -55,7 +56,9 @@ def test_getdata():
     with open(api_key_file, "r") as g:
         a_key = g.readline().strip()
     cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
-    data = get_data_from_Citrination(client=cl, dataset_id_list=[16])
+    data = get_data_from_Citrination(client=cl, dataset_id_list=[21])
+    print(data.shape)
+
     #data_len = data.shape[0]
 
     #train = data.iloc[:int(data_len*0.9),:]

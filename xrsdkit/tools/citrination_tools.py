@@ -54,7 +54,7 @@ def get_data_from_Citrination(client, dataset_id_list):
 
     colnames = ['experiment_id']
     colnames.extend(profiler.profile_keys)
-    colnames.extend(['populations'])
+    colnames.extend(['system_class'])
     colnames.extend(reg_labels_list)
 
     d = pd.DataFrame(data=data, columns=colnames)

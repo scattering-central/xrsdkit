@@ -22,9 +22,9 @@ p = os.path.abspath(__file__)
 d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
 #path = os.path.join(d,'tests','test_data','solution_saxs','peaks','peaks_0.csv')
 #path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_2.csv')
-#path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_0.csv')
+path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_0.csv')
 #path = os.path.join(d,'tests','test_data','solution_saxs','precursors','precursors_0.csv')
-path = os.path.join(d,'tests','test_data','solution_saxs','precursors','precursors_1.csv')
+#path = os.path.join(d,'tests','test_data','solution_saxs','precursors','precursors_1.csv')
 
 q_i = np.genfromtxt (path, delimiter=",")
 
@@ -35,7 +35,7 @@ features = profile_spectrum(q_i)
 print("\033[1m" + "Prediction from saxskit models: " + "\033[0;0m", "\n")
 print("scatterer populations: ")
 
-cl_model = StructureClassifier("populations")
+cl_model = StructureClassifier("system_class")
 cl_result = cl_model.classify(features)
 print(cl_result[0], "  with probability: %1.3f" % (cl_result[1]))
 
