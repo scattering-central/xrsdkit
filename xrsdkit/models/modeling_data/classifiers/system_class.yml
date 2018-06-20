@@ -4,7 +4,7 @@ system_class:
     args: [f8, 0, 1]
     state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
   - !!binary |
-    dZ3bXQ7C4j8=
+    56E+PkJA4j8=
   model:
     C: 1.0
     _expanded_class_weight: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -23,7 +23,7 @@ system_class:
         AAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPw==
     _max_iter: 10
     _tol: null
-    alpha: 0.0001
+    alpha: 0.001
     average: false
     class_weight: null
     classes_: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -144,27 +144,27 @@ system_class:
       - *id001
       - false
       - !!binary |
-        lFmVz9lLGcCUsQK6JIv5v6NejzOrBBNAUeWOgzuI8D+DIzJadgARQKJ8493QwSDABZ/bOqAy/L+i
-        HkBkNpHYv09rfyEInPU/xqAyit6EA0BYlRF2c7UPQGnBVrmasglAaBzj6mWdAsBd1XqmEDIhwIH1
-        njU5+TDA7lBBM6SKFMDyttkuMhIEwI/BM1pMaQhAsCirbpHhLkBUnbW8Maemv3rmefNBZC9Am5mQ
-        Nry0FsDYuVeBnZEjwKo02NDlUybAWdPy+JJmJMC/dBU2jKYiQPZyEC8R3jtAouqzj7RREkADc1yc
-        iT8hwARRGdUFzzJACvYZ9QXE+79vBLcLD0wYQH3nWJK0HxVAZsNrUjIJIcBwmac66gkHQOCdQMj/
-        F/i/XamZSj667L8LhOUCfCv1v0yxi43MUfo/VqMgaaNZI0DmuoJj4+00wEjP8hNSNDDAAKH8eI0y
-        McBAJl0OmLT4PzjM7EUaIui/sQmJ4oYWD8C76xEkQAkywJOgf8OuSOw/AgYeMTn3F8DZTMAqJyEY
-        wGBuOmur+xfAQKE7eYuZF0C52D2hRPfzvwr3gdwXvSPANV6H24ac878mlFS8G68WwNJ/+SHrxwlA
-        fc7IqZ2r8r9FhX49W0kiwFmJgRYySSbAB0BfGlS83j88AGplrJ8QwIaxdKVOmdW/ThwoAsjpCMCv
-        hK0+P7gUQG05+Mo6VDZAnucJcds3OUBlIYZTtsIcwF6icKTQpCnA3kyWpTaoHcCbpXE/U2M0wOx7
-        f9m7MSNA7LsNv6caNcBeJA8XBgv5P8fKH+91RxTAf+mNDDmfC8A/V3KR820SwJV2emvlxxVAWviZ
-        /OprFkBaKqfgo1cmQPiv4udr8CzA7uOZyf62CcDa+4rqysQNwFTGrTlEAyXAjAy8hK1yL8D5vjic
-        6Uk1wEwVhgzJWQdAyLFQAKMHIMD/khMJNHESwHhUZ73PahzAxEg38RjDIUAHT7PqYzQBwLapW7JP
-        siDA6IL3DctuEUAJZxUc3/wAQET6Vyqk+dm/7jyXOLEc8r9wMzGjR5HVv+tnrxor+RLAAC63+pR1
-        8L/pJoNPA8ccwFFMn+Pjfy5AeVzCMDIi778InB+qLJUqQCZh7GXZ3w/AJyqFSDskGcBAgzDqaLTs
-        v4CWNbV8v+O/UivgYNSn9j8ugBiFRy4CwO711sYVr+c/Z9MZg3Aetj/pzA4dhdr9vy0i6G4kjxLA
-        Juolrq7zEcACbAzQcX8SwA6aaSHwmRJAWDAQQOZcMcCW1B8lZ32rPz0WF08zNOS/f2HVeDPEGsD0
-        wFX95dAUwJAvuTnyNChAiWU4dZnBHUDtO5mRXe9IQD4ICjU/4Oc/t+KPvrnx4b+Gt+mN0UIjwAgG
-        X6AJYQ7AyhPGai5W9L9ItTjyxOItwAEQGuX5KhTAjqe/aAib1D89Dhl5ScrDP4ceEPdavApAZtaH
-        DiwVD0BJEJDWBh4FQMcrAcYf3SxAIHi+RePC7D+1rA4iswsgwMflvpd72S3Aq+DQlOL2I8C1Y45n
-        MEYYQA==
+        OVD7ps48A8BMDuV6PYLJP6T/VR8Qke0/OHn3d5GYp7/wBrFRu2jxP1aooVVsJgvAHFiqVAIU5b+5
+        T27+NE+xvz5SdraMcuO/99OMtIKo8D9uHZD6//zyv+rHxMXY0N0/bX8n9FR6+79pDqser3oJwLES
+        aqD+8xXAQ3drKlz2kT+dO32OtJsIwFqIuRrcE+A/2/zN6jZUHEBvVDarpdnmv4NskCeEDA5AFXa3
+        AEDfu7+3v9BqwP0SwFCvKSNpaBTA3/qOlDiCE8BsOJeZSYoSQFw5hbkv6BlAJfo5G1UUB0AeBhiZ
+        WPcMwDe2htwp1hJAiECQmUm87D/E91FW5nD0v0ms2GNmkp4/dLLHeu6PFcBDKwcTj+LAP4P/HRlr
+        1/K/Q67HfJKp3b/hXb5SMifvv7sZS0qB5vU/DjEk+6j81j8LbQzNd+4TwCdu3tHEyxPACZaCjAzK
+        C8CQEQaeZU/tv5L6YWG64vS/nuHXNWCmAsC27buRm80bwBSfn5XWYpw/WDNuNccA9b8fliT5mlTR
+        v4CYYZqhVfC/+3uOZqyg+T8x6l1j5FfwvzYpO80HXRTAZwnBx6mDBsDlj5aZPj/4v1mzeQNgrM6/
+        To/JU8rg/b/aA2q6MrX2P5tW2SFZeBbAiSurUvkX0D+vvzZprYMLwLCFuHASQgLAPRjrHSrvCMA+
+        WoIocvMNQM2gr6A2txJAEiBr43iTA0DYcyr0TGkPwDe/9qt/qPu/nQfwHjVx4D9g5kK2tN0EwG7x
+        Uhp2DAFAxAGMHVVYIMA8IERfPByjPwvhtE8MnPy/YwCxQxT94L8xqKkRdNT2v0Z/H5SiAAFA8vSS
+        8qKRAkBu3giNJ0DzPx9VOwiWAhbAaf1VhQ72/L/VXqU+vrbjvx/8/NqEMvi/zjWndc6yE8BG7QcF
+        loQbwEfHD5omMMA/x3SfHZvB/L/kJrUYxNHbvxZb8OtSfva/F3QKUIFNAUCxPR670DwWwGRa2XP5
+        XgTAti+uvPBs+j8M0R6ljxABwAnP1V+WtOO/g+lMuvLn07/miAs7hxeDv/UWza8JVArApa37iHmz
+        vr86uaYZ5AT/v0VCyXOTXQxAGFyMG++J178nJGgkBq0LQOzMGCTt9f6//meZylSJCcABDu0HOaAR
+        wFwVS2uzzgbAG6MxCYUZ8b+A6V4R1cogwEtT7ybwrce/0ZdCV/a0DMAJAA98UqDSP0Iyiwo5XxDA
+        Pcab5cG1CcBFBU4IG8wOwIpqVceXPhFA2PpWgvigA8BXxIxQnCnrv/Hw4zOi+rA/N9Pn9IXX879r
+        xYZOaL3cv7Iq6CdKlgZAvU0qL5q87z+ebS3eSzUaQKxgJx9sf8s/0YlhM1mm3r9j2gEpYmn2v19H
+        GvZMYuu/KCsIB2Sv1D/evntGObAIwC4i2pYLFgLA8t4LCPkLwr/flrXjlJXgvzRZHRVIqP8/V+mw
+        /K25+T+7iUeoBG/ePyfW3xCLEABA1LeD/CrJuz9sFZy2c1oOwMzxalzwOxPAF+1vShplEMBruWBT
+        f+sLQA==
     epsilon: 0.1
     eta0: 0.0
     fit_intercept: true
@@ -180,9 +180,9 @@ system_class:
       - *id001
       - false
       - !!binary |
-        8NzWM7N8EMBDVrKORuZYwF8x1mFHZGHANc9M6fYdRsDo29Z1GxE7wElUfngqOmDAP/ouj4BOSsBb
-        FcS/RDotwN5YXQq9XWDAQ5cjyg9IWsA8DrFXCsNXwA==
-    l1_ratio: 0.5
+        wyH8gE331r9p8vQkJIJAwPNT5We5/ETA6PO/eBU/N8AQnGGfylM4wNKwspKQBTrA1KVHFtN7NsCi
+        LCHEAoQgwDte8172sj/AwVWbrgO8JsDdrvzuhKA7wA==
+    l1_ratio: 0.15
     learning_rate: optimal
     loss: log
     loss_function_: !!python/object/apply:sklearn.linear_model.sgd_fast.Log []
@@ -194,11 +194,11 @@ system_class:
     power_t: 0.5
     random_state: null
     shuffle: true
-    t_: 13201.0
+    t_: 5741.0
     tol: null
     verbose: 0
     warm_start: false
-  parameters: {alpha: 0.0001, l1_ratio: 0.5, penalty: l2}
+  parameters: {alpha: 0.001, l1_ratio: 0.15, penalty: l2}
   scaler:
     copy: true
     mean_: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -213,9 +213,9 @@ system_class:
       - *id001
       - false
       - !!binary |
-        Wu7f1BVyMUDMEhDGsvP1P97qCUEkU3s/hiip6KUXMkD6H6WUp+oIQOlMDbptTLs/t7xJ//nkYD8Y
-        fQbXSU3CP5vO4uomPqi/0gLTFXd6279viqJ2hSbXvwMMulDhRdq/l7fYzXGp3D8=
-    n_samples_seen_: 1440
+        wHHy+LMBK0BYIChJhKL4P1mj/2d/sok/kml09bX+NED8aUQaqa0IQDhktj4qoL4/PYBhI2bhYT8C
+        4KUITqnKPyr2ooOSOcA/rGFd/nYd1b+CJG/myyjUv5zQnd9K9NS/rUGVENU91T8=
+    n_samples_seen_: 599
     scale_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id002
@@ -228,8 +228,8 @@ system_class:
       - *id001
       - false
       - !!binary |
-        DPAdFqoGL0AsMlTDr0HkPyFVwwNd44M/o5S97SkUQkCgk/PtIRHwP85tGveq9J4/uw/Cb9WoRT9C
-        7vSDlSu5P6HLzJA00QlADI20s1wp2D9vfW1aBMPUP00iNV3XFtc/qX5yRhA+2T8=
+        i2OJfQb1MECBdwMmiXrpP2kKeYPBOok/I1vaDltGREDJoQKS0xP3P7bPVnjeGKI/e4QbTu7dTj+4
+        42OVpUa6P4uNEBvTxxNAUr9z6kWs3z/5zsRfmH3bP7z3ecGHZ94/0DNrKU904D8=
     var_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id002
@@ -242,7 +242,7 @@ system_class:
       - *id001
       - false
       - !!binary |
-        Xlcq7uoUbkCoU/ATRaXZP31sV8qbuBg/m8gqwHdtlEA5wEg0ViLwP9pJG0IP8k0/MIen0iVSnT6A
-        7bv6VMyDP3nKOdk51CRAe98nhEA+wj+eFS/c0/C6P+f3xePlqMA/oCgszXHpwz8=
+        nvjZUbX4cUDTEnODS0nkPwrzez865CM/dhPqAxmxmUDO+5dqjKQAQLumQTYbeFQ/FB/5/CHGrT5f
+        togKaZOFP+7laf5UdDhAwWBx5mZZzz/C3d0S3p3HP7Me8n5t48w/fqM20Ovr0D8=
     with_mean: true
     with_std: true

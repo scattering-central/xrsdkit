@@ -180,6 +180,7 @@ class XRSDModel(object):
         """
 
         if self.classifier:
+            print(dataframe[self.target].unique())
             if len(dataframe[self.target].unique()) > 1 and dataframe.shape[0] > 10:#TODO change to 100 when we willl have more data
                 return True
             else:
