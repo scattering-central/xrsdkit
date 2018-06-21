@@ -90,7 +90,6 @@ class StructureClassifier(XRSDModel):
             will be saved at this path, and the cross-validation error
             are also saved in a .txt file of the same name, in the same directory.
         """
-        print(file_path)
         if scaler_model['model'] is None:
             return
 

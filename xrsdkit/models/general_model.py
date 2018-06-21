@@ -88,6 +88,9 @@ class XRSDModel(object):
             average crossvalidation score (accuracy for classification,
             normalized mean absolute error for regression)
         """
+        shuffled_rows = np.random.permutation(all_data.index)
+        all_data = all_data.loc[shuffled_rows]
+
         d = all_data[all_data[self.target].isnull() == False]
         training_possible = self.check_label(d)
 

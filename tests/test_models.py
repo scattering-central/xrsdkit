@@ -8,7 +8,8 @@ from xrsdkit.models.structure_classifier import StructureClassifier
 from xrsdkit.models.regressors import Regressors
 
 from citrination_client import CitrinationClient
-from xrsdkit.tools.citrination_tools import get_data_from_Citrination
+from citrination_client.data.client import DataClient
+from xrsdkit.tools.citrination_tools import sampl_data_on_Citrination
 
 def test_classifiers_and_regressors():
     cl_model = StructureClassifier("system_class")
@@ -36,11 +37,12 @@ def test_training():
     with open(api_key_file, "r") as g:
         a_key = g.readline().strip()
     cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
+    data_cl = DataClient(host='https://slac.citrination.com',api_key=a_key)
 
-    data = get_data_from_Citrination(client=cl, dataset_id_list=[21,22,23,28,29,30])
+    data, _, _ = sampl_data_on_Citrination(cl,data_cl, [21,22,23,28,29,30],save_sample=False)
     data_len = data.shape[0]
     train = data.iloc[:int(data_len*0.9),:]
-    train_part = data.iloc[int(data_len*0.9):,:]
+    #train_part = data.iloc[int(data_len*0.9):,:]
 
     test_path = os.path.join(d,'xrsdkit','models','modeling_data', 'test_classifiers')
 
