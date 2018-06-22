@@ -159,8 +159,7 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
         p = os.path.abspath(__file__)
         d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
         for k,v in pifs_by_classes.items():
-            sample_dataset_name = k + my_list
-            ds = data_cl.create_dataset(sample_dataset_name, "Sample of data")
+            ds = data_cl.create_dataset(k, "Sample of data from datasets: "+ my_list)
             new_datase_ids.append(ds.id)
 
             pif_file = os.path.join(d, k+'.json')
