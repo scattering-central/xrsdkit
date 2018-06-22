@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import os
 import pandas as pd
-import numpy as np
+import yaml
 from sklearn import preprocessing
 from pypif import pif
 from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
@@ -145,6 +145,7 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
 
     new_datase_ids = []
     if save_sample:
+        sys_class_sample_ids = {}
         # sort sample of pifs by classes
         all_sys_classes = data_sample.system_class.unique()
         pifs_by_classes = {}
@@ -161,10 +162,17 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
         for k,v in pifs_by_classes.items():
             ds = data_cl.create_dataset(k, "Sample of data from datasets: "+ my_list)
             new_datase_ids.append(ds.id)
+            sys_class_sample_ids[k] = ds.id
 
             pif_file = os.path.join(d, k+'.json')
             pif.dump(v, open(pif_file,'w'))
             client.data.upload(ds.id, pif_file)
+
+        d2 = os.path.dirname(os.path.dirname(p))
+        yml_file_path = os.path.join(d2,'models','modeling_data','datasamples_ids.yml')
+
+        with open(yml_file_path, 'w') as yaml_file:
+                yaml.dump(sys_class_sample_ids, yaml_file)
 
     return data_sample_not_transf, new_datase_ids, count
 
