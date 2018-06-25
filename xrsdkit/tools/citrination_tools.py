@@ -108,17 +108,14 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
     data_sample_not_transf : pandas.DataFrame
         dataframe containing subset of rows
         that was chosen using distance between the samples;
-        the data was not transformed;
-    new_datase_ids : list
-        when save_sample is True, list of ids of new datasets where the sample was saved;
-        when save_sample is False, it is an empty list.
-    count : int
-        number of training samples included in the data_sample
+        the data was not transformed.
     """
     data, pifs = get_data_from_Citrination(client, dataset_id_list)
 
     #### create data_sample ########################
     data_sample = pd.DataFrame(columns=data.columns)
+    samples = {}
+    samples_ids = {} # local ids of samples to save by exp
     all_exp = data.experiment_id.unique()
 
     features = []
@@ -134,48 +131,56 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
         df = transformed_data[transformed_data['experiment_id']==exp_id]
         sample = make_sample_one_experiment(df, 1.0)
         data_sample = data_sample.append(sample)
+        if save_sample:
+            samples[exp_id] = sample
+            samples_ids[exp_id] = sample.local_id.tolist()
     ################################################
-
-    count = data_sample.shape[0]
 
     samples_to_save = data_sample.local_id.tolist()
     data_sample_not_transf = pd.DataFrame(columns=data.columns)
     for samp_id in samples_to_save:
         data_sample_not_transf=data_sample_not_transf.append(data.iloc[samp_id])
 
-    new_datase_ids = []
     if save_sample:
-        sys_class_sample_ids = {}
-        # sort sample of pifs by classes
-        all_sys_classes = data_sample.system_class.unique()
-        pifs_by_classes = {}
-        for cl in all_sys_classes:
-            pifs_by_classes[cl] = []
-
-        for samp_id in samples_to_save:
-            cl = data.iloc[samp_id].system_class
-            pifs_by_classes[cl].append(pifs[samp_id])
-
-        my_list = ','.join(map(str, dataset_id_list))
         p = os.path.abspath(__file__)
-        d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
-        for k,v in pifs_by_classes.items():
-            ds = data_cl.create_dataset(k, "Sample of data from datasets: "+ my_list)
-            new_datase_ids.append(ds.id)
-            sys_class_sample_ids[k] = ds.id
-
-            pif_file = os.path.join(d, k+'.json')
-            pif.dump(v, open(pif_file,'w'))
-            client.data.upload(ds.id, pif_file)
-
         d2 = os.path.dirname(os.path.dirname(p))
         yml_file_path = os.path.join(d2,'models','modeling_data','datasamples_ids.yml')
+        try:
+            existing_samples = open(yml_file_path,'rb')
+            sys_class_sample_ids = yaml.load(existing_samples)
+        except:
+            sys_class_sample_ids = {}
 
-        with open(yml_file_path, 'w') as yaml_file:
-                yaml.dump(sys_class_sample_ids, yaml_file)
+        for ex in all_exp:
+            # sort sample of pifs by classes
+            all_sys_classes = samples[ex].system_class.unique()
+            pifs_by_classes = {}
+            for cl in all_sys_classes:
+                pifs_by_classes[cl] = []
 
-    return data_sample_not_transf, new_datase_ids, count
+            for samp_id in samples_ids[ex]:
+                cl = data.iloc[samp_id].system_class
+                pifs_by_classes[cl].append(pifs[samp_id])
 
+            my_list = ','.join(map(str, dataset_id_list))
+            d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
+            for k,v in pifs_by_classes.items():
+                # to check if we alredy have a sample for this class:
+                if k in sys_class_sample_ids:
+                    ds_id = sys_class_sample_ids[k]
+                else:
+                    ds = data_cl.create_dataset(k, "Sample of data from datasets: "+ my_list)
+                    ds_id = ds.id
+                    sys_class_sample_ids[k] = ds_id
+
+                pif_file = os.path.join(d, k+ex+'.json')
+                pif.dump(v, open(pif_file,'w'))
+                client.data.upload(ds_id, pif_file)
+
+            with open(yml_file_path, 'w') as yaml_file:
+                    yaml.dump(sys_class_sample_ids, yaml_file)
+
+    return data_sample_not_transf
 
 def make_sample_one_experiment(data_fr, min_distance):
     """make a sample from ONE experiment.
