@@ -502,7 +502,7 @@ def ordered_populations(pops):
         	    if not pop_nm == 'noise' \
 	            and not popdef['structure'] == 'unidentified':
         	        if popdef['structure'] == stnm \
-			and ffnm in [popdef['basis'][sitenm]['form'] for sitenm in popdef['basis'].keys():
+			and ffnm in [popdef['basis'][sitenm]['form'] for sitenm in popdef['basis'].keys()]:
                 	    opd[pop_nm] = copy.deepcopy(popdef)
     ## Step 2: Standardize order of sites by form factor
     for pop_nm,popdef in opd.items():
