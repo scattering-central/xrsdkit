@@ -50,10 +50,11 @@ def test_training():
     my_classifier = StructureClassifier("system_class")
     results = my_classifier.train(train, hyper_parameters_search = False)
     my_classifier.save_models(results, test_path)
-
+    '''
     rg_models = Regressors()
     results = rg_models.train_regression_models(train, hyper_parameters_search = False)
     rg_models.save_regression_models(results, test_path)
+    '''
 #
 #    # update models
 #    my_classifiers = Classifiers() # we can specify the list of classifiers to train
