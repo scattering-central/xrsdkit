@@ -151,6 +151,12 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
         except:
             sys_class_sample_ids = {}
 
+        datasets_for_saxskit = list(range(45, 88))
+        datasets_in_usage = list(sys_class_sample_ids.values())
+        avalible_ids = list(set(datasets_for_saxskit)-set(datasets_in_usage))
+        print('sys_class_sample_ids', sys_class_sample_ids)
+        print('avalible_ids', avalible_ids)
+
         for ex in all_exp:
             # sort sample of pifs by classes
             all_sys_classes = samples[ex].system_class.unique()
@@ -162,15 +168,21 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
                 cl = data.iloc[samp_id].system_class
                 pifs_by_classes[cl].append(pifs[samp_id])
 
-            my_list = ','.join(map(str, dataset_id_list))
             d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
             for k,v in pifs_by_classes.items():
                 # to check if we alredy have a sample for this class:
                 if k in sys_class_sample_ids:
                     ds_id = sys_class_sample_ids[k]
+                    print('found', ds_id, k)
                 else:
-                    ds = data_cl.create_dataset(k, "Sample of data from datasets: "+ my_list)
-                    ds_id = ds.id
+                    if avalible_ids == []: # we create a new dataset only if we run out of ids 45-87
+                        ds = data_cl.create_dataset(k, "Sample of data for: "+ k)
+                        ds_id = ds.id
+                    else:
+                        ds_id = avalible_ids.pop(0)
+                        print('popped', ds_id, k)
+                        #data_cl.create_dataset_version(ds_id)
+                        data_cl.update_dataset(ds_id, k, "Sample of data for: "+ k)
                     sys_class_sample_ids[k] = ds_id
 
                 pif_file = os.path.join(d, k+ex+'.json')
