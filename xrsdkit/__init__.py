@@ -497,13 +497,13 @@ def ordered_populations(pops):
     ## Step 1: Standardize order of populations by structure and form,
     ## excluding entries for noise or unidentified structures
     for stnm in structure_names:
-	for ffnm in form_factor_names:
-	        for pop_nm,popdef in pops.items():
-        	    if not pop_nm == 'noise' \
-	            and not popdef['structure'] == 'unidentified':
-        	        if popdef['structure'] == stnm \
-			and ffnm in [popdef['basis'][sitenm]['form'] for sitenm in popdef['basis'].keys()]:
-                	    opd[pop_nm] = copy.deepcopy(popdef)
+        for ffnm in form_factor_names:
+            for pop_nm,popdef in pops.items():
+                if not pop_nm == 'noise' \
+                and not popdef['structure'] == 'unidentified':
+                    if popdef['structure'] == stnm \
+                    and ffnm in [popdef['basis'][sitenm]['form'] for sitenm in popdef['basis'].keys()]:
+                        opd[pop_nm] = copy.deepcopy(popdef)
     ## Step 2: Standardize order of sites by form factor
     for pop_nm,popdef in opd.items():
         obd = OrderedDict()
