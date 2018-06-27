@@ -10,7 +10,7 @@ from xrsdkit.models.regressors import Regressors
 from citrination_client import CitrinationClient
 from citrination_client.data.client import DataClient
 from xrsdkit.tools.citrination_tools import sampl_data_on_Citrination
-
+'''
 def test_classifiers_and_regressors():
     cl_model = StructureClassifier("system_class")
     reg_models = Regressors()
@@ -26,7 +26,7 @@ def test_classifiers_and_regressors():
             reg_result = reg_models.make_predictions(prof, cl_result, q_I)
             for k, v in reg_result.items():
                 print(k, " :   %10.3f" % (v))
-
+'''
 
 def test_training():
     p = os.path.dirname(os.path.abspath(__file__))
