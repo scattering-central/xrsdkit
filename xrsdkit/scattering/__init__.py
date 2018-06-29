@@ -113,8 +113,6 @@ def fcc_intensity(q,popd,source_wavelength):
     r_pts = r_lat.get_points_in_sphere([[0,0,0]],[0,0,0],G_max)
     r_pts = [pt for pt in r_pts if pt[1] >= G_min]
 
-    import pdb; pdb.set_trace()
-
     g_pks = OrderedDict()
     q_pks = OrderedDict()
     I_pks = OrderedDict()
