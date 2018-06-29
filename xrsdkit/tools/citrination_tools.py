@@ -16,7 +16,7 @@ def get_data_from_Citrination(client, dataset_id_list):
     Parameters
     ----------
     client : citrination_client.CitrinationClient
-        A python Citrination client for fetching data
+        A python CitrinationClient for fetching data
     dataset_id_list : list of int
         List of dataset ids (integers) for fetching SAXS records
 
@@ -30,18 +30,21 @@ def get_data_from_Citrination(client, dataset_id_list):
         list of pif objects. Each of them contains data about one sample.
     """
     data = []
+    # reg_labels is a list of dicts of regression model outputs for each sample
     reg_labels = []
+    # all_reg_labels will be a list of all unique regression labels for the set of pifs
     all_reg_labels = set()
 
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
-    for i in range(len(pifs)):
-        pp = pifs[i]
-        expt_id,t_utc,q_I,temp,pp_feats, cl_model_outputs, reg_model_outputs = piftools.unpack_pif(pp)
+    for i,pp in enumerate(pifs):
+        pif_uid, expt_id, t_utc, q_I, temp, src_wl, populations, pp_feats, cl_model_outputs, reg_model_outputs = piftools.unpack_pif(pp)
         feats = OrderedDict.fromkeys(profiler.profile_keys)
         feats.update(pp_feats)
-        
-        data_row = [expt_id]+list(feats.values())+[cl_model_outputs]+[i] # i will be the local_id
+
+        # TODO: explain why "i" is included in the data row 
+        data_row = [expt_id]+list(feats.values())+[cl_model_outputs]+[i]
+
         data.append(data_row)
         for k,v in reg_model_outputs.items():
             all_reg_labels.add(k)
@@ -50,14 +53,18 @@ def get_data_from_Citrination(client, dataset_id_list):
     reg_labels_list = list(all_reg_labels)
     reg_labels_list.sort()
 
-    for i in range(len(reg_labels)):
+    for i,rl in enumerate(reg_labels):
+        # create a dict of labels for all possible regression models
         lb = OrderedDict.fromkeys(reg_labels_list)
-        lb.update(reg_labels[i])
+        # fill in values that were found in the record
+        lb.update(rl)
+        # add the regression labels to the end of the data row
         data[i] = data[i] + list(lb.values())
 
     colnames = ['experiment_id']
     colnames.extend(profiler.profile_keys)
     colnames.extend(['system_class'])
+    # TODO: explain the local_id
     colnames.extend(['local_id'])
     colnames.extend(reg_labels_list)
 
