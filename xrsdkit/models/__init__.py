@@ -47,7 +47,7 @@ def get_possible_regression_models(data):
             #if end in regression_params:
                 if data[c].shape[0] > 10: #TODO change to 100 when we will have more data
                     possible_models.append(c)
-        result[p] = possible_models
+        model_labels[cls] = possible_models
     return model_labels 
 
 
