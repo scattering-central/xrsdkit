@@ -322,14 +322,22 @@ def contains_coordinates(populations,pop_nm,site_nm):
                     return True
     return False    
 
-def contains_site_param(populations,pop_nm,site_nm,param_nm):
+def contains_site(populations,pop_nm,site_nm):
     if pop_nm in populations:
         if 'basis' in populations[pop_nm]:
             if site_nm in populations[pop_nm]['basis']:
-                site_def = populations[pop_nm]['basis'][site_nm]
-                if 'parameters' in site_def: 
-                    if param_nm in site_def['parameters']: 
-                        return True
+                return True
+
+def contains_site_params(populations,pop_nm,site_nm):
+    if contains_site(populations,pop_nm,site_nm):
+        site_def = populations[pop_nm]['basis'][site_nm]
+        if 'parameters' in site_def: 
+            return True
+    return False 
+
+def contains_site_param(populations,pop_nm,site_nm,param_nm):
+    if contains_site_params(populations,pop_nm,site_nm):
+        return param_nm in populations[pop_nm]['basis'][site_nm]['parameters'] 
 
 def update_site_param(populations,pop_nm,site_nm,param_nm,new_value):
     if not pop_nm in populations:
@@ -351,12 +359,15 @@ def update_coordinates(populations,pop_nm,site_nm,new_values):
         populations[pop_nm]['basis'][site_nm] = {}
     populations[pop_nm]['basis'][site_nm]['coordinates'] = new_values
 
-def contains_param(populations,pop_nm,param_nm):
+def contains_params(populations,pop_nm):
     if pop_nm in populations:
         if 'parameters' in populations[pop_nm]:
-            if param_nm in populations[pop_nm]['parameters']:
-                return True
+            return True
     return False 
+    
+def contains_param(populations,pop_nm,param_nm):
+    if contains_params(populations,pop_nm):
+        return param_nm in populations[pop_nm]['parameters']
 
 def update_param(populations,pop_nm,param_nm,param_val):
     if not pop_nm in populations:
