@@ -1,13 +1,12 @@
 from collections import OrderedDict
-import copy
 
 import numpy as np
 from pypif.obj import ChemicalSystem, Property, Classification, Id, Value, Scalar
 
 from . import profiler
-from .. import structure_names, form_factor_names, crystalline_structure_names, \
-    regression_params, structure_params, form_factor_params, ordered_populations, \
-    structure_settings, form_factor_settings, setting_datatypes
+from .. import contains_params, contains_site_params, regression_params, structure_params, \
+    form_factor_params, ordered_populations, structure_settings, \
+    form_factor_settings, setting_datatypes, update_populations
 
 # TODO: pack and unpack fitting objective, q-range, settings
 # (add input/output for fit_report dict on make_pif/unpack_pif)
@@ -64,7 +63,9 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,src_wl=None,
         csys.properties.extend(profile_properties(q_I))
     return csys
 
+
 def unpack_pif(pp):
+    #print(pif.dumps(pp, indent=4))
     expt_id = None
     t_utc = None
     q_I = None
@@ -89,7 +90,8 @@ def unpack_pif(pp):
     # take the system_classification out of the cls_dict,
     # label it as noise if not otherwise labeled
     cl_pp_output = 'noise'
-    if 'system_classification' in cls_dict:
+    #if 'system_classification' in cls_dict:   # changed
+    if cls_dict['system_classification'] is not None:
         cl_pp_output = cls_dict.pop('system_classification')
 
     # assume the remaining classifications are labels for the populations
@@ -104,32 +106,33 @@ def unpack_pif(pp):
             populations[pop_name] = {} 
             populations[pop_name]['structure'] = structure_name
             param_labels = ['pop{}_{}'.format(ip,param_nm) for param_nm in structure_params[structure_name]]
-            if any([pl in params_dict for pl in param_labels]):
-                populations[pop_nm]['parameters'] = {}
+            if any([pl in props_dict for pl in param_labels]):
+                populations[pop_name]['parameters'] = {} ########
                 for pl,param_nm in zip(param_labels,structure_params[structure_name]): 
-                    if pl in params_dict:
+                    if pl in props_dict:
                         populations[pop_name]['parameters'][param_nm] = \
-                        params_dict[pl].scalars[0].value
-                        for tg in params_dict[pl].tags():
-                            if 'fixed value: ' in tg:
-                                fp_val = bool(tg.strip('fixed value: '))
-                                update_populations(fp,{pop_name:{'parameters':{param_nm:fp_val}}})
-                            if 'bounds: ' in tg:
-                                bds = tg.strip('bounds: ','[',']').split(',')
-                                lbnd, ubnd = float(bds[0]), float(bds[1])
-                                update_populations(pb,{pop_name:{'parameters':{param_nm:[lbnd,ubnd]}}})
-                            if 'constraint expression: ' in tg:
-                                cexpr = tg.strip('constraint expression: ')
-                                update_populations(pc,{pop_name:{'parameters':{param_nm:cexpr}}})
-                        update_populations(pb,param_bounds_from_tags(params_dict[pl].tags))
-                        update_populations(pc,param_constraints_from_tags(params_dict[pl].tags))
+                        props_dict[pl].scalars[0].value
+                        if props_dict[pl].tags is not None: # added
+                            for tg in props_dict[pl].tags():
+                                if 'fixed value: ' in tg:
+                                    fp_val = bool(tg.strip('fixed value: '))
+                                    update_populations(fp,{pop_name:{'parameters':{param_nm:fp_val}}})
+                                if 'bounds: ' in tg:
+                                    bds = tg.strip('bounds: ','[',']').split(',')
+                                    lbnd, ubnd = float(bds[0]), float(bds[1])
+                                    update_populations(pb,{pop_name:{'parameters':{param_nm:[lbnd,ubnd]}}})
+                                if 'constraint expression: ' in tg:
+                                    cexpr = tg.strip('constraint expression: ')
+                                    update_populations(pc,{pop_name:{'parameters':{param_nm:cexpr}}})
+                            #update_populations(pb,param_bounds_from_tags(props_dict[pl].tags)) # TODO imlement param_bounds_from_tags
+                            #update_populations(pc,param_constraints_from_tags(props_dict[pl].tags))
             stg_labels = ['pop{}_{}'.format(ip,stg_nm) for stg_nm in structure_settings[structure_name]]
-            if any([sl in params_dict for sl in stg_labels]):
-                populations[pop_nm]['settings'] = {}
+            if any([sl in props_dict for sl in stg_labels]):
+                populations[pop_name]['settings'] = {}
                 for sl,stg_nm in zip(stg_labels,structure_settings[structure_name]): 
                     tp = setting_datatypes[stg_nm]
                     populations[pop_name]['settings'][stg_nm] = \
-                    tp(params_dict[sl].tags[0])
+                    tp(props_dict[sl].tags[0])
 
             if 'pop{}_site0_name'.format(ip) in cls_dict:
                 populations[pop_name]['basis'] = {} 
@@ -144,37 +147,38 @@ def unpack_pif(pp):
                         populations[pop_name]['basis'][site_name] = {}
                         populations[pop_name]['basis'][site_name]['form'] = site_form 
                         param_labels = ['pop{}_site{}_{}'.format(ip,ist,param_nm) for param_nm in form_factor_params[site_form]]
-                        if any([pl in params_dict for pl in param_labels]):
+                        if any([pl in props_dict for pl in param_labels]):
                             populations[pop_name]['basis'][site_name]['parameters'] = {} 
                             for pl,param_nm in zip(param_labels,form_factor_params[site_form]): 
-                                if pl in params_dict:
+                                if pl in props_dict:
                                     populations[pop_name]['basis'][site_name]['parameters'][param_nm] = \
-                                    params_dict[param_label].scalars[0].value
-                                    for tg in params_dict[pl].tags():
-                                        if 'fixed value: ' in tg:
-                                            fp_val = bool(tg.strip('fixed value: '))
-                                            update_populations(fp,{pop_name:{'basis':{site_name:{'parameters':{param_nm:fp_val}}}}})
-                                        if 'bounds: ' in tg:
-                                            bds = tg.strip('bounds: ','[',']').split(',')
-                                            lbnd, ubnd = float(bds[0]), float(bds[1])
-                                            update_populations(pb,{pop_name:{'basis':{site_name:{'parameters':{param_nm:[lbnd,ubnd]}}}}})
-                                        if 'constraint expression: ' in tg:
-                                            cexpr = tg.strip('constraint expression: ')
-                                            update_populations(pc,{pop_name:{'basis':{site_name:{'parameters':{param_nm:cexpr}}}}})
+                                    props_dict[pl].scalars[0].value
+                                    if props_dict[pl].tags is not None: # added
+                                        for tg in props_dict[pl].tags():
+                                            if 'fixed value: ' in tg:
+                                                fp_val = bool(tg.strip('fixed value: '))
+                                                update_populations(fp,{pop_name:{'basis':{site_name:{'parameters':{param_nm:fp_val}}}}})
+                                            if 'bounds: ' in tg:
+                                                bds = tg.strip('bounds: ','[',']').split(',')
+                                                lbnd, ubnd = float(bds[0]), float(bds[1])
+                                                update_populations(pb,{pop_name:{'basis':{site_name:{'parameters':{param_nm:[lbnd,ubnd]}}}}})
+                                            if 'constraint expression: ' in tg:
+                                                cexpr = tg.strip('constraint expression: ')
+                                                update_populations(pc,{pop_name:{'basis':{site_name:{'parameters':{param_nm:cexpr}}}}})
                         stg_labels = ['pop{}_site{}_{}'.format(ip,ist,stg_nm) for stg_nm in form_factor_settings[site_form]]
-                        if any([sl in params_dict for sl in stg_labels]):
-                            populations[pop_nm]['basis'][site_name]['settings'] = {}
+                        if any([sl in props_dict for sl in stg_labels]):
+                            populations[pop_name]['basis'][site_name]['settings'] = {}
                             for sl,stg_nm in zip(stg_labels,form_factor_settings[site_form]): 
-                                if sl in params_dict:
+                                if sl in props_dict:
                                     tp = setting_datatypes[stg_nm]
                                     populations[pop_name]['basis'][site_name]['settings'][stg_nm] = \
-                                    tp(params_dict[sl].tags[0])
+                                    tp(props_dict[sl].tags[0])
                         coord_labels = ['pop{}_site{}_coordinate{}'.format(ip,ist,ic) for ic in [0,1,2]]
-                        if all([cl in params_dict for cl in coord_labels]):
-                            c0 = float(params_dict['pop{}_site{}_coordinate0'.format(ip,ist)])
-                            c1 = float(params_dict['pop{}_site{}_coordinate1'.format(ip,ist)])
-                            c2 = float(params_dict['pop{}_site{}_coordinate2'.format(ip,ist)])
-                            populations[pop_nm]['basis'][site_name]['coordinates'] = [c0,c1,c2] 
+                        if all([cl in props_dict for cl in coord_labels]):
+                            c0 = float(props_dict['pop{}_site{}_coordinate0'.format(ip,ist)])
+                            c1 = float(props_dict['pop{}_site{}_coordinate1'.format(ip,ist)])
+                            c2 = float(props_dict['pop{}_site{}_coordinate2'.format(ip,ist)])
+                            populations[pop_name]['basis'][site_name]['coordinates'] = [c0,c1,c2]
                             # TODO: deal with fixed_params, param_bounds, param_constraints on coordinates
                         ist += 1
                     else:
@@ -259,12 +263,13 @@ def system_classifications(opd):
             popnm_cls = Classification('pop{}_name'.format(ip),pop_nm)
             pop_cls = Classification('pop{}_structure'.format(ip),popd['structure'])
             clss.extend([popnm_cls,pop_cls])
-            for ist,site_nm in enumerate(popd['basis'].keys()):
-                sited = popd['basis'][site_nm]
-                main_cls += 'site{}_{}__'.format(ist,sited['form'])
-                sitenm_cls = Classification('pop{}_site{}_name'.format(ip,ist),site_nm)
-                site_cls = Classification('pop{}_site{}_form'.format(ip,ist),sited['form'])
-                clss.extend([sitenm_cls,site_cls])
+            if "basis" in popd.keys():
+                for ist,site_nm in enumerate(popd['basis'].keys()):
+                    sited = popd['basis'][site_nm]
+                    main_cls += 'site{}_{}__'.format(ist,sited['form'])
+                    sitenm_cls = Classification('pop{}_site{}_name'.format(ip,ist),site_nm)
+                    site_cls = Classification('pop{}_site{}_form'.format(ip,ist),sited['form'])
+                    clss.extend([sitenm_cls,site_cls])
     if main_cls[-2:] == '__':
         main_cls = main_cls[:-2]
     clss.append(Classification('system_classification',main_cls))
@@ -278,9 +283,9 @@ def system_properties(opd,fixed_params,param_bounds,param_constraints):
         else:
             popd = opd[popnm]
             popfp, poppb, poppc = None, None, None
-            if xrsdkit.contains_params(fixed_params,popnm): popfp = fixed_params[popnm]
-            if xrsdkit.contains_params(param_bounds,popnm): poppb = param_bounds[popnm]
-            if xrsdkit.contains_params(param_constraints,popnm): poppc = param_constraints[popnm]
+            if contains_params(fixed_params,popnm): popfp = fixed_params[popnm]
+            if contains_params(param_bounds,popnm): poppb = param_bounds[popnm]
+            if contains_params(param_constraints,popnm): poppc = param_constraints[popnm]
             if 'settings' in popd:
                 properties.extend(setting_properties(ip,popd))
             if 'parameters' in popd:
@@ -289,11 +294,11 @@ def system_properties(opd,fixed_params,param_bounds,param_constraints):
                 for ist, stnm in enumerate(popd['basis'].keys()):
                     stdef = popd['basis'][stnm]
                     stfp, stpb, stpc = None, None, None
-                    if xrsdkit.contains_site_params(fixed_params,popnm,stnm): 
+                    if contains_site_params(fixed_params,popnm,stnm):
                         stfp = fixed_params[popnm]['basis'][stnm]
-                    if xrsdkit.contains_site_params(param_bounds,popnm,stnm): 
+                    if contains_site_params(param_bounds,popnm,stnm):
                         stpb = param_bounds[popnm]['basis'][stnm]
-                    if xrsdkit.contains_site_params(param_constraints,popnm,stnm): 
+                    if contains_site_params(param_constraints,popnm,stnm):
                         stpc = param_constraints[popnm]['basis'][stnm]
                     if 'coordinates' in stdef:
                         properties.extend(site_coord_properties(ip,ist,stdef))
@@ -316,15 +321,18 @@ def param_properties(ip,popd,popfp=None,poppb=None,poppc=None):
     for pnm,pval in popd['parameters'].items():
         pp = Property('pop{}_{}'.format(ip,pnm),pval)
         pp.tags = []
-        if pnm in popfp['parameters']:
-            pp.tags.append('fixed value: {}'.format(bool(pval)))
-        if pnm in poppb['parameters']:
-            lbnd = poppb['parameters'][pnm][0]
-            ubnd = poppb['parameters'][pnm][1]
-            pp.tags.append('bounds: [{},{}]'.format(lbnd,ubnd))
-        if pnm in poppc['parameters']:
-            cexpr = poppc['parameters'][pnm]
-            pp.tags.append('constraint expression: {}'.format(cexpr))
+        if popfp is not None:
+            if pnm in popfp['parameters']:
+                pp.tags.append('fixed value: {}'.format(bool(pval)))
+        if poppb is not None:
+            if pnm in poppb['parameters']:
+                lbnd = poppb['parameters'][pnm][0]
+                ubnd = poppb['parameters'][pnm][1]
+                pp.tags.append('bounds: [{},{}]'.format(lbnd,ubnd))
+        if poppc is not None:
+            if pnm in poppc['parameters']:
+                cexpr = poppc['parameters'][pnm]
+                pp.tags.append('constraint expression: {}'.format(cexpr))
         pps.append(pp)
     return pps
                                     
@@ -350,15 +358,18 @@ def site_param_properties(ip,ist,stdef,stfp,stpb,stpc):
         pp = Property('pop{}_site{}_{}'.format(ip,ist,pnm),pval)
         pps.append(pp)
         pp.tags = []
-        if pnm in stfp['parameters']:
-            pp.tags.append('fixed value: {}'.format(bool(pval)))
-        if pnm in stpb['parameters']:
-            lbnd = stpb['parameters'][pnm][0]
-            ubnd = stpb['parameters'][pnm][1]
-            pp.tags.append('bounds: [{},{}]'.format(lbnd,ubnd))
-        if pnm in stpc['parameters']:
-            cexpr = stpc['parameters'][pnm]
-            pp.tags.append('constraint expression: {}'.format(cexpr))
+        if stfp is not None:
+            if pnm in stfp['parameters']:
+                pp.tags.append('fixed value: {}'.format(bool(pval)))
+        if stpb is not None:
+            if pnm in stpb['parameters']:
+                lbnd = stpb['parameters'][pnm][0]
+                ubnd = stpb['parameters'][pnm][1]
+                pp.tags.append('bounds: [{},{}]'.format(lbnd,ubnd))
+        if stpc is not None:
+            if pnm in stpc['parameters']:
+                cexpr = stpc['parameters'][pnm]
+                pp.tags.append('constraint expression: {}'.format(cexpr))
     return pps
 
 def scalar_property(fname,fval,desc=None,data_type=None,funits=None):

@@ -38,7 +38,8 @@ def get_data_from_Citrination(client, dataset_id_list):
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for i,pp in enumerate(pifs):
-        pif_uid, expt_id, t_utc, q_I, temp, src_wl, populations, pp_feats, cl_model_outputs, reg_model_outputs = piftools.unpack_pif(pp)
+        pif_uid, expt_id, t_utc, q_I, temp, src_wl, populations,fp,pb,pc, \
+            pp_feats, cl_model_outputs, reg_model_outputs = piftools.unpack_pif(pp)
         feats = OrderedDict.fromkeys(profiler.profile_keys)
         feats.update(pp_feats)
 
