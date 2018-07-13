@@ -118,6 +118,8 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
         that was chosen using distance between the samples;
         the data was not transformed.
     """
+    ids_to_reuse = [91,92]
+
     data, pifs = get_data_from_Citrination(client, dataset_id_list)
 
     #### create data_sample ########################
@@ -156,8 +158,21 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
         try:
             existing_samples = open(yml_file_path,'rb')
             sys_class_sample_ids = yaml.load(existing_samples)
+            sys_classifier_sample_id = sys_class_sample_ids["Sample of data for system classification"]
         except:
             sys_class_sample_ids = {}
+            if len(ids_to_reuse)>0:
+                sys_classifier_sample_id = ids_to_reuse.pop()
+                data_cl.create_dataset_version(sys_classifier_sample_id)
+                data_cl.update_dataset(sys_classifier_sample_id,
+                                                "Sample of data for system classification",
+                                                "Sample of data for system classification")
+            else:
+                ds_sys = data_cl.create_dataset("Sample of data for system classification",
+                                                "Sample of data for system classification")
+                sys_classifier_sample_id = ds_sys.id
+            sys_class_sample_ids["Sample of data for system classification"] = sys_classifier_sample_id
+
         '''
         datasets_for_saxskit = list(range(90, 121))
         datasets_in_usage = list(sys_class_sample_ids.values())
@@ -183,14 +198,22 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
                     ds_id = sys_class_sample_ids[k]
                     print('found', ds_id, k)
                 else:
-                    ds = data_cl.create_dataset(k, "Sample of data for: "+ k)
-                    ds_id = ds.id
-                    print('created', ds_id, k)
+                    if len(ids_to_reuse)>0:
+                        ds_id = ids_to_reuse.pop()
+                        data_cl.create_dataset_version(ds_id)
+                        ds = data_cl.update_dataset(ds_id, k, "Sample of data for: "+ k)
+                        print('updated', ds_id, k)
+                    else:
+                        ds = data_cl.create_dataset(k, "Sample of data for: "+ k)
+                        ds_id = ds.id
+                        print('created', ds_id, k)
                     sys_class_sample_ids[k] = ds_id
 
                 pif_file = os.path.join(d, k+ex+'.json')
                 pif.dump(v, open(pif_file,'w'))
                 client.data.upload(ds_id, pif_file)
+                # upload into the large sample for the main classifier:
+                client.data.upload(sys_classifier_sample_id, pif_file)
 
             with open(yml_file_path, 'w') as yaml_file:
                     yaml.dump(sys_class_sample_ids, yaml_file)
