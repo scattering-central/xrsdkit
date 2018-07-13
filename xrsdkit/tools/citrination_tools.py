@@ -97,7 +97,7 @@ def get_pifs_from_Citrination(client, dataset_id_list):
     return pifs
 
 
-def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True):
+def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True, ids_to_reuse = []):
     """Create a sample of data and ship it on Citrination.
 
     Parameters
@@ -110,6 +110,9 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
         List of dataset ids (integers) for fetching SAXS records
     save_sample : bool
         if True, the sample of data will be save on Citrination
+    ids_to_reuse : list of int
+        list of ids for Citrination datasets that we want to reuse;
+        it will be used only id save_sample=True.
 
     Returns
     -------
@@ -118,7 +121,6 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
         that was chosen using distance between the samples;
         the data was not transformed.
     """
-    ids_to_reuse = [91,92]
 
     data, pifs = get_data_from_Citrination(client, dataset_id_list)
 
