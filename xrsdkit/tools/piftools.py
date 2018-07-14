@@ -55,7 +55,7 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,src_wl=None,
         csys.tags.append('time (utc): '+str(int(t_utc)))
     if q_I is not None:
         csys.properties.extend(q_I_properties(q_I,temp_C,src_wl))
-    if populations is not None:
+    if populations is not None: # is not empty Dict
         opd = ordered_populations(populations)
         csys.classifications.extend(system_classifications(opd))
         csys.properties.extend(system_properties(opd,fixed_params,param_bounds,param_constraints))
@@ -211,7 +211,6 @@ def unpack_pif(pp):
             features[prop_nm] = float(prop.scalars[0].value)
         elif any([rp == prop_nm[-1*len(rp):] for rp in regression_params]):
             reg_pp_outputs[prop_nm]= prop.scalars[0].value
-
     return pp.uid,expt_id,t_utc,q_I,temp,src_wl,populations,fp,pb,pc,features,cl_pp_output,reg_pp_outputs
 
 def id_tag(idname,idval,tags=None):
@@ -272,6 +271,8 @@ def system_classifications(opd):
                     clss.extend([sitenm_cls,site_cls])
     if main_cls[-2:] == '__':
         main_cls = main_cls[:-2]
+    if main_cls == '':
+        main_cls = 'noise'
     clss.append(Classification('system_classification',main_cls))
     return clss
 
