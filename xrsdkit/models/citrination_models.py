@@ -15,12 +15,29 @@ class CitrinationStructureClassifier(object):
         a_key = api_key.strip()
         self.client = CitrinationClient(site = address, api_key=a_key)
 
-    def classify(self,sample_features):
-        """Determine the types of structures represented by the sample"""
-        struct_flags = OrderedDict.fromkeys(structure_names)
-        for struct_name in structure_names:
-            struct_flags[struct_name] = False
-        return struct_flags
+    def classify(self,sample_params):
+        """Determine the types of structures represented by the sample
+
+        Parameters
+        ----------
+        sample_params : ordered dictionary
+            ordered dictionary of floats representing features of test sample
+
+        Returns
+        -------
+        population : str
+            predicted system class.
+        uncertaintie : float
+            uncertainty of the prediction.
+        """
+
+        inputs = self.append_str_property(sample_params)
+        resp = self.client.predict("64", inputs) # "64" is ID of dataview on Citrination
+
+        population = resp[0].get_value("system_classification").value
+        uncertaintie = resp[0].get_value("system_classification").loss
+
+        return population, uncertaintie
 
 #
 #class CitrinationSaxsModels(object):
@@ -73,13 +90,13 @@ class CitrinationStructureClassifier(object):
 #        return populations, uncertainties
 #
 #
-#    # helper function
-#    def append_str_property(self, sample_params):
-#        inputs = {}
-#        for k,v in sample_params.items():
-#            k = "Property " + k
-#            inputs[k] = v
-#        return inputs
+    # helper function
+    def append_str_property(self, sample_params):
+        inputs = {}
+        for k,v in sample_params.items():
+            k = "Property " + k
+            inputs[k] = v
+        return inputs
 #
 #    def predict_params(self,populations,features,q_I):
 #        """Use Citrination to predict the scattering parameters.

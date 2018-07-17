@@ -47,7 +47,7 @@ reg_result = reg_models.make_predictions(features, cl_result, q_i)
 for k, v in reg_result.items():
     print(k, " :   %10.3f" % (v))
 
-'''
+
 
 #Using Citrination models:
 print("\033[1m" + "Prediction from Citrination models: " + "\033[0;0m", "\n")
@@ -58,12 +58,11 @@ if not os.path.exists(api_key_file):
 
 saxs_models = CitrinationStructureClassifier(api_key_file,'https://slac.citrination.com')
 
-populations, uncertainties = saxs_models.classify(features)
+population, uncertaintie = saxs_models.classify(features)
 print("scatterer populations: ")
-for k,v in populations.items():
-    print(k, ":", v, "  with uncertainties: %1.3f" % (uncertainties[k]))
+print(population, "  with uncertainties: %1.3f" % (uncertaintie))
 print()
-
+'''
 params,uncertainties = saxs_models.predict_params(populations, features, q_i)
 print("scatterer parameters: ")
 for k,v in params.items():
