@@ -39,7 +39,7 @@ def test_training():
     cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
     data_cl = DataClient(host='https://slac.citrination.com',api_key=a_key)
 
-    data = sampl_data_on_Citrination(cl,data_cl, [21,22,23,28,29,30],save_sample=False)
+    data = sampl_data_on_Citrination(cl,data_cl, [22,23,28,29,30],save_sample=False)
     data_len = data.shape[0]
     train = data.iloc[:int(data_len*0.9),:]
     #train_part = data.iloc[int(data_len*0.9):,:]
