@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import os
+
 import pandas as pd
 import yaml
 from sklearn import preprocessing
@@ -97,37 +98,33 @@ def get_pifs_from_Citrination(client, dataset_id_list):
     return pifs
 
 
-def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True, ids_to_reuse = []):
-    """Create a sample of data and ship it on Citrination.
+def downsample_Citrination_datasets(client, dataset_id_list, save_sample=True):
+    """Down-sample one or more datasets, save the downsampled data to another dataset. 
 
     Parameters
     ----------
     client : citrination_client.CitrinationClient
-        A python Citrination client for fetching data
-    data_cl : citrination_client.data.client.DataClient
-        A python Citrination client encapsulating data management behavior.
+        A python Citrination client for managing datasets
     dataset_id_list : list of int
-        List of dataset ids (integers) for fetching SAXS records
+        List of dataset ids (integers) that will be down-sampled 
     save_sample : bool
-        if True, the sample of data will be save on Citrination
-    ids_to_reuse : list of int
-        list of ids for Citrination datasets that we want to reuse;
-        it will be used only id save_sample=True.
+        if True, the down-sampled data will be saved to a dataset
 
     Returns
     -------
-    data_sample_not_transf : pandas.DataFrame
-        dataframe containing subset of rows
-        that was chosen using distance between the samples;
-        the data was not transformed.
+    full_downsampled_dataset : pandas.DataFrame
+        dataframe containing all of the down-sampled data from 
+        all of the datasets in `dataset_id_list`. 
+        Features in this DataFrame are not scaled:
+        the correct scaler should be applied before training models.
     """
 
     data, pifs = get_data_from_Citrination(client, dataset_id_list)
 
     #### create data_sample ########################
     data_sample = pd.DataFrame(columns=data.columns)
-    samples = {}
-    samples_ids = {} # local ids of samples to save by exp
+    expt_samples = {}
+    expt_local_ids = {} # local ids of samples to save by exp
     all_exp = data.experiment_id.unique()
 
     features = []
@@ -136,100 +133,72 @@ def sampl_data_on_Citrination(client, data_cl, dataset_id_list, save_sample=True
     scaler = preprocessing.StandardScaler()
     scaler.fit(data[features])
 
-    transformed_data = pd.DataFrame(columns=data.columns, data= data[data.columns])
+    transformed_data = pd.DataFrame(columns=data.columns, data=data[data.columns])
     transformed_data[features] = scaler.transform(data[features])
 
     for exp_id in all_exp:
         df = transformed_data[transformed_data['experiment_id']==exp_id]
-        sample = make_sample_one_experiment(df, 1.0)
-        data_sample = data_sample.append(sample)
+        dsamp = downsample_one_experiment(df, 1.0)
+        data_sample.append(dsamp)
         if save_sample:
-            samples[exp_id] = sample
-            samples_ids[exp_id] = sample.local_id.tolist()
+            expt_samples[exp_id] = sample
+            expt_local_ids[exp_id] = sample.local_id.tolist()
     ################################################
 
+    # store references to unscaled data for all samples in data_sample
     samples_to_save = data_sample.local_id.tolist()
-    data_sample_not_transf = pd.DataFrame(columns=data.columns)
+    unscaled_data = pd.DataFrame(columns=data.columns)
     for samp_id in samples_to_save:
-        data_sample_not_transf=data_sample_not_transf.append(data.iloc[samp_id])
+        unscaled_data.append(data.iloc[samp_id])
 
     if save_sample:
         p = os.path.abspath(__file__)
         d2 = os.path.dirname(os.path.dirname(p))
-        yml_file_path = os.path.join(d2,'models','modeling_data','datasamples_ids.yml')
-        try:
-            existing_samples = open(yml_file_path,'rb')
-            sys_class_sample_ids = yaml.load(existing_samples)
-            sys_classifier_sample_id = sys_class_sample_ids["Sample of data for system classification"]
-        except:
-            sys_class_sample_ids = {}
-            if len(ids_to_reuse)>0:
-                sys_classifier_sample_id = ids_to_reuse.pop()
-                data_cl.create_dataset_version(sys_classifier_sample_id)
-                data_cl.update_dataset(sys_classifier_sample_id,
-                                                "Sample of data for system classification",
-                                                "Sample of data for system classification")
-            else:
-                ds_sys = data_cl.create_dataset("Sample of data for system classification",
-                                                "Sample of data for system classification")
-                sys_classifier_sample_id = ds_sys.id
-            sys_class_sample_ids["Sample of data for system classification"] = sys_classifier_sample_id
+        ds_map_filepath = os.path.join(d2,'models','modeling_data','dataset_ids.yml')
+        dataset_ids = yaml.load(open(ds_map_filepath,'rb'))
+        sys_classifier_dsid = dataset_ids['system_classifier']
 
-        '''
-        datasets_for_saxskit = list(range(90, 121))
-        datasets_in_usage = list(sys_class_sample_ids.values())
-        avalible_ids = list(set(datasets_for_saxskit)-set(datasets_in_usage))
-        print('sys_class_sample_ids', sys_class_sample_ids)
-        print('avalible_ids', avalible_ids)
-        '''
-        for ex in all_exp:
+        for expt_id in all_exp:
             # sort sample of pifs by classes
-            all_sys_classes = samples[ex].system_class.unique()
-            pifs_by_classes = {}
+            all_sys_classes = expt_samples[expt_id].system_class.unique()
+            pifs_by_sys_class = {}
             for cl in all_sys_classes:
-                pifs_by_classes[cl] = []
+                pifs_by_sys_class[cl] = []
 
-            for samp_id in samples_ids[ex]:
-                cl = data.iloc[samp_id].system_class
-                pifs_by_classes[cl].append(pifs[samp_id])
+            for pif_local_id in expt_local_ids[expt_id]:
+                cl = data.iloc[pif_local_id].system_class
+                pifs_by_sys_class[cl].append(pifs[pif_local_id])
 
             d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
-            for k,v in pifs_by_classes.items():
-                # to check if we alredy have a sample for this class:
-                if k in sys_class_sample_ids:
-                    ds_id = sys_class_sample_ids[k]
-                    print('found', ds_id, k)
+            for cl,pp in pifs_by_sys_class.items():
+                # check if this system class has an assigned dataset id 
+                if not cl in dataset_ids:
+                    ds_id = dataset_ids[cl]
+                # if not, create a new one and add it to the index
                 else:
-                    if len(ids_to_reuse)>0:
-                        ds_id = ids_to_reuse.pop()
-                        data_cl.create_dataset_version(ds_id)
-                        ds = data_cl.update_dataset(ds_id, k, "Sample of data for: "+ k)
-                        print('updated', ds_id, k)
-                    else:
-                        ds = data_cl.create_dataset(k, "Sample of data for: "+ k)
-                        ds_id = ds.id
-                        print('created', ds_id, k)
-                    sys_class_sample_ids[k] = ds_id
-
-                pif_file = os.path.join(d, k+ex+'.json')
-                pif.dump(v, open(pif_file,'w'))
-                client.data.upload(ds_id, pif_file)
+                    ds = client.data.create_dataset(cl, 
+                    'Downsampled modeling data for system class {}'.format(cl))
+                    ds_id = ds.id
+                    dataset_ids[cl] = ds_id
+                jsf = os.path.join(d, cl+'_'+ex+'.json')
+                pif.dump(pp, open(jsf,'w'))
+                client.data.upload(ds_id, jsf)
                 # upload into the large sample for the main classifier:
-                client.data.upload(sys_classifier_sample_id, pif_file)
+                client.data.upload(sys_classifier_dsid, jsf)
+        with open(ds_map_filepath, 'w') as yaml_file:
+            yaml.dump(dataset_ids, yaml_file)
+    return unscaled_data 
 
-            with open(yml_file_path, 'w') as yaml_file:
-                    yaml.dump(sys_class_sample_ids, yaml_file)
+def downsample_one_experiment(data_fr, min_distance):
+    """Downsample records from one experimental dataset.
 
-    return data_sample_not_transf
-
-def make_sample_one_experiment(data_fr, min_distance):
-    """make a sample from ONE experiment.
     Parameters
     ----------
     data_fr : pandas.DataFrame
         dataframe containing the samples from one experiment.
     min_distance : float
         the minimal allowed distance between the samples.
+
     Returns
     -------
     sample : pandas.DataFrame
@@ -240,14 +209,15 @@ def make_sample_one_experiment(data_fr, min_distance):
     sample = pd.DataFrame(columns=data_fr.columns)
     for name, group in groups_by_class:
         df = pd.DataFrame(columns=data_fr.columns)
-        df = df.append(group.iloc[0])
+        # keep the first sample in the group
+        df.append(group.iloc[0])
+        # test all remaining samples and add them to the sample
+        # if their distance from other samples is sufficiently large
+        dist_func = lambda i,j: sum((group.iloc[i][profiler.profile_keys_1] 
+            - group.iloc[j][profiler.profile_keys_1]).abs()) 
         for i in range(1, group.shape[0]):
-            add_row = True
-            for j in range(0, df.shape[0]):
-                s = sum((group.iloc[i][profiler.profile_keys_1] - group.iloc[j][profiler.profile_keys_1]).abs())
-                if s < min_distance:
-                    add_row = False
-            if add_row:
-                df = df.append(group.iloc[i])
-        sample = sample.append(df)
+            add_row = all( [dist_func(i,j) > min_distance for j in range(0,group.shape[0])] )
+            if add_row: df.append(group.iloc[i])
+        sample.append(df)
     return sample
+
