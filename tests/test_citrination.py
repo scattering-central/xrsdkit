@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 from xrsdkit.tools import profiler
-from xrsdkit.models.citrination_models import CitrinationStructureClassifier
+from xrsdkit.models.citrination_models import CitrinationSystemClassifier
 
 def test_citrination_models():
     p = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -13,7 +13,7 @@ def test_citrination_models():
     test_path = os.path.join(p,'test_data','solution_saxs','spheres','spheres_1.csv')
     q_I = np.genfromtxt (test_path, delimiter=",")
     features = profiler.profile_spectrum(q_I)
-    saxs_model = CitrinationStructureClassifier(api_key_file,'https://slac.citrination.com')
+    saxs_model = CitrinationSystemClassifier(api_key_file,'https://slac.citrination.com')
     print('testing Citrination models on {}'.format(test_path))
     population, uncertaintie = saxs_model.classify(features)
     print("scatterer populations: ")

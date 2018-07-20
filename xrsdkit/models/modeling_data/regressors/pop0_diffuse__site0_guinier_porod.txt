@@ -1,1 +1,1 @@
-{'pop0_site0_D': inf, 'pop0_site0_rg': 0.22140212853407637}
+{'pop0_site0_D': inf, 'pop0_site0_rg': 0.2215352134585041}

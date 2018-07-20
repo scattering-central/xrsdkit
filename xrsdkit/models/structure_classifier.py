@@ -68,7 +68,7 @@ class StructureClassifier(XRSDModel):
         print()
 
 
-    def save_models(self, scaler_model, file_path=None):
+    def save_models(self, file_path=None):
         """Save model parameters and CV errors in YAML and .txt files.
         Parameters
         ----------
@@ -90,13 +90,6 @@ class StructureClassifier(XRSDModel):
             will be saved at this path, and the cross-validation error
             are also saved in a .txt file of the same name, in the same directory.
         """
-        if scaler_model['model'] is None:
-            return
-
-        self.scaler = scaler_model['scaler']
-        self.model = scaler_model['model']
-        self.parameters = scaler_model['parameters']
-        self.cv_error = scaler_model['accuracy']
 
         if file_path is None:
             p = os.path.abspath(__file__)
