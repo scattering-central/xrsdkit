@@ -139,7 +139,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_sample=True):
     for exp_id in all_exp:
         df = transformed_data[transformed_data['experiment_id']==exp_id]
         dsamp = downsample_one_experiment(df, 1.0)
-        data_sample.append(dsamp)
+        data_sample = data_sample.append(dsamp)
         if save_sample:
             expt_samples[exp_id] = sample
             expt_local_ids[exp_id] = sample.local_id.tolist()
@@ -149,7 +149,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_sample=True):
     samples_to_save = data_sample.local_id.tolist()
     unscaled_data = pd.DataFrame(columns=data.columns)
     for samp_id in samples_to_save:
-        unscaled_data.append(data.iloc[samp_id])
+        unscaled_data = unscaled_data.append(data.iloc[samp_id])
 
     if save_sample:
         p = os.path.abspath(__file__)
@@ -210,14 +210,14 @@ def downsample_one_experiment(data_fr, min_distance):
     for name, group in groups_by_class:
         df = pd.DataFrame(columns=data_fr.columns)
         # keep the first sample in the group
-        df.append(group.iloc[0])
+        df = df.append(group.iloc[0])
         # test all remaining samples and add them to the sample
         # if their distance from other samples is sufficiently large
         dist_func = lambda i,j: sum((group.iloc[i][profiler.profile_keys_1] 
             - group.iloc[j][profiler.profile_keys_1]).abs()) 
         for i in range(1, group.shape[0]):
             add_row = all( [dist_func(i,j) > min_distance for j in range(0,group.shape[0])] )
-            if add_row: df.append(group.iloc[i])
-        sample.append(df)
+            if add_row: df = df.append(group.iloc[i])
+        sample = sample.append(df)
     return sample
 
