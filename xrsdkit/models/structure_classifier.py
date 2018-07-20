@@ -107,7 +107,7 @@ class StructureClassifier(XRSDModel):
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
 
         s_and_m = {self.target : {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
-                   'parameters' : self.parameters, 'accuracy': self.cv_error}}
+                   'parameters' : self.parameters, 'accuracy': self.accuracy}}
 
         # save scalers and models
         with open(file_path, 'w') as yaml_file:

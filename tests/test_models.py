@@ -8,6 +8,8 @@ from xrsdkit.models.structure_classifier import StructureClassifier
 
 from citrination_client import CitrinationClient
 from xrsdkit.tools.citrination_tools import downsample_Citrination_datasets
+from xrsdkit.models import train_regression_models, print_training_results, \
+    save_regression_models
 '''
 def test_classifiers_and_regressors():
     cl_model = StructureClassifier("system_class")
@@ -47,11 +49,10 @@ def test_training():
     my_classifier = StructureClassifier("system_class")
     my_classifier.train(train, hyper_parameters_search = False)
     my_classifier.save_models(test_path)
-    '''
-    rg_models = Regressors()
-    results = rg_models.train_regression_models(train, hyper_parameters_search = False)
-    rg_models.save_regression_models(results, test_path)
-    '''
+
+    reg_models = train_regression_models(data, hyper_parameters_search=False)
+    save_regression_models(reg_models, test_path)
+
 #
 #    # update models
 #    my_classifiers = Classifiers() # we can specify the list of classifiers to train

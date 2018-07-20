@@ -46,7 +46,7 @@ class XRSDModel(object):
               'l1_ratio': [0, 0.15, 0.5, 0.95], #default 0.15
               }
         self.scaler = None
-        self.cv_error = None
+        self.accuracy = None
         self.target = label
         self.classifier = classifier
         self.n_groups_out = 1
@@ -61,7 +61,7 @@ class XRSDModel(object):
                 self.model = linear_model.SGDRegressor()
                 self.system_class = s_and_m['system_class']
             set_param(self.model,s_and_m['model'])
-            self.cv_error = s_and_m['accuracy']
+            self.accuracy = s_and_m['accuracy']
             self.parameters = s_and_m['parameters']
 
 
@@ -320,10 +320,10 @@ class XRSDModel(object):
 
         Returns
         -------
-        cv_errors : float
+        accuracy : float
             the cross-validation errors.
         """
-        return self.cv_error
+        return self.accuracy
 
 # helper function - to set parameters for scalers and models
 def set_param(m_s, param):

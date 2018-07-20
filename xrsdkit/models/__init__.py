@@ -125,7 +125,9 @@ def print_training_results(results):
         dictionaries of regression models for the system_class
     """
     for pop, models in results.items():
+        print(pop)
         for k, m in models.items():
+            print(k)
             try:
                 print('accuracy : {}'.format(m.accuracy))
                 print('parameters : {}'.format(m.parameters))
@@ -149,11 +151,13 @@ def save_regression_models(models, file_path=None):
     d = os.path.dirname(p)
     for sys_cls, reg_mods in models.items():
         s_and_m = {}
-        for param_nm,m in models.items():
-            file_path = os.path.join(d,'modeling_data','regressors',sys_cls+'.yml')
-            cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
+        acc = {}
+        file_path = os.path.join(d,'modeling_data','regressors',sys_cls+'.yml')
+        cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
+        for param_nm,m in reg_mods.items():
             if m.model is not None:
-                s_and_m[reg_label] = dict(
+                acc[param_nm] = m.accuracy
+                s_and_m[param_nm] = dict(
                     scaler = m.scaler.__dict__, 
                     model = m.model.__dict__,
                     parameters = m.parameters, 
@@ -163,6 +167,8 @@ def save_regression_models(models, file_path=None):
         if any(s_and_m):
             with open(file_path, 'w') as yaml_file:
                 yaml.dump(s_and_m, yaml_file)
+            with open(cverr_txt_path, 'w') as txt_file:
+                txt_file.write(str(acc))
 
 def evaluate_params(q_I, system_class):
     """Evaluate regression models to estimate parameters for the sample
