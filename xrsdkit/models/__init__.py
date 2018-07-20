@@ -1,5 +1,6 @@
 import os
 import yaml
+import numpy as np
 from collections import OrderedDict
 
 from .regressor import Regressor
@@ -21,11 +22,11 @@ for fn in os.listdir(regression_dir):
         system_classes.append(cl)
         regression_models[cl] = {}
         yml_path = os.path.join(regression_dir,fn)
-        s_and_m_file = open(yml_file,'rb')
+        s_and_m_file = open(yml_path,'rb')
         content = yaml.load(s_and_m_file)
         labels = content.keys()
         for l in labels:
-            regression_models[s][l] = Regressor(l, s)
+            regression_models[cl][l] = Regressor(l, cl)
 
 # helper function - to set parameters for scalers and models
 def set_param(m_s, param):
@@ -129,7 +130,7 @@ def print_training_results(results):
                 print('accuracy : {}'.format(m.accuracy))
                 print('parameters : {}'.format(m.parameters))
             except:
-                print('failed to print training results for system {} class, model {}'.format(pop,k)
+                print('failed to print training results for system {} class, model {}'.format(pop,k))
 
 def save_regression_models(models, file_path=None):
     """Save model parameters and CV errors in YAML and .txt files.

@@ -5,11 +5,9 @@ import numpy as np
 
 from xrsdkit.tools import profiler
 from xrsdkit.models.structure_classifier import StructureClassifier
-from xrsdkit.models.regressors import Regressors
 
 from citrination_client import CitrinationClient
-from citrination_client.data.client import DataClient
-from xrsdkit.tools.citrination_tools import sampl_data_on_Citrination
+from xrsdkit.tools.citrination_tools import downsample_Citrination_datasets
 '''
 def test_classifiers_and_regressors():
     cl_model = StructureClassifier("system_class")
@@ -37,9 +35,8 @@ def test_training():
     with open(api_key_file, "r") as g:
         a_key = g.readline().strip()
     cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
-    data_cl = DataClient(host='https://slac.citrination.com',api_key=a_key)
 
-    data = sampl_data_on_Citrination(cl,data_cl, [22,23,28,29,30],save_sample=False)
+    data = downsample_Citrination_datasets(cl, [22,23,28,29,30],save_sample=False)
     data_len = data.shape[0]
     train = data.iloc[:int(data_len*0.9),:]
     #train_part = data.iloc[int(data_len*0.9):,:]
@@ -48,8 +45,8 @@ def test_training():
 
     # train from scratch
     my_classifier = StructureClassifier("system_class")
-    results = my_classifier.train(train, hyper_parameters_search = False)
-    my_classifier.save_models(results, test_path)
+    my_classifier.train(train, hyper_parameters_search = False)
+    my_classifier.save_models(test_path)
     '''
     rg_models = Regressors()
     results = rg_models.train_regression_models(train, hyper_parameters_search = False)

@@ -7,7 +7,7 @@ from sklearn import model_selection, preprocessing, linear_model
 from sklearn.metrics import mean_absolute_error
 
 from ..tools import profiler
-from . import set_param
+
 
 class XRSDModel(object):
 
@@ -137,11 +137,11 @@ class XRSDModel(object):
             label_std = pd.to_numeric(data[self.target]).std()# usefull for regressin only
 
         if leaveGroupOut:
-            new_accuracy = self.testing_by_experiments(data, new_model, label_std)
+            new_accuracy = self.cross_validate_by_experiments(data, new_model, label_std)
             if new_accuracy is None:
-                new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
+                new_accuracy = self.cross_validate(data, new_model,label_std)
         else:
-            new_accuracy = self.testing_using_crossvalidation(data, new_model,label_std)
+            new_accuracy = self.cross_validate(data, new_model,label_std)
 
         self.scaler = new_scaler
         self.model = new_model
@@ -325,3 +325,10 @@ class XRSDModel(object):
         """
         return self.cv_error
 
+# helper function - to set parameters for scalers and models
+def set_param(m_s, param):
+    for k, v in param.items():
+        if isinstance(v, list):
+            setattr(m_s, k, np.array(v))
+        else:
+            setattr(m_s, k, v)
