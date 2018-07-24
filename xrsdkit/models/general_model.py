@@ -12,10 +12,21 @@ from ..tools import profiler
 class XRSDModel(object):
 
     def __init__(self, label, system_class=None, yml_file=None, classifier=True): #system_class for reg only
+
+        self.model = None
+        self.parameters = None
+        self.scaler = None
+        self.accuracy = None
+        self.system_class = None
+        self.target = label
+        self.classifier = classifier
+        self.n_groups_out = 1
+        self.features = profiler.profile_keys_1
+        self.trained = False
+
         if yml_file is None:
             p = os.path.abspath(__file__)
             d = os.path.dirname(p)
-
             if classifier:
                 file_name = label + '.yml'
                 yml_file = os.path.join(d,'modeling_data','classifiers',file_name)
@@ -30,8 +41,6 @@ class XRSDModel(object):
         except:
             s_and_m = None
 
-        self.model = None
-        self.parameters = None
         if classifier:
              self.parameters_to_try = \
              {'penalty':('none', 'l2', 'l1', 'elasticnet'), #default l2
@@ -45,12 +54,6 @@ class XRSDModel(object):
                'alpha':[0.0001, 0.001, 0.01], #default 0.0001
               'l1_ratio': [0, 0.15, 0.5, 0.95], #default 0.15
               }
-        self.scaler = None
-        self.accuracy = None
-        self.target = label
-        self.classifier = classifier
-        self.n_groups_out = 1
-        self.features = profiler.profile_keys_1
 
         if s_and_m and s_and_m['scaler']: # we have a saved model
             self.scaler = preprocessing.StandardScaler()
@@ -82,15 +85,13 @@ class XRSDModel(object):
         d = all_data[all_data[self.target].isnull() == False]
         training_possible = self.check_label(d)
 
-        new_scaler = None
-        new_model = None
-        new_accuracy = None
-        new_parameters = None
-
         if not training_possible:
-            print(self.target, "model was not trained.")# TODO decide what we should print (or not print) here
-            return {'scaler': new_scaler, 'model': new_model,
-                'parameters' : new_parameters, 'accuracy': new_accuracy}
+            self.new_scaler = None
+            self.new_model = None
+            self.new_accuracy = None
+            self.new_parameters = None
+            self.trained = False
+            return 
 
         data = d.dropna(subset=self.features)# TODO update it when we will have new features for crystalline only
 
@@ -147,46 +148,36 @@ class XRSDModel(object):
         self.model = new_model
         self.parameters = new_parameters
         self.accuracy = new_accuracy
+        self.trained = True
 
 
     def check_label(self, dataframe):
         """Test whether or not `dataframe` has legal values for all labels.
  
-        For classification models:
-        Because a model requires a distribution of training samples,
-        this function checks `dataframe` to ensure that its
-        labels are not all the same.
-        For a model where the label is always the same,
-        this function returns False,
-        indicating that this `dataframe`
-        cannot be used to train that model.
-        For regression models:
-        returns "True" if the dataframe has at least 10 rows 
+        Returns "True" if the dataframe has enough rows, 
+        over which the labels exhibit at least two unique values 
 
         Parameters
         ----------
         dataframe : pandas.DataFrame
             dataframe of sample features and corresponding labels
+
         Returns
         -------
         bool
             indicates whether or not training is possible.
         """
-
-        if self.classifier:
-            print(dataframe[self.target].unique())
-            #TODO change size limit to 100 when we have more data
-            if len(dataframe[self.target].unique()) > 1 and dataframe.shape[0] > 10:
+        if len(dataframe[self.target].unique()) > 1:
+            if dataframe.shape[0] >= 5:
                 return True
             else:
+                print('model {}: insufficient training data ({} samples)'.format(
+                self.target,dataframe.shape[0]))
                 return False
         else:
-            #TODO change size limit to 100 when we have more data
-            if dataframe.shape[0] > 10:
-                return True
-            else:
-                return False
-
+            print('model {}: all training data have identical outputs ({})'.format(
+            self.target,float(dataframe[self.target].iloc[0])))
+            return False
 
     def hyperparameters_search(self, transformed_data, data_labels, group_by, leaveNGroupOut, n_leave_out):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.

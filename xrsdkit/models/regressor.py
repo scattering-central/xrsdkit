@@ -7,9 +7,9 @@ class Regressor(XRSDModel):
     """To create regressor for prediction continuous value from scattering/diffraction data;
     train, update, and save it; make a prediction."""
 
-    def __init__(self,label, system_class, yml_file=None, classifier=False):
+    def __init__(self,label, system_class, yml_file=None):
 
-        super(Regressor,self).__init__(label, system_class, yml_file, classifier=False)
+        super(Regressor,self).__init__(label, system_class, yml_file, False)
 
         self.n_groups_out = 1
 
