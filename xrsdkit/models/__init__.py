@@ -1,40 +1,77 @@
 import os
+from collections import OrderedDict
+
 import yaml
 import numpy as np
-from collections import OrderedDict
+from citrination_client import CitrinationClient
 
 from .regressor import Regressor
 from .. import regression_params
 from ..tools.profiler import profile_spectrum
+from ..tools.citrination_tools import downsample_Citrination_datasets
 
-#find all existing regression models:
-p = os.path.abspath(__file__)
-d = os.path.dirname(p)
-regression_dir = os.path.join(d,'modeling_data','regressors')
+file_path = os.path.abspath(__file__)
+src_dir = os.path.dirname(os.path.dirname(file_path))
+root_dir = os.path.dirname(src_dir)
+modeling_data_dir = os.path.join(src_dir,'models','modeling_data')
+regression_models_dir = os.path.join(modeling_data_dir,'regressors')
+
+api_key_file = os.path.join(root_dir, 'api_key.txt')
+
+src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
+src_dsid_list = yaml.load(open(src_dsid_file,'r'))
 
 system_classes = ['noise','pop0_unidentified']
 regression_models = OrderedDict()
 regression_models['noise'] = {}
 regression_models['pop0_unidentified'] = {}
-for fn in os.listdir(regression_dir):
+for fn in os.listdir(regression_models_dir):
     if fn.endswith(".yml"):
         cl = fn.split(".")[0]
         system_classes.append(cl)
         regression_models[cl] = {}
-        yml_path = os.path.join(regression_dir,fn)
+        yml_path = os.path.join(regression_models_dir,fn)
         s_and_m_file = open(yml_path,'rb')
         content = yaml.load(s_and_m_file)
         labels = content.keys()
         for l in labels:
             regression_models[cl][l] = Regressor(l, cl)
 
-# helper function - to set parameters for scalers and models
-def set_param(m_s, param):
-    for k, v in param.items():
-        if isinstance(v, list):
-            setattr(m_s, k, np.array(v))
-        else:
-            setattr(m_s, k, v)
+def downsample_and_train(source_dataset_ids=src_dsid_list,save_samples=False,save_models=False):
+    """Downsample datasets and use the samples to train xrsdkit models.
+
+    This is a developer tool for building models 
+    from a set of Citrination datasets.
+    It is used by the package developers to deploy
+    a standard set of models with xrsdkit.
+
+    Parameters
+    ----------
+    source_dataset_ids : list of int
+        Dataset ids for downloading source data
+    save_samples : bool
+        If true, downsampled datasets will be saved to their own datasets,
+        according to xrsdkit/models/modeling_data/dataset_ids.yml
+    save_models : bool
+        If true, the models trained on the downsampled datasets
+        will be saved to yml files in xrsdkit/models/modeling_data/
+    """
+
+    a_key = open(api_key_file, 'r').readline().strip()
+    cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
+    data = downsample_Citrination_datasets(cl, source_dataset_ids, save_samples=save_samples)
+    if not os.path.exists(api_key_file):
+        msg = 'No api_key.txt file found in {}'.format(root_dir)
+        raise FileNotFoundError(msg) 
+
+    # system classifier:
+    # TODO: add training for system classifier
+
+    # regression models:
+    reg_models = train_regression_models(data, hyper_parameters_search=True)
+    #print_training_results(reg_models)
+    if save_models:
+        save_regression_models(reg_models, modeling_data_dir)
 
 def get_possible_regression_models(data):
     """Get dictionary of models that we can train using provided data.
@@ -43,13 +80,12 @@ def get_possible_regression_models(data):
     ----------
     data : pandas.DataFrame
         dataframe containing features and labels
-        returned by citrination_tools.get_data_from_Citrination
 
     Returns
     -------
     model_labels : dict
         dictionary of possible regression models for each system_class
-        (can be trained using provided data)
+        (a possible model can be sufficiently trained using provided data)
     """
 
     sys_cls = list(data.system_class.unique())
@@ -61,22 +97,19 @@ def get_possible_regression_models(data):
     for cls in sys_cls:
         cls_data = data[(data['system_class']==cls)]
 
-        #to find the list of possible models and train all possible regression models
+        print('determining regression models for system class {}'.format(cls))
         #drop the collumns where all values are None:
         cls_data.dropna(axis=1,how='all',inplace=True)
         cols = cls_data.columns
         possible_models = []
         for c in cols:
             if any([rp == c[-1*len(rp):] for rp in regression_params]):
-            #end = c.split("_")[-1]
-            #if end in regression_params:
-                if data[c].shape[0] > 10: #TODO change to 100 when we will have more data
-                    possible_models.append(c)
+                possible_models.append(c)
         model_labels[cls] = possible_models
     return model_labels 
 
 def train_regression_models(data, hyper_parameters_search=False,
-                                 system_class = ['all'], testing_data = None, partial = False):
+         system_class = ['all'], testing_data = None, partial = False):
     """Train regression models, optionally searching for optimal hyperparameters.
 
     Parameters
@@ -109,10 +142,15 @@ def train_regression_models(data, hyper_parameters_search=False,
 
     for k, v in possible_models.items(): # v is the list of possible models for given system_class
         pop_data = data[(data['system_class']==k)]
+        print('attempting to train regression models for {}'.format(k))
         for m in v:
             reg_model = Regressor(m, k)
             reg_model.train(pop_data, hyper_parameters_search)
-            models[k][m] = reg_model 
+            if reg_model.trained:
+                models[k][m] = reg_model 
+                print('- finished training model for {}'.format(m))
+            else:
+                print('- training failed for {}'.format(m))
     return models
 
 def print_training_results(results):
@@ -193,4 +231,13 @@ def evaluate_params(q_I, system_class):
     for param_nm,m in regression_models[system_class].items():
         params_dict[param_nm] = m.predict(f, q_I)
     return params_dict
+
+# helper function - to set parameters for scalers and models
+def set_param(m_s, param):
+    for k, v in param.items():
+        if isinstance(v, list):
+            setattr(m_s, k, np.array(v))
+        else:
+            setattr(m_s, k, v)
+
 
