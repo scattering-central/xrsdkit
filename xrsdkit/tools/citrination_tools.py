@@ -100,7 +100,7 @@ def get_pifs_from_Citrination(client, dataset_id_list):
     return pifs
 
 
-def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True):
+def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, train_hyperparameters=False):
     """Down-sample one or more datasets, and optionally save the samples.
         
     Down-sampled datasets are (optionally) saved to their datasets as assigned
@@ -114,6 +114,9 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True):
         List of dataset ids (integers) that will be down-sampled 
     save_samples : bool
         if True, the down-sampled data will be saved to a dataset
+    train_hyperparameters : bool
+        if True, the models will be optimized
+        over a grid of hyperparameters during training
 
     Returns
     -------
@@ -146,8 +149,8 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True):
         dsamp = downsample_one_experiment(df, 1.0)
         data_sample = data_sample.append(dsamp)
         if save_samples:
-            expt_samples[exp_id] = sample
-            expt_local_ids[exp_id] = sample.local_id.tolist()
+            expt_samples[exp_id] = data_sample
+            expt_local_ids[exp_id] = data_sample.local_id.tolist()
     ################################################
 
     # store references to unscaled data for all samples in data_sample
@@ -222,7 +225,6 @@ def downsample_one_experiment(data_fr, min_distance):
         if group_size >= 10:
             df = pd.DataFrame(columns=data_fr.columns)
             # define the distance between two samples in feature space 
-            # TODO: make sure the feature spaces are normalized
             group_dist_func = lambda i,j: sum(
                 (group.iloc[i][profiler.profile_keys_1] 
                 - group.iloc[j][profiler.profile_keys_1]).abs())

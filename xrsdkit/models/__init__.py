@@ -41,8 +41,12 @@ for fn in os.listdir(regression_models_dir):
         for l in labels:
             regression_models[cl][l] = Regressor(l, cl)
 
-def downsample_and_train(source_dataset_ids=src_dsid_list,
-    citrination_client=cl,save_samples=False,save_models=False):
+def downsample_and_train(
+    source_dataset_ids=src_dsid_list,
+    citrination_client=cl,
+    save_samples=False,
+    save_models=False,
+    train_hyperparameters=False):
     """Downsample datasets and use the samples to train xrsdkit models.
 
     This is a developer tool for building models 
@@ -60,6 +64,9 @@ def downsample_and_train(source_dataset_ids=src_dsid_list,
     save_models : bool
         If true, the models trained on the downsampled datasets
         will be saved to yml files in xrsdkit/models/modeling_data/
+    train_hyperparameters : bool
+        if True, the models will be optimized
+        over a grid of hyperparameters during training
     """
 
     data = downsample_Citrination_datasets(cl, source_dataset_ids, save_samples=save_samples)
@@ -68,7 +75,7 @@ def downsample_and_train(source_dataset_ids=src_dsid_list,
     # TODO: add training for system classifier
 
     # regression models:
-    reg_models = train_regression_models(data, hyper_parameters_search=True)
+    reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
     #print_training_results(reg_models)
     if save_models:
         save_regression_models(reg_models, modeling_data_dir)

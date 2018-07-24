@@ -14,7 +14,11 @@ def test_training():
     if os.path.exists(api_key_file):
         a_key = open(api_key_file, 'r').readline().strip()
         cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
-        downsample_and_train([22,23,28,29,30],cl,False,False)
+        downsample_and_train(
+            [22,23,28,29,30],cl,
+            save_samples=False,
+            save_models=False,
+            train_hyperparameters=False)
 
     #my_classifier = StructureClassifier("system_class")
     #my_classifier.train(train, hyper_parameters_search = False)
