@@ -1,45 +1,37 @@
 import os
-import warnings
-warnings.filterwarnings("ignore")
-import time
 
 from citrination_client import CitrinationClient
-from xrsdkit.models.structure_classifier import StructureClassifier
-from xrsdkit.models import train_regression_models, print_training_results, \
+from xrsdkit.models import \
+    train_regression_models, \
+    print_training_results, \
     save_regression_models
 
-from xrsdkit.tools.citrination_tools import get_data_from_Citrination, downsample_Citrination_datasets
+from xrsdkit.tools.citrination_tools import downsample_Citrination_datasets
 
-p = os.path.abspath(__file__)
-d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
+file_path = os.path.abspath(__file__)
+src_dir = os.path.dirname(os.path.dirname(file_path))
+root_dir = os.path.dirname(src_dir)
+modeling_data_dir = os.path.join(src_dir,'models','modeling_data')
 
-api_key_file = os.path.join(d, 'api_key.txt')
-if not os.path.exists(api_key_file):
-    print("Citrination api key file did not find")
+api_key_file = os.path.join(root_dir, 'api_key.txt')
 
-with open(api_key_file, "r") as g:
-    a_key = g.readline().strip()
-cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
+src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
+src_dsid_list = yaml.load(open(src_dsid_file,'r'))
+data = downsample_Citrination_datasets(cl, src_dsid_list, save_sample=False)
 
-data = downsample_Citrination_datasets(cl, [22,23,28,29,30,31,32,33,34,35,36],save_sample=False)
+def train_models(save_models=False):
+    if not os.path.exists(api_key_file):
+        msg = 'No api_key.txt file found in {}'.format(root_dir)
+        raise FileNotFoundError(msg) 
+    a_key = open(api_key_file, 'r').readline().strip()
+    cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
-#data = get_data_from_Citrination(client = cl, dataset_id_list= [21,22,23,28,29,30,31,32,33,34,35,36])
+    # system classifier:
+    # TODO: add training for system classifier
 
-models_path = os.path.join(d,'xrsdkit','models','modeling_data')
-'''
-my_classifier = StructureClassifier("system_class")
-print("Old accuracies for classifiers:")
-my_classifier.print_accuracies()
-
-my_classifier.train(data, hyper_parameters_search = True)
-print("New accuracies and parameters for classifiers:")
-my_classifier.print_accuracies()
-my_classifier.save_models(models_path)
-'''
-# regression models:
-reg_models = train_regression_models(data, hyper_parameters_search=True)
-print(reg_models)
-print("New accuracies and parameters for regressors:")
-print_training_results(reg_models)
-#save_regression_models(reg_models, models_path)
+    # regression models:
+    reg_models = train_regression_models(data, hyper_parameters_search=True)
+    print_training_results(reg_models)
+    if save_models:
+        save_regression_models(reg_models, modeling_data_dir)
 
