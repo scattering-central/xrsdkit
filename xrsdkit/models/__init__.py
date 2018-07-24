@@ -17,6 +17,10 @@ modeling_data_dir = os.path.join(src_dir,'models','modeling_data')
 regression_models_dir = os.path.join(modeling_data_dir,'regressors')
 
 api_key_file = os.path.join(root_dir, 'api_key.txt')
+cl = None
+if os.path.exists(api_key_file):
+    a_key = open(api_key_file, 'r').readline().strip()
+    cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
 src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
 src_dsid_list = yaml.load(open(src_dsid_file,'r'))
@@ -37,7 +41,8 @@ for fn in os.listdir(regression_models_dir):
         for l in labels:
             regression_models[cl][l] = Regressor(l, cl)
 
-def downsample_and_train(source_dataset_ids=src_dsid_list,save_samples=False,save_models=False):
+def downsample_and_train(source_dataset_ids=src_dsid_list,
+    citrination_client=cl,save_samples=False,save_models=False):
     """Downsample datasets and use the samples to train xrsdkit models.
 
     This is a developer tool for building models 
@@ -57,12 +62,7 @@ def downsample_and_train(source_dataset_ids=src_dsid_list,save_samples=False,sav
         will be saved to yml files in xrsdkit/models/modeling_data/
     """
 
-    a_key = open(api_key_file, 'r').readline().strip()
-    cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
     data = downsample_Citrination_datasets(cl, source_dataset_ids, save_samples=save_samples)
-    if not os.path.exists(api_key_file):
-        msg = 'No api_key.txt file found in {}'.format(root_dir)
-        raise FileNotFoundError(msg) 
 
     # system classifier:
     # TODO: add training for system classifier

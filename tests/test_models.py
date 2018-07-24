@@ -7,11 +7,14 @@ from xrsdkit.tools import profiler
 from xrsdkit.models.structure_classifier import StructureClassifier
 
 from citrination_client import CitrinationClient
-from xrsdkit.models import downsample_and_train
+from xrsdkit.models import root_dir,downsample_and_train
 
 def test_training():
-
-    downsample_and_train([22,23,28,29,30],False,False)
+    api_key_file = os.path.join(root_dir, 'api_key.txt')
+    if os.path.exists(api_key_file):
+        a_key = open(api_key_file, 'r').readline().strip()
+        cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
+        downsample_and_train([22,23,28,29,30],cl,False,False)
 
     #my_classifier = StructureClassifier("system_class")
     #my_classifier.train(train, hyper_parameters_search = False)
