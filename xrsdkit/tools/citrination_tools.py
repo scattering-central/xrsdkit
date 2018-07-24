@@ -2,6 +2,7 @@ from collections import OrderedDict
 import os
 
 import pandas as pd
+import numpy as np
 import yaml
 from sklearn import preprocessing
 from pypif import pif
@@ -33,7 +34,8 @@ def get_data_from_Citrination(client, dataset_id_list):
     data = []
     # reg_labels is a list of dicts of regression model outputs for each sample
     reg_labels = []
-    # all_reg_labels will be a list of all unique regression labels for the set of pifs
+    # all_reg_labels will be the set of all
+    # unique regression labels over the provided datasets 
     all_reg_labels = set()
 
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
@@ -77,6 +79,7 @@ def get_data_from_Citrination(client, dataset_id_list):
 
 def get_pifs_from_Citrination(client, dataset_id_list):
     all_hits = []
+    print('fetching PIF records from datasets: {}...'.format(dataset_id_list))
     for dataset in dataset_id_list:
         query = PifSystemReturningQuery(
             from_index=0,
@@ -85,7 +88,6 @@ def get_pifs_from_Citrination(client, dataset_id_list):
                 dataset=DatasetQuery(
                     id=Filter(
                     equal=dataset))))
-
         current_result = client.search.pif_search(query)
         while current_result.hits!=[]:
             all_hits.extend(current_result.hits)
@@ -93,13 +95,16 @@ def get_pifs_from_Citrination(client, dataset_id_list):
             #n_hits += n_current_hits
             query.from_index += n_current_hits 
             current_result = client.search.pif_search(query)
-
     pifs = [x.system for x in all_hits]
+    print('done - found {} records'.format(len(pifs)))
     return pifs
 
 
-def downsample_Citrination_datasets(client, dataset_id_list, save_sample=True):
-    """Down-sample one or more datasets, save the downsampled data to another dataset. 
+def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True):
+    """Down-sample one or more datasets, and optionally save the samples.
+        
+    Down-sampled datasets are (optionally) saved to their datasets as assigned
+    in the index file at xrsdkit/models/modeling_data/dataset_ids.yml. 
 
     Parameters
     ----------
@@ -107,7 +112,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_sample=True):
         A python Citrination client for managing datasets
     dataset_id_list : list of int
         List of dataset ids (integers) that will be down-sampled 
-    save_sample : bool
+    save_samples : bool
         if True, the down-sampled data will be saved to a dataset
 
     Returns
@@ -140,7 +145,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_sample=True):
         df = transformed_data[transformed_data['experiment_id']==exp_id]
         dsamp = downsample_one_experiment(df, 1.0)
         data_sample = data_sample.append(dsamp)
-        if save_sample:
+        if save_samples:
             expt_samples[exp_id] = sample
             expt_local_ids[exp_id] = sample.local_id.tolist()
     ################################################
@@ -151,7 +156,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_sample=True):
     for samp_id in samples_to_save:
         unscaled_data = unscaled_data.append(data.iloc[samp_id])
 
-    if save_sample:
+    if save_samples:
         p = os.path.abspath(__file__)
         d2 = os.path.dirname(os.path.dirname(p))
         ds_map_filepath = os.path.join(d2,'models','modeling_data','dataset_ids.yml')
@@ -205,19 +210,62 @@ def downsample_one_experiment(data_fr, min_distance):
         dataframe containing subset of rows
         that was chosen using distance between the samples
     """
+    expt_id = data_fr['experiment_id'].iloc[0] 
     groups_by_class = data_fr.groupby('system_class')
     sample = pd.DataFrame(columns=data_fr.columns)
+    print('downsampling records from experiment: {}'.format(expt_id))
+    print('total sample size: {}'.format(len(data_fr)))
     for name, group in groups_by_class:
-        df = pd.DataFrame(columns=data_fr.columns)
-        # keep the first sample in the group
-        df = df.append(group.iloc[0])
-        # test all remaining samples and add them to the sample
-        # if their distance from other samples is sufficiently large
-        dist_func = lambda i,j: sum((group.iloc[i][profiler.profile_keys_1] 
-            - group.iloc[j][profiler.profile_keys_1]).abs()) 
-        for i in range(1, group.shape[0]):
-            add_row = all( [dist_func(i,j) > min_distance for j in range(0,group.shape[0])] )
-            if add_row: df = df.append(group.iloc[i])
-        sample = sample.append(df)
+        group_size = len(group)
+        sys_cls = group['system_class'].iloc[0] 
+        print('- number of samples for system class {}: {}'.format(sys_cls,group_size))
+        if group_size >= 10:
+            df = pd.DataFrame(columns=data_fr.columns)
+            # define the distance between two samples in feature space 
+            # TODO: make sure the feature spaces are normalized
+            group_dist_func = lambda i,j: sum(
+                (group.iloc[i][profiler.profile_keys_1] 
+                - group.iloc[j][profiler.profile_keys_1]).abs())
+
+            print('- building inter-sample distance matrix...')
+            group_dist_matrix = np.array([[group_dist_func(i,j) for i in range(group_size)] for j in range(group_size)])
+            # get the most isolated sample first:
+            # this should be the sample with the greatest minimum distance
+            # between itself and all other samples
+            min_distance_array = np.array([min(group_dist_matrix[i,:]) for i in range(group_size)])
+            best_idx = np.argmax(min_distance_array)
+            print('- best sample: {} (min distance: {})'.format(best_idx,min_distance_array[best_idx]))
+            df = df.append(group.iloc[best_idx])
+            sampled_idxs = [best_idx] 
+            continue_downsampling = True
+            while(continue_downsampling):
+
+                # find the next best index to sample:
+                # the sample with the greatest minimum distance
+                # between itself and the downsampled samples
+                sample_size = len(df)
+                sample_dist_matrix = np.array([group_dist_matrix[i,:] for i in sampled_idxs])
+                #sample_dist_matrix = np.array([[sample_dist_func(i,j) 
+                #for i in range(group_size)] for j in range(sample_size)])
+                min_distance_array = np.array([min(sample_dist_matrix[:,j]) for j in range(group_size)])
+                best_idx = np.argmax(min_distance_array)
+                best_min_distance = min_distance_array[best_idx]
+                print('- next best sample: {} (min distance: {})'.format(best_idx,best_min_distance))
+
+                # if we have at least 10 samples,
+                # and all remaining samples are close to current data set,
+                # down-sampling can stop here.
+                if sample_size >= 10 and best_min_distance < min_distance: 
+                    continue_downsampling = False
+                else:
+                    sampled_idxs.append(best_idx)
+                    df = df.append(group.iloc[best_idx])
+
+            print('- down-sampled to: {}'.format(len(df)))
+            sample = sample.append(df)
+        else:
+            print('- skipped downsampling (insufficient data)')
+            sample = sample.append(group)
+    print('number of samples retained for {}: {}'.format(expt_id,len(sample)))
     return sample
 
