@@ -31,15 +31,15 @@ regression_models['noise'] = {}
 regression_models['pop0_unidentified'] = {}
 for fn in os.listdir(regression_models_dir):
     if fn.endswith(".yml"):
-        cl = fn.split(".")[0]
-        system_classes.append(cl)
-        regression_models[cl] = {}
+        sys_cls = fn.split(".")[0]
+        system_classes.append(sys_cls)
+        regression_models[sys_cls] = {}
         yml_path = os.path.join(regression_models_dir,fn)
         s_and_m_file = open(yml_path,'rb')
         content = yaml.load(s_and_m_file)
         labels = content.keys()
         for l in labels:
-            regression_models[cl][l] = Regressor(l, cl)
+            regression_models[sys_cls][l] = Regressor(l, sys_cls)
 
 def downsample_and_train(
     source_dataset_ids=src_dsid_list,
@@ -69,7 +69,7 @@ def downsample_and_train(
         over a grid of hyperparameters during training
     """
 
-    data = downsample_Citrination_datasets(cl, source_dataset_ids, save_samples=save_samples)
+    data = downsample_Citrination_datasets(citrination_client, source_dataset_ids, save_samples=save_samples)
 
     # system classifier:
     # TODO: add training for system classifier
