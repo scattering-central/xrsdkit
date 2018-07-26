@@ -6,6 +6,7 @@ import numpy as np
 from citrination_client import CitrinationClient
 
 from .regressor import Regressor
+from .classifier import SystemClassifier
 from .. import regression_params
 from ..tools.profiler import profile_spectrum
 from ..tools.citrination_tools import downsample_Citrination_datasets
@@ -72,13 +73,22 @@ def downsample_and_train(
     data = downsample_Citrination_datasets(citrination_client, source_dataset_ids, save_samples=save_samples)
 
     # system classifier:
-    # TODO: add training for system classifier
+    sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
 
     # regression models:
     reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
-    #print_training_results(reg_models)
+    # TODO: save cross-validation details as 
+    # parameters of the XRSDModel objects during training,
+    # and add a function for printing out a description of them
     if save_models:
         save_regression_models(reg_models, modeling_data_dir)
+        # TODO: similar function for saving system classifier
+        #save_system_classifier(sys_cls, modeling_data_dir)
+
+def train_system_classifier(data, train_hyperparameters=False):
+    cls = SystemClassifier()
+    classifier.train(data, hyper_parameters_search=train_hyperparameters)
+    return cls
 
 def get_possible_regression_models(data):
     """Get dictionary of models that we can train using provided data.
@@ -116,7 +126,7 @@ def get_possible_regression_models(data):
     return model_labels 
 
 def train_regression_models(data, hyper_parameters_search=False,
-         system_class = ['all'], testing_data = None, partial = False):
+        system_class=['all'], testing_data=None, partial=False):
     """Train regression models, optionally searching for optimal hyperparameters.
 
     Parameters
