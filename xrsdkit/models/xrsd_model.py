@@ -22,13 +22,13 @@ class XRSDModel(object):
         content = yaml.load(open(yml_file,'rb'))
         self.load_model_data(content[label])
 
-    def load_model_data(model_data):
+    def load_model_data(self,model_data):
         self.set_model(model_data['parameters'])
         # TODO: consider getting rid of the set_param method,
         # in favor of something more concrete
         set_param(self.model,model_data['model'])
-        set_param(self.scaler,scaler_data)
-        self.scaler = self.build_scaler(model_data['scaler'])
+        self.scaler = preprocessing.StandardScaler()
+        set_param(self.scaler,model_data['scaler'])
         self.accuracy = model_data['accuracy']
 
     def set_model(self, model_hyperparams={}):

@@ -40,7 +40,7 @@ for fn in os.listdir(regression_models_dir):
         content = yaml.load(s_and_m_file)
         labels = content.keys()
         for l in labels:
-            regression_models[sys_cls][l] = Regressor(l, sys_cls)
+            regression_models[sys_cls][l] = Regressor(l, yml_path)
 
 def downsample_and_train(
     source_dataset_ids=src_dsid_list,

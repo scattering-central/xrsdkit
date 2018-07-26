@@ -3,17 +3,6 @@ from sklearn import linear_model
 
 from .xrsd_model import XRSDModel
 
-class SystemClassifier(Classifier):
-    """Classifier for determining the material system (structures and form factors).
-
-    See the main xrsdkit package documentation 
-    for all supported structures and parameters
-    for defining the material system.
-    """
-
-    def __init__(self,yml_file):
-        super(SystemClassifier,self).__init__('system_class', yml_file)
-
 
 class Classifier(XRSDModel):
     """Class for generating models to classifying material systems."""
@@ -129,4 +118,16 @@ class Classifier(XRSDModel):
             test_scores_by_ex.append(test_score)
 
         return test_scores_by_ex
+
+class SystemClassifier(Classifier):
+    """Classifier for determining the material system (structures and form factors).
+
+    See the main xrsdkit package documentation 
+    for all supported structures and parameters
+    for defining the material system.
+    """
+
+    def __init__(self,yml_file):
+        super(SystemClassifier,self).__init__('system_class', yml_file)
+
 
