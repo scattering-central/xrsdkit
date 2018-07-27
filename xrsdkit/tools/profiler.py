@@ -30,6 +30,12 @@ spherical_profile_keys = list([
     'pI_qvertex',
     'pI_qwidth'])
 
+# a short set of features for data downsampling
+# We cannot use extended profile_keys, since data
+# has Nons for gp and spherical features
+profile_keys_1 = []
+profile_keys_1.extend(profile_keys)
+
 profile_keys_2 = []
 profile_keys_2.extend(profile_keys)
 profile_keys_2.extend(gp_profile_keys)

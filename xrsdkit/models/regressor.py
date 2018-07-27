@@ -1,8 +1,10 @@
 import numpy as np
-from sklearn import linear_model
+import pandas as pd
+from sklearn import linear_model, model_selection, preprocessing
 
 from .xrsd_model import XRSDModel
 from ..tools.profiler import guinier_porod_profile, spherical_normal_profile
+from ..tools import profiler
 
 class Regressor(XRSDModel):
     """Class for generating models to predict real-valued parameters."""

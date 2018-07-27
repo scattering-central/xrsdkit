@@ -85,9 +85,12 @@ def downsample_and_train(
         # TODO: similar function for saving system classifier
         #save_system_classifier(sys_cls, modeling_data_dir)
 
-def train_system_classifier(data, train_hyperparameters=False):
-    cls = SystemClassifier()
-    classifier.train(data, hyper_parameters_search=train_hyperparameters)
+def train_system_classifier(data, hyper_parameters_search=False):
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(p)
+    yml_file = os.path.join(d,'modeling_data','classifiers','system_class.yml')
+    cls = SystemClassifier(yml_file)
+    cls.train(data, hyper_parameters_search=hyper_parameters_search)
     return cls
 
 def get_possible_regression_models(data):

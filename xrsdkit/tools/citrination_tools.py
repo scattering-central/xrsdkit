@@ -136,7 +136,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
     all_exp = data.experiment_id.unique()
 
     features = []
-    features.extend(profiler.profile_keys)
+    features.extend(profiler.profile_keys_1)
 
     scaler = preprocessing.StandardScaler()
     scaler.fit(data[features])
@@ -226,8 +226,8 @@ def downsample_one_experiment(data_fr, min_distance):
             df = pd.DataFrame(columns=data_fr.columns)
             # define the distance between two samples in feature space 
             group_dist_func = lambda i,j: sum(
-                (group.iloc[i][profiler.profile_keys] 
-                - group.iloc[j][profiler.profile_keys]).abs())
+                (group.iloc[i][profiler.profile_keys_1]
+                - group.iloc[j][profiler.profile_keys_1]).abs())
 
             print('- building inter-sample distance matrix...')
             group_dist_matrix = np.array([[group_dist_func(i,j) for i in range(group_size)] for j in range(group_size)])

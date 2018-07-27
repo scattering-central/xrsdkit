@@ -14,13 +14,20 @@ class XRSDModel(object):
         self.model = None
         # TODO: if the hyperparameters are accessible through self.model,
         # remove the self.parameters attribute
-        self.parameters = None
+        self.parameters = {}
         self.scaler = preprocessing.StandardScaler()
         self.accuracy = None
         self.target = label
         self.trained = False
-        content = yaml.load(open(yml_file,'rb'))
-        self.load_model_data(content[label])
+        self.model_file = yml_file
+
+        try:
+            content = yaml.load(open(yml_file,'rb'))
+        except:
+            content = None
+        if content:
+            self.load_model_data(content[label])
+
 
     def load_model_data(self,model_data):
         self.set_model(model_data['parameters'])
@@ -53,7 +60,8 @@ class XRSDModel(object):
         if not training_possible:
             return 
 
-        # TODO: add comment to explain what happens here
+        # drop the rows with Nan in profile_keys (features) to avoid
+        # the unexpected behavior in training time
         data = d.dropna(subset=profiler.profile_keys)
 
         # using leaveGroupOut makes sense when we have at least 3 groups
@@ -79,7 +87,6 @@ class XRSDModel(object):
         new_model = self.build_model(new_parameters)
         # NOTE: after cross-validation for parameter selection,
         # the entire dataset is used for final training
-        # TODO: should we use cross-validation for the model.fit() as well?
         new_model.fit(transformed_data, data[self.target]) 
 
         new_accuracy = self.run_cross_validation(new_model,data,group_cv)
@@ -162,6 +169,23 @@ class XRSDModel(object):
         msg += os.linesep+'cross-validation statistics: '
         msg += os.linesep+' ... '
         return msg
+
+    def save_models(self):
+        """Save model parameters and CV errors in YAML and .txt files.
+        """
+
+        cverr_txt_path = os.path.splitext(self.model_file)[0]+'.txt'
+
+        s_and_m = {self.target : {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
+                   'parameters' : self.parameters, 'accuracy': self.accuracy}}
+
+        # save scalers and models
+        with open(self.model_file, 'w') as yaml_file:
+            yaml.dump(s_and_m, yaml_file)
+
+        # save accuracy
+        with open(cverr_txt_path, 'w') as txt_file:
+            txt_file.write(str(s_and_m[self.target]['accuracy']))
 
 # helper function - to set parameters for scalers and models
 def set_param(m_s, param):

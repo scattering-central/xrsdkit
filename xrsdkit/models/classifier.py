@@ -1,7 +1,8 @@
 import numpy as np
-from sklearn import linear_model
+from sklearn import linear_model, model_selection, preprocessing
 
 from .xrsd_model import XRSDModel
+from ..tools import profiler
 
 
 class Classifier(XRSDModel):
@@ -75,9 +76,9 @@ class Classifier(XRSDModel):
             TODO: describe scores output
         """
         scaler = preprocessing.StandardScaler()
-        scaler.fit(df[profiler.profile_keys])
+        scaler.fit(df[profiler.profile_keys_1])
         scores = model_selection.cross_val_score(
-            model, scaler.transform(df[profiler.profile_keys]), 
+            model, scaler.transform(df[profiler.profile_keys_1]),
             df[self.target], cv=5)
         return scores
 
@@ -110,9 +111,9 @@ class Classifier(XRSDModel):
             test = test[test[self.target].isin(tr_labels)]
 
             scaler = preprocessing.StandardScaler()
-            scaler.fit(tr[profiler.profile_keys])
-            model.fit(scaler.transform(tr[profiler.profile_keys]), tr[self.target])
-            transformed_data = scaler.transform(test[profiler.profile_keys])
+            scaler.fit(tr[profiler.profile_keys_1])
+            model.fit(scaler.transform(tr[profiler.profile_keys_1]), tr[self.target])
+            transformed_data = scaler.transform(test[profiler.profile_keys_1])
             test_score = model.score(
                 transformed_data, test[self.target])
             test_scores_by_ex.append(test_score)
