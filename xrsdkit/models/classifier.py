@@ -1,4 +1,6 @@
 import numpy as np
+import os
+import yaml
 from sklearn import linear_model, model_selection, preprocessing
 
 from .xrsd_model import XRSDModel
@@ -119,6 +121,33 @@ class Classifier(XRSDModel):
             test_scores_by_ex.append(test_score)
 
         return test_scores_by_ex
+
+    '''
+    # There is a very simple variant of saving classifier,
+    # but it looks different from save_regression_models()
+    def save_classification_model(self, test=False):
+        """Save model parameters and CV errors in YAML and .txt files.
+        """
+        p = os.path.abspath(__file__)
+        d = os.path.dirname(p)
+        if test:
+            file_path = os.path.join(d,'modeling_data','testing_data','regressors','system_class.yml')
+        else:
+            file_path = self.model_file
+
+        cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
+
+        s_and_m = {self.target : {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
+                   'parameters' : self.parameters, 'accuracy': self.accuracy}}
+
+        # save scalers and models
+        with open(self.model_file, 'w') as yaml_file:
+            yaml.dump(s_and_m, yaml_file)
+
+        # save accuracy
+        with open(cverr_txt_path, 'w') as txt_file:
+            txt_file.write(str(s_and_m[self.target]['accuracy']))
+    '''
 
 class SystemClassifier(Classifier):
     """Classifier for determining the material system (structures and form factors).

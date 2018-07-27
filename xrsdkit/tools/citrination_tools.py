@@ -180,7 +180,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
             d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
             for cl,pp in pifs_by_sys_class.items():
                 # check if this system class has an assigned dataset id 
-                if not cl in dataset_ids:
+                if cl in dataset_ids:
                     ds_id = dataset_ids[cl]
                 # if not, create a new one and add it to the index
                 else:
@@ -188,7 +188,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
                     'Downsampled modeling data for system class {}'.format(cl))
                     ds_id = ds.id
                     dataset_ids[cl] = ds_id
-                jsf = os.path.join(d, cl+'_'+ex+'.json')
+                jsf = os.path.join(d, cl+'_'+expt_id+'.json')
                 pif.dump(pp, open(jsf,'w'))
                 client.data.upload(ds_id, jsf)
                 # upload into the large sample for the main classifier:

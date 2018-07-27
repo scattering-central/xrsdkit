@@ -170,22 +170,6 @@ class XRSDModel(object):
         msg += os.linesep+' ... '
         return msg
 
-    def save_models(self):
-        """Save model parameters and CV errors in YAML and .txt files.
-        """
-
-        cverr_txt_path = os.path.splitext(self.model_file)[0]+'.txt'
-
-        s_and_m = {self.target : {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
-                   'parameters' : self.parameters, 'accuracy': self.accuracy}}
-
-        # save scalers and models
-        with open(self.model_file, 'w') as yaml_file:
-            yaml.dump(s_and_m, yaml_file)
-
-        # save accuracy
-        with open(cverr_txt_path, 'w') as txt_file:
-            txt_file.write(str(s_and_m[self.target]['accuracy']))
 
 # helper function - to set parameters for scalers and models
 def set_param(m_s, param):

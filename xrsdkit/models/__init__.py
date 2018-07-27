@@ -47,7 +47,8 @@ def downsample_and_train(
     citrination_client=cl,
     save_samples=False,
     save_models=False,
-    train_hyperparameters=False):
+    train_hyperparameters=False,
+    test=False):
     """Downsample datasets and use the samples to train xrsdkit models.
 
     This is a developer tool for building models 
@@ -81,9 +82,8 @@ def downsample_and_train(
     # parameters of the XRSDModel objects during training,
     # and add a function for printing out a description of them
     if save_models:
-        save_regression_models(reg_models, modeling_data_dir)
-        # TODO: similar function for saving system classifier
-        #save_system_classifier(sys_cls, modeling_data_dir)
+        save_regression_models(reg_models, test=test)
+        save_classification_model(sys_cls, test=test)
 
 def train_system_classifier(data, hyper_parameters_search=False):
     p = os.path.abspath(__file__)
@@ -192,7 +192,7 @@ def print_training_results(results):
             except:
                 print('failed to print training results for system {} class, model {}'.format(pop,k))
 
-def save_regression_models(models, file_path=None):
+def save_regression_models(models, test=False):
     """Save model parameters and CV errors in YAML and .txt files.
 
     Parameters
@@ -200,17 +200,18 @@ def save_regression_models(models, file_path=None):
     models : dict
         the dict keys are system_class names, and the values are
         dictionaries of regression models for the system_class
-    file_path : str (optional)
-        Full path to the YAML file where the models will be saved.
-        Scalers, models, parameters, and cross-validation errors
-        will be saved at this path. 
+    test : bool (optional)
+        if True, the models will be saved in the testing dir.
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
     for sys_cls, reg_mods in models.items():
         s_and_m = {}
         acc = {}
-        file_path = os.path.join(d,'modeling_data','regressors',sys_cls+'.yml')
+        if test:
+            file_path = os.path.join(d,'modeling_data','testing_data','regressors',sys_cls+'.yml')
+        else:
+            file_path = os.path.join(d,'modeling_data','regressors',sys_cls+'.yml')
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
         for param_nm,m in reg_mods.items():
             if m.model is not None:
@@ -219,14 +220,48 @@ def save_regression_models(models, file_path=None):
                     scaler = m.scaler.__dict__, 
                     model = m.model.__dict__,
                     parameters = m.parameters, 
-                    accuracy = m.accuracy, 
-                    system_class = m.system_class
-                    )
+                    accuracy = m.accuracy)
         if any(s_and_m):
             with open(file_path, 'w') as yaml_file:
                 yaml.dump(s_and_m, yaml_file)
             with open(cverr_txt_path, 'w') as txt_file:
                 txt_file.write(str(acc))
+
+def save_classification_model(model_dict, test=False):
+    """Save model parameters and CV errors in YAML and .txt files.
+
+    Parameters
+    ----------
+    model_dict : dict
+        with scaler, model, parameters, and accuracy.
+    test : bool (optional)
+        if True, the models will be saved in the testing dir.
+    """
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(p)
+    #for sys_cls, reg_mods in models.items():
+    s_and_m = {}
+    acc = None
+    if test:
+        file_path = os.path.join(d,'modeling_data','testing_data','classifiers','system_class.yml')
+    else:
+        file_path = os.path.join(d,'modeling_data','classifiers', 'system_class.yml')
+    cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
+
+    if model_dict.model is not None:
+        acc = model_dict.accuracy
+        s_and_m = dict(
+                    scaler = model_dict.scaler.__dict__,
+                    model = model_dict.model.__dict__,
+                    parameters = model_dict.parameters,
+                    accuracy = model_dict.accuracy)
+    if any(s_and_m):
+        with open(file_path, 'w') as yaml_file:
+            yaml.dump(s_and_m, yaml_file)
+        with open(cverr_txt_path, 'w') as txt_file:
+            txt_file.write(str(acc))
+
+
 
 def evaluate_params(q_I, system_class):
     """Evaluate regression models to estimate parameters for the sample
