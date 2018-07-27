@@ -129,7 +129,7 @@ def get_possible_regression_models(data):
     return model_labels 
 
 def train_regression_models(data, hyper_parameters_search=False,
-        system_class=['all'], testing_data=None, partial=False):
+        testing_data=None, partial=False):
     """Train regression models, optionally searching for optimal hyperparameters.
 
     Parameters
@@ -139,9 +139,6 @@ def train_regression_models(data, hyper_parameters_search=False,
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation R^2 score.
-    system_class : array of str
-        the names of system_class for which we want to train
-        regression models.
     testing_data : pandas.DataFrame (optional)
         dataframe containing original training data plus new data
         for computing the cross validation errors of the updated models.
@@ -160,11 +157,15 @@ def train_regression_models(data, hyper_parameters_search=False,
     models = OrderedDict.fromkeys(possible_models.keys())
     for k in models.keys(): models[k] = {}
 
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(p)
+
     for k, v in possible_models.items(): # v is the list of possible models for given system_class
         pop_data = data[(data['system_class']==k)]
         print('attempting to train regression models for {}'.format(k))
         for m in v:
-            reg_model = Regressor(m, k)
+            yml_file = os.path.join(d,'modeling_data','regressors',k + '.yml')
+            reg_model = Regressor(m, yml_file)
             reg_model.train(pop_data, hyper_parameters_search)
             if reg_model.trained:
                 models[k][m] = reg_model 
