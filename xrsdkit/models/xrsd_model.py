@@ -17,6 +17,7 @@ class XRSDModel(object):
         self.parameters = {}
         self.scaler = preprocessing.StandardScaler()
         self.accuracy = None
+        self.cross_valid_results = None
         self.target = label
         self.trained = False
         self.model_file = yml_file
@@ -80,7 +81,7 @@ class XRSDModel(object):
         if hyper_parameters_search:
             new_parameters = self.hyperparameters_search(
                         transformed_data, data[self.target],
-                        data['experiment_id'], group_cv, n_groups_out)
+                        data['experiment_id'], n_groups_out)
         else:
             new_parameters = self.parameters
 
@@ -100,7 +101,7 @@ class XRSDModel(object):
         self.accuracy = new_accuracy
         self.trained = True
 
-    def hyperparameters_search(self, transformed_data, data_labels, group_by=None, n_leave_out=1):
+    def hyperparameters_search(self, transformed_data, data_labels, group_by, n_leave_out=None):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
         Parameters
@@ -119,7 +120,7 @@ class XRSDModel(object):
         clf.best_params_ : dict
             Dictionary of the best found hyperparameters.
         """
-        if group_by:
+        if n_leave_out:
             cv=model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
                 transformed_data, np.ravel(data_labels), groups=group_by)
         else:
@@ -127,6 +128,7 @@ class XRSDModel(object):
         test_model = self.build_model() 
         clf = model_selection.GridSearchCV(test_model, self.grid_search_hyperparameters, cv=cv)
         clf.fit(transformed_data, np.ravel(data_labels))
+
         return clf.best_params_
 
     def check_label(self, dataframe):
