@@ -40,6 +40,10 @@ profile_keys_2 = []
 profile_keys_2.extend(profile_keys)
 profile_keys_2.extend(gp_profile_keys)
 
+profile_keys_3 = []
+profile_keys_3.extend(profile_keys)
+profile_keys_3.extend(spherical_profile_keys)
+
 profile_keys.extend(gp_profile_keys)
 profile_keys.extend(spherical_profile_keys)
  

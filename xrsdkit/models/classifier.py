@@ -1,10 +1,10 @@
 import numpy as np
-import os
-import yaml
-from sklearn import linear_model, model_selection, preprocessing
+from sklearn import linear_model, model_selection
 
 from .xrsd_model import XRSDModel
-from ..tools import profiler
+
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
 
 
 class Classifier(XRSDModel):
@@ -55,14 +55,9 @@ class Classifier(XRSDModel):
         cert = max(self.model.predict_proba(x)[0])
         return sys_cls, cert
 
-    def run_cross_validation(self,model,data,group_cv):
-        if group_cv:
-            new_accuracy = self.cross_validate_by_experiments(model,data)
-        else:
-            new_accuracy = self.cross_validate(model,data)
-        return new_accuracy
 
-    def cross_validate(self, model, df):
+
+    def cross_validate(self, model, df,features):
         """Test a model using scikit-learn 5-fold crossvalidation
 
         Parameters
@@ -77,14 +72,15 @@ class Classifier(XRSDModel):
         scores : object
             TODO: describe scores output
         """
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(df[profiler.profile_keys_1])
         scores = model_selection.cross_val_score(
-            model, scaler.transform(df[profiler.profile_keys_1]),
+            model, df[features],
             df[self.target], cv=5)
+        score = {}
+        score["5 folders cv"]= scores
         return scores
 
-    def cross_validate_by_experiments(self, model, df):
+
+    def cross_validate_by_experiments(self, model, df, features):
         """Test a model by LeaveOneGroupOut cross-validation.
 
         Parameters
@@ -99,28 +95,43 @@ class Classifier(XRSDModel):
         test_scores_by_ex : object
             TODO: describe scores output
         """
-        experiments = df.experiment_id.unique()# we have at least 5 experiments
-        test_scores_by_ex = []
+        experiments = df.experiment_id.unique()# we have at least 3 experiments
+        test_scores_by_ex = {}
+        scores = []
         for i in range(len(experiments)):
             tr = df[(df['experiment_id'] != experiments[i])]
             test = df[(df['experiment_id'] == experiments[i])]
-            # for testing, we want only the samples with labels that are
-            # included in training set:
+            #TODO  decide if we want to remove from the test data
+            # the samples with the the labels that were not included in
+            # training data
+            model.fit(tr[features], tr[self.target])
 
-            # TODO: not clear why this is needed- consider removing?
-            # (all samples in the dataset should have some label for the target)
-            tr_labels = tr[self.target].unique()
-            test = test[test[self.target].isin(tr_labels)]
+            y_pred = model.predict(test[features])
+            cmat = confusion_matrix(test[self.target], y_pred)
 
-            scaler = preprocessing.StandardScaler()
-            scaler.fit(tr[profiler.profile_keys_1])
-            model.fit(scaler.transform(tr[profiler.profile_keys_1]), tr[self.target])
-            transformed_data = scaler.transform(test[profiler.profile_keys_1])
-            test_score = model.score(
-                transformed_data, test[self.target])
-            test_scores_by_ex.append(test_score)
+            print(cmat)
 
-        return test_scores_by_ex
+            #TOD0 : remove thit ref:
+            # https://www.quora.com/How-do-you-measure-the-accuracy-score-for-each-class-when-testing-classifier-in-sklearn
+            # the correct number of classifications for each label are given
+            # by the diagonal entries. The totals can be found by summing
+            # the rows. The fraction of correctly classified labels for
+            # each case is then given by:
+            accuracies_by_classes = cmat.diagonal()/cmat.sum(axis=1)
+            average_acc_for_this_exp = sum(accuracies_by_classes)/len(accuracies_by_classes)
+            scores.append(average_acc_for_this_exp)
+            test_scores_by_ex[experiments[i]] = {}
+
+            test_scores_by_ex[experiments[i]]['average for exp'] = average_acc_for_this_exp
+            test_scores_by_ex[experiments[i]]['by classes'] = accuracies_by_classes
+
+        mean_score = sum(scores)/len(scores)
+
+        result = {}
+        result["mean_score"]= mean_score
+        result["score_by_exp"] = test_scores_by_ex
+
+        return result
 
     '''
     # There is a very simple variant of saving classifier,

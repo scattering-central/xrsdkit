@@ -30,6 +30,9 @@ system_classes = ['noise','pop0_unidentified']
 regression_models = OrderedDict()
 regression_models['noise'] = {}
 regression_models['pop0_unidentified'] = {}
+
+#TODO: here we only recreate the models from yml files
+# add Regressor s for new models
 for fn in os.listdir(regression_models_dir):
     if fn.endswith(".yml"):
         sys_cls = fn.split(".")[0]
@@ -75,9 +78,10 @@ def downsample_and_train(
 
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
+    print(sys_cls.cross_valid_results)
 
     # regression models:
-    reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
+    #reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
     # TODO: save cross-validation details as 
     # parameters of the XRSDModel objects during training,
     # and add a function for printing out a description of them
