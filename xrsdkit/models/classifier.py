@@ -101,29 +101,46 @@ class Classifier(XRSDModel):
         for i in range(len(experiments)):
             tr = df[(df['experiment_id'] != experiments[i])]
             test = df[(df['experiment_id'] == experiments[i])]
-            #TODO  decide if we want to remove from the test data
-            # the samples with the the labels that were not included in
-            # training data
+            # remove from the test set the samples of the classes
+            # that do not exists in the training set:
+            cl_in_training_set = tr.system_class.unique()
+            #print(experiments[i])
+            #print(test.shape)
+            test = test[(test['system_class'].isin(cl_in_training_set))]
+            #print(test.shape)
+            #print("labels in tr: ", cl_in_training_set)
+            #print('labels in test: ',test.system_class.unique())
+            #print()
+
             model.fit(tr[features], tr[self.target])
-
             y_pred = model.predict(test[features])
-            cmat = confusion_matrix(test[self.target], y_pred)
 
+            labels_from_test = test.system_class.value_counts().keys().tolist()
+            cmat = confusion_matrix(test[self.target], y_pred, labels_from_test)
+
+            '''
+            print(experiments[i])
+            print('tr:', tr.system_class.unique())
+            print('test:', labels_from_test)
+            print('test:', test.system_class.value_counts())
             print(cmat)
 
-            #TOD0 : remove thit ref:
-            # https://www.quora.com/How-do-you-measure-the-accuracy-score-for-each-class-when-testing-classifier-in-sklearn
-            # the correct number of classifications for each label are given
-            # by the diagonal entries. The totals can be found by summing
-            # the rows. The fraction of correctly classified labels for
-            # each case is then given by:
-            accuracies_by_classes = cmat.diagonal()/cmat.sum(axis=1)
+            res = test.system_class.value_counts()
+            print('noise count:', res['noise'])
+            print()
+            '''
+            # for each class we devided the number of right predictions
+            # by the total number of samples for this class at test set:
+            accuracies_by_classes = cmat.diagonal()/test.system_class.value_counts().tolist()
+
             average_acc_for_this_exp = sum(accuracies_by_classes)/len(accuracies_by_classes)
             scores.append(average_acc_for_this_exp)
-            test_scores_by_ex[experiments[i]] = {}
 
+            test_scores_by_ex[experiments[i]] = {}
             test_scores_by_ex[experiments[i]]['average for exp'] = average_acc_for_this_exp
-            test_scores_by_ex[experiments[i]]['by classes'] = accuracies_by_classes
+            test_scores_by_ex[experiments[i]]['by classes'] = {}
+            for k in range(len(labels_from_test)):
+                test_scores_by_ex[experiments[i]]['by classes'][labels_from_test[k]] = accuracies_by_classes[k]
 
         mean_score = sum(scores)/len(scores)
 
