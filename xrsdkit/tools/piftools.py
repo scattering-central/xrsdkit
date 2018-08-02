@@ -242,7 +242,7 @@ def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='Intensity'):
     return pI 
 
 def profile_properties(q_I):
-    prof = profiler.full_profile(q_I)
+    prof = profiler.profile_spectrum(q_I)
     pp = []
     for fnm,fval in prof.items():
         if fval is not None:
