@@ -252,29 +252,31 @@ def profile_properties(q_I):
     return pp
 
 def system_classifications(opd):
-    clss = []
-    main_cls = ''
-    for ip,pop_nm in enumerate(opd.keys()):
-        popd = opd[pop_nm]
-        if not pop_nm == 'noise':
-        #and not popd['structure'] == 'unidentified': 
-            main_cls += 'pop{}_{}__'.format(ip,popd['structure'])
-            popnm_cls = Classification('pop{}_name'.format(ip),pop_nm)
-            pop_cls = Classification('pop{}_structure'.format(ip),popd['structure'])
-            clss.extend([popnm_cls,pop_cls])
-            if "basis" in popd.keys():
-                for ist,site_nm in enumerate(popd['basis'].keys()):
-                    sited = popd['basis'][site_nm]
-                    main_cls += 'site{}_{}__'.format(ist,sited['form'])
-                    sitenm_cls = Classification('pop{}_site{}_name'.format(ip,ist),site_nm)
-                    site_cls = Classification('pop{}_site{}_form'.format(ip,ist),sited['form'])
-                    clss.extend([sitenm_cls,site_cls])
-    if main_cls[-2:] == '__':
-        main_cls = main_cls[:-2]
-    if main_cls == '':
-        main_cls = 'noise'
-    clss.append(Classification('system_classification',main_cls))
-    return clss
+    if any([popdef['structure'] == 'unidentified' for popnm,popdef in opd.items()]):
+        return [Classification('system_classification','unidentified')]
+    else:
+        clss = []
+        sys_cls = ''
+        for ip,pop_nm in enumerate(opd.keys()):
+            popd = opd[pop_nm]
+            if not pop_nm == 'noise':
+                sys_cls += 'pop{}_{}__'.format(ip,popd['structure'])
+                popnm_cls = Classification('pop{}_name'.format(ip),pop_nm)
+                pop_cls = Classification('pop{}_structure'.format(ip),popd['structure'])
+                clss.extend([popnm_cls,pop_cls])
+                if "basis" in popd.keys():
+                    for ist,site_nm in enumerate(popd['basis'].keys()):
+                        sited = popd['basis'][site_nm]
+                        sys_cls += 'site{}_{}__'.format(ist,sited['form'])
+                        sitenm_cls = Classification('pop{}_site{}_name'.format(ip,ist),site_nm)
+                        site_cls = Classification('pop{}_site{}_form'.format(ip,ist),sited['form'])
+                        clss.extend([sitenm_cls,site_cls])
+        if sys_cls[-2:] == '__':
+            sys_cls = sys_cls[:-2]
+        if sys_cls == '':
+            sys_cls = 'noise'
+        clss.append(Classification('system_classification',sys_cls))
+        return clss
 
 def system_properties(opd,fixed_params,param_bounds,param_constraints):
     properties = []
