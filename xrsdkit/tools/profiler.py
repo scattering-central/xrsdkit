@@ -20,10 +20,14 @@ profile_keys = list([
     'pearson_q2',
     'pearson_expq',
     'pearson_invexpq',
-    'q_best_pk',
-    'q_best_vly',
-    'best_pk_qwidth',
-    'best_vly_qwidth'])
+    'q_best_hump',
+    'q_best_trough',
+    'best_hump_qwidth',
+    'best_trough_qwidth',
+    'q_best_hump_log',
+    'q_best_trough_log',
+    'best_hump_qwidth_log',
+    'best_trough_qwidth_log'])
 
 def profile_spectrum(q_I):
     """Numerical profiling of a SAXS spectrum.
@@ -86,15 +90,25 @@ def profile_spectrum(q_I):
  
         - 'pearson_invexpq': Pearson correlation between exp(-q) and I(q) 
 
-        - 'q_best_pk' : Most peak-like q-value (see xrsdkit.tools.peak_math.peakness())
+        - 'q_best_hump' : q-vertex of parabola fit to 
+            intensity values near the most hump-like feature 
+            (see xrsdkit.tools.peak_math.humpness())
 
-        - 'q_best_vly' : Most negative-peak-like q-value, like q_best_pk for -1*I(q) 
+        - 'q_best_trough' : q-vertex of parabola fit to
+            intensity values near the most trough-like feature 
+            (see xrsdkit.tools.peak_math.humpness())
 
-        - 'best_pk_qwidth' : Focal width of parabola fit to 
-            standardized intensities within +/-10% of q_best_pk 
+        - 'best_hump_qwidth' : Focal width of same parabola used for q_best_hump
 
-        - 'best_vly_qwidth' : Focal width of parabola fit to 
-            standardized intensities within +/-10% of q_best_vly 
+        - 'best_trough_qwidth' : Focal width of same parabola used for q_best_trough
+
+        - 'q_best_hump_log' : like q_best_hump, but fit to standardized log(I) 
+
+        - 'q_best_trough_log' : like q_best_trough, but fit to standardized log(I) 
+
+        - 'best_hump_qwidth_log' : like best_hump_qwidth, but fit to standardized log(I) 
+
+        - 'best_trough_qwidth_log' : like best_trough_qwidth, but fit to standardized log(I) 
     """ 
     q = q_I[:,0]
     I = q_I[:,1]
@@ -116,12 +130,16 @@ def profile_spectrum(q_I):
     # log(I) metrics
     nz = I>0
     q_nz = q[nz]
+    qs_nz = qs[nz]
     I_nz = I[nz]
+    Is_nz = Is[nz]
     logI_nz = np.log(I_nz)
     logI_max = np.max(logI_nz)
     logI_min = np.min(logI_nz)
     logI_range = logI_max - logI_min
     logI_std = np.std(logI_nz)
+    logI_mean = np.mean(logI_nz)
+    logIs = (logI_nz-logI_mean)/logI_std
     # I_max peak shape analysis
     idx_around_Imax = ((q > 0.9*q_Imax) & (q < 1.1*q_Imax))
     Imean_around_Imax = np.mean(I[idx_around_Imax])
@@ -176,21 +194,26 @@ def profile_spectrum(q_I):
     r_fftIcentroid = rfftI_rint / fftI_rint 
     r_fftImax = r_pos[np.argmax(fftampI_rpos)]
 
-    # peak and valley analysis
-    pkness = peak_math.peakness(q,I)
-    vlyness = peak_math.peakness(q,-1*I)
-    idx_best_pk = np.argmax(pkness)
-    idx_best_vly = np.argmax(vlyness)
-    idx_near_pk = (q>0.9*q[idx_best_pk]) & (q<1.1*q[idx_best_pk])
-    idx_near_vly = (q>0.9*q[idx_best_vly]) & (q<1.1*q[idx_best_vly])
-    pIs_pk = np.polyfit(qs[idx_near_pk],Is[idx_near_pk],2)
-    pIs_vly = np.polyfit(qs[idx_near_vly],Is[idx_near_vly],2)
+    # heuristic hump and trough analysis
+    humpness,troughness = peak_math.humpness(qs_nz,logIs)
+    idx_best_hump = np.argmax(humpness)
+    idx_best_trough = np.argmax(troughness)
+    idx_near_hump = (q_nz>q_nz[idx_best_hump]-0.1*q_std) & (q_nz<q_nz[idx_best_hump]+0.1*q_std)
+    idx_near_trough = (q_nz>q_nz[idx_best_trough]-0.1*q_std) & (q_nz<q_nz[idx_best_trough]+0.1*q_std)
+    p_Is_hump = np.polyfit(qs_nz[idx_near_hump],Is_nz[idx_near_hump],2)
+    p_Is_trough = np.polyfit(qs_nz[idx_near_trough],Is_nz[idx_near_trough],2)
+    p_logIs_hump = np.polyfit(qs_nz[idx_near_hump],logIs[idx_near_hump],2)
+    p_logIs_trough = np.polyfit(qs_nz[idx_near_trough],logIs[idx_near_trough],2)
     # quadratic vertex horizontal coord is -b/2a
-    #qs_pk = -1*pIs_pk[1]/(2*pIs_pk[0])
-    #features['pIs_qvertex'] = qs_pk*q_std+q_mean
+    q_best_hump = -1*p_Is_hump[1]/(2*p_Is_hump[0])*q_std+q_mean
+    q_best_trough = -1*p_Is_trough[1]/(2*p_Is_trough[0])*q_std+q_mean
+    q_best_hump_log = -1*p_logIs_hump[1]/(2*p_logIs_hump[0])*q_std+q_mean
+    q_best_trough_log = -1*p_logIs_trough[1]/(2*p_logIs_trough[0])*q_std+q_mean
     # quadratic focal width is 1/a 
-    pIs_pk_fwidth = abs(1./pIs_pk[0])
-    pIs_vly_fwidth = abs(1./pIs_vly[0])
+    best_hump_qwidth = abs(1./p_Is_hump[0])*q_std
+    best_trough_qwidth = abs(1./p_Is_trough[0])*q_std
+    best_hump_qwidth_log = abs(1./p_logIs_hump[0])*q_std
+    best_trough_qwidth_log = abs(1./p_logIs_trough[0])*q_std
 
     features = OrderedDict.fromkeys(profile_keys)
     features['Imax_over_Imean'] = I_max / I_mean   
@@ -207,10 +230,14 @@ def profile_spectrum(q_I):
     features['pearson_q2'] = pearson_q2
     features['pearson_expq'] = pearson_expq
     features['pearson_invexpq'] = pearson_invexpq
-    features['q_best_pk'] = q[idx_best_pk]
-    features['q_best_vly'] = q[idx_best_vly]
-    features['best_pk_qwidth'] = pIs_pk_fwidth*q_std
-    features['best_vly_qwidth'] = pIs_vly_fwidth*q_std
+    features['q_best_hump'] = q_best_hump
+    features['q_best_trough'] = q_best_trough
+    features['best_hump_qwidth'] = best_hump_qwidth
+    features['best_trough_qwidth'] = best_trough_qwidth
+    features['q_best_hump_log'] = q_best_hump_log
+    features['q_best_trough_log'] = q_best_trough_log
+    features['best_hump_qwidth_log'] = best_hump_qwidth_log
+    features['best_trough_qwidth_log'] = best_trough_qwidth_log
     # NOTE: considered these features, decidedly too arbitrary:
     #features['q_min'] = q[0]
     #features['q_max'] = q[-1]
