@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.special import wofz
 
+from . import pearson
+
 def peak_profile(q,q_pk,profile_name,params):
     if profile_name == 'voigt':
         hwhm_g = params['hwhm_g']
@@ -77,8 +79,8 @@ def peaks_by_window(x,y,w=10,thr=0.):
             pk_confidence.append(conf)
     return pk_idx,pk_confidence
    
-def peakness(x,y,w=10):
-    """Attempt to measure how peak-like each y-value is for some x,y data.
+def humpness(x,y,w=50):
+    """Metric for hump-like and trough-like behavior in x,y data.
 
     Parameters
     ----------
@@ -89,17 +91,29 @@ def peakness(x,y,w=10):
 
     Returns
     -------
-    peakness : array of float
-        array of peakness corresponding to y values 
+    humpness : array of float
+        array of hump-like behavior metrics
+    troughness : array of float
+        array of trough-like behavior metrics
     """
     ny = len(y)
-    peakness = np.zeros(ny)
+    humpness = np.zeros(ny)
+    troughness = np.zeros(ny)
     for idx in range(ny):
         idx_lo = max([0,idx-w])
         idx_hi = min([ny,idx+w+1])
         ywin = y[idx_lo:idx_hi]
-        peakness[idx] = y[idx]/np.mean(ywin)
-    return peakness
+        xwin = x[idx_lo:idx_hi]
+        pyx2 = pearson(ywin,(xwin-x[idx])**2) 
+        humpness[idx] = -1*y[idx]*pyx2
+        troughness[idx] = np.std(ywin)*pyx2
 
+    #from matplotlib import pyplot as plt
+    #plt.figure(10)
+    #plt.plot(x,y)
+    #plt.plot(x,humpness,'r')
+    #plt.plot(x,troughness,'g')
+    #plt.show()
 
+    return humpness, troughness
 
