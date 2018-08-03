@@ -1,9 +1,11 @@
 import numpy as np
+from collections import OrderedDict
+
 from sklearn import linear_model, model_selection
 
 from .xrsd_model import XRSDModel
 
-from sklearn.metrics import classification_report
+from sklearn.metrics import f1_score
 from sklearn.metrics import confusion_matrix
 
 
@@ -96,39 +98,31 @@ class Classifier(XRSDModel):
             TODO: describe scores output
         """
         experiments = df.experiment_id.unique()# we have at least 3 experiments
+        sys_classes = df.system_class.unique().tolist()
         test_scores_by_ex = {}
+        test_scores_by_sys_classes = dict.fromkeys(sys_classes) # do not use (sys_classes, [])
+        for k,v in test_scores_by_sys_classes.items():
+            test_scores_by_sys_classes[k] = []
         scores = []
+        true_labels = []
+        pred_labels = []
         for i in range(len(experiments)):
             tr = df[(df['experiment_id'] != experiments[i])]
             test = df[(df['experiment_id'] == experiments[i])]
             # remove from the test set the samples of the classes
             # that do not exists in the training set:
             cl_in_training_set = tr.system_class.unique()
-            #print(experiments[i])
-            #print(test.shape)
             test = test[(test['system_class'].isin(cl_in_training_set))]
-            #print(test.shape)
-            #print("labels in tr: ", cl_in_training_set)
-            #print('labels in test: ',test.system_class.unique())
-            #print()
 
             model.fit(tr[features], tr[self.target])
             y_pred = model.predict(test[features])
 
+            pred_labels.extend(y_pred)
+            true_labels.extend(test[self.target])
+
             labels_from_test = test.system_class.value_counts().keys().tolist()
             cmat = confusion_matrix(test[self.target], y_pred, labels_from_test)
 
-            '''
-            print(experiments[i])
-            print('tr:', tr.system_class.unique())
-            print('test:', labels_from_test)
-            print('test:', test.system_class.value_counts())
-            print(cmat)
-
-            res = test.system_class.value_counts()
-            print('noise count:', res['noise'])
-            print()
-            '''
             # for each class we devided the number of right predictions
             # by the total number of samples for this class at test set:
             accuracies_by_classes = cmat.diagonal()/test.system_class.value_counts().tolist()
@@ -141,12 +135,32 @@ class Classifier(XRSDModel):
             test_scores_by_ex[experiments[i]]['by classes'] = {}
             for k in range(len(labels_from_test)):
                 test_scores_by_ex[experiments[i]]['by classes'][labels_from_test[k]] = accuracies_by_classes[k]
+                test_scores_by_sys_classes[labels_from_test[k]].append(accuracies_by_classes[k])
 
-        mean_score = sum(scores)/len(scores)
 
-        result = {}
-        result["mean_score"]= mean_score
-        result["score_by_exp"] = test_scores_by_ex
+        result = OrderedDict()
+        result["all system classes :"] = sys_classes
+        result['confusion matrix :'] = confusion_matrix(true_labels, pred_labels, sys_classes)
+
+        # we may not be able to test for all sys_classes
+        # (if samples of a sys_class are included into only one experiment)
+        not_tested_sys_classes = []
+        tested_sys_classes = []
+        for k, v in test_scores_by_sys_classes.items():
+            if test_scores_by_sys_classes[k] == []:
+                not_tested_sys_classes.append(k)
+            else:
+                tested_sys_classes.append(k)
+
+        result["model was NOT tested for :"] = not_tested_sys_classes
+        result["model was tested for :"] = tested_sys_classes
+        result["F1 score by sys_classes"] = f1_score(true_labels, pred_labels,
+                                                     labels=tested_sys_classes, average=None)
+        result["F1 score averaged not weighted :"] = f1_score(true_labels,
+                                        pred_labels, labels=tested_sys_classes, average='macro')
+        result["mean not weighted accuracies by system classes :"] = test_scores_by_sys_classes
+        result["mean not weighted accuracies by exp :"] = test_scores_by_ex
+        result["mean not weighted accuracy :"]= sum(scores)/len(scores)
 
         return result
 

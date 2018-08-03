@@ -4,6 +4,7 @@ from collections import OrderedDict
 import yaml
 import numpy as np
 from citrination_client import CitrinationClient
+import pprint
 
 from .regressor import Regressor
 from .classifier import SystemClassifier
@@ -78,7 +79,7 @@ def downsample_and_train(
 
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
-    print(sys_cls.cross_valid_results)
+    pprint.pprint(sys_cls.cross_valid_results)
 
     # regression models:
     #reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
