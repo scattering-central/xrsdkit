@@ -3,6 +3,8 @@ from collections import OrderedDict
 from .specie import Specie
 from .parameter import Parameter
 
+from ..scattering import diffuse_intensity, disordered_intensity, crystalline_intensity
+
 class Population(object):
 
     def __init__(self,structure,settings={},parameters={},basis={}):
@@ -114,5 +116,14 @@ class Population(object):
                 if specie_def['form'] in noncrystalline_form_factors:
                     structure_form_exception(structure,specie_def['form'])
 
+    def compute_intensity(self,q,source_wavelength):
+        if self.structure == 'diffuse':
+            return diffuse_intensity(q,self.to_dict(),source_wavelength)
+        elif self.structure == 'disordered':
+            return disordered_intensity(q,self.to_dict(),source_wavelength)
+        elif self.structure == 'crystalline':
+            return crystalline_intensity(q,self.to_dict(),source_wavelength)
+        elif self.structure == 'unidentified':
+            return np.zeros(len(q))
 
 

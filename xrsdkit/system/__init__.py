@@ -33,12 +33,6 @@ form_factor_names = [\
 'spherical',\
 'spherical_normal']
 
-# supported crystal structures 
-crystalline_structures = ['fcc']
-
-# supported disordered structures 
-disordered_structures = ['hard_spheres']
-
 # form factors not supported for crystalline structures 
 noncrystalline_form_factors = ['spherical_normal','guinier_porod']
 
@@ -47,19 +41,15 @@ structure_params = dict(
     unidentified = [],
     diffuse = ['I0'],
     disordered = ['I0'],
-    hard_spheres = ['r_hard','v_fraction'],
-    crystalline = ['I0','hwhm_g','hwhm_l'],
-    fcc = ['a']
+    crystalline = ['I0','hwhm_g','hwhm_l']
     )
 
 # supported settings for each structure
 structure_settings = dict(
     unidentified = [],
     diffuse = [],
-    disordered = [],
-    hard_spheres = [],
-    crystalline = ['profile','q_min','q_max'],
-    fcc = []
+    disordered = ['interaction'],
+    crystalline = ['lattice','profile','q_min','q_max'],
     )
 
 # supported parameters for each form factor 
@@ -87,6 +77,20 @@ form_factor_settings = dict(
     guinier_porod = [],
     spherical = [],
     spherical_normal = []
+    )
+
+# supported disordered structures 
+disordered_structures = ['hard_spheres']
+
+# supported crystal structures 
+crystalline_structures = ['fcc']
+
+# supported disordered and crystalline structure params
+disordered_structure_params = dict(
+    hard_spheres = ['r_hard','v_fraction']
+    )
+crystalline_structure_params = dict(
+    fcc = ['a']
     )
 
 # all param names
@@ -133,6 +137,8 @@ param_defaults = dict(
     )
 
 setting_defaults = dict(
+    lattice = 'fcc',
+    interaction = 'hard_spheres',
     symbol = 'H',
     q_min = 0.,
     q_max = 1.,
@@ -140,6 +146,8 @@ setting_defaults = dict(
     )
 
 setting_datatypes = dict(
+    lattice = str,
+    interaction = str,
     symbol = str,
     q_min = float,
     q_max = float,
@@ -243,6 +251,26 @@ class System(object):
         inst.update_from_dict(d)
         return inst
 
-    # TODO: incorporate fitting functionality
+    def compute_intensity(self,q,source_wavelength):
+        """Computes scattering/diffraction intensity for some `q` values.
+
+        TODO: Document the equations.
+
+        Parameters
+        ----------
+        q : array
+            Array of q values at which intensities will be computed
+        source_wavelength : float 
+            Wavelength of radiation source in Angstroms
+
+        Returns
+        ------- 
+        I : array
+            Array of scattering intensities for each of the input q values
+        """
+        I = np.zeros(len(q))
+        for pop_name,pop in self.populations.items():
+            I += pop.compute_intensity(q,source_wavelength)
+        return I
 
 
