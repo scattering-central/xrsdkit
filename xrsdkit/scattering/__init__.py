@@ -8,7 +8,7 @@ from . import structure_factors as xrsf
 from ..tools import peak_math
 
 def diffuse_intensity(q,popd,source_wavelength):
-    I0 = popd['parameters']['I0']
+    I0 = popd['parameters']['I0']['value']
     F_q = xrff.compute_ff_squared(q,popd['basis'])
     return I0*F_q
 
@@ -22,7 +22,7 @@ def disordered_intensity(q,popd,source_wavelength):
 
 def crystalline_intensity(q,popd,source_wavelength):
     if popd['settings']['lattice'] == 'fcc':
-        return fcc_intensity(q,self.to_dict(),source_wavelength)
+        return fcc_intensity(q,popd,source_wavelength)
     else:
         msg = 'lattice specification {} is not supported'\
             .format(popd['settings']['lattice'])
@@ -39,9 +39,9 @@ def crystalline_intensity(q,popd,source_wavelength):
 
 def hard_sphere_intensity(q,popd,source_wavelength):
     basis = popd['basis']
-    r = popd['parameters']['r_hard']
-    p = popd['parameters']['v_fraction']
-    I0 = popd['parameters']['I0']
+    r = popd['parameters']['r_hard']['value']
+    p = popd['parameters']['v_fraction']['value']
+    I0 = popd['parameters']['I0']['value']
     F_q = xrsf.hard_sphere_sf(q,r,p)
     P_q = xrff.compute_ff_squared(q,basis)
 
@@ -61,8 +61,8 @@ def fcc_intensity(q,popd,source_wavelength):
     profile_name = popd['settings']['profile']
     q_min = popd['settings']['q_min']
     q_max = popd['settings']['q_max']
-    lat_a = popd['parameters']['a']
-    I0 = popd['parameters']['I0']
+    lat_a = popd['parameters']['a']['value']
+    I0 = popd['parameters']['I0']['value']
     # get d-spacings corresponding to the q-range limits
     d_min = 2*np.pi/q_max
     if q_min > 0.:
@@ -117,7 +117,18 @@ def fcc_intensity(q,popd,source_wavelength):
         hkl_range = np.outer(q/q_pk,hkl).T
         F_along_hkl = xrsf.fcc_sf(q_pk,hkl_range,basis)
         # compute a line shape 
-        line_shape = peak_math.peak_profile(q,q_pk,profile_name,popd['parameters'])
+        if profile_name == 'gaussian':
+            hwhm_g = popd['parameters']['hwhm_g']['value']  
+            line_shape = peak_math.gaussian_profile(q,q_pk,hwhm_g)
+        elif profile_name == 'lorentzian':
+            hwhm_l = popd['parameters']['hwhm_l']['value']  
+            line_shape = peak_math.lorentzian_profile(q,q_pk,hwhm_l)
+        elif profile_name == 'voigt':
+            hwhm_g = popd['parameters']['hwhm_g']['value']  
+            hwhm_l = popd['parameters']['hwhm_l']['value']  
+            line_shape = peak_math.voigt_profile(q,q_pk,hwhm_g,hwhm_l)
+        else:
+            raise ValueError('peak profile {} is not supported'.format(profile_name))
         I += (F_along_hkl*F_along_hkl.conjugate()).real\
             *mult[hkl]*line_shape
 

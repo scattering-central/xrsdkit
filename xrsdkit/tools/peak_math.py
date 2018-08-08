@@ -3,18 +3,14 @@ from scipy.special import wofz
 
 from . import pearson
 
-def peak_profile(q,q_pk,profile_name,params):
-    if profile_name == 'voigt':
-        hwhm_g = params['hwhm_g']
-        hwhm_l = params['hwhm_l']
-        line_shape = voigt(q-q_pk,hwhm_g,hwhm_l)
-    elif profile_name == 'gaussian':
-        hwhm_g = params['hwhm_g']
-        line_shape = gaussian(q-q_pk,hwhm_g)
-    elif profile_name == 'lorentzian':
-        hwhm_l = params['hwhm_l']
-        line_shape = lorentzian(q-q_pk,hwhm_l)
-    return line_shape
+def gaussian_profile(q,q_pk,hwhm_g):
+    return gaussian(q-q_pk,hwhm_g)
+
+def lorentzian_profile(q,q_pk,hwhm_l):
+    return lorentzian(q-q_pk,hwhm_l)
+
+def voigt_profile(q,q_pk,hwhm_g,hwhm_l):
+    return voigt(q-q_pk,hwhm_g,hwhm_l)
 
 def gaussian(x, hwhm_g):
     """

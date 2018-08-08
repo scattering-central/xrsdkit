@@ -31,7 +31,7 @@ def fcc_sf(q_hkl,hkl,basis):
     F_hkl = np.zeros(hkl.shape[1],dtype=complex) 
     for fcc_coord in fcc_coords:
         for site_name, site_def in basis.items():
-            c = site_def['coordinates']
+            c = [site_def['coordinates'][ic]['value'] for ic in range(3)]
             g_dot_r = np.dot(fcc_coord+c,hkl)
             F_hkl += xrff.site_ff(np.array([q_hkl]),site_def) \
             * np.exp(2j*np.pi*g_dot_r) 
