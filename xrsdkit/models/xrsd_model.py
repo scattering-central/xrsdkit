@@ -12,9 +12,6 @@ class XRSDModel(object):
 
     def __init__(self, label, yml_file=None):
         self.model = None
-        # TODO: if the hyperparameters are accessible through self.model,
-        # remove the self.parameters attribute
-        self.parameters = {}
         self.scaler = preprocessing.StandardScaler()
         self.accuracy = None
         self.cross_valid_results = None
@@ -37,7 +34,6 @@ class XRSDModel(object):
 
     def set_model(self, model_hyperparams={}):
         self.model = self.build_model(model_hyperparams)
-        self.parameters = model_hyperparams
 
     def train(self, all_data, hyper_parameters_search=False):
         """Train the model, optionally searching for optimal hyperparameters.
@@ -58,9 +54,8 @@ class XRSDModel(object):
         if not training_possible:
             return 
 
-        # drop the rows with Nan in profile_keys (features) to avoid
-        # the unexpected behavior in training time
-        # TODO: should we assume that all samples will have a valid profile?
+        # drop the rows with Nans in profile_keys (features)
+        # the scaler will crash if data includes rows with Nons
         data = d.dropna(subset=profiler.profile_keys)
 
         # using leaveGroupOut makes sense when we have at least 3 groups
@@ -78,10 +73,10 @@ class XRSDModel(object):
             new_parameters = self.hyperparameters_search(
                         data[profiler.profile_keys], data[self.target],
                         data['experiment_id'], n_groups_out)
+            new_model = self.build_model(new_parameters)
         else:
-            new_parameters = self.parameters
+            new_model = self.model
 
-        new_model = self.build_model(new_parameters)
         # NOTE: after cross-validation for parameter selection,
         # the entire dataset is used for final training
         new_model.fit(data[profiler.profile_keys], data[self.target])
@@ -90,7 +85,6 @@ class XRSDModel(object):
 
         self.scaler = new_scaler
         self.model = new_model
-        self.parameters = new_parameters
         #self.accuracy = new_accuracy
         self.cross_valid_results = cross_valid_results
         self.trained = True
@@ -119,23 +113,17 @@ class XRSDModel(object):
             cv=model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
                 transformed_data, np.ravel(data_labels), groups=group_by)
 
-            '''
-            for train_index, test_index in cv:
-                #print("TRAIN:", train_index, "TEST:", test_index)
-                #X_train, X_test = transformed_data[train_index], transformed_data[test_index]
-                X_or_test = data.iloc[test_index]
-                X_or_train = data.iloc[train_index]
-                print('to test: ',X_or_test['experiment_id'].unique())
-                print('to train: ', X_or_train['experiment_id'].unique())
-                print()
-            '''
-
-
-
         else:
             cv = 5 # five-fold cross validation
-        test_model = self.build_model() 
-        clf = model_selection.GridSearchCV(test_model, self.grid_search_hyperparameters, cv=cv)
+        test_model = self.build_model()
+
+        if self.target == 'system_class':
+            # Calculate f1 for each label, and find their unweighted median
+            scoring = "f1_macro"
+        else:
+            scoring = None
+        clf = model_selection.GridSearchCV(test_model,
+                        self.grid_search_hyperparameters, cv=cv, scoring=scoring)
         clf.fit(transformed_data, np.ravel(data_labels))
 
         return clf.best_params_

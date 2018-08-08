@@ -151,6 +151,8 @@ class Classifier(XRSDModel):
                 not_tested_sys_classes.append(k)
             else:
                 tested_sys_classes.append(k)
+                test_scores_by_sys_classes[k] = \
+                    sum(test_scores_by_sys_classes[k])/len(test_scores_by_sys_classes[k])
 
         result["model was NOT tested for :"] = not_tested_sys_classes
         result["model was tested for :"] = tested_sys_classes
