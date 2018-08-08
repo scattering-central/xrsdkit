@@ -113,12 +113,12 @@ def unpack_pif(pp):
                         populations[pop_name]['parameters'][param_nm] = \
                         props_dict[pl].scalars[0].value
                         if props_dict[pl].tags is not None: # added
-                            for tg in props_dict[pl].tags():
+                            for tg in props_dict[pl].tags:
                                 if 'fixed value: ' in tg:
                                     fp_val = bool(tg.strip('fixed value: '))
                                     update_populations(fp,{pop_name:{'parameters':{param_nm:fp_val}}})
                                 if 'bounds: ' in tg:
-                                    bds = tg.strip('bounds: ','[',']').split(',')
+                                    bds = tg.strip('bounds: []').split(',')
                                     lbnd, ubnd = float(bds[0]), float(bds[1])
                                     update_populations(pb,{pop_name:{'parameters':{param_nm:[lbnd,ubnd]}}})
                                 if 'constraint expression: ' in tg:
@@ -154,12 +154,12 @@ def unpack_pif(pp):
                                     populations[pop_name]['basis'][site_name]['parameters'][param_nm] = \
                                     props_dict[pl].scalars[0].value
                                     if props_dict[pl].tags is not None: # added
-                                        for tg in props_dict[pl].tags():
+                                        for tg in props_dict[pl].tags:
                                             if 'fixed value: ' in tg:
                                                 fp_val = bool(tg.strip('fixed value: '))
                                                 update_populations(fp,{pop_name:{'basis':{site_name:{'parameters':{param_nm:fp_val}}}}})
                                             if 'bounds: ' in tg:
-                                                bds = tg.strip('bounds: ','[',']').split(',')
+                                                bds = tg.strip('bounds: []').split(',')
                                                 lbnd, ubnd = float(bds[0]), float(bds[1])
                                                 update_populations(pb,{pop_name:{'basis':{site_name:{'parameters':{param_nm:[lbnd,ubnd]}}}}})
                                             if 'constraint expression: ' in tg:
@@ -175,9 +175,9 @@ def unpack_pif(pp):
                                     tp(props_dict[sl].tags[0])
                         coord_labels = ['pop{}_site{}_coordinate{}'.format(ip,ist,ic) for ic in [0,1,2]]
                         if all([cl in props_dict for cl in coord_labels]):
-                            c0 = float(props_dict['pop{}_site{}_coordinate0'.format(ip,ist)])
-                            c1 = float(props_dict['pop{}_site{}_coordinate1'.format(ip,ist)])
-                            c2 = float(props_dict['pop{}_site{}_coordinate2'.format(ip,ist)])
+                            c0 = props_dict['pop{}_site{}_coordinate0'.format(ip,ist)].scalars[0].value
+                            c1 = props_dict['pop{}_site{}_coordinate1'.format(ip,ist)].scalars[0].value
+                            c2 = props_dict['pop{}_site{}_coordinate2'.format(ip,ist)].scalars[0].value
                             populations[pop_name]['basis'][site_name]['coordinates'] = [c0,c1,c2]
                             # TODO: deal with fixed_params, param_bounds, param_constraints on coordinates
                         ist += 1
