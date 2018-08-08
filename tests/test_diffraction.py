@@ -2,37 +2,52 @@ from __future__ import print_function
 
 import numpy as np
 
-from xrsdkit.scattering import compute_intensity 
 from xrsdkit.scattering import structure_factors as xrsf
 from xrsdkit.tools import peak_math
-    
-fcc_Al = {'fcc_Al':dict(
-    structure='fcc',
-    settings=dict(
-        q_min=1.,
-        q_max=5.,
-        profile='voigt'
-        ),
+from xrsdkit.system import System, Population, Specie
+   
+Al_atom_dict = dict(form='standard_atomic',settings={'symbol':'Al'})
+
+fcc_Al = Population('crystalline',
+    settings={'lattice':'fcc','q_max':5.},
     parameters=dict(
-        I0=1.,
-        a=4.046,
-        hwhm_g=0.002,
-        hwhm_l=0.0018
+        a={'value':4.046},
+        hwhm_g={'value':0.002},
+        hwhm_l={'value':0.0018}
         ),
-    basis={'Al_atom':dict(
-        coordinates=[0,0,0],
-        form='atomic',
-        settings={'symbol':'Al'})}
-    )}
+    basis={'Al':Al_atom_dict}
+    )
 
-hard_spheres = {'hard_spheres':dict(
-    structure='hard_spheres',
-    parameters={'r_hard':40,'v_fraction':0.3},
-    basis={'sphere':dict(
-        form='spherical',
-        parameters={'r':40})}
-    )}
+fcc_Al_system = System({'fcc_Al':fcc_Al})
 
+glassy_Al = Population('disordered',
+    settings={'interaction':'hard_spheres'},
+    parameters=dict(
+        r_hard={'value':4.046*np.sqrt(2)/4},
+        v_fraction={'value':0.6},
+        I0={'value':1.E5}
+        ),
+    basis={'Al':Al_atom_dict}
+    )
+
+glassy_Al_system = System({'glassy_Al':glassy_Al})
+
+mixed_Al_system = System({'glassy_Al':glassy_Al,'fcc_Al':fcc_Al})
+
+def test_Al_scattering():
+    qvals = np.arange(1.,5.,0.001)
+    I_fcc = fcc_Al_system.compute_intensity(qvals,0.8265616)
+    I_gls = glassy_Al_system.compute_intensity(qvals,0.8265616)
+    I_mxd = mixed_Al_system.compute_intensity(qvals,0.8265616)
+
+    from matplotlib import pyplot as plt
+    plt.figure(4)
+    plt.plot(qvals,I_fcc)
+    plt.plot(qvals,I_gls)
+    plt.plot(qvals,I_mxd)
+    plt.legend(['fcc','glassy','mixed'])
+    plt.show()
+    
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm in [0.01,0.03,0.05,0.1]:
@@ -68,7 +83,7 @@ def test_fcc_sf():
             qi*np.sin(th)*np.cos(ph),
             qi*np.sin(th)*np.sin(ph),
             qi*np.cos(th)]).reshape(3,1),
-        fcc_Al['fcc_Al']['basis'])
+        fcc_Al.basis_to_dict())
 
     ph,th = np.meshgrid(np.arange(0,np.pi,0.1),np.arange(0,2*np.pi,0.1))
     sf = np.zeros(ph.shape,dtype=complex)
@@ -114,18 +129,6 @@ def test_fcc_sf():
     #plt.legend(['real','imaginary','magnitude'])
     #plt.show()
 
-def test_fcc_Al():
-    qvals = np.arange(1.,5.,0.001)
-    Ivals = compute_intensity(qvals,fcc_Al,0.8265616)
-
-    #from matplotlib import pyplot as plt
-    #plt.figure(4)
-    #plt.plot(qvals,Ivals)
-    #plt.show()
-    
-def test_hard_spheres():
-    qvals = np.arange(0.001,1.,0.001)
-    Ivals = compute_intensity(qvals,hard_spheres,0.8265616)
     
 
 

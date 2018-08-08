@@ -1,14 +1,6 @@
-from __future__ import print_function
-import os
-import glob
-from collections import OrderedDict
-
 import numpy as np
 
 from xrsdkit.scattering import form_factors as xrff
-
-#from saxskit.saxs_math import profile_spectrum
-#from saxskit.saxs_citrination import CitrinationSaxsModels
 
 qvals = np.arange(0.,1.,0.01)
 
