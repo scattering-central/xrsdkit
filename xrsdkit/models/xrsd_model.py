@@ -50,15 +50,6 @@ class XRSDModel(object):
             If true, grid-search model hyperparameters
             to seek high cross-validation accuracy.
         """
-        # TODO: change it when we have a unified set of features:
-        if self.target == 'system_class':
-            features = profiler.profile_keys_1
-        elif ("gr") in self.target:
-            features = profiler.profile_keys_2
-        elif ("sigma" or "r0") in self.target:
-            features = profiler.profile_keys_3
-        else:
-            features = profiler.profile_keys_1
 
         shuffled_rows = np.random.permutation(all_data.index)
         all_data = all_data.loc[shuffled_rows]
@@ -69,7 +60,8 @@ class XRSDModel(object):
 
         # drop the rows with Nan in profile_keys (features) to avoid
         # the unexpected behavior in training time
-        data = d.dropna(subset=features)
+        # TODO: should we assume that all samples will have a valid profile?
+        data = d.dropna(subset=profiler.profile_keys)
 
         # using leaveGroupOut makes sense when we have at least 3 groups
         if len(data.experiment_id.unique()) > 2:
@@ -79,12 +71,12 @@ class XRSDModel(object):
             n_groups_out = None
 
         new_scaler = preprocessing.StandardScaler()
-        new_scaler.fit(data[features])
-        data[features] = new_scaler.transform(data[features])
+        new_scaler.fit(data[profiler.profile_keys])
+        data[profiler.profile_keys] = new_scaler.transform(data[profiler.profile_keys])
 
         if hyper_parameters_search:
             new_parameters = self.hyperparameters_search(
-                        data[features], data[self.target],
+                        data[profiler.profile_keys], data[self.target],
                         data['experiment_id'], n_groups_out)
         else:
             new_parameters = self.parameters
@@ -92,9 +84,9 @@ class XRSDModel(object):
         new_model = self.build_model(new_parameters)
         # NOTE: after cross-validation for parameter selection,
         # the entire dataset is used for final training
-        new_model.fit(data[features], data[self.target])
+        new_model.fit(data[profiler.profile_keys], data[self.target])
 
-        cross_valid_results = self.run_cross_validation(new_model,data,features,n_groups_out)
+        cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
 
         self.scaler = new_scaler
         self.model = new_model

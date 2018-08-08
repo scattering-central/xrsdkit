@@ -3,7 +3,6 @@ import pandas as pd
 from sklearn import linear_model, model_selection, preprocessing
 
 from .xrsd_model import XRSDModel
-from ..tools.profiler import guinier_porod_profile, spherical_normal_profile
 from ..tools import profiler
 
 class Regressor(XRSDModel):
@@ -49,17 +48,7 @@ class Regressor(XRSDModel):
         prediction : float
             predicted parameter value
         """
-        if 'rg' in self.target:
-            additional_features = guinier_porod_profile(q_I)
-            my_features = np.append(np.array(list(sample_features.values())),
-                                    np.array(list(additional_features.values()))).reshape(1,-1)
-
-        elif 'r0' in self.target or 'sigma' in self.target:
-            additional_features = spherical_normal_profile(q_I)
-            my_features = np.append(np.array(list(sample_features.values())),
-                                    np.array(list(additional_features.values()))).reshape(1,-1)
-
-        x = self.scaler.transform(my_features)
+        x = self.scaler.transform(sample_features)
         return float(self.model.predict(x)[0])
 
     def run_cross_validation(self,model,data,group_cv):

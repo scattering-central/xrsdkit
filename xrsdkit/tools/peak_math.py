@@ -1,8 +1,7 @@
 import numpy as np
-from collections import OrderedDict
-
 from scipy.special import wofz
-from scipy.optimize import minimize as scimin
+
+from . import pearson
 
 def peak_profile(q,q_pk,profile_name,params):
     if profile_name == 'voigt':
@@ -43,7 +42,7 @@ def voigt(x, hwhm_g, hwhm_l):
     return v 
 
 def peaks_by_window(x,y,w=10,thr=0.):
-    """Find peaks in x,y data by a window-scanning.
+    """Find peaks by comparing against neighboring values within a window.
 
     TODO: introduce window shapes and make use of the x-values.
 
@@ -78,23 +77,10 @@ def peaks_by_window(x,y,w=10,thr=0.):
         if pkflag:
             pk_idx.append(idx)
             pk_confidence.append(conf)
-
-    #from matplotlib import pyplot as plt
-    #plt.figure(2)
-    #plt.plot(x,y)
-    #for ipk,cpk in zip(pk_idx,pk_confidence):
-    #    qpk = x[ipk]
-    #    Ipk = y[ipk]
-    #    print('q: {}, I: {}, confidence: {}'.format(qpk,Ipk,cpk))
-    #    plt.plot(qpk,Ipk,'ro')
-    #plt.show()
-
     return pk_idx,pk_confidence
-    
-def peaks_by_window(x,y,w=10,thr=0.):
-    """Find peaks in x,y data by a window-scanning.
-
-    TODO: introduce window shapes and make use of the x-values.
+   
+def humpness(x,y,w=50):
+    """Metric for hump-like and trough-like behavior in x,y data.
 
     Parameters
     ----------
@@ -102,41 +88,32 @@ def peaks_by_window(x,y,w=10,thr=0.):
         array of x-axis values
     y : array
         array of y-axis values
-    w : int
-        half-width of window- each point is analyzed
-        with the help of this many points in either direction
-    thr : float
-        for a given point xi,yi, if yi is the maximum within the window,
-        the peak is flagged if yi/mean(y_window)-1. > thr
 
     Returns
     -------
-    pk_idx : list of int
-        list of indices where peaks were found
-    pk_confidence : list of float
-        confidence in peak labeling for each peak found 
+    humpness : array of float
+        array of hump-like behavior metrics
+    troughness : array of float
+        array of trough-like behavior metrics
     """
-    pk_idx = []
-    pk_confidence = []
-    for idx in range(w,len(y)-w-1):
-        pkflag = False
-        ywin = y[idx-w:idx+w+1]
-        if np.argmax(ywin) == w:
-            conf = ywin[w]/np.mean(ywin)-1.
-            pkflag = conf > thr
-        if pkflag:
-            pk_idx.append(idx)
-            pk_confidence.append(conf)
+    ny = len(y)
+    humpness = np.zeros(ny)
+    troughness = np.zeros(ny)
+    for idx in range(ny):
+        idx_lo = max([0,idx-w])
+        idx_hi = min([ny,idx+w+1])
+        ywin = y[idx_lo:idx_hi]
+        xwin = x[idx_lo:idx_hi]
+        pyx2 = pearson(ywin,(xwin-x[idx])**2) 
+        humpness[idx] = -1*y[idx]*pyx2
+        troughness[idx] = np.std(ywin)*pyx2
 
     #from matplotlib import pyplot as plt
-    #plt.figure(2)
+    #plt.figure(10)
     #plt.plot(x,y)
-    #for ipk,cpk in zip(pk_idx,pk_confidence):
-    #    qpk = x[ipk]
-    #    Ipk = y[ipk]
-    #    print('q: {}, I: {}, confidence: {}'.format(qpk,Ipk,cpk))
-    #    plt.plot(qpk,Ipk,'ro')
+    #plt.plot(x,humpness,'r')
+    #plt.plot(x,troughness,'g')
     #plt.show()
 
-    return pk_idx,pk_confidence
+    return humpness, troughness
 
