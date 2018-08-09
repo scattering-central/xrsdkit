@@ -46,7 +46,7 @@ class Population(object):
         self.structure = structure
 
     def add_specie(self,specie_name,ff_name,settings={},parameters={},coordinates=None):
-        if self.structure in crystalline_structures and ff_name in noncrystalline_form_factors:
+        if self.structure == 'crystalline' and ff_name in noncrystalline_form_factors:
             structure_form_exception(self.structure,ff_name)
         self.basis[specie_name] = Specie(ff_name,settings,parameters,coordinates)
 
@@ -122,7 +122,7 @@ class Population(object):
 
     @staticmethod
     def check_structure(structure,basis):
-        if structure in crystalline_structures:
+        if structure == 'crystalline':
             for site_nm,specie_def in basis.items():
                 if specie_def['form'] in noncrystalline_form_factors:
                     structure_form_exception(structure,specie_def['form'])

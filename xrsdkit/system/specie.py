@@ -65,7 +65,7 @@ class Specie(object):
     def update_parameters(self,pd):
         for param_nm, paramd in pd.items():
             if param_nm in self.parameters:
-                self.parameters[param_nm].update_from_dict(paramd)
+                self.parameters[param_nm].update(paramd)
 
     def update_settings(self,sd):
         for stg_nm, sval in sd.items():
@@ -75,6 +75,6 @@ class Specie(object):
     def update_coordinates(self,coords):
         for ic, cdict in enumerate(coords):
             if cdict is not None:
-                self.coordinates[ic].update_from_dict(cdict)
+                self.coordinates[ic].update(cdict)
 
 
