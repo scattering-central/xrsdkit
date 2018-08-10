@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn import linear_model, model_selection, preprocessing
+from sklearn.metrics import mean_absolute_error
 
 from .xrsd_model import XRSDModel
 from ..tools import profiler
@@ -51,15 +52,17 @@ class Regressor(XRSDModel):
         x = self.scaler.transform(sample_features)
         return float(self.model.predict(x)[0])
 
-    def run_cross_validation(self,model,data,group_cv):
+
+    def run_cross_validation(self,model,data,features, group_cv):
         label_std = pd.to_numeric(data[self.target]).std()
         if group_cv:
-            new_accuracy = self.cross_validate_by_experiments(model,data,label_std)
+            new_accuracy = self.cross_validate_by_experiments(model,data,features,label_std)
         else:
-            new_accuracy = self.cross_validate(model,data,label_std)
+            new_accuracy = self.cross_validate(model,data,features,label_std)
         return new_accuracy
 
-    def cross_validate(self,model,df,label_std):
+
+    def cross_validate(self,model,df,features, label_std):
         """Test a model using scikit-learn 5-fold crossvalidation
 
         Parameters
@@ -68,22 +71,41 @@ class Regressor(XRSDModel):
             model to be cross-validated 
         df : pandas.DataFrame
             pandas dataframe of features and labels
+        features : list of str
+            list of features that were used for training
         label_std : float
             standard deviation of training data for the model label 
 
         Returns
         -------
-        scores : object
-            TODO: describe scores output
+        results : dict
+            includes normilezed mean abs error,
+            normilezed mean abs error by splits,
+            labels std,
+            number of experiments that were used for training/testing
+            (can be 1 or 2 since if we have data from 3 or more
+            experiments, cross_validate_by_experiments() will be used),
+            IDs of experiments,
+            how the split was done.
+
+
         """
         scaler = preprocessing.StandardScaler()
         scaler.fit(df[profiler.profile_keys])
         scores = model_selection.cross_val_score(
-                model,scaler.transform(df[profiler.profile_keys]), df[self.target],
-                cv=5, scoring='neg_mean_absolute_error')
-        return scores 
+                model,scaler.transform(df[features]), df[self.target],
+                cv=5, scoring='neg_mean_absolute_error')/ label_std
 
-    def cross_validate_by_experiments(self, model, df, label_std):
+        results = dict(normalized_mean_abs_error_by_splits = scores,
+                       normalized_mean_abs_error = sum(scores)/len(scores),
+                       labels_std = label_std,
+                       number_of_experiments = len(df.experiment_id.unique()),
+                       experiments = df.experiment_id.unique(),
+                       test_training_split = "random 5 folders crossvalidation split")
+
+        return results
+
+    def cross_validate_by_experiments(self, model, df, features, label_std):
         """Test a model by LeaveOneGroupOut cross-validation.
 
         Parameters
@@ -92,13 +114,22 @@ class Regressor(XRSDModel):
             pandas dataframe of features and labels
         model : sk-learn
             with specific parameters
+        features : list of str
+            list of features that were used for training.
         label_std : float
             standard deviation of training data for the model label 
             
         Returns
         -------
-        test_scores_by_ex : object
-            TODO: describe scores output
+        results : dict
+            includes normilezed mean abs error,
+            normilezed mean abs error by experiments,
+            labels std,
+            number of experiments that were used for training/testing
+            (can be 3 or more  - if we have data from 1 or 2 experiments
+            only, cross_validate() will be used),
+            IDs of experiments,
+            how the split was done.
         """
         experiments = df.experiment_id.unique()
         test_scores_by_ex = []
@@ -107,12 +138,32 @@ class Regressor(XRSDModel):
             test = df[(df['experiment_id']== experiments[i])]
 
             scaler = preprocessing.StandardScaler()
-            scaler.fit(tr[profiler.profile_keys])
-            model.fit(scaler.transform(tr[profiler.profile_keys]), tr[self.target])
-            transformed_data = scaler.transform(test[profiler.profile_keys])
+            scaler.fit(tr[features])
+            model.fit(scaler.transform(tr[features]), tr[self.target])
+            transformed_data = scaler.transform(test[features])
             pr = model.predict(transformed_data)
             test_score = mean_absolute_error(pr, test[self.target])
             test_scores_by_ex.append(test_score/label_std)
 
-        return test_scores_by_ex
+        results = dict(normalized_mean_abs_error_by_experiments = test_scores_by_ex,
+                       normalized_mean_abs_error = sum(test_scores_by_ex)/len(test_scores_by_ex),
+                       labels_std = label_std,
+                       number_of_experiments = len(test_scores_by_ex),
+                       experiments = df.experiment_id.unique(),
+                       test_training_split = "by experiments")
 
+        return results
+    """
+    def print_accuracies(self):
+        '''Pretty-print a report of the cross-validation statistics.'''
+        msg = '{}: cross-validation summary'.format(self.__name__)
+        # TODO: extract the error objective that was used to cross-validate the model
+        msg += 'model objective: ... '
+        # TODO: save a representation of the cross-validation technique, and extract it here
+        msg += os.linesep+'cross-validation technique: ... '
+        # TODO: save cross-validation statistics during training,
+        # then process the statistics and print them out here
+        msg += os.linesep+'cross-validation statistics: '
+        msg += os.linesep+' ... '
+        return msg
+    """

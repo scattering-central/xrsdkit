@@ -1,1 +1,29 @@
-0.576262871404
+confusion_matrix : 
+[[59 10  2  1]
+ [ 2  7 26  0]
+ [ 3  2 10  1]
+ [ 1  0  3  1]]
+
+ System classes : 
+unidentified
+pop0_hard_spheres__site0_guinier_porod
+pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod
+pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal
+
+ F1 score by classes : 
+[ 0.73291925  0.25925926  0.35087719  0.25      ]
+
+ F1 averaged not weighted : 
+0.398263926725
+
+ mean not weighted acc by system classes : 
+unidentified: 0.716830998097
+pop0_hard_spheres__site0_guinier_porod: 0.411458333333
+pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: 0.642857142857
+pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal: 0.5
+
+ mean accuracy : 
+0.567786618572
+The accuracy was calculated for each system class for each split (one experiment out) 
+as percent of right predicted labels. Then accuracy was averaged for each system class, 
+and then averaged for all system class

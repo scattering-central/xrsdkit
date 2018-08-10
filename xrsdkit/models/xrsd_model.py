@@ -1,10 +1,8 @@
 import os
 
 import numpy as np
-import pandas as pd
 import yaml
-from sklearn import model_selection, preprocessing, linear_model
-from sklearn.metrics import mean_absolute_error
+from sklearn import model_selection, preprocessing
 
 from ..tools import profiler
 
@@ -13,7 +11,6 @@ class XRSDModel(object):
     def __init__(self, label, yml_file=None):
         self.model = None
         self.scaler = preprocessing.StandardScaler()
-        self.accuracy = None
         self.cross_valid_results = None
         self.target = label
         self.trained = False
@@ -25,12 +22,12 @@ class XRSDModel(object):
 
 
     def load_model_data(self,model_data):
-        self.set_model(model_data['parameters'])
+        self.set_model()
         # TODO: consider getting rid of the set_param method,
         # in favor of something more concrete
         set_param(self.model,model_data['model'])
         set_param(self.scaler,model_data['scaler'])
-        self.accuracy = model_data['accuracy']
+        self.cross_valid_results = model_data['cross_valid_results']
 
     def set_model(self, model_hyperparams={}):
         self.model = self.build_model(model_hyperparams)
@@ -85,9 +82,9 @@ class XRSDModel(object):
 
         self.scaler = new_scaler
         self.model = new_model
-        #self.accuracy = new_accuracy
         self.cross_valid_results = cross_valid_results
         self.trained = True
+
 
     def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
@@ -129,14 +126,6 @@ class XRSDModel(object):
         return clf.best_params_
 
 
-    def run_cross_validation(self,model,data,features,n_groups_out):
-        if n_groups_out:
-            new_accuracy = self.cross_validate_by_experiments(model,data,features)
-        else:
-            new_accuracy = self.cross_validate(model,data,features)
-        return new_accuracy
-
-
     def check_label(self, dataframe):
         """Test whether or not `dataframe` has legal values for all labels.
  
@@ -164,21 +153,6 @@ class XRSDModel(object):
             print('model {}: all training data have identical outputs ({})'.format(
             self.target,float(dataframe[self.target].iloc[0])))
             return False
-
-    def print_accuracies(self):
-        """Pretty-print a report of the cross-validation statistics."""
-        msg = '{}: cross-validation summary'.format(self.__name__) 
-        # TODO: extract the error objective that was used to cross-validate the model
-        msg += 'model objective: ... '
-        # TODO: save a representation of the cross-validation technique, and extract it here
-        msg += os.linesep+'cross-validation technique: ... '
-        # TODO: save cross-validation statistics during training,
-        # then process the statistics and print them out here
-        msg += os.linesep+'cross-validation statistics: '
-        msg += os.linesep+' ... '
-        return msg
-
-
 
 
 # helper function - to set parameters for scalers and models

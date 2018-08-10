@@ -4,7 +4,6 @@ from collections import OrderedDict
 import yaml
 import numpy as np
 from citrination_client import CitrinationClient
-import pprint
 
 from .regressor import Regressor
 from .classifier import SystemClassifier
@@ -32,8 +31,8 @@ regression_models = OrderedDict()
 regression_models['noise'] = {}
 regression_models['pop0_unidentified'] = {}
 
-#TODO: here we only recreate the models from yml files
-# add Regressor s for new models
+# here we only recreate the models from yml files
+# the models for new labels will be created in train_regression_models()
 for fn in os.listdir(regression_models_dir):
     if fn.endswith(".yml"):
         sys_cls = fn.split(".")[0]
@@ -79,21 +78,44 @@ def downsample_and_train(
 
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
-    pprint.pprint(sys_cls.cross_valid_results)
 
     # regression models:
-    #reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
-    # TODO: save cross-validation details as 
-    # parameters of the XRSDModel objects during training,
-    # and add a function for printing out a description of them
+    reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
+
     if save_models:
         save_regression_models(reg_models, test=test)
         save_classification_model(sys_cls, test=test)
 
 def train_system_classifier(data, hyper_parameters_search=False):
+    """Recreate system classifier from existing yml file;
+    train this classifer.
+
+    This is a developer tool for building models
+    from a set of Citrination datasets.
+    It is used by the package developers to deploy
+    a standard set of models with xrsdkit.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        dataframe containing features and labels
+    hyper_parameters_search : bool
+        if True, the models will be optimized
+        over a grid of hyperparameters during training
+
+    Returns
+    -------
+    cls : sklearn SGDClassifier
+        fitted sklearn SGDClassifier.
+    """
+
+    #TODO: move recreating classifier form an existing yml file
+    # to the top of this file (like we recreates regresion models
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
     yml_file = os.path.join(d,'modeling_data','classifiers','system_class.yml')
+
+    print('train_system_classifier :', yml_file)
     cls = SystemClassifier(yml_file)
     cls.train(data, hyper_parameters_search=hyper_parameters_search)
     return cls
@@ -144,12 +166,6 @@ def train_regression_models(data, hyper_parameters_search=False,
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation R^2 score.
-    testing_data : pandas.DataFrame (optional)
-        dataframe containing original training data plus new data
-        for computing the cross validation errors of the updated models.
-    partial : bool
-        If true, the models will be updataed using new data
-        (train_partial() instead of train() from sklearn is used).
 
     Returns
     -------
@@ -162,15 +178,16 @@ def train_regression_models(data, hyper_parameters_search=False,
     models = OrderedDict.fromkeys(possible_models.keys())
     for k in models.keys(): models[k] = {}
 
-    p = os.path.abspath(__file__)
-    d = os.path.dirname(p)
-
     for k, v in possible_models.items(): # v is the list of possible models for given system_class
         pop_data = data[(data['system_class']==k)]
         print('attempting to train regression models for {}'.format(k))
         for m in v:
-            yml_file = os.path.join(d,'modeling_data','regressors',k + '.yml')
-            reg_model = Regressor(m, yml_file)
+            # check if we already recreated this model from a yml file:
+            if (k in regression_models) and (m in regression_models[k]):
+                reg_model = regression_models[k][m]
+            else: # create a new model
+                reg_model = Regressor(m, None)
+
             reg_model.train(pop_data, hyper_parameters_search)
             if reg_model.trained:
                 models[k][m] = reg_model 
@@ -199,7 +216,8 @@ def print_training_results(results):
                 print('failed to print training results for system {} class, model {}'.format(pop,k))
 
 def save_regression_models(models, test=False):
-    """Save model parameters and CV errors in YAML and .txt files.
+    """Save models, scalers, and cross validatin results in YAML;
+     save training repport in .txt files.
 
     Parameters
     ----------
@@ -213,7 +231,7 @@ def save_regression_models(models, test=False):
     d = os.path.dirname(p)
     for sys_cls, reg_mods in models.items():
         s_and_m = {}
-        acc = {}
+        cross_valid_results = {}
         if test:
             file_path = os.path.join(d,'modeling_data','testing_data','regressors',sys_cls+'.yml')
         else:
@@ -221,20 +239,25 @@ def save_regression_models(models, test=False):
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
         for param_nm,m in reg_mods.items():
             if m.model is not None:
-                acc[param_nm] = m.accuracy
+                cross_valid_results[param_nm] = m.cross_valid_results
                 s_and_m[param_nm] = dict(
                     scaler = m.scaler.__dict__, 
                     model = m.model.__dict__,
-                    parameters = m.parameters, 
-                    accuracy = m.accuracy)
+                    cross_valid_results = m.cross_valid_results)
         if any(s_and_m):
             with open(file_path, 'w') as yaml_file:
                 yaml.dump(s_and_m, yaml_file)
             with open(cverr_txt_path, 'w') as txt_file:
-                txt_file.write(str(acc))
+                for a_k, a_v in cross_valid_results.items():
+                    txt_file.write(a_k + '\n')
+                    for k,v in a_v.items():
+                        txt_file.write(k + ' : ' + str(v) + '\n')
+                    txt_file.write('\n')
+
 
 def save_classification_model(model_dict, test=False):
-    """Save model parameters and CV errors in YAML and .txt files.
+    """Save models, scalers, and cross validatin results in YAML;
+     save training repport in .txt files.
 
     Parameters
     ----------
@@ -245,9 +268,7 @@ def save_classification_model(model_dict, test=False):
     """
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
-    #for sys_cls, reg_mods in models.items():
     s_and_m = {}
-    acc = None
     if test:
         file_path = os.path.join(d,'modeling_data','testing_data','classifiers','system_class.yml')
     else:
@@ -255,18 +276,32 @@ def save_classification_model(model_dict, test=False):
     cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
 
     if model_dict.model is not None:
-        acc = model_dict.accuracy
-        s_and_m = dict(
+        s_and_m = dict(system_class = dict(
                     scaler = model_dict.scaler.__dict__,
                     model = model_dict.model.__dict__,
-                    parameters = model_dict.parameters,
-                    accuracy = model_dict.accuracy)
+                    cross_valid_results = model_dict.cross_valid_results))
     if any(s_and_m):
         with open(file_path, 'w') as yaml_file:
             yaml.dump(s_and_m, yaml_file)
         with open(cverr_txt_path, 'w') as txt_file:
-            txt_file.write(str(acc))
-
+            txt_file.write('confusion_matrix : \n')
+            txt_file.write(str(model_dict.cross_valid_results["confusion matrix :"])+ '\n')
+            txt_file.write('\n System classes : \n')
+            for s in model_dict.cross_valid_results["model was tested for :"]:
+                txt_file.write(str(s)+ '\n')
+            txt_file.write('\n F1 score by classes : \n')
+            txt_file.write(str(model_dict.cross_valid_results["F1 score by sys_classes"])+ '\n')
+            txt_file.write('\n F1 averaged not weighted : \n')
+            txt_file.write(str(model_dict.cross_valid_results["F1 score averaged not weighted :"])+ '\n')
+            txt_file.write('\n mean not weighted acc by system classes : \n')
+            for k, v in model_dict.cross_valid_results["mean not weighted accuracies by system classes :"].items():
+                if isinstance(v, float):
+                    txt_file.write(str(k)+ ": " + str(v) + '\n')
+            txt_file.write('\n mean accuracy : \n')
+            txt_file.write(str(model_dict.cross_valid_results["mean not weighted accuracy :"])+ '\n')
+            txt_file.write('The accuracy was calculated for each system class for each split (one experiment out) \n'
+                           'as percent of right predicted labels. Then accuracy was averaged for each system class, \n'
+                           'and then averaged for all system class')
 
 
 def evaluate_params(q_I, system_class):
@@ -287,7 +322,6 @@ def evaluate_params(q_I, system_class):
         dictionary with predicted parameters
     """
     f = profile_spectrum(q_I)
-    #pop = system_class[0]
     params_dict = {}
     for param_nm,m in regression_models[system_class].items():
         params_dict[param_nm] = m.predict(f, q_I)

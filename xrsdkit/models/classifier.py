@@ -1,13 +1,10 @@
 import numpy as np
 from collections import OrderedDict
 
-from sklearn import linear_model, model_selection
+from sklearn import linear_model
+from sklearn.metrics import f1_score, confusion_matrix
 
 from .xrsd_model import XRSDModel
-
-from sklearn.metrics import f1_score
-from sklearn.metrics import confusion_matrix
-
 
 class Classifier(XRSDModel):
     """Class for generating models to classifying material systems."""
@@ -57,29 +54,12 @@ class Classifier(XRSDModel):
         cert = max(self.model.predict_proba(x)[0])
         return sys_cls, cert
 
-
-
-    def cross_validate(self, model, df,features):
-        """Test a model using scikit-learn 5-fold crossvalidation
-
-        Parameters
-        ----------
-        model : sklearn model
-            model to be cross-validated 
-        df : pandas.DataFrame
-            pandas dataframe of features and labels
-
-        Returns
-        -------
-        scores : object
-            TODO: describe scores output
-        """
-        scores = model_selection.cross_val_score(
-            model, df[features],
-            df[self.target], cv=5)
-        score = {}
-        score["5 folders cv"]= scores
-        return scores
+    def run_cross_validation(self,model,data,features,n_groups_out):
+        if n_groups_out:
+            new_accuracy = self.cross_validate_by_experiments(model,data,features)
+        else:
+            new_accuracy = self.cross_validate(model,data,features)
+        return new_accuracy
 
 
     def cross_validate_by_experiments(self, model, df, features):
@@ -89,13 +69,19 @@ class Classifier(XRSDModel):
         ----------
         df : pandas.DataFrame
             pandas dataframe of features and labels
+            must include the data from at least 3 experiments
         model : sk-learn
             with specific parameters
+        features : list of str
+            list of features that were used for training.
 
         Returns
         -------
-        test_scores_by_ex : object
-            TODO: describe scores output
+        test_scores_by_ex : dict
+            includes list of all system classes, confusion matrix,
+            F1 score by sys_classes, averaged F1 score,
+            mean not weighted accuracies by system classes and experiments,
+            mean not weighted accuracy.
         """
         experiments = df.experiment_id.unique()# we have at least 3 experiments
         sys_classes = df.system_class.unique().tolist()
@@ -140,19 +126,22 @@ class Classifier(XRSDModel):
 
         result = OrderedDict()
         result["all system classes :"] = sys_classes
-        result['confusion matrix :'] = confusion_matrix(true_labels, pred_labels, sys_classes)
 
         # we may not be able to test for all sys_classes
         # (if samples of a sys_class are included into only one experiment)
         not_tested_sys_classes = []
         tested_sys_classes = []
+        score_by_cl = []
         for k, v in test_scores_by_sys_classes.items():
             if test_scores_by_sys_classes[k] == []:
                 not_tested_sys_classes.append(k)
             else:
                 tested_sys_classes.append(k)
-                test_scores_by_sys_classes[k] = \
-                    sum(test_scores_by_sys_classes[k])/len(test_scores_by_sys_classes[k])
+                av = sum(test_scores_by_sys_classes[k])/len(test_scores_by_sys_classes[k])
+                test_scores_by_sys_classes[k] = av
+                score_by_cl.append(av)
+
+        result['confusion matrix :'] = confusion_matrix(true_labels, pred_labels, tested_sys_classes)
 
         result["model was NOT tested for :"] = not_tested_sys_classes
         result["model was tested for :"] = tested_sys_classes
@@ -162,36 +151,25 @@ class Classifier(XRSDModel):
                                         pred_labels, labels=tested_sys_classes, average='macro')
         result["mean not weighted accuracies by system classes :"] = test_scores_by_sys_classes
         result["mean not weighted accuracies by exp :"] = test_scores_by_ex
-        result["mean not weighted accuracy :"]= sum(scores)/len(scores)
+        result["mean not weighted accuracy :"]= sum(score_by_cl)/len(score_by_cl)
 
         return result
 
-    '''
-    # There is a very simple variant of saving classifier,
-    # but it looks different from save_regression_models()
-    def save_classification_model(self, test=False):
-        """Save model parameters and CV errors in YAML and .txt files.
-        """
-        p = os.path.abspath(__file__)
-        d = os.path.dirname(p)
-        if test:
-            file_path = os.path.join(d,'modeling_data','testing_data','regressors','system_class.yml')
-        else:
-            file_path = self.model_file
+    """
+    def print_accuracies(self):
+        '''Pretty-print a report of the cross-validation statistics.'''
+        msg = '{}: cross-validation summary'.format(self.__name__)
+        # TODO: extract the error objective that was used to cross-validate the model
+        msg += 'model objective: ... '
+        # TODO: save a representation of the cross-validation technique, and extract it here
+        msg += os.linesep+'cross-validation technique: ... '
+        # TODO: save cross-validation statistics during training,
+        # then process the statistics and print them out here
+        msg += os.linesep+'cross-validation statistics: '
+        msg += os.linesep+' ... '
+        return msg
+    """
 
-        cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
-
-        s_and_m = {self.target : {'scaler': self.scaler.__dict__, 'model': self.model.__dict__,
-                   'parameters' : self.parameters, 'accuracy': self.accuracy}}
-
-        # save scalers and models
-        with open(self.model_file, 'w') as yaml_file:
-            yaml.dump(s_and_m, yaml_file)
-
-        # save accuracy
-        with open(cverr_txt_path, 'w') as txt_file:
-            txt_file.write(str(s_and_m[self.target]['accuracy']))
-    '''
 
 class SystemClassifier(Classifier):
     """Classifier for determining the material system (structures and form factors).
