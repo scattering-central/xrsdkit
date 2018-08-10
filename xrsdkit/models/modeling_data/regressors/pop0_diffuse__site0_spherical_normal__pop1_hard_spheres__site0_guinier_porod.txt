@@ -1,0 +1,40 @@
+pop0_site0_r0
+normalized_mean_abs_error_by_experiments : [1.2017326768067782, 2.5634508065311539, 1.5660510903496472]
+normalized_mean_abs_error : 1.77707819123
+labels_std : 6.435290959963211
+number_of_experiments : 3
+experiments : ['R2' 'R7' 'R3']
+test_training_split : by experiments
+
+pop0_site0_sigma
+normalized_mean_abs_error_by_experiments : [1.4301998279935921, 1.2476955265209873, 0.10804349424219055]
+normalized_mean_abs_error : 0.928646282919
+labels_std : 0.46785116806077226
+number_of_experiments : 3
+experiments : ['R3' 'R2' 'R7']
+test_training_split : by experiments
+
+pop1_r_hard
+normalized_mean_abs_error_by_experiments : [2.2219733776462025, 0.53186438327652164, 1.8395730710323746]
+normalized_mean_abs_error : 1.53113694399
+labels_std : 4.076195267152653
+number_of_experiments : 3
+experiments : ['R2' 'R7' 'R3']
+test_training_split : by experiments
+
+pop1_site0_rg
+normalized_mean_abs_error_by_experiments : [2.5822757286748113, 0.85486125142705216, 2.128781028490303]
+normalized_mean_abs_error : 1.85530600286
+labels_std : 1.1421188898257446
+number_of_experiments : 3
+experiments : ['R7' 'R2' 'R3']
+test_training_split : by experiments
+
+pop1_v_fraction
+normalized_mean_abs_error_by_experiments : [1.5754168773582053, 2.576933254209699, 0.66698713745245419]
+normalized_mean_abs_error : 1.60644575634
+labels_std : 0.042742701198432764
+number_of_experiments : 3
+experiments : ['R3' 'R7' 'R2']
+test_training_split : by experiments
+
