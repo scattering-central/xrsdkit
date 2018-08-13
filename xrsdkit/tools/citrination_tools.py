@@ -100,7 +100,8 @@ def get_pifs_from_Citrination(client, dataset_id_list):
     return pifs
 
 
-def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, train_hyperparameters=False):
+def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True,
+                                    train_hyperparameters=False, test=False):
     """Down-sample one or more datasets, and optionally save the samples.
         
     Down-sampled datasets are (optionally) saved to their datasets as assigned
@@ -127,6 +128,8 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
         the correct scaler should be applied before training models.
     """
 
+    stat = dict(by_exp = {}, by_sys_class = {})
+
     data, pifs = get_data_from_Citrination(client, dataset_id_list)
 
     #### create data_sample ########################
@@ -150,6 +153,33 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
         if save_samples:
             expt_samples[exp_id] = data_sample
             expt_local_ids[exp_id] = data_sample.local_id.tolist()
+
+        stat['by_exp'][exp_id] = [df.shape[0], dsamp.shape[0]]
+        for cl in df.system_class.unique():
+            if cl not in stat['by_sys_class']:
+                stat['by_sys_class'][cl] = [0,0] # [before downsampling, after]
+            stat['by_sys_class'][cl][0] += \
+                len(df.groupby(['system_class']).groups[cl])
+            stat['by_sys_class'][cl][1] += \
+                len(dsamp.groupby(['system_class']).groups[cl])
+
+    # save the statistics of downsampling:
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(os.path.dirname(p))
+
+    if test:
+        file_path = os.path.join(d,'models','modeling_data','testing_data',
+                                 'datasets_statistics.txt')
+    else:
+        file_path = os.path.join(d,'models','modeling_data',
+                                 'datasets_statistics.txt')
+    with open(file_path, 'w') as txt_file:
+        txt_file.write('Downsampling statistics: \n [before downsampling, after downsampling] \n \n')
+        for a_k, a_v in stat.items():
+            txt_file.write(a_k + '\n')
+            for k, v in a_v.items():
+                txt_file.write(k + ' : ' + str(v) + '\n')
+            txt_file.write('\n')
     ################################################
 
     # store references to unscaled data for all samples in data_sample
@@ -161,7 +191,8 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
     if save_samples:
         p = os.path.abspath(__file__)
         d2 = os.path.dirname(os.path.dirname(p))
-        ds_map_filepath = os.path.join(d2,'models','modeling_data','dataset_ids.yml')
+        ds_map_filepath = os.path.join(d2,'models','modeling_data',
+                                       'dataset_ids.yml')
         dataset_ids = yaml.load(open(ds_map_filepath,'rb'))
         sys_classifier_dsid = dataset_ids['system_classifier']
 

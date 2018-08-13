@@ -72,9 +72,14 @@ def downsample_and_train(
     train_hyperparameters : bool
         if True, the models will be optimized
         over a grid of hyperparameters during training
+    test : bool
+        if True, the downsmapling statistics and models will be
+        saved in modleling_data/tesding_data dir;
+        if Fasle, in modleling_data dir.
     """
 
-    data = downsample_Citrination_datasets(citrination_client, source_dataset_ids, save_samples=save_samples)
+    data = downsample_Citrination_datasets(citrination_client, source_dataset_ids,
+                                           save_samples=save_samples, test=test)
 
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
