@@ -45,6 +45,11 @@ for fn in os.listdir(regression_models_dir):
         for l in labels:
             regression_models[sys_cls][l] = Regressor(l, yml_path)
 
+# recreate the classifier
+yml_file_cl = os.path.join(modeling_data_dir,'classifiers','system_class.yml')
+cls = SystemClassifier(yml_file_cl)
+
+
 def downsample_and_train(
     source_dataset_ids=src_dsid_list,
     citrination_client=cl,
@@ -83,6 +88,7 @@ def downsample_and_train(
 
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
+    print(classifier_results_to_str(sys_cls))
 
     # regression models:
     reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
@@ -114,14 +120,7 @@ def train_system_classifier(data, hyper_parameters_search=False):
         fitted sklearn SGDClassifier.
     """
 
-    #TODO: move recreating classifier form an existing yml file
-    # to the top of this file (like we recreates regresion models
-    p = os.path.abspath(__file__)
-    d = os.path.dirname(p)
-    yml_file = os.path.join(d,'modeling_data','classifiers','system_class.yml')
-
-    print('train_system_classifier :', yml_file)
-    cls = SystemClassifier(yml_file)
+    print('train_system_classifier :')
     cls.train(data, hyper_parameters_search=hyper_parameters_search)
     return cls
 
@@ -201,24 +200,6 @@ def train_regression_models(data, hyper_parameters_search=False,
                 print('- training failed for {}'.format(m))
     return models
 
-def print_training_results(results):
-    """Print parameters of models and cross validation accuracies.
-
-    Parameters
-    ----------
-    results : dict
-        the dict keys are system_class names, and the values are
-        dictionaries of regression models for the system_class
-    """
-    for pop, models in results.items():
-        print(pop)
-        for k, m in models.items():
-            print(k)
-            try:
-                print('accuracy : {}'.format(m.accuracy))
-                print('parameters : {}'.format(m.parameters))
-            except:
-                print('failed to print training results for system {} class, model {}'.format(pop,k))
 
 def save_regression_models(models, test=False):
     """Save models, scalers, and cross validatin results in YAML;
@@ -253,11 +234,8 @@ def save_regression_models(models, test=False):
             with open(file_path, 'w') as yaml_file:
                 yaml.dump(s_and_m, yaml_file)
             with open(cverr_txt_path, 'w') as txt_file:
-                for a_k, a_v in cross_valid_results.items():
-                    txt_file.write(a_k + '\n')
-                    for k,v in a_v.items():
-                        txt_file.write(k + ' : ' + str(v) + '\n')
-                    txt_file.write('\n')
+                res_str = regressors_results_to_str(cross_valid_results)
+                txt_file.write(res_str)
 
 
 def save_classification_model(model_dict, test=False):
@@ -288,27 +266,72 @@ def save_classification_model(model_dict, test=False):
     if any(s_and_m):
         with open(file_path, 'w') as yaml_file:
             yaml.dump(s_and_m, yaml_file)
+
+        res_str = classifier_results_to_str(model_dict)
         with open(cverr_txt_path, 'w') as txt_file:
-            txt_file.write('confusion_matrix : \n')
-            txt_file.write(str(model_dict.cross_valid_results["confusion matrix :"])+ '\n')
-            txt_file.write('\n System classes : \n')
-            for s in model_dict.cross_valid_results["model was tested for :"]:
-                txt_file.write(str(s)+ '\n')
-            txt_file.write('\n F1 score by classes : \n')
-            txt_file.write(str(model_dict.cross_valid_results["F1 score by sys_classes"])+ '\n')
-            txt_file.write('\n F1 averaged not weighted : \n')
-            txt_file.write(str(model_dict.cross_valid_results["F1 score averaged not weighted :"])+ '\n')
-            txt_file.write('\n mean not weighted acc by system classes : \n')
-            for k, v in model_dict.cross_valid_results["mean not weighted accuracies by system classes :"].items():
-                if isinstance(v, float):
-                    txt_file.write(str(k)+ ": " + str(v) + '\n')
-            txt_file.write('\n mean accuracy : \n')
-            txt_file.write(str(model_dict.cross_valid_results["mean not weighted accuracy :"])+ '\n')
-            txt_file.write('The accuracy was calculated for each system class for each split (one experiment out) \n'
-                           'as percent of right predicted labels. Then accuracy was averaged for each system class, \n'
-                           'and then averaged for all system class')
+            txt_file.write(res_str)
 
 
+def classifier_results_to_str(model_dict):
+    """Convert the dict with cross validation results to str.
+
+    Parameters
+    ----------
+    model_dict : dict
+        with scaler, model, parameters, and cross validation results.
+
+    Returns
+    -------
+    results_str : str
+        string with formated results of cross validatin.
+    """
+
+    results_str = "Cross validation results for System Classifier \n"
+    results_str +='confusion_matrix : \n'
+    results_str += str(model_dict.cross_valid_results["confusion matrix :"])+ '\n'
+    results_str += '\n System classes : \n'
+    for s in model_dict.cross_valid_results["model was tested for :"]:
+        results_str += str(s)+ '\n'
+    results_str += '\n F1 score by classes : \n'
+    results_str += str(model_dict.cross_valid_results["F1 score by sys_classes"])+ '\n'
+    results_str += '\n F1 averaged not weighted : \n'
+    results_str += str(model_dict.cross_valid_results["F1 score averaged not weighted :"])+ '\n'
+    results_str += '\n mean not weighted acc by system classes : \n'
+    for k, v in model_dict.cross_valid_results["mean not weighted accuracies by system classes :"].items():
+        if isinstance(v, float):
+            results_str += str(k)+ ": " + str(v) + '\n'
+    results_str +='\n mean accuracy : \n'
+    results_str += str(model_dict.cross_valid_results["mean not weighted accuracy :"])+ '\n'
+    results_str += 'The accuracy was calculated for each system class for each split (one experiment out) \n ' \
+                       'as percent of right predicted labels. Then accuracy was averaged for each system class, \n ' \
+                       'and then averaged for all system class'
+
+    return results_str
+
+def regressors_results_to_str(cross_valid_results):
+    """Convert the dict with cross validation results to str.
+
+    Parameters
+    ----------
+    cross_valid_results : dict
+        with cross validation relults.
+
+    Returns
+    -------
+    results_str : str
+        string with formated results of cross validatin.
+    """
+
+    results_str = "Cross validation results for Regressors \n"
+    for a_k, a_v in cross_valid_results.items():
+        results_str += (a_k + '\n')
+        for k,v in a_v.items():
+            results_str += (k + ' : ' + str(v) + '\n')
+        results_str += '\n'
+
+    return results_str
+
+'''
 def evaluate_params(q_I, system_class):
     """Evaluate regression models to estimate parameters for the sample
 
@@ -331,6 +354,7 @@ def evaluate_params(q_I, system_class):
     for param_nm,m in regression_models[system_class].items():
         params_dict[param_nm] = m.predict(f, q_I)
     return params_dict
+'''
 
 # helper function - to set parameters for scalers and models
 def set_param(m_s, param):
@@ -339,5 +363,30 @@ def set_param(m_s, param):
             setattr(m_s, k, np.array(v))
         else:
             setattr(m_s, k, v)
+
+
+def predict(features):
+    """Evaluate classifier and regression models to
+    estimate parameters for the sample
+
+    Parameters
+    ----------
+    features : OrderedDict
+            OrderedDict of features with their values,
+            similar to output of xrsdkit.tools.profiler.profile_spectrum()
+
+    Returns
+    -------
+    results : dict
+        dictionary with predicted system class and parameters
+    """
+    results = {}
+    results['system_class'] = cls.classify(features)
+    sys_cl = results['system_class'][0]
+
+    for param_nm, regressor in regression_models[sys_cl].items():
+        results[param_nm] = regressor.predict(features)
+
+    return results
 
 

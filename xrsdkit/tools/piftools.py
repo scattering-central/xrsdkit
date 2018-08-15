@@ -80,6 +80,8 @@ def unpack_pif(pp):
     if pp.classifications is not None:
         for cl in pp.classifications:
             cls_dict[cl.name] = cl.value
+            if cl.value == 'unidentified':
+                cls_dict[cl.name] = 'pop0_unidentified'
 
     # pack properties into a dict
     props_dict = {}
@@ -253,7 +255,7 @@ def profile_properties(q_I):
 
 def system_classifications(opd):
     if any([popdef['structure'] == 'unidentified' for popnm,popdef in opd.items()]):
-        return [Classification('system_classification','unidentified')]
+        return [Classification('system_classification','pop0_unidentified')]
     else:
         clss = []
         sys_cls = ''

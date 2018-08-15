@@ -1,10 +1,11 @@
 system_class:
   cross_valid_results: !!python/object/apply:collections.OrderedDict
   - - - 'all system classes :'
-      - [unidentified, pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical,
-        pop0_hard_spheres__site0_guinier_porod, pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod,
-        pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_hard_spheres__site0_spherical_normal,
-        pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal]
+      - [pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod,
+        pop0_hard_spheres__site0_guinier_porod, pop0_unidentified, pop0_diffuse__site0_spherical_normal__pop1_fcc__site0_spherical,
+        pop0_diffuse__site0_guinier_porod, pop0_diffuse__site0_spherical_normal, pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical,
+        pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal,
+        pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal, pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_hard_spheres__site0_spherical_normal]
     - - 'confusion matrix :'
       - !!python/object/apply:numpy.core.multiarray._reconstruct
         args:
@@ -14,21 +15,32 @@ system_class:
           Yg==
         state: !!python/tuple
         - 1
-        - !!python/tuple [4, 4]
+        - !!python/tuple [9, 9]
         - !!python/object/apply:numpy.dtype
           args: [i8, 0, 1]
           state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
         - false
         - !!binary |
-          OwAAAAAAAAAKAAAAAAAAAAIAAAAAAAAAAQAAAAAAAAACAAAAAAAAAAcAAAAAAAAAGgAAAAAAAAAA
-          AAAAAAAAAAMAAAAAAAAAAgAAAAAAAAAKAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAMA
-          AAAAAAAAAQAAAAAAAAA=
+          NQAAAAAAAAAHAAAAAAAAAAYAAAAAAAAAAwAAAAAAAAAHAAAAAAAAAAkAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAkAAAAAAAAAEAAAAAAAAABJAAAAAAAAACYAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzAAAAAAAAAGEAAAAAAAAADAAA
+          AAAAAAAfAAAAAAAAAAYAAAAAAAAAKgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAIAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAHQAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAABQAAAAAAAAAIAAAAAAAAAA8AAAAAAAAAAAAAAAAAAAAjAAAAAAAAAAEAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAFwAAAAAAAAAAAAAAAAAAAAcAAAAAAAAACQAAAAAAAAAAAAAAAAAA
+          ABUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAABUAAAAAAAAA
+          AgAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAHQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA
+          AAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAQAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAEAAAAAAAAA
     - - 'model was NOT tested for :'
-      - [pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical,
-        pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_hard_spheres__site0_spherical_normal]
+      - [pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_hard_spheres__site0_spherical_normal]
     - - 'model was tested for :'
-      - [unidentified, pop0_hard_spheres__site0_guinier_porod, pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod,
-        pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal]
+      - [pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod,
+        pop0_hard_spheres__site0_guinier_porod, pop0_unidentified, pop0_diffuse__site0_spherical_normal__pop1_fcc__site0_spherical,
+        pop0_diffuse__site0_guinier_porod, pop0_diffuse__site0_spherical_normal, pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical,
+        pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal,
+        pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal]
     - - F1 score by sys_classes
       - !!python/object/apply:numpy.core.multiarray._reconstruct
         args:
@@ -38,84 +50,182 @@ system_class:
           Yg==
         state: !!python/tuple
         - 1
-        - !!python/tuple [4]
+        - !!python/tuple [9]
         - &id002 !!python/object/apply:numpy.dtype
           args: [f8, 0, 1]
           state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
         - false
         - !!binary |
-          CrqrFBN05z97Ce0ltJfQP0xnMZ3FdNY/AAAAAAAA0D8=
+          dobEvJ0h4T+YSA9Uzm7hP2/V1NfIE90/Fl/xFV/xtT9+IuGU5sXfPziO4ziO49g/ZGpg75ga2D8A
+          AAAAAAAAAGQhC1nIQrY/
     - - 'F1 score averaged not weighted :'
       - !!python/object/apply:numpy.core.multiarray.scalar
         - *id002
         - !!binary |
-          N3kd+yd92T8=
+          Fb4KghQd1T8=
     - - 'mean not weighted accuracies by system classes :'
-      - pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical: []
+      - pop0_diffuse__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+        - *id002
+        - !!binary |
+          aanBKvL84D8=
+        pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+        - *id002
+        - !!binary |
+          VVVVVVVV1T8=
+        pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical: !!python/object/apply:numpy.core.multiarray.scalar
+        - *id002
+        - !!binary |
+          cer33BKn4j8=
         pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_hard_spheres__site0_spherical_normal: []
+        pop0_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+        - *id002
+        - !!binary |
+          Z2ZmZmZm1j8=
+        pop0_diffuse__site0_spherical_normal__pop1_fcc__site0_spherical: !!python/object/apply:numpy.core.multiarray.scalar
+        - *id002
+        - !!binary |
+          mpmZmZmZqT8=
         pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
         - *id002
         - !!binary |
-          JUmSJEmS5D8=
+          QfG2+tlZ5D8=
         pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
         - *id002
         - !!binary |
-          AAAAAAAA4D8=
+          AAAAAAAAAAA=
         pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
         - *id002
         - !!binary |
-          VVVVVVVV2j8=
-        unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+          wSbJBj4m4z8=
+        pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
         - *id002
         - !!binary |
-          PcWyj0fw5j8=
+          AdOb5Qgw1T8=
     - - 'mean not weighted accuracies by exp :'
-      - R2:
+      - R1:
           average for exp: !!python/object/apply:numpy.core.multiarray.scalar
           - *id002
           - !!binary |
-            N93499YR1D8=
+            6jxoHXCb0D8=
+          by classes:
+            pop0_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              mpmZmZmZ2T8=
+            pop0_diffuse__site0_spherical_normal__pop1_fcc__site0_spherical: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+            pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              ntiJndiJzT8=
+            pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              VVVVVVVV1T8=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              VVVVVVVV1T8=
+        R12:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            +U/Mkell4z8=
+          by classes:
+            pop0_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              mpmZmZmZ6T8=
+            pop0_diffuse__site0_spherical_normal__pop1_fcc__site0_spherical: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              mpmZmZmZuT8=
+            pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              t23btm3b5j8=
+            pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA8D8=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              q6qqqqqq2j8=
+        R13:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            q6qqqqqq0j8=
+          by classes:
+            pop0_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+            pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              q6qqqqqq2j8=
+            pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA6D8=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+        R2:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            9M3RN0ffvD8=
           by classes:
             pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
-              27Zt27Zt2z8=
+              kiRJkiRJ0j8=
             pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
               AAAAAAAAAAA=
-            unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
-              ZHA+Budj4D8=
+              KK+hvIbyqj8=
         R3:
           average for exp: !!python/object/apply:numpy.core.multiarray.scalar
           - *id002
           - !!binary |
-            Ks2LP5Fw5j8=
+            qqqqqqqq1j8=
           by classes:
             pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
-              AAAAAAAA4D8=
+              AAAAAAAA6D8=
             pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod__pop2_hard_spheres__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
-              AAAAAAAA8D8=
+              AAAAAAAAAAA=
             pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
-              VVVVVVVV5T8=
-            unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+              AAAAAAAAAAA=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
-              Ut/ZqO9s5D8=
+              VVVVVVVV5T8=
         R7:
           average for exp: !!python/object/apply:numpy.core.multiarray.scalar
           - *id002
           - !!binary |
-            AAAAAAAA5z8=
+            AAAAAAAA4D8=
           by classes:
+            pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
             pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
@@ -123,16 +233,170 @@ system_class:
             pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
-              AAAAAAAAxD8=
-            unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+              AAAAAAAAAAA=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
             - *id002
             - !!binary |
               AAAAAAAA8D8=
+        Reaction_A:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            npCrdeEJ2T8=
+          by classes:
+            pop0_diffuse__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              3t3d3d3d7T8=
+            pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+            pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              XkN5DeU15D8=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+        Reaction_B:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            IujtBh6C1j8=
+          by classes:
+            pop0_diffuse__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              KK+hvIby2j8=
+            pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+            pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              ZmZmZmZm5j8=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              kiRJkiRJ0j8=
+        Reaction_C:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            DuqgDuqg5D8=
+          by classes:
+            pop0_diffuse__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA4D8=
+            pop0_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              zczMzMzM7D8=
+            pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              27Zt27Zt2z8=
+            pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA6D8=
+        Reaction_D:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            7MRO7MRO2T8=
+          by classes:
+            pop0_diffuse__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA4D8=
+            pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA1D8=
+            pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              2Ymd2Imd6D8=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+        Reaction_E:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            4hVe4RVe4T8=
+          by classes:
+            pop0_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+            pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA8D8=
+            pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              FDuxEzux4z8=
+            pop0_unidentified: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              chzHcRzH4T8=
+        Reaction_G:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            ULwYDh4G6j8=
+          by classes:
+            pop0_diffuse__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              MzMzMzMz0z8=
+            pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA8D8=
+            pop0_diffuse__site0_guinier_porod__pop1_diffuse__site0_spherical_normal__pop2_fcc__site0_spherical: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA8D8=
+            pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              27Zt27Zt6z8=
+            pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              F1100UUX7T8=
+        Reaction_H:
+          average for exp: !!python/object/apply:numpy.core.multiarray.scalar
+          - *id002
+          - !!binary |
+            9DzP8zzP4z8=
+          by classes:
+            pop0_diffuse__site0_spherical_normal: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAAAAA=
+            pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              AAAAAAAA8D8=
+            pop0_hard_spheres__site0_guinier_porod: !!python/object/apply:numpy.core.multiarray.scalar
+            - *id002
+            - !!binary |
+              27Zt27Zt6z8=
     - - 'mean not weighted accuracy :'
       - !!python/object/apply:numpy.core.multiarray.scalar
         - *id002
         - !!binary |
-          Q+67104r4j8=
+          aObG4FpE2D8=
   model:
     C: 1.0
     _expanded_class_weight: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -143,14 +407,15 @@ system_class:
         Yg==
       state: !!python/tuple
       - 1
-      - !!python/tuple [4]
+      - !!python/tuple [10]
       - *id002
       - false
       - !!binary |
-        AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8=
+        AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8A
+        AAAAAADwPwAAAAAAAPA/AAAAAAAA8D8=
     _max_iter: 10
     _tol: null
-    alpha: 0.01
+    alpha: 1.0e-05
     average: false
     class_weight: null
     classes_: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -161,46 +426,96 @@ system_class:
         Yg==
       state: !!python/tuple
       - 1
-      - !!python/tuple [4]
+      - !!python/tuple [10]
       - !!python/object/apply:numpy.dtype
         args: [U119, 0, 1]
         state: !!python/tuple [3, <, null, null, null, 476, 4, 8]
       - false
       - !!binary |
         cAAAAG8AAABwAAAAMAAAAF8AAABkAAAAaQAAAGYAAABmAAAAdQAAAHMAAABlAAAAXwAAAF8AAABz
-        AAAAaQAAAHQAAABlAAAAMAAAAF8AAABzAAAAcAAAAGgAAABlAAAAcgAAAGkAAABjAAAAYQAAAGwA
-        AABfAAAAbgAAAG8AAAByAAAAbQAAAGEAAABsAAAAXwAAAF8AAABwAAAAbwAAAHAAAAAxAAAAXwAA
-        AGgAAABhAAAAcgAAAGQAAABfAAAAcwAAAHAAAABoAAAAZQAAAHIAAABlAAAAcwAAAF8AAABfAAAA
-        cwAAAGkAAAB0AAAAZQAAADAAAABfAAAAZwAAAHUAAABpAAAAbgAAAGkAAABlAAAAcgAAAF8AAABw
-        AAAAbwAAAHIAAABvAAAAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAaQAAAHQAAABlAAAAMAAAAF8AAABnAAAAdQAAAGkAAABuAAAAaQAAAGUAAAByAAAAXwAAAHAA
+        AABvAAAAcgAAAG8AAABkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAABwAAAAbwAAAHAAAAAwAAAAXwAAAGQAAABpAAAAZgAAAGYAAAB1
-        AAAAcwAAAGUAAABfAAAAXwAAAHMAAABpAAAAdAAAAGUAAAAwAAAAXwAAAHMAAABwAAAAaAAAAGUA
-        AAByAAAAaQAAAGMAAABhAAAAbAAAAF8AAABuAAAAbwAAAHIAAABtAAAAYQAAAGwAAABfAAAAXwAA
-        AHAAAABvAAAAcAAAADEAAABfAAAAaAAAAGEAAAByAAAAZAAAAF8AAABzAAAAcAAAAGgAAABlAAAA
-        cgAAAGUAAABzAAAAXwAAAF8AAABzAAAAaQAAAHQAAABlAAAAMAAAAF8AAABnAAAAdQAAAGkAAABu
-        AAAAaQAAAGUAAAByAAAAXwAAAHAAAABvAAAAcgAAAG8AAABkAAAAXwAAAF8AAABwAAAAbwAAAHAA
-        AAAyAAAAXwAAAGgAAABhAAAAcgAAAGQAAABfAAAAcwAAAHAAAABoAAAAZQAAAHIAAABlAAAAcwAA
-        AF8AAABfAAAAcwAAAGkAAAB0AAAAZQAAADAAAABfAAAAcwAAAHAAAABoAAAAZQAAAHIAAABpAAAA
-        YwAAAGEAAABsAAAAXwAAAG4AAABvAAAAcgAAAG0AAABhAAAAbAAAAHAAAABvAAAAcAAAADAAAABf
-        AAAAaAAAAGEAAAByAAAAZAAAAF8AAABzAAAAcAAAAGgAAABlAAAAcgAAAGUAAABzAAAAXwAAAF8A
+        AAAAcwAAAGUAAABfAAAAXwAAAHMAAABpAAAAdAAAAGUAAAAwAAAAXwAAAGcAAAB1AAAAaQAAAG4A
+        AABpAAAAZQAAAHIAAABfAAAAcAAAAG8AAAByAAAAbwAAAGQAAABfAAAAXwAAAHAAAABvAAAAcAAA
+        ADEAAABfAAAAZAAAAGkAAABmAAAAZgAAAHUAAABzAAAAZQAAAF8AAABfAAAAcwAAAGkAAAB0AAAA
+        ZQAAADAAAABfAAAAcwAAAHAAAABoAAAAZQAAAHIAAABpAAAAYwAAAGEAAABsAAAAXwAAAG4AAABv
+        AAAAcgAAAG0AAABhAAAAbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHAAAABvAAAAcAAAADAAAABf
+        AAAAZAAAAGkAAABmAAAAZgAAAHUAAABzAAAAZQAAAF8AAABfAAAAcwAAAGkAAAB0AAAAZQAAADAA
+        AABfAAAAZwAAAHUAAABpAAAAbgAAAGkAAABlAAAAcgAAAF8AAABwAAAAbwAAAHIAAABvAAAAZAAA
+        AF8AAABfAAAAcAAAAG8AAABwAAAAMQAAAF8AAABkAAAAaQAAAGYAAABmAAAAdQAAAHMAAABlAAAA
+        XwAAAF8AAABzAAAAaQAAAHQAAABlAAAAMAAAAF8AAABzAAAAcAAAAGgAAABlAAAAcgAAAGkAAABj
+        AAAAYQAAAGwAAABfAAAAbgAAAG8AAAByAAAAbQAAAGEAAABsAAAAXwAAAF8AAABwAAAAbwAAAHAA
+        AAAyAAAAXwAAAGYAAABjAAAAYwAAAF8AAABfAAAAcwAAAGkAAAB0AAAAZQAAADAAAABfAAAAcwAA
+        AHAAAABoAAAAZQAAAHIAAABpAAAAYwAAAGEAAABsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAcAAAAG8AAABwAAAAMAAAAF8AAABkAAAAaQAAAGYAAABmAAAAdQAAAHMAAABlAAAAXwAAAF8A
         AABzAAAAaQAAAHQAAABlAAAAMAAAAF8AAABnAAAAdQAAAGkAAABuAAAAaQAAAGUAAAByAAAAXwAA
-        AHAAAABvAAAAcgAAAG8AAABkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AHAAAABvAAAAcgAAAG8AAABkAAAAXwAAAF8AAABwAAAAbwAAAHAAAAAxAAAAXwAAAGQAAABpAAAA
+        ZgAAAGYAAAB1AAAAcwAAAGUAAABfAAAAXwAAAHMAAABpAAAAdAAAAGUAAAAwAAAAXwAAAHMAAABw
+        AAAAaAAAAGUAAAByAAAAaQAAAGMAAABhAAAAbAAAAF8AAABuAAAAbwAAAHIAAABtAAAAYQAAAGwA
+        AABfAAAAXwAAAHAAAABvAAAAcAAAADIAAABfAAAAaAAAAGEAAAByAAAAZAAAAF8AAABzAAAAcAAA
+        AGgAAABlAAAAcgAAAGUAAABzAAAAXwAAAF8AAABzAAAAaQAAAHQAAABlAAAAMAAAAF8AAABzAAAA
+        cAAAAGgAAABlAAAAcgAAAGkAAABjAAAAYQAAAGwAAABfAAAAbgAAAG8AAAByAAAAbQAAAGEAAABs
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwAAAAbwAAAHAAAAAwAAAAXwAAAGQAAABpAAAAZgAAAGYA
+        AAB1AAAAcwAAAGUAAABfAAAAXwAAAHMAAABpAAAAdAAAAGUAAAAwAAAAXwAAAHMAAABwAAAAaAAA
+        AGUAAAByAAAAaQAAAGMAAABhAAAAbAAAAF8AAABuAAAAbwAAAHIAAABtAAAAYQAAAGwAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAdQAAAG4AAABpAAAAZAAAAGUAAABuAAAAdAAAAGkAAABmAAAAaQAAAGUAAABkAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHAAAABvAAAAcAAAADAA
+        AABfAAAAZAAAAGkAAABmAAAAZgAAAHUAAABzAAAAZQAAAF8AAABfAAAAcwAAAGkAAAB0AAAAZQAA
+        ADAAAABfAAAAcwAAAHAAAABoAAAAZQAAAHIAAABpAAAAYwAAAGEAAABsAAAAXwAAAG4AAABvAAAA
+        cgAAAG0AAABhAAAAbAAAAF8AAABfAAAAcAAAAG8AAABwAAAAMQAAAF8AAABmAAAAYwAAAGMAAABf
+        AAAAXwAAAHMAAABpAAAAdAAAAGUAAAAwAAAAXwAAAHMAAABwAAAAaAAAAGUAAAByAAAAaQAAAGMA
+        AABhAAAAbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAcAAAAG8AAABwAAAAMAAAAF8AAABkAAAAaQAAAGYAAABmAAAAdQAAAHMAAABlAAAAXwAA
+        AF8AAABzAAAAaQAAAHQAAABlAAAAMAAAAF8AAABzAAAAcAAAAGgAAABlAAAAcgAAAGkAAABjAAAA
+        YQAAAGwAAABfAAAAbgAAAG8AAAByAAAAbQAAAGEAAABsAAAAXwAAAF8AAABwAAAAbwAAAHAAAAAx
+        AAAAXwAAAGgAAABhAAAAcgAAAGQAAABfAAAAcwAAAHAAAABoAAAAZQAAAHIAAABlAAAAcwAAAF8A
+        AABfAAAAcwAAAGkAAAB0AAAAZQAAADAAAABfAAAAZwAAAHUAAABpAAAAbgAAAGkAAABlAAAAcgAA
+        AF8AAABwAAAAbwAAAHIAAABvAAAAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABwAAAAbwAAAHAAAAAwAAAAXwAAAGQAAABpAAAAZgAA
+        AGYAAAB1AAAAcwAAAGUAAABfAAAAXwAAAHMAAABpAAAAdAAAAGUAAAAwAAAAXwAAAHMAAABwAAAA
+        aAAAAGUAAAByAAAAaQAAAGMAAABhAAAAbAAAAF8AAABuAAAAbwAAAHIAAABtAAAAYQAAAGwAAABf
+        AAAAXwAAAHAAAABvAAAAcAAAADEAAABfAAAAaAAAAGEAAAByAAAAZAAAAF8AAABzAAAAcAAAAGgA
+        AABlAAAAcgAAAGUAAABzAAAAXwAAAF8AAABzAAAAaQAAAHQAAABlAAAAMAAAAF8AAABnAAAAdQAA
+        AGkAAABuAAAAaQAAAGUAAAByAAAAXwAAAHAAAABvAAAAcgAAAG8AAABkAAAAXwAAAF8AAABwAAAA
+        bwAAAHAAAAAyAAAAXwAAAGgAAABhAAAAcgAAAGQAAABfAAAAcwAAAHAAAABoAAAAZQAAAHIAAABl
+        AAAAcwAAAF8AAABfAAAAcwAAAGkAAAB0AAAAZQAAADAAAABfAAAAcwAAAHAAAABoAAAAZQAAAHIA
+        AABpAAAAYwAAAGEAAABsAAAAXwAAAG4AAABvAAAAcgAAAG0AAABhAAAAbAAAAHAAAABvAAAAcAAA
+        ADAAAABfAAAAaAAAAGEAAAByAAAAZAAAAF8AAABzAAAAcAAAAGgAAABlAAAAcgAAAGUAAABzAAAA
+        XwAAAF8AAABzAAAAaQAAAHQAAABlAAAAMAAAAF8AAABnAAAAdQAAAGkAAABuAAAAaQAAAGUAAABy
+        AAAAXwAAAHAAAABvAAAAcgAAAG8AAABkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAcAAAAG8AAABwAAAAMAAAAF8AAAB1AAAAbgAAAGkAAABkAAAAZQAAAG4AAAB0AAAA
+        aQAAAGYAAABpAAAAZQAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
     coef_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id001
@@ -209,23 +524,41 @@ system_class:
         Yg==
       state: !!python/tuple
       - 1
-      - !!python/tuple [4, 22]
+      - !!python/tuple [10, 22]
       - *id002
       - false
       - !!binary |
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJsboAjOFA0CcGxe5J4n7PwAAAAAAAAAAztBwtLIu5j8c
-        xQAg0GjuPwAAAAAAAAAAAAAAAAAAAAASaAJp67sOwAAAAAAAAAAAbRZnAMGPBsBm0fS8mCYTQBrj
-        Yj5hqxLAc0EcyQfp6D8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB0S/xa2Df/PwAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCqZYHUj87/CkkrW
-        E4AUwAAAAAAAAAAAVi27aB7O8r9zgqTKgZHHv81oytmiJQnAspAQZ1pJ2r8keN8J22UDwLjrnwG+
-        7Q1AFir8wtuf9z/Zebw4Na/1v284nFMPcifAAAAAAAAAAAD00p7Ep9i7vwAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8HR3Zid/U/xiRI9Ga7EEAAAAAAAAAA
-        APZS5a3moRFAdN5mtGgiEMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAOtvWqj2KCUDwKBocmPD7PwAAAAAAAAAAbp1/Hr9K1b/Qmb/9c3EWwAAA
-        AAAAAAAAvrmpzrdu6D9N0BFMwFnXvwAAAAAAAAAAkJO8pJyW8j+IYD/JnCXoPwAAAAAAAAAAAAAA
-        AAAAAADuFHkHA+7/v1uZ/mqbFP0/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wf5R
-        3hUNwAAAAAAAAAAACeOTbucBBkA=
+        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
     epsilon: 0.1
     eta0: 0.0
     fit_intercept: true
@@ -237,12 +570,13 @@ system_class:
         Yg==
       state: !!python/tuple
       - 1
-      - !!python/tuple [4]
+      - !!python/tuple [10]
       - *id002
       - false
       - !!binary |
-        9yh9otVOJcBXQXmGTEUvwFtQfXg8YSrAJXgztAt4BEA=
-    l1_ratio: 0
+        KGypqaeZd8DgMCRN8IB4wHjm2Ps9KnrANlv6ZO5JesBcmgzXeMZ+wCQE38i8V3rAABYEhJHecsCx
+        NhsDpERzwFNyeHoV0WfAYOWCd0WUUMA=
+    l1_ratio: 0.85
     learning_rate: optimal
     loss: log
     loss_function_: !!python/object/apply:sklearn.linear_model.sgd_fast.Log []
@@ -250,11 +584,11 @@ system_class:
     n_iter: null
     n_iter_: 10
     n_jobs: 1
-    penalty: l1
+    penalty: l2
     power_t: 0.5
     random_state: null
     shuffle: true
-    t_: 1071.0
+    t_: 6331.0
     tol: null
     verbose: 0
     warm_start: false
@@ -272,11 +606,11 @@ system_class:
       - *id002
       - false
       - !!binary |
-        qGKhJP7aJ0DzSitLF9cEQK6OjTHUi/U/JhZ9Xl1OCkCQtbXZ8YURQM4TErA1Dx5ALG7oIxSXuz8y
-        SkSlqgxfP7mb+agikcw/RdRoJzSrwz/Xb+gDlTvbv3mT531Eady/W78/Q8LC27+fZLpcH4faP587
-        7DQ1Ib0/GsomcJJzuj9OZhm1UGaQP10dC4QQoNg/1LISCYq+uj+K4+F84HC7P7OCIY/HY40/5OmN
-        ozgQjz8=
-    n_samples_seen_: 174
+        1nsMpf6PJkARTkLn8O4IQFNBWRyX6fU/8MjizPthBECbw1E3ipESQG7tVLIN9R9AScOnHUfLuT/s
+        7ainK61mP66MgAfyZsk/UDr6KBsP2T+XiKpvFq7av8KaG5L0Wte/l4dFcjPS2b/kRtlmGHXbPwix
+        gqps3LE/rrqWOFe8vT8+DHR1OOeFPw9lzuifr8w/IN/QFadtrz8Ynel2Emi+P1gpifOFbpw/8dbK
+        KuVKpT8=
+    n_samples_seen_: 699
     scale_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id001
@@ -289,10 +623,10 @@ system_class:
       - *id002
       - false
       - !!binary |
-        H5xOO6pjL0BocW7z1iUFQN/iNkaaztk/bMYToi52BkBpws+KNzwDQI3hhXOObRFAgKjz88uXoz9S
-        uALLv1U7P61NkjnJhLg/lBHoXfKL5D94gc4UGozVP+Y8IqrO2dI/GknE80SU1D8j90PWCpDWPxKk
-        Kxbooc4/jxWACQgoxz8rBHbA8Ru0PxewFhLVDgZAlv3oHqHA0D+yhIMxv6XMP1WXHpwoaLc/NAtC
-        WkOVtj8=
+        BVjHUb0xLEAwnEzyp9IDQI7yuksd6OQ/7ygKjnPtBUA05j8HCPwGQIseOP+DHhlADW5nQfJaoz+a
+        /HhY5BhiP4vjIfKVjbk/KENWQu8UBkA5W2ZWYE/UPxakmEsuwtA/6nL4PTYx0z8TTsJQ13jVP+8b
+        oowq5MY/O3/F2b/73z+7fRlP6M+uPwDoTHvnMv4/ECkW/U3Iwz8xGL1xvGrUP0rWqZQYCsk/jN+N
+        jfyP0T8=
     var_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id001
@@ -305,9 +639,9 @@ system_class:
       - *id002
       - false
       - !!binary |
-        dNvAO1DKbkC/hm+8rfMbQI+J5fIG0MQ/s+8ULmmIH0D0Uv+K5h8XQDjFVt+8+zJADBQnhyT+Vz/2
-        mfhtmVmHPirHZ9dUyYI/9yY7/KVi2j9utTQ/jwS9P7xNAf+lNbY/kIwxXgp4uj8MBlOQLtG/P00s
-        hFfGUq0/9+PBob3BoD+pV1UvDUZ5P6N9s7HXaB5AP1EOX1GKsT/eG8sWaaWpP6hJlmgNH4E/xzLC
-        r+nffz8=
+        WltHn1jXaEBKLvFeJI8YQMgvHY9wUds/LydtRxMNHkCTDmwITIIgQIKyZljLt0NAemwJTwRqVz+y
+        ftSAKHjUPjJceb6sZ4Q/Od+MWq15HkBxJZmh+se5P8lxYDqRjbE/6YUhMHgFtz+D+wrdxdC8PwqA
+        618VYKA/LiYVRID3zz8/oWVgGqttP1cBHAHDfwxAIO9H2IR1mD//Oeclnw26P6squZfJl6M/3zLC
+        bghHsz8=
     with_mean: true
     with_std: true

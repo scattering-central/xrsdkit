@@ -155,21 +155,6 @@ class Classifier(XRSDModel):
 
         return result
 
-    """
-    def print_accuracies(self):
-        '''Pretty-print a report of the cross-validation statistics.'''
-        msg = '{}: cross-validation summary'.format(self.__name__)
-        # TODO: extract the error objective that was used to cross-validate the model
-        msg += 'model objective: ... '
-        # TODO: save a representation of the cross-validation technique, and extract it here
-        msg += os.linesep+'cross-validation technique: ... '
-        # TODO: save cross-validation statistics during training,
-        # then process the statistics and print them out here
-        msg += os.linesep+'cross-validation statistics: '
-        msg += os.linesep+' ... '
-        return msg
-    """
-
 
 class SystemClassifier(Classifier):
     """Classifier for determining the material system (structures and form factors).

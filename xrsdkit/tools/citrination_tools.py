@@ -46,7 +46,7 @@ def get_data_from_Citrination(client, dataset_id_list):
         feats = OrderedDict.fromkeys(profiler.profile_keys)
         feats.update(pp_feats)
 
-        # TODO: explain why "i" is included in the data row 
+        # i is needed to keep relation between rows and corresponding pifs
         data_row = [expt_id]+list(feats.values())+[cl_model_outputs]+[i]
 
         data.append(data_row)
@@ -68,7 +68,7 @@ def get_data_from_Citrination(client, dataset_id_list):
     colnames = ['experiment_id']
     colnames.extend(profiler.profile_keys)
     colnames.extend(['system_class'])
-    # TODO: explain the local_id
+    # local_id is the number of corresponding pif
     colnames.extend(['local_id'])
     colnames.extend(reg_labels_list)
 
@@ -209,13 +209,13 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True,
 
             d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
             for cl,pp in pifs_by_sys_class.items():
-                # check if this system class has an assigned dataset id 
+                # check if this system class has an assigned dataset id
                 if cl in dataset_ids:
                     ds_id = dataset_ids[cl]
                 # if not, create a new one and add it to the index
                 else:
-                    ds = client.data.create_dataset(cl, 
-                    'Downsampled modeling data for system class {}'.format(cl))
+                    ds = client.data.create_dataset(name = cl,
+                        description ='Downsampled modeling data for system class {}'.format(cl))
                     ds_id = ds.id
                     dataset_ids[cl] = ds_id
                 jsf = os.path.join(d, cl+'_'+expt_id+'.json')

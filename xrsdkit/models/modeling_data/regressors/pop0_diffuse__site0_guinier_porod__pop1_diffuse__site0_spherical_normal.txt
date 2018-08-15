@@ -1,0 +1,33 @@
+Cross validation results for Regressors 
+pop0_site0_D
+normalized_mean_abs_error_by_experiments : [inf, inf, inf]
+normalized_mean_abs_error : inf
+labels_std : 0.0
+number_of_experiments : 3
+experiments : ['Reaction_B' 'Reaction_A' 'Reaction_G']
+test_training_split : by experiments
+
+pop0_site0_rg
+normalized_mean_abs_error_by_experiments : [0.84809358627901898, 0.28293417727128556, 0.59922682729239318]
+normalized_mean_abs_error : 0.576751530281
+labels_std : 7.027104432596865
+number_of_experiments : 3
+experiments : ['Reaction_A' 'Reaction_B' 'Reaction_G']
+test_training_split : by experiments
+
+pop1_site0_r0
+normalized_mean_abs_error_by_experiments : [0.71607150768631245, 0.85804031414074333, 0.48196944495531674]
+normalized_mean_abs_error : 0.685360422261
+labels_std : 8.67819833932055
+number_of_experiments : 3
+experiments : ['Reaction_A' 'Reaction_B' 'Reaction_G']
+test_training_split : by experiments
+
+pop1_site0_sigma
+normalized_mean_abs_error_by_experiments : [0.55729978092041699, 0.60267345126054372, 0.085979958571028595]
+normalized_mean_abs_error : 0.415317730251
+labels_std : 0.4399178990302749
+number_of_experiments : 3
+experiments : ['Reaction_B' 'Reaction_A' 'Reaction_G']
+test_training_split : by experiments
+

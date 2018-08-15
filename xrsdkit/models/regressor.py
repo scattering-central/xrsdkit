@@ -33,7 +33,7 @@ class Regressor(XRSDModel):
             new_model = linear_model.SGDRegressor(max_iter=1000) 
         return new_model
 
-    def predict(self, sample_features, q_I):
+    def predict(self, sample_features):
         """Predict this model's scalar target for a given sample. 
 
         Parameters
@@ -41,15 +41,16 @@ class Regressor(XRSDModel):
         sample_features : OrderedDict
             OrderedDict of features with their values,
             similar to output of xrsdkit.tools.profiler.profile_spectrum()
-        q_I : array
-            n-by-2 array of scattering vector (1/Angstrom) and intensities.
 
         Returns
         -------
         prediction : float
             predicted parameter value
         """
-        x = self.scaler.transform(sample_features)
+
+        feature_array = np.array(list(sample_features.values())).reshape(1,-1)
+        x = self.scaler.transform(feature_array)
+
         return float(self.model.predict(x)[0])
 
 
@@ -92,9 +93,9 @@ class Regressor(XRSDModel):
         """
         scaler = preprocessing.StandardScaler()
         scaler.fit(df[profiler.profile_keys])
-        scores = model_selection.cross_val_score(
+        scores = np.absolute(model_selection.cross_val_score(
                 model,scaler.transform(df[features]), df[self.target],
-                cv=5, scoring='neg_mean_absolute_error')/ label_std
+                cv=5, scoring='neg_mean_absolute_error')/ label_std)
 
         results = dict(normalized_mean_abs_error_by_splits = scores,
                        normalized_mean_abs_error = sum(scores)/len(scores),
