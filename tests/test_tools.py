@@ -10,14 +10,12 @@ def test_profile_spectrum():
     test_data = open(datapath,'r')
     q_I_gp = np.loadtxt(test_data,dtype=float,delimiter=',')
     gp_prof = profiler.profile_spectrum(q_I_gp)
-    gp_prof_2 = profiler.guinier_porod_profile(q_I_gp)
 
     datapath = os.path.join(os.path.dirname(__file__),
         'test_data','solution_saxs','spheres','spheres_0.csv')
     test_data = open(datapath,'r')
     q_I_sph = np.loadtxt(test_data,dtype=float,delimiter=',')
     sph_prof = profiler.profile_spectrum(q_I_sph)
-    sph_prof_2 = profiler.spherical_normal_profile(q_I_sph)
 
     datapath = os.path.join(os.path.dirname(__file__),
         'test_data','solution_saxs','peaks','peaks_0.csv')

@@ -1,4 +1,4 @@
-pop0_r_hard:
+pop0_site0_D:
   cross_valid_results:
     experiments: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
@@ -8,68 +8,39 @@ pop0_r_hard:
         Yg==
       state: !!python/tuple
       - 1
-      - !!python/tuple [10]
+      - !!python/tuple [3]
       - &id003 !!python/object/apply:numpy.dtype
         args: [O8, 0, 1]
         state: !!python/tuple [3, '|', null, null, null, -1, -1, 63]
       - false
-      - [Reaction_H, R7, Reaction_G, Reaction_D, Reaction_C, R3, Reaction_E, R13,
-        R1, R12]
-    labels_std: 41.345319595715864
+      - [Reaction_B, Reaction_A, Reaction_G]
+    labels_std: 0.0
     normalized_mean_abs_error: !!python/object/apply:numpy.core.multiarray.scalar
     - &id001 !!python/object/apply:numpy.dtype
       args: [f8, 0, 1]
       state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
     - !!binary |
-      byfrpSy35z8=
+      AAAAAAAA8H8=
     normalized_mean_abs_error_by_experiments:
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        6BWHPL3WsT8=
+        AAAAAAAA8H8=
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        NusLMgQE4z8=
+        AAAAAAAA8H8=
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        GCAZNwzLrT8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        pi5Hcwp9sD8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        KKcMZgYSuj8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        NtcGDry9uD8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        v7EPEMG2uD8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        y+mjINmd0D8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        +ZeiNfRW3z8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        tROCLitSFkA=
-    number_of_experiments: 10
+        AAAAAAAA8H8=
+    number_of_experiments: 3
     test_training_split: by experiments
   model:
     C: 1.0
     _max_iter: 1000
     _tol: null
-    alpha: 0.01
+    alpha: 0.0001
     average: false
     coef_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
@@ -83,11 +54,11 @@ pop0_r_hard:
       - *id001
       - false
       - !!binary |
-        sZqqUA2jl7+kY9EO+zKqvwAAAAAAAAAAIPW0MHTx8z8AAAAAAAAAAAAAAAAAAAAAY+DOqnX85j8f
-        lyKQhaHkvwAAAAAAAAAAAAAAAAAAAADx9AHGqOiDv+TtCqyN/uW/GxgJBdluzL8AAAAAAAAAAAAA
-        AAAAAAAAYHiW3Rasxb8AAAAAAAAAACmgpk4VLr+/AAAAAAAAAAAE71wRx9DRvwAAAAAAAAAAAAAA
-        AAAAAAA=
-    epsilon: 0.1
+        3VKMvRXxLj8IMBHTMdcaPxFxO3q8u9e+loF0ruoIJz9+b6ijUYM7P6ZYuC83QxW/yH9zn+vV1b4A
+        AAAAAAAAAGIPlZoCtOS+WBs5EnvSQj9m4+hscOIiP1O3y5uf7Bo/tthwkMoUIT/s25kTX+okv+Dd
+        DNa0wzM/FnHgQ7Z8Cb9RdpEWvYwyv8Qi/ZV8vBY/39n6Yz+6Kj+bQfUBNbMFP6xRKjkacxy/dTqN
+        30VtE78=
+    epsilon: 1
     eta0: 0.01
     fit_intercept: true
     intercept_: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -102,18 +73,18 @@ pop0_r_hard:
       - *id001
       - false
       - !!binary |
-        Jig9eyfiD0A=
-    l1_ratio: 0.95
+        AJ+h6fD/D0A=
+    l1_ratio: 0
     learning_rate: invscaling
     loss: huber
     max_iter: 1000
     n_iter: null
     n_iter_: 1000
-    penalty: l1
+    penalty: none
     power_t: 0.25
     random_state: null
     shuffle: true
-    t_: 127001.0
+    t_: 10001.0
     tol: null
     verbose: 0
     warm_start: false
@@ -131,11 +102,11 @@ pop0_r_hard:
       - *id001
       - false
       - !!binary |
-        WxbZSWkQEEAYkl1bP6T7PyTUpOluVfI/SeImuqHnFkBu4xKcZygbQArZTLvmPCBAwMs4OlcdwD8N
-        uqwBLcxyP/23qTp5atE/hPOvZhCm0T8KR9bQL2zdv5nIDvTp3ty/6l2sQJN13b+oZ6bit0ndP0u1
-        K7Ymf7E/TDfkOxYdtT8PqCqwnwVlPzRqjE7japE/Hr1Q9rzysT8gwOlit366P59xYAWMpl4/QAP/
-        NH1rlD8=
-    n_samples_seen_: 129
+        qRwR5Ed5HEBSDLh5VkoWQCo91+nSa/A/8N7HpAtK4j/LYTCtKcMGQN/tdMNaZRZAD0syxds/qT9o
+        L6G9hPZiP5zVpMk7dr4/IQFlvltvxD+sJnJq64Tlv4Y1lw+EweC/L0fsdOgt5L8VdpT119HmPxMj
+        cWxolpk/fSiwz5xlxz+RUxZ5XzCFP7kxfedRs7M/YJ6Xzw+gnz8By8wNSrvHP6/hWcW3Dqo/heJp
+        U0iolT8=
+    n_samples_seen_: 11
     scale_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id002
@@ -148,10 +119,10 @@ pop0_r_hard:
       - *id001
       - false
       - !!binary |
-        YTIFxHEbCkBiVxx9l3zsP7pOk5/ywbs/2DEEI3mVAkAdVe9uSrUBQGkyFCiq0gpAjVh3YaZImT8c
-        nXGZ0IxpP1tTz6K9dZ8/m7scdspnpj8yVWVT6avRP0L1Hl14/NE/MRd8TIW70T9AWAt9aZ7RP+6l
-        SvLdVsQ/zh8FWyowtz8BhpZeCHaEP8J6cZb2JaU/MM7RCq+XxD/c+Sn+9ITRP3LG3fdfvH0/y6P2
-        1xdrvT8=
+        jyEePgQAAECHSi5lo2n/P1BtEKNd3KI/mDtC7faL5D/EvxCuY4D3P/krwymLzxFA3xVeQIj8lj8A
+        AAAAAADwPxTc+PwFWrI/S8PEgU+ovD8nvwhhiJOmPy6WsypoS6o/mDgxTL+4pz8oJAbGtT+lPxKL
+        MziLso0/00STPgzknD99FQjmxH10P8nH7K1zJpU/8CM34CD6iz/Bd1jFzCGaP22c8KlpIJw/B5q3
+        YzevnD8=
     var_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id002
@@ -164,10 +135,10 @@ pop0_r_hard:
       - *id001
       - false
       - !!binary |
-        uK8XaLBMJUA1W8gz7lvpP28GHevgE4g/M8CK8sSVFUDqwCRRRJkTQAml912/eyZAyidi6Cj6Qz9A
-        9U+WcWbkPgAMjKLQ7U4/l5+BDQ5gXz+hedjphoSzP0mP4JgPOLQ/4g66AhGnsz+eONWPwGazP+4E
-        rnsC25k/CH0gYoXNgD8C3O+neyoaP7wGOl4B9Fs/QbhzmtOAmj9VPyJ12S6zP8A0AtrCoQs/aw71
-        noELiz8=
+        H2M9fAgAEEA3AJRPCdYOQNA3DcCtO1Y/OsFisrFi2j9iGt9okkIBQI69Ud6L0zNAjEu7PASDQD8A
+        AAAAAAAAAJUckPyHDHU/kHKwZgCqiT9EgllpB9tfP6MT//Y6m2U/p43qmb2VYT8kqVjXOjhcPx9a
+        DIWAjys/bxoCnG4VSj+6hBXdSD76PrQMTBFM9Ts/xzAunLp1KD/5ISV0EFdFP7nZFb7ZuEg/r9Wz
+        VGC2ST8=
     with_mean: true
     with_std: true
 pop0_site0_rg:
@@ -180,58 +151,29 @@ pop0_site0_rg:
         Yg==
       state: !!python/tuple
       - 1
-      - !!python/tuple [10]
+      - !!python/tuple [3]
       - *id003
       - false
-      - [Reaction_D, Reaction_H, Reaction_C, R3, R7, Reaction_E, R13, Reaction_G,
-        R12, R1]
-    labels_std: 10.71422029982525
+      - [Reaction_A, Reaction_B, Reaction_G]
+    labels_std: 7.027104432596865
     normalized_mean_abs_error: !!python/object/apply:numpy.core.multiarray.scalar
     - *id001
     - !!binary |
-      ZL+xPcDL5z8=
+      ay4PoL904j8=
     normalized_mean_abs_error_by_experiments:
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        X+5P8e6SzD8=
+        84AgKZUj6z8=
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        9SC6D7GkzD8=
+        7kCT85cb0j8=
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        WERZwlRQ1T8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        bJNwmHrXtz8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        MJRG9FZqnT8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        2M7/nrsb0j8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        9Yl4kzt91D8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        Zy1QR5Or0D8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        nqHwHv4UFkA=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        PvOiId87wz8=
-    number_of_experiments: 10
+        1WlDvd0s4z8=
+    number_of_experiments: 3
     test_training_split: by experiments
   model:
     C: 1.0
@@ -251,9 +193,9 @@ pop0_site0_rg:
       - *id001
       - false
       - !!binary |
-        olTeBSptzj8fbwiRKdfQP1Ace7d3+46/AAAAAAAAAABFm0oGqIGjPyYJeZafP7u/AAAAAAAAAAAA
-        AAAAAAAAAAhWrkxG496/xGits3aqwb8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoLli4jVWcD8SvO0WGyPRPwAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAioz96xM0vr+xfMWAkr58v8BCQVEVTIm/6HnV0f4bg79RmSJ6XP5oPwAA
+        AAAAAAAAAAAAAAAAAABbV/n0XyYuv5ParRCBFc4/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAA=
     epsilon: 0.1
     eta0: 0.01
@@ -270,8 +212,8 @@ pop0_site0_rg:
       - *id001
       - false
       - !!binary |
-        oERudRgMCUA=
-    l1_ratio: 0.15
+        sT2eu0Ud8T8=
+    l1_ratio: 0.5
     learning_rate: invscaling
     loss: huber
     max_iter: 1000
@@ -281,7 +223,7 @@ pop0_site0_rg:
     power_t: 0.25
     random_state: null
     shuffle: true
-    t_: 126001.0
+    t_: 10001.0
     tol: null
     verbose: 0
     warm_start: false
@@ -299,11 +241,11 @@ pop0_site0_rg:
       - *id001
       - false
       - !!binary |
-        WxbZSWkQEEAXkl1bP6T7PyTUpOluVfI/SeImuqHnFkBu4xKcZygbQArZTLvmPCBAwMs4OlcdwD8M
-        uqwBLcxyP/63qTp5atE/hfOvZhCm0T8KR9bQL2zdv5nIDvTp3ty/7F2sQJN13b+oZ6bit0ndP0u1
-        K7Ymf7E/SzfkOxYdtT8PqCqwnwVlPzRqjE7japE/Hr1Q9rzysT8gwOlit366P55xYAWMpl4/QQP/
-        NH1rlD8=
-    n_samples_seen_: 129
+        qRwR5Ed5HEBSDLh5VkoWQCo91+nSa/A/8d7HpAtK4j/MYTCtKcMGQN7tdMNaZRZAD0syxds/qT9o
+        L6G9hPZiP5zVpMk7dr4/IQFlvltvxD+tJnJq64Tlv4Y1lw+EweC/L0fsdOgt5L8UdpT119HmPxMj
+        cWxolpk/fSiwz5xlxz+RUxZ5XzCFP7gxfedRs7M/YJ6Xzw+gnz8By8wNSrvHP6/hWcW3Dqo/hOJp
+        U0iolT8=
+    n_samples_seen_: 11
     scale_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id002
@@ -316,10 +258,10 @@ pop0_site0_rg:
       - *id001
       - false
       - !!binary |
-        YDIFxHEbCkBhVxx9l3zsP7lOk5/ywbs/2DEEI3mVAkAdVe9uSrUBQGkyFCiq0gpAjFh3YaZImT8c
-        nXGZ0IxpP1xTz6K9dZ8/m7scdspnpj8yVWVT6avRP0L1Hl14/NE/MRd8TIW70T9BWAt9aZ7RP+6l
-        SvLdVsQ/zx8FWyowtz8BhpZeCHaEP8J6cZb2JaU/MM7RCq+XxD/c+Sn+9ITRP3LG3fdfvH0/y6P2
-        1xdrvT8=
+        jyEePgQAAECHSi5lo2n/P1BtEKNd3KI/mTtC7faL5D/EvxCuY4D3P/krwymLzxFA3xVeQIj8lj8A
+        AAAAAADwPxTc+PwFWrI/TMPEgU+ovD8nvwhhiJOmPy2WsypoS6o/mDgxTL+4pz8oJAbGtT+lPxKL
+        MziLso0/00STPgzknD99FQjmxH10P8nH7K1zJpU/8SM34CD6iz/Bd1jFzCGaP22c8KlpIJw/BZq3
+        YzevnD8=
     var_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id002
@@ -332,13 +274,13 @@ pop0_site0_rg:
       - *id001
       - false
       - !!binary |
-        t68XaLBMJUA0W8gz7lvpP24GHevgE4g/M8CK8sSVFUDqwCRRRJkTQAml912/eyZAySdi6Cj6Qz9A
-        9U+WcWbkPgIMjKLQ7U4/l5+BDQ5gXz+hedjphoSzP0mP4JgPOLQ/4g66AhGnsz+fONWPwGazP+4E
-        rnsC25k/CX0gYoXNgD8C3O+neyoaP74GOl4B9Fs/QbhzmtOAmj9UPyJ12S6zP8A0AtrCoQs/aw71
-        noELiz8=
+        H2M9fAgAEEA2AJRPCdYOQNA3DcCtO1Y/PMFisrFi2j9iGt9okkIBQI+9Ud6L0zNAjEu7PASDQD8A
+        AAAAAAAAAJQckPyHDHU/kXKwZgCqiT9EgllpB9tfP6IT//Y6m2U/p43qmb2VYT8kqVjXOjhcPx9a
+        DIWAjys/bxoCnG4VSj+6hBXdSD76PrQMTBFM9Ts/yTAunLp1KD/5ISV0EFdFP7nZFb7ZuEg/rNWz
+        VGC2ST8=
     with_mean: true
     with_std: true
-pop0_v_fraction:
+pop1_site0_r0:
   cross_valid_results:
     experiments: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
@@ -348,58 +290,29 @@ pop0_v_fraction:
         Yg==
       state: !!python/tuple
       - 1
-      - !!python/tuple [10]
+      - !!python/tuple [3]
       - *id003
       - false
-      - [Reaction_C, R7, R3, Reaction_E, R13, R1, Reaction_D, Reaction_G, Reaction_H,
-        R12]
-    labels_std: 0.15189075189684817
+      - [Reaction_A, Reaction_B, Reaction_G]
+    labels_std: 8.67819833932055
     normalized_mean_abs_error: !!python/object/apply:numpy.core.multiarray.scalar
     - *id001
     - !!binary |
-      1Q9t25/g8T8=
+      r6by+nju5T8=
     normalized_mean_abs_error_by_experiments:
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        SYklQZLW8z8=
+        JIZjyw7q5j8=
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        USAY+35HxT8=
+        Nkr89RB16z8=
     - !!python/object/apply:numpy.core.multiarray.scalar
       - *id001
       - !!binary |
-        AJ5R1c80pT8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        BvXVNd6n8T8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        01jVzAUd+j8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        JrMyAcey6z8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        Ns0+FbAP8j8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        vP9odkca+z8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        CbAXYQXI8D8=
-    - !!python/object/apply:numpy.core.multiarray.scalar
-      - *id001
-      - !!binary |
-        0q+FwWgGAkA=
-    number_of_experiments: 10
+        ZUfwXpbY3j8=
+    number_of_experiments: 3
     test_training_split: by experiments
   model:
     C: 1.0
@@ -419,11 +332,11 @@ pop0_v_fraction:
       - *id001
       - false
       - !!binary |
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        AAAAAAA=
-    epsilon: 0.001
+        A1GxkLw5AECpkpjMiln6P0i1uAquBvM/L5WpRWFM5z9w1vLyDdnmP/thudleIQLAyfhECad0ib8A
+        AAAAAAAAAMtkEaTasPm/Q3uEsi8z3T8TCs/JMuvFPzaxnTXLDsY/jc75bYTfxT9ZhNxLDmnFvy0W
+        7bKezOM/6DnyoYHYn7/y62cRGC/pvxDGornvQwBAux5fPj/fsz+AvcWVaGvQv/1L905IJ+c/2V4X
+        35y01L8=
+    epsilon: 0.01
     eta0: 0.01
     fit_intercept: true
     intercept_: !!python/object/apply:numpy.core.multiarray._reconstruct
@@ -438,18 +351,18 @@ pop0_v_fraction:
       - *id001
       - false
       - !!binary |
-        SgC/DGY+sT8=
-    l1_ratio: 0.95
+        qqw4uHhfMEA=
+    l1_ratio: 0
     learning_rate: invscaling
-    loss: huber
+    loss: squared_loss
     max_iter: 1000
     n_iter: null
     n_iter_: 1000
-    penalty: elasticnet
+    penalty: l2
     power_t: 0.25
     random_state: null
     shuffle: true
-    t_: 127001.0
+    t_: 10001.0
     tol: null
     verbose: 0
     warm_start: false
@@ -467,11 +380,11 @@ pop0_v_fraction:
       - *id001
       - false
       - !!binary |
-        WxbZSWkQEEAYkl1bP6T7PyTUpOluVfI/SeImuqHnFkBu4xKcZygbQArZTLvmPCBAwMs4OlcdwD8M
-        uqwBLcxyP/23qTp5atE/g/OvZhCm0T8KR9bQL2zdv5nIDvTp3ty/7F2sQJN13b+oZ6bit0ndP0u1
-        K7Ymf7E/SzfkOxYdtT8OqCqwnwVlPzRqjE7japE/Hr1Q9rzysT8iwOlit366P59xYAWMpl4/QQP/
-        NH1rlD8=
-    n_samples_seen_: 129
+        qhwR5Ed5HEBUDLh5VkoWQCo91+nSa/A/8d7HpAtK4j/MYTCtKcMGQN/tdMNaZRZAD0syxds/qT9o
+        L6G9hPZiP5zVpMk7dr4/IgFlvltvxD+tJnJq64Tlv4c1lw+EweC/LkfsdOgt5L8UdpT119HmPxMj
+        cWxolpk/fSiwz5xlxz+RUxZ5XzCFP7kxfedRs7M/YJ6Xzw+gnz8By8wNSrvHP6/hWcW3Dqo/heJp
+        U0iolT8=
+    n_samples_seen_: 11
     scale_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id002
@@ -484,10 +397,10 @@ pop0_v_fraction:
       - *id001
       - false
       - !!binary |
-        YTIFxHEbCkBhVxx9l3zsP7pOk5/ywbs/2TEEI3mVAkAdVe9uSrUBQGgyFCiq0gpAjVh3YaZImT8c
-        nXGZ0IxpP1xTz6K9dZ8/m7scdspnpj8yVWVT6avRP0L1Hl14/NE/MRd8TIW70T9AWAt9aZ7RP+6l
-        SvLdVsQ/zx8FWyowtz8BhpZeCHaEP8J6cZb2JaU/MM7RCq+XxD/c+Sn+9ITRP3LG3fdfvH0/zKP2
-        1xdrvT8=
+        jyEePgQAAECHSi5lo2n/P1BtEKNd3KI/mDtC7faL5D/EvxCuY4D3P/krwymLzxFA3xVeQIj8lj8A
+        AAAAAADwPxTc+PwFWrI/TMPEgU+ovD8nvwhhiJOmPy2WsypoS6o/mDgxTL+4pz8pJAbGtT+lPxKL
+        MziLso0/1ESTPgzknD99FQjmxH10P8nH7K1zJpU/8SM34CD6iz/Bd1jFzCGaP2yc8KlpIJw/B5q3
+        YzevnD8=
     var_: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
       - *id002
@@ -500,9 +413,148 @@ pop0_v_fraction:
       - *id001
       - false
       - !!binary |
-        uK8XaLBMJUA0W8gz7lvpP3AGHevgE4g/NMCK8sSVFUDqwCRRRJkTQAil912/eyZAyidi6Cj6Qz9A
-        9U+WcWbkPgIMjKLQ7U4/l5+BDQ5gXz+hedjphoSzP0iP4JgPOLQ/4g66AhGnsz+eONWPwGazP+0E
-        rnsC25k/CX0gYoXNgD8B3O+neyoaP70GOl4B9Fs/QbhzmtOAmj9UPyJ12S6zP8A0AtrCoQs/bQ71
-        noELiz8=
+        H2M9fAgAEEA2AJRPCdYOQNA3DcCtO1Y/OsFisrFi2j9iGt9okkIBQI+9Ud6L0zNAjEu7PASDQD8A
+        AAAAAAAAAJQckPyHDHU/kXKwZgCqiT9EgllpB9tfP6IT//Y6m2U/p43qmb2VYT8mqVjXOjhcPx9a
+        DIWAjys/cBoCnG4VSj+6hBXdSD76PrMMTBFM9Ts/yTAunLp1KD/5ISV0EFdFP7fZFb7ZuEg/r9Wz
+        VGC2ST8=
+    with_mean: true
+    with_std: true
+pop1_site0_sigma:
+  cross_valid_results:
+    experiments: !!python/object/apply:numpy.core.multiarray._reconstruct
+      args:
+      - *id002
+      - !!python/tuple [0]
+      - !!binary |
+        Yg==
+      state: !!python/tuple
+      - 1
+      - !!python/tuple [3]
+      - *id003
+      - false
+      - [Reaction_B, Reaction_A, Reaction_G]
+    labels_std: 0.4399178990302749
+    normalized_mean_abs_error: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      +Qg40ZCU2j8=
+    normalized_mean_abs_error_by_experiments:
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        guCjWWbV4T8=
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        h5tq1RlJ4z8=
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        cYssVsgCtj8=
+    number_of_experiments: 3
+    test_training_split: by experiments
+  model:
+    C: 1.0
+    _max_iter: 1000
+    _tol: null
+    alpha: 0.01
+    average: false
+    coef_: !!python/object/apply:numpy.core.multiarray._reconstruct
+      args:
+      - *id002
+      - !!python/tuple [0]
+      - !!binary |
+        Yg==
+      state: !!python/tuple
+      - 1
+      - !!python/tuple [22]
+      - *id001
+      - false
+      - !!binary |
+        /UKElD12dr/124TS5DWAvy6p6T14tmg/6I6Gls7Saz8AAAAAAAAAAOvE+bc8aHA/7Ky/bC/0gj8A
+        AAAAAAAAAAthge7cMIY/AAAAAAAAAAAAAAAAAAAAAAXX52Qutl2/fE8umqAoLL8AAAAAAAAAAAAA
+        AAAAAAAAJkIhbgIIcL+vWN+cHyyAv3OtJw7NipK/AAAAAAAAAAA7cG2pv8Vkv8up6fSSPIO/H7Zr
+        5dEDcD8=
+    epsilon: 0.01
+    eta0: 0.01
+    fit_intercept: true
+    intercept_: !!python/object/apply:numpy.core.multiarray._reconstruct
+      args:
+      - *id002
+      - !!python/tuple [0]
+      - !!binary |
+        Yg==
+      state: !!python/tuple
+      - 1
+      - !!python/tuple [1]
+      - *id001
+      - false
+      - !!binary |
+        8WmVFPVrrz8=
+    l1_ratio: 0.15
+    learning_rate: invscaling
+    loss: huber
+    max_iter: 1000
+    n_iter: null
+    n_iter_: 1000
+    penalty: elasticnet
+    power_t: 0.25
+    random_state: null
+    shuffle: true
+    t_: 10001.0
+    tol: null
+    verbose: 0
+    warm_start: false
+  scaler:
+    copy: true
+    mean_: !!python/object/apply:numpy.core.multiarray._reconstruct
+      args:
+      - *id002
+      - !!python/tuple [0]
+      - !!binary |
+        Yg==
+      state: !!python/tuple
+      - 1
+      - !!python/tuple [22]
+      - *id001
+      - false
+      - !!binary |
+        qRwR5Ed5HEBTDLh5VkoWQCo91+nSa/A/797HpAtK4j/LYTCtKcMGQN/tdMNaZRZADUsyxds/qT9o
+        L6G9hPZiP53VpMk7dr4/IQFlvltvxD+tJnJq64Tlv4c1lw+EweC/L0fsdOgt5L8VdpT119HmPxMj
+        cWxolpk/fSiwz5xlxz+RUxZ5XzCFP7kxfedRs7M/YJ6Xzw+gnz8By8wNSrvHP6/hWcW3Dqo/hOJp
+        U0iolT8=
+    n_samples_seen_: 11
+    scale_: !!python/object/apply:numpy.core.multiarray._reconstruct
+      args:
+      - *id002
+      - !!python/tuple [0]
+      - !!binary |
+        Yg==
+      state: !!python/tuple
+      - 1
+      - !!python/tuple [22]
+      - *id001
+      - false
+      - !!binary |
+        jyEePgQAAECHSi5lo2n/P1BtEKNd3KI/lztC7faL5D/EvxCuY4D3P/krwymLzxFA4BVeQIj8lj8A
+        AAAAAADwPxTc+PwFWrI/TMPEgU+ovD8nvwhhiJOmPy6WsypoS6o/mDgxTL+4pz8pJAbGtT+lPxOL
+        MziLso0/00STPgzknD99FQjmxH10P8nH7K1zJpU/8CM34CD6iz/Bd1jFzCGaP22c8KlpIJw/BZq3
+        YzevnD8=
+    var_: !!python/object/apply:numpy.core.multiarray._reconstruct
+      args:
+      - *id002
+      - !!python/tuple [0]
+      - !!binary |
+        Yg==
+      state: !!python/tuple
+      - 1
+      - !!python/tuple [22]
+      - *id001
+      - false
+      - !!binary |
+        H2M9fAgAEEA2AJRPCdYOQNA3DcCtO1Y/OcFisrFi2j9jGt9okkIBQI69Ud6L0zNAjku7PASDQD8A
+        AAAAAAAAAJQckPyHDHU/kXKwZgCqiT9EgllpB9tfP6MT//Y6m2U/p43qmb2VYT8mqVjXOjhcPyBa
+        DIWAjys/bxoCnG4VSj+6hBXdSD76PrQMTBFM9Ts/xzAunLp1KD/5ISV0EFdFP7nZFb7ZuEg/rNWz
+        VGC2ST8=
     with_mean: true
     with_std: true

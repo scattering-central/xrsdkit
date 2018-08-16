@@ -46,7 +46,7 @@ def get_data_from_Citrination(client, dataset_id_list):
         feats = OrderedDict.fromkeys(profiler.profile_keys)
         feats.update(pp_feats)
 
-        # TODO: explain why "i" is included in the data row 
+        # i is needed to keep relation between rows and corresponding pifs
         data_row = [expt_id]+list(feats.values())+[cl_model_outputs]+[i]
 
         data.append(data_row)
@@ -68,7 +68,7 @@ def get_data_from_Citrination(client, dataset_id_list):
     colnames = ['experiment_id']
     colnames.extend(profiler.profile_keys)
     colnames.extend(['system_class'])
-    # TODO: explain the local_id
+    # local_id is the number of corresponding pif
     colnames.extend(['local_id'])
     colnames.extend(reg_labels_list)
 
@@ -100,7 +100,8 @@ def get_pifs_from_Citrination(client, dataset_id_list):
     return pifs
 
 
-def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, train_hyperparameters=False):
+def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True,
+                                    train_hyperparameters=False, test=False):
     """Down-sample one or more datasets, and optionally save the samples.
         
     Down-sampled datasets are (optionally) saved to their datasets as assigned
@@ -127,6 +128,8 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
         the correct scaler should be applied before training models.
     """
 
+    stat = dict(by_exp = {}, by_sys_class = {})
+
     data, pifs = get_data_from_Citrination(client, dataset_id_list)
 
     #### create data_sample ########################
@@ -135,8 +138,7 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
     expt_local_ids = {} # local ids of samples to save by exp
     all_exp = data.experiment_id.unique()
 
-    features = []
-    features.extend(profiler.profile_keys_1)
+    features = profiler.profile_keys
 
     scaler = preprocessing.StandardScaler()
     scaler.fit(data[features])
@@ -151,6 +153,33 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
         if save_samples:
             expt_samples[exp_id] = data_sample
             expt_local_ids[exp_id] = data_sample.local_id.tolist()
+
+        stat['by_exp'][exp_id] = [df.shape[0], dsamp.shape[0]]
+        for cl in df.system_class.unique():
+            if cl not in stat['by_sys_class']:
+                stat['by_sys_class'][cl] = [0,0] # [before downsampling, after]
+            stat['by_sys_class'][cl][0] += \
+                len(df.groupby(['system_class']).groups[cl])
+            stat['by_sys_class'][cl][1] += \
+                len(dsamp.groupby(['system_class']).groups[cl])
+
+    # save the statistics of downsampling:
+    p = os.path.abspath(__file__)
+    d = os.path.dirname(os.path.dirname(p))
+
+    if test:
+        file_path = os.path.join(d,'models','modeling_data','testing_data',
+                                 'datasets_statistics.txt')
+    else:
+        file_path = os.path.join(d,'models','modeling_data',
+                                 'datasets_statistics.txt')
+    with open(file_path, 'w') as txt_file:
+        txt_file.write('Downsampling statistics: \n [before downsampling, after downsampling] \n \n')
+        for a_k, a_v in stat.items():
+            txt_file.write(a_k + '\n')
+            for k, v in a_v.items():
+                txt_file.write(k + ' : ' + str(v) + '\n')
+            txt_file.write('\n')
     ################################################
 
     # store references to unscaled data for all samples in data_sample
@@ -162,7 +191,8 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
     if save_samples:
         p = os.path.abspath(__file__)
         d2 = os.path.dirname(os.path.dirname(p))
-        ds_map_filepath = os.path.join(d2,'models','modeling_data','dataset_ids.yml')
+        ds_map_filepath = os.path.join(d2,'models','modeling_data',
+                                       'dataset_ids.yml')
         dataset_ids = yaml.load(open(ds_map_filepath,'rb'))
         sys_classifier_dsid = dataset_ids['system_classifier']
 
@@ -179,16 +209,16 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True, 
 
             d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
             for cl,pp in pifs_by_sys_class.items():
-                # check if this system class has an assigned dataset id 
-                if not cl in dataset_ids:
+                # check if this system class has an assigned dataset id
+                if cl in dataset_ids:
                     ds_id = dataset_ids[cl]
                 # if not, create a new one and add it to the index
                 else:
-                    ds = client.data.create_dataset(cl, 
-                    'Downsampled modeling data for system class {}'.format(cl))
+                    ds = client.data.create_dataset(name = cl,
+                        description ='Downsampled modeling data for system class {}'.format(cl))
                     ds_id = ds.id
                     dataset_ids[cl] = ds_id
-                jsf = os.path.join(d, cl+'_'+ex+'.json')
+                jsf = os.path.join(d, cl+'_'+expt_id+'.json')
                 pif.dump(pp, open(jsf,'w'))
                 client.data.upload(ds_id, jsf)
                 # upload into the large sample for the main classifier:
@@ -226,8 +256,8 @@ def downsample_one_experiment(data_fr, min_distance):
             df = pd.DataFrame(columns=data_fr.columns)
             # define the distance between two samples in feature space 
             group_dist_func = lambda i,j: sum(
-                (group.iloc[i][profiler.profile_keys_1] 
-                - group.iloc[j][profiler.profile_keys_1]).abs())
+                (group.iloc[i][profiler.profile_keys]
+                - group.iloc[j][profiler.profile_keys]).abs())
 
             print('- building inter-sample distance matrix...')
             group_dist_matrix = np.array([[group_dist_func(i,j) for i in range(group_size)] for j in range(group_size)])

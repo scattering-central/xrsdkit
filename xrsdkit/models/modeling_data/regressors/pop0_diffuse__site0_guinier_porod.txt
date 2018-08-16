@@ -1,1 +1,17 @@
-{'pop0_site0_D': inf, 'pop0_site0_rg': 0.2215352134585041}
+Cross validation results for Regressors 
+pop0_site0_D
+normalized_mean_abs_error_by_experiments : [inf, inf, inf, inf, inf]
+normalized_mean_abs_error : inf
+labels_std : 0.0
+number_of_experiments : 5
+experiments : ['Reaction_D' 'Reaction_B' 'Reaction_A' 'Reaction_G' 'Reaction_C']
+test_training_split : by experiments
+
+pop0_site0_rg
+normalized_mean_abs_error_by_experiments : [0.0040832573721285006, 0.55372419600170575, 0.28850450888803664, 0.1542748656865324, 0.971603220392807]
+normalized_mean_abs_error : 0.394438009668
+labels_std : 18.00278374171304
+number_of_experiments : 5
+experiments : ['Reaction_G' 'Reaction_D' 'Reaction_C' 'Reaction_B' 'Reaction_A']
+test_training_split : by experiments
+

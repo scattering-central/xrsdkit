@@ -1,1 +1,28 @@
-{'pop0_r_hard': 1.1987256116632619, 'pop0_site0_D': inf, 'pop0_site0_rg': 0.90225713703335864, 'pop0_v_fraction': 0.99882218304578352}
+Cross validation results for Regressors 
+pop0_r_hard
+normalized_mean_abs_error_by_experiments : [0.069682910229935779, 0.5942402818176109, 0.058189756131980797, 0.064407971519524126, 0.1018375395912271, 0.096645120071880836, 0.09653860704538085, 0.25963428676155037, 0.48968224752240946, 5.5802428500073136]
+normalized_mean_abs_error : 0.74111015707
+labels_std : 41.345319595715864
+number_of_experiments : 10
+experiments : ['Reaction_H' 'R7' 'Reaction_G' 'Reaction_D' 'Reaction_C' 'R3' 'Reaction_E'
+ 'R13' 'R1' 'R12']
+test_training_split : by experiments
+
+pop0_site0_rg
+normalized_mean_abs_error_by_experiments : [0.22323405058692722, 0.223775990180236, 0.33302802066197534, 0.093131696907745087, 0.028725966128735958, 0.2829426815726328, 0.3201435985703534, 0.26047212566546424, 5.5205006441468907, 0.15026463644417193]
+normalized_mean_abs_error : 0.743621941087
+labels_std : 10.71422029982525
+number_of_experiments : 10
+experiments : ['Reaction_D' 'Reaction_H' 'Reaction_C' 'R3' 'R7' 'Reaction_E' 'R13'
+ 'Reaction_G' 'R12' 'R1']
+test_training_split : by experiments
+
+pop0_v_fraction
+normalized_mean_abs_error_by_experiments : [1.2398855728902893, 0.16624438534222688, 0.041418547429938002, 1.1034834006271139, 1.6320856095604099, 0.86557340845101716, 1.1288300351996674, 1.6939158082386561, 1.0488332550694415, 2.2531294936106656]
+normalized_mean_abs_error : 1.11733995164
+labels_std : 0.15189075189684817
+number_of_experiments : 10
+experiments : ['Reaction_C' 'R7' 'R3' 'Reaction_E' 'R13' 'R1' 'Reaction_D' 'Reaction_G'
+ 'Reaction_H' 'R12']
+test_training_split : by experiments
+

@@ -80,6 +80,8 @@ def unpack_pif(pp):
     if pp.classifications is not None:
         for cl in pp.classifications:
             cls_dict[cl.name] = cl.value
+            if cl.value == 'unidentified':
+                cls_dict[cl.name] = 'pop0_unidentified'
 
     # pack properties into a dict
     props_dict = {}
@@ -113,12 +115,12 @@ def unpack_pif(pp):
                         populations[pop_name]['parameters'][param_nm] = \
                         props_dict[pl].scalars[0].value
                         if props_dict[pl].tags is not None: # added
-                            for tg in props_dict[pl].tags():
+                            for tg in props_dict[pl].tags:
                                 if 'fixed value: ' in tg:
                                     fp_val = bool(tg.strip('fixed value: '))
                                     update_populations(fp,{pop_name:{'parameters':{param_nm:fp_val}}})
                                 if 'bounds: ' in tg:
-                                    bds = tg.strip('bounds: ','[',']').split(',')
+                                    bds = tg.strip('bounds: []').split(',')
                                     lbnd, ubnd = float(bds[0]), float(bds[1])
                                     update_populations(pb,{pop_name:{'parameters':{param_nm:[lbnd,ubnd]}}})
                                 if 'constraint expression: ' in tg:
@@ -154,12 +156,12 @@ def unpack_pif(pp):
                                     populations[pop_name]['basis'][site_name]['parameters'][param_nm] = \
                                     props_dict[pl].scalars[0].value
                                     if props_dict[pl].tags is not None: # added
-                                        for tg in props_dict[pl].tags():
+                                        for tg in props_dict[pl].tags:
                                             if 'fixed value: ' in tg:
                                                 fp_val = bool(tg.strip('fixed value: '))
                                                 update_populations(fp,{pop_name:{'basis':{site_name:{'parameters':{param_nm:fp_val}}}}})
                                             if 'bounds: ' in tg:
-                                                bds = tg.strip('bounds: ','[',']').split(',')
+                                                bds = tg.strip('bounds: []').split(',')
                                                 lbnd, ubnd = float(bds[0]), float(bds[1])
                                                 update_populations(pb,{pop_name:{'basis':{site_name:{'parameters':{param_nm:[lbnd,ubnd]}}}}})
                                             if 'constraint expression: ' in tg:
@@ -175,9 +177,9 @@ def unpack_pif(pp):
                                     tp(props_dict[sl].tags[0])
                         coord_labels = ['pop{}_site{}_coordinate{}'.format(ip,ist,ic) for ic in [0,1,2]]
                         if all([cl in props_dict for cl in coord_labels]):
-                            c0 = float(props_dict['pop{}_site{}_coordinate0'.format(ip,ist)])
-                            c1 = float(props_dict['pop{}_site{}_coordinate1'.format(ip,ist)])
-                            c2 = float(props_dict['pop{}_site{}_coordinate2'.format(ip,ist)])
+                            c0 = props_dict['pop{}_site{}_coordinate0'.format(ip,ist)].scalars[0].value
+                            c1 = props_dict['pop{}_site{}_coordinate1'.format(ip,ist)].scalars[0].value
+                            c2 = props_dict['pop{}_site{}_coordinate2'.format(ip,ist)].scalars[0].value
                             populations[pop_name]['basis'][site_name]['coordinates'] = [c0,c1,c2]
                             # TODO: deal with fixed_params, param_bounds, param_constraints on coordinates
                         ist += 1
@@ -242,7 +244,7 @@ def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='Intensity'):
     return pI 
 
 def profile_properties(q_I):
-    prof = profiler.full_profile(q_I)
+    prof = profiler.profile_spectrum(q_I)
     pp = []
     for fnm,fval in prof.items():
         if fval is not None:
@@ -252,29 +254,31 @@ def profile_properties(q_I):
     return pp
 
 def system_classifications(opd):
-    clss = []
-    main_cls = ''
-    for ip,pop_nm in enumerate(opd.keys()):
-        popd = opd[pop_nm]
-        if not pop_nm == 'noise':
-        #and not popd['structure'] == 'unidentified': 
-            main_cls += 'pop{}_{}__'.format(ip,popd['structure'])
-            popnm_cls = Classification('pop{}_name'.format(ip),pop_nm)
-            pop_cls = Classification('pop{}_structure'.format(ip),popd['structure'])
-            clss.extend([popnm_cls,pop_cls])
-            if "basis" in popd.keys():
-                for ist,site_nm in enumerate(popd['basis'].keys()):
-                    sited = popd['basis'][site_nm]
-                    main_cls += 'site{}_{}__'.format(ist,sited['form'])
-                    sitenm_cls = Classification('pop{}_site{}_name'.format(ip,ist),site_nm)
-                    site_cls = Classification('pop{}_site{}_form'.format(ip,ist),sited['form'])
-                    clss.extend([sitenm_cls,site_cls])
-    if main_cls[-2:] == '__':
-        main_cls = main_cls[:-2]
-    if main_cls == '':
-        main_cls = 'noise'
-    clss.append(Classification('system_classification',main_cls))
-    return clss
+    if any([popdef['structure'] == 'unidentified' for popnm,popdef in opd.items()]):
+        return [Classification('system_classification','pop0_unidentified')]
+    else:
+        clss = []
+        sys_cls = ''
+        for ip,pop_nm in enumerate(opd.keys()):
+            popd = opd[pop_nm]
+            if not pop_nm == 'noise':
+                sys_cls += 'pop{}_{}__'.format(ip,popd['structure'])
+                popnm_cls = Classification('pop{}_name'.format(ip),pop_nm)
+                pop_cls = Classification('pop{}_structure'.format(ip),popd['structure'])
+                clss.extend([popnm_cls,pop_cls])
+                if "basis" in popd.keys():
+                    for ist,site_nm in enumerate(popd['basis'].keys()):
+                        sited = popd['basis'][site_nm]
+                        sys_cls += 'site{}_{}__'.format(ist,sited['form'])
+                        sitenm_cls = Classification('pop{}_site{}_name'.format(ip,ist),site_nm)
+                        site_cls = Classification('pop{}_site{}_form'.format(ip,ist),sited['form'])
+                        clss.extend([sitenm_cls,site_cls])
+        if sys_cls[-2:] == '__':
+            sys_cls = sys_cls[:-2]
+        if sys_cls == '':
+            sys_cls = 'noise'
+        clss.append(Classification('system_classification',sys_cls))
+        return clss
 
 def system_properties(opd,fixed_params,param_bounds,param_constraints):
     properties = []
