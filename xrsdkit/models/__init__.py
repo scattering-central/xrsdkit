@@ -30,6 +30,7 @@ system_classes = ['noise','pop0_unidentified']
 regression_models = OrderedDict()
 regression_models['noise'] = {}
 regression_models['pop0_unidentified'] = {}
+classification_models = OrderedDict()
 
 # here we only recreate the models from yml files
 # the models for new labels will be created in train_regression_models()
@@ -45,10 +46,9 @@ for fn in os.listdir(regression_models_dir):
         for l in labels:
             regression_models[sys_cls][l] = Regressor(l, yml_path)
 
-# recreate the classifier
+# recreate the classification models
 yml_file_cl = os.path.join(modeling_data_dir,'classifiers','system_class.yml')
-cls = SystemClassifier(yml_file_cl)
-
+classification_models['system_class'] = SystemClassifier(yml_file_cl)
 
 def downsample_and_train(
     source_dataset_ids=src_dsid_list,
@@ -88,7 +88,7 @@ def downsample_and_train(
 
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
-    print(classifier_results_to_str(sys_cls))
+    print(classifier_results_to_str(sys_cls['system_class']))
 
     # regression models:
     reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
@@ -98,8 +98,7 @@ def downsample_and_train(
         save_classification_model(sys_cls, test=test)
 
 def train_system_classifier(data, hyper_parameters_search=False):
-    """Recreate system classifier from existing yml file;
-    train this classifer.
+    """Retrain the system_classifier using a given DataFrame `data`. 
 
     This is a developer tool for building models
     from a set of Citrination datasets.
@@ -119,10 +118,20 @@ def train_system_classifier(data, hyper_parameters_search=False):
     cls : sklearn SGDClassifier
         fitted sklearn SGDClassifier.
     """
-
-    print('train_system_classifier :')
-    cls.train(data, hyper_parameters_search=hyper_parameters_search)
-    return cls
+    # TODO: update this when we have multiple classification models:
+    # currently it only handles the system_class label.
+    models = OrderedDict.fromkeys(['system_class'])
+    for label,model in models.items():
+        if label in classification_models:
+            model = classification_models[label]
+        else:
+            print('training classifier for {}:'.format(label))
+            #if label == 'system_class':
+            model = SystemClassifier()
+        model.train(data, hyper_parameters_search=hyper_parameters_search)
+        classification_models['system_class'] = model
+        models[label] = model
+    return models
 
 def get_possible_regression_models(data):
     """Get dictionary of models that we can train using provided data.
@@ -195,15 +204,16 @@ def train_regression_models(data, hyper_parameters_search=False,
             reg_model.train(pop_data, hyper_parameters_search)
             if reg_model.trained:
                 models[k][m] = reg_model 
+                regression_models[k][m] = reg_model
                 print('- finished training model for {}'.format(m))
             else:
                 print('- training failed for {}'.format(m))
     return models
 
 
-def save_regression_models(models, test=False):
-    """Save models, scalers, and cross validatin results in YAML;
-     save training repport in .txt files.
+def save_regression_models(models=regression_models, test=False):
+    """Save models, scalers, and cross validation results in YAML;
+     save training report in .txt files.
 
     Parameters
     ----------
@@ -238,13 +248,13 @@ def save_regression_models(models, test=False):
                 txt_file.write(res_str)
 
 
-def save_classification_model(model_dict, test=False):
-    """Save models, scalers, and cross validatin results in YAML;
-     save training repport in .txt files.
+def save_classification_model(models=classification_models, test=False):
+    """Save models, scalers, and cross validation results in YAML;
+     save training report in .txt files.
 
     Parameters
     ----------
-    model_dict : dict
+    models : dict
         with scaler, model, parameters, and accuracy.
     test : bool (optional)
         if True, the models will be saved in the testing dir.
@@ -252,25 +262,24 @@ def save_classification_model(model_dict, test=False):
     p = os.path.abspath(__file__)
     d = os.path.dirname(p)
     s_and_m = {}
-    if test:
-        file_path = os.path.join(d,'modeling_data','testing_data','classifiers','system_class.yml')
-    else:
-        file_path = os.path.join(d,'modeling_data','classifiers', 'system_class.yml')
-    cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
 
-    if model_dict.model is not None:
-        s_and_m = dict(system_class = dict(
-                    scaler = model_dict.scaler.__dict__,
-                    model = model_dict.model.__dict__,
-                    cross_valid_results = model_dict.cross_valid_results))
-    if any(s_and_m):
-        with open(file_path, 'w') as yaml_file:
-            yaml.dump(s_and_m, yaml_file)
-
-        res_str = classifier_results_to_str(model_dict)
-        with open(cverr_txt_path, 'w') as txt_file:
-            txt_file.write(res_str)
-
+    for label,model in models.items():
+        if test:
+            file_path = os.path.join(d,'modeling_data','testing_data','classifiers',label+'.yml')
+        else:
+            file_path = os.path.join(d,'modeling_data','classifiers', label+'.yml')
+        cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
+        if model is not None:
+            s_and_m[label] =  dict(
+                    scaler = model.scaler.__dict__,
+                    model = model.model.__dict__,
+                    cross_valid_results = model.cross_valid_results)
+        if any(s_and_m):
+            with open(file_path, 'w') as yaml_file:
+                yaml.dump(s_and_m, yaml_file)
+            res_str = classifier_results_to_str(model)
+            with open(cverr_txt_path, 'w') as txt_file:
+                txt_file.write(res_str)
 
 def classifier_results_to_str(model_dict):
     """Convert the dict with cross validation results to str.
@@ -328,33 +337,7 @@ def regressors_results_to_str(cross_valid_results):
         for k,v in a_v.items():
             results_str += (k + ' : ' + str(v) + '\n')
         results_str += '\n'
-
     return results_str
-
-'''
-def evaluate_params(q_I, system_class):
-    """Evaluate regression models to estimate parameters for the sample
-
-    Parameters
-    ----------
-    q_I : array
-        n-by-2 array of scattering vector 
-        (1/Angstrom) and intensities
-    system_class : str
-        label (string) for the system class,
-        used for selecting regression models 
-
-    Returns
-    -------
-    params_dict : dict
-        dictionary with predicted parameters
-    """
-    f = profile_spectrum(q_I)
-    params_dict = {}
-    for param_nm,m in regression_models[system_class].items():
-        params_dict[param_nm] = m.predict(f, q_I)
-    return params_dict
-'''
 
 # helper function - to set parameters for scalers and models
 def set_param(m_s, param):
@@ -381,7 +364,8 @@ def predict(features):
         dictionary with predicted system class and parameters
     """
     results = {}
-    results['system_class'] = cls.classify(features)
+    # TODO: update this function when we will have some classifiers
+    results['system_class'] = classification_models['system_class'].classify(features)
     sys_cl = results['system_class'][0]
 
     for param_nm, regressor in regression_models[sys_cl].items():
