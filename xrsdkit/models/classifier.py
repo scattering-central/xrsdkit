@@ -159,9 +159,16 @@ class Classifier(XRSDModel):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
         This invokess the method from the base class with a different scoring argument.
+
+        Returns
+        -------
+        params : dict
+            dictionary of the parameters to get the best f1 score.
         """
-        super(Classifier,self).hyperparameter_search(
+        params = super(Classifier,self).hyperparameters_search(
         transformed_data,data_labels,group_by,n_leave_out,scoring)
+
+        return  params
 
 
 class SystemClassifier(Classifier):

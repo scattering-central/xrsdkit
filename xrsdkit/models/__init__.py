@@ -88,7 +88,7 @@ def downsample_and_train(
 
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
-    print(classifier_results_to_str(sys_cls))
+    print(classifier_results_to_str(sys_cls['system_class']))
 
     # regression models:
     reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
@@ -130,6 +130,7 @@ def train_system_classifier(data, hyper_parameters_search=False):
             model = SystemClassifier()
         model.train(data, hyper_parameters_search=hyper_parameters_search)
         classification_models['system_class'] = model
+        models[label] = model
     return models
 
 def get_possible_regression_models(data):
@@ -269,14 +270,14 @@ def save_classification_model(models=classification_models, test=False):
             file_path = os.path.join(d,'modeling_data','classifiers', label+'.yml')
         cverr_txt_path = os.path.splitext(file_path)[0]+'.txt'
         if model is not None:
-            s_and_m = dict(label = dict(
+            s_and_m[label] =  dict(
                     scaler = model.scaler.__dict__,
                     model = model.model.__dict__,
-                    cross_valid_results = model.cross_valid_results))
+                    cross_valid_results = model.cross_valid_results)
         if any(s_and_m):
             with open(file_path, 'w') as yaml_file:
                 yaml.dump(s_and_m, yaml_file)
-            res_str = classifier_results_to_str(model_dict)
+            res_str = classifier_results_to_str(model)
             with open(cverr_txt_path, 'w') as txt_file:
                 txt_file.write(res_str)
 
@@ -363,7 +364,8 @@ def predict(features):
         dictionary with predicted system class and parameters
     """
     results = {}
-    results['system_class'] = cls.classify(features)
+    # TODO: update this function when we will have some classifiers
+    results['system_class'] = classification_models['system_class'].classify(features)
     sys_cl = results['system_class'][0]
 
     for param_nm, regressor in regression_models[sys_cl].items():
