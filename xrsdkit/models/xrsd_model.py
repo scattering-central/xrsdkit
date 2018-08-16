@@ -34,6 +34,10 @@ class XRSDModel(object):
     def set_model(self, model_hyperparams={}):
         self.model = self.build_model(model_hyperparams)
 
+    def build_model(self,model_hyperparams):
+        msg = 'subclasses of XRSDModel must implement build_model()'
+        raise NotImplementedError(msg)
+
     def train(self, all_data, hyper_parameters_search=False):
         """Train the model, optionally searching for optimal hyperparameters.
 
@@ -53,8 +57,10 @@ class XRSDModel(object):
         if not training_possible:
             return 
 
-        # drop the rows with Nans in profile_keys (features)
-        # the scaler will crash if data includes rows with Nons
+        # drop the rows with NaN in profile_keys (features):
+        # the scaler will crash if data includes rows with NaN.
+        # NOTE: the profiler should always return scalar values,
+        # but this remains here as a defensive measure.
         data = d.dropna(subset=profiler.profile_keys)
 
         # using leaveGroupOut makes sense when we have at least 3 groups
@@ -88,7 +94,7 @@ class XRSDModel(object):
         self.trained = True
 
 
-    def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None):
+    def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring=None):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
         Parameters
@@ -116,11 +122,6 @@ class XRSDModel(object):
             cv = 5 # five-fold cross validation
         test_model = self.build_model()
 
-        if self.target == 'system_class':
-            # Calculate f1 for each label, and find their unweighted median
-            scoring = "f1_macro"
-        else:
-            scoring = None
         clf = model_selection.GridSearchCV(test_model,
                         self.grid_search_hyperparameters, cv=cv, scoring=scoring)
         clf.fit(transformed_data, np.ravel(data_labels))

@@ -155,6 +155,14 @@ class Classifier(XRSDModel):
 
         return result
 
+    def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring='f1_macro'):
+        """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
+
+        This invokess the method from the base class with a different scoring argument.
+        """
+        super(Classifier,self).hyperparameter_search(
+        transformed_data,data_labels,group_by,n_leave_out,scoring)
+
 
 class SystemClassifier(Classifier):
     """Classifier for determining the material system (structures and form factors).
