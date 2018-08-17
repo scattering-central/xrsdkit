@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 from xrsdkit.tools.profiler import profile_spectrum
 
 # for using saxskit models:
-from xrsdkit.models.classifiers import Classifiers
+from xrsdkit.models.structure_classifier import StructureClassifier
 from xrsdkit.models.regressors import Regressors
 
 # for using Citrination models:
@@ -22,9 +22,9 @@ p = os.path.abspath(__file__)
 d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
 #path = os.path.join(d,'tests','test_data','solution_saxs','peaks','peaks_0.csv')
 #path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_2.csv')
-#path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_0.csv')
+path = os.path.join(d,'tests','test_data','solution_saxs','spheres','spheres_0.csv')
 #path = os.path.join(d,'tests','test_data','solution_saxs','precursors','precursors_0.csv')
-path = os.path.join(d,'tests','test_data','solution_saxs','precursors','precursors_1.csv')
+#path = os.path.join(d,'tests','test_data','solution_saxs','precursors','precursors_1.csv')
 
 q_i = np.genfromtxt (path, delimiter=",")
 
@@ -35,10 +35,10 @@ features = profile_spectrum(q_i)
 print("\033[1m" + "Prediction from saxskit models: " + "\033[0;0m", "\n")
 print("scatterer populations: ")
 
-cl_models = Classifiers()
-cl_result = cl_models.make_predictions(features)
-for k, v in cl_result.items():
-    print(k, ' :', v[0], "  with probability: %1.3f" % (v[1]))
+cl_model = StructureClassifier("system_class")
+cl_result = cl_model.classify(features)
+print(cl_result[0], "  with probability: %1.3f" % (cl_result[1]))
+
 
 print("\nscattering and intensity parameters: ")
 
@@ -47,7 +47,7 @@ reg_result = reg_models.make_predictions(features, cl_result, q_i)
 for k, v in reg_result.items():
     print(k, " :   %10.3f" % (v))
 
-'''
+
 
 #Using Citrination models:
 print("\033[1m" + "Prediction from Citrination models: " + "\033[0;0m", "\n")
@@ -58,12 +58,11 @@ if not os.path.exists(api_key_file):
 
 saxs_models = CitrinationStructureClassifier(api_key_file,'https://slac.citrination.com')
 
-populations, uncertainties = saxs_models.classify(features)
+population, uncertaintie = saxs_models.classify(features)
 print("scatterer populations: ")
-for k,v in populations.items():
-    print(k, ":", v, "  with uncertainties: %1.3f" % (uncertainties[k]))
+print(population, "  with uncertainties: %1.3f" % (uncertaintie))
 print()
-
+'''
 params,uncertainties = saxs_models.predict_params(populations, features, q_i)
 print("scatterer parameters: ")
 for k,v in params.items():
@@ -79,3 +78,4 @@ for k,v in params.items():
         print(" %10.3f" % (v[n]) )
 print()
 '''
+

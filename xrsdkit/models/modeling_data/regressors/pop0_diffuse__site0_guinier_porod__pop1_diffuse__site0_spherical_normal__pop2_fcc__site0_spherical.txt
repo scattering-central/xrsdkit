@@ -1,0 +1,65 @@
+Cross validation results for Regressors 
+pop0_site0_D
+normalized_mean_abs_error_by_experiments : [inf, inf, inf, inf]
+normalized_mean_abs_error : inf
+labels_std : 0.0
+number_of_experiments : 4
+experiments : ['Reaction_A' 'Reaction_B' 'Reaction_G' 'R7']
+test_training_split : by experiments
+
+pop0_site0_rg
+normalized_mean_abs_error_by_experiments : [1763984866092379.0, 1.4350181024498847, 0.19559448874176352, 0.1167934951487085]
+normalized_mean_abs_error : 4.40996216523e+14
+labels_std : 5.233927128484325
+number_of_experiments : 4
+experiments : ['R7' 'Reaction_A' 'Reaction_G' 'Reaction_B']
+test_training_split : by experiments
+
+pop1_site0_r0
+normalized_mean_abs_error_by_experiments : [14194742637008870.0, 2.7186183860816557, 0.51361407572749362, 0.13392963029514574]
+normalized_mean_abs_error : 3.54868565925e+15
+labels_std : 12.19848546072915
+number_of_experiments : 4
+experiments : ['R7' 'Reaction_A' 'Reaction_G' 'Reaction_B']
+test_training_split : by experiments
+
+pop1_site0_sigma
+normalized_mean_abs_error_by_experiments : [1.1956147867064888, 0.09683093656130598, 1.3595090822681641, 0.038634837368369243]
+normalized_mean_abs_error : 0.672647410726
+labels_std : 0.6466819271407933
+number_of_experiments : 4
+experiments : ['Reaction_A' 'Reaction_G' 'R7' 'Reaction_B']
+test_training_split : by experiments
+
+pop2_a
+normalized_mean_abs_error_by_experiments : [0.8898550413784404, 1.5345777835657051, 58453896533181744.0, 0.73995414025391049]
+normalized_mean_abs_error : 1.46134741333e+16
+labels_std : 16.026680385358894
+number_of_experiments : 4
+experiments : ['Reaction_B' 'Reaction_G' 'R7' 'Reaction_A']
+test_training_split : by experiments
+
+pop2_hwhm_g
+normalized_mean_abs_error_by_experiments : [0.10549764762919131, 0.064704442316950314, 2.0784708281872506, 1.3390064042248511]
+normalized_mean_abs_error : 0.89691983059
+labels_std : 0.001244430931047639
+number_of_experiments : 4
+experiments : ['Reaction_B' 'Reaction_A' 'R7' 'Reaction_G']
+test_training_split : by experiments
+
+pop2_hwhm_l
+normalized_mean_abs_error_by_experiments : [0.79041945834411675, 0.60469142531043418, 0.54056525551132062, 0.17895285910950801]
+normalized_mean_abs_error : 0.528657249569
+labels_std : 0.001184277352488952
+number_of_experiments : 4
+experiments : ['R7' 'Reaction_A' 'Reaction_G' 'Reaction_B']
+test_training_split : by experiments
+
+pop2_site0_r
+normalized_mean_abs_error_by_experiments : [2.9980167731253831, 0.97716845434168964, 41859095421443984.0, 0.40598148059173444]
+normalized_mean_abs_error : 1.04647738554e+16
+labels_std : 6.645559208624042
+number_of_experiments : 4
+experiments : ['Reaction_G' 'Reaction_A' 'R7' 'Reaction_B']
+test_training_split : by experiments
+

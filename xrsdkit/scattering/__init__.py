@@ -117,7 +117,7 @@ def fcc_intensity(q,popd,source_wavelength):
     q_pks = OrderedDict()
     I_pks = OrderedDict()
     mult = OrderedDict()
-    for hkl, g_hkl, idx in sorted(r_pts, 
+    for hkl, g_hkl, idx, hkl_again in sorted(r_pts, 
     key=lambda pt: (pt[1], -pt[0][0], -pt[0][1], -pt[0][2])):
         # cast hkl as tuple for use as dict key
         immhkl = tuple(hkl)
