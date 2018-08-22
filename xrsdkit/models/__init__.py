@@ -26,10 +26,10 @@ if os.path.exists(api_key_file):
 src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
 src_dsid_list = yaml.load(open(src_dsid_file,'r'))
 
-system_classes = ['noise','pop0_unidentified']
+system_classes = ['noise','unidentified']
 regression_models = OrderedDict()
 regression_models['noise'] = {}
-regression_models['pop0_unidentified'] = {}
+regression_models['unidentified'] = {}
 classification_models = OrderedDict()
 
 # here we only recreate the models from yml files
@@ -151,8 +151,8 @@ def get_possible_regression_models(data):
     sys_cls = list(data.system_class.unique())
     if 'noise' in sys_cls:
         sys_cls.remove('noise')
-    if 'pop0_unidentified' in sys_cls:
-        sys_cls.remove('pop0_unidentified')
+    if 'unidentified' in sys_cls:
+        sys_cls.remove('unidentified')
     model_labels = OrderedDict.fromkeys(sys_cls)
     for cls in sys_cls:
         cls_data = data[(data['system_class']==cls)]
