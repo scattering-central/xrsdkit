@@ -1,19 +1,6 @@
 import numpy as np
 import yaml
 
-def save_fit(file_path,populations,fixed_params,param_bounds,param_constraints,report):
-    with open(file_path, 'w') as yaml_file:
-        yaml.dump({'populations':primitives(populations),
-            'fixed_params':primitives(fixed_params),
-            'param_bounds':primitives(param_bounds),
-            'param_constraints':primitives(param_constraints),
-            'report':primitives(report)},yaml_file)
-
-def load_fit(file_path):
-    with open(file_path, 'r') as yaml_file:
-        data = yaml.load(yaml_file)
-    return data['populations'],data['fixed_params'],data['param_bounds'],data['param_constraints'],data['report']
-
 def primitives(v):
     if isinstance(v,dict):
         rd = {}

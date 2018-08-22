@@ -27,6 +27,16 @@ def structure_form_exception(structure,form):
         'before setting this structure'.format(structure,form)
     raise ValueError(msg)
 
+def save_to_yaml(file_path,sys):
+    sd = sys.to_dict()
+    with open(file_path, 'w') as yaml_file:
+        yaml.dump(primitives(sd),yaml_file)
+
+def load_from_yaml(file_path):
+    with open(file_path, 'r') as yaml_file:
+        sd = yaml.load(yaml_file)
+    return System(sd)
+
 class System(object):
 
     def __init__(self,populations={}):
@@ -41,14 +51,17 @@ class System(object):
         for pop_nm,pop in self.populations.items():
             sd[pop_nm] = pop.to_dict()
         sd['noise_model'] = copy.deepcopy(self.noise_model)
+        sd['fit_report'] = copy.deepcopy(self.fit_report)
         return sd
 
     def update_from_dict(self,d):
-        for pop_name,pd_new in d.items():
+        for pop_name,pd in d.items():
             if pop_name == 'noise_model':
-                self.update_noise_params(pd_new)
+                self.update_noise_params(pd)
+            elif pop_name == 'fit_report':
+                self.fit_report.update(pd)
             elif not pop_name in self.populations:
-                self.populations[pop_name] = Population.from_dict(pd_new) 
+                self.populations[pop_name] = Population.from_dict(pd) 
 
     def update_noise_params(self,noise_dict):
         for noise_type,noise_params in noise_dict.items():
