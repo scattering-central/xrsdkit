@@ -33,38 +33,48 @@ class System(object):
         # TODO: polymorphic constructor inputs 
         self.populations = {}
         self.update_from_dict(populations)
-        self.fit_report = {}
-        #
-        # TODO: incorporate noise_model construct in lieu of noise populations
-        self.noise_model = {'flat':{'I0':0.}}
-        #
+        self.fit_report = {} # this dict gets populated after self.fit() 
+        self.noise_model = {'flat':{'I0':copy.deepcopy(param_defaults['I0'])}}
 
     def to_dict(self):
         sd = {} 
         for pop_nm,pop in self.populations.items():
             sd[pop_nm] = pop.to_dict()
+        sd['noise_model'] = copy.deepcopy(self.noise_model)
         return sd
 
     def update_from_dict(self,d):
         for pop_name,pd_new in d.items():
-            if not pop_name in self.populations:
+            if pop_name == 'noise_model':
+                self.update_noise_params(pd_new)
+            elif not pop_name in self.populations:
                 self.populations[pop_name] = Population.from_dict(pd_new) 
+
+    def update_noise_params(self,noise_dict):
+        for noise_type,noise_params in noise_dict.items():
+            if noise_type in self.noise_model:
+                self.noise_model[noise_type].update(copy.deepcopy(noise_params))
+            else:
+                self.noise_model[noise_type] = copy.deepcopy(noise_params)
 
     def update_params_from_dict(self,pd):
         for pop_name, popd in pd.items():
-            if 'parameters' in popd:
-                for param_name, paramd in popd['parameters'].items():
-                    self.populations[pop_name].parameters[param_name].update(popd['parameters'][param_name])
-            if 'basis' in popd:
-                for specie_name, specied in popd['basis'].items():
-                    if 'coordinates' in specied:
-                        for ic in range(3):
-                            self.populations[pop_name].basis[specie_name].coordinates[ic].update(
-                            specied['coordinates'][ic])
-                    if 'parameters' in specied:
-                        for param_name, paramd in specied['parameters'].items():
-                            self.populations[pop_name].basis[specie_name].parameters[param_name].update(
-                            specied['parameters'][param_name])
+            if pop_name == 'noise_model':
+                self.update_noise_params(popd)
+            else:
+                if 'parameters' in popd:
+                    for param_name, paramd in popd['parameters'].items():
+                        self.populations[pop_name].parameters[param_name].update(popd['parameters'][param_name])
+                if 'basis' in popd:
+                    for specie_name, specied in popd['basis'].items():
+                        if 'coordinates' in specied:
+                            for ic in range(3):
+                                self.populations[pop_name].basis[specie_name].coordinates[ic].update(
+                                specied['coordinates'][ic])
+                        if 'parameters' in specied:
+                            for param_name, paramd in specied['parameters'].items():
+                                self.populations[pop_name].basis[specie_name].parameters[param_name].update(
+                                specied['parameters'][param_name])
 
     @classmethod
     def from_dict(cls,d):
@@ -90,6 +100,9 @@ class System(object):
             Array of scattering intensities for each of the input q values
         """
         I = np.zeros(len(q))
+        for noise_type,noise_params in self.noise_model.items():
+            if noise_type == 'flat':
+                I += noise_params['I0'] * np.ones(len(q))
         for pop_name,pop in self.populations.items():
             I += pop.compute_intensity(q,source_wavelength)
         return I
@@ -159,16 +172,15 @@ class System(object):
             kdepth = len(ks)
             param_name = ks[-1]
             if re.match('coordinate_.',param_name):
-                vary_flag = coord_default['fixed']
-                p_bounds = coord_default['bounds'] 
-                p_expr = coord_default['constraint_expr'] 
+                default = coord_default
             else:
-                vary_flag = not param_defaults[param_name]['fixed']
-                if 'fixed' in pd: vary_flag = not pd['fixed']
-                p_bounds = param_defaults[param_name]['bounds']
-                if 'bounds' in pd: p_bounds = pd['bounds']
-                p_expr = None
-                if 'constraint_expr' in pd: p_expr = pd['constraint_expr']
+                default = param_defaults[param_name]
+            vary_flag = bool(not default['fixed'])
+            if 'fixed' in pd: vary_flag = not pd['fixed']
+            p_bounds = copy.deepcopy(default['bounds'])
+            if 'bounds' in pd: p_bounds = pd['bounds']
+            p_expr = copy.copy(default['constraint_expr'])
+            if 'constraint_expr' in pd: p_expr = pd['constraint_expr']
             lmfp.add(pkey,value=pd['value'],vary=vary_flag,min=p_bounds[0],max=p_bounds[1])
             if p_expr:
                 lmfp[pkey].set(expr=p_expr)
@@ -176,6 +188,9 @@ class System(object):
     
     def flatten_params(self):
         pd = {} 
+        for noise_type,noise_params in self.noise_model.items():
+            for param_name,paramd in self.noise_model[noise_type].items():
+                pd['noise__'+noise_type+'__'+param_name] = paramd
         for pop_name,pop in self.populations.items():
             for param_name,paramd in pop.parameters.items():
                 pd[pop_name+'__'+param_name] = paramd
@@ -267,7 +282,12 @@ def unflatten_params(flat_params):
         pop_name = ks[0]
         if not pop_name in pd:
             pd[pop_name] = {} 
-        if kdepth == 2: 
+        if pop_name == 'noise':
+            # a noise parameter
+            if not 'noise_model' in pd: pd['noise_model'] = {}
+            if not ks[1] in pd['noise_model']: pd[ks[1]] = {}
+            pd['noise_model'][ks[1]][ks[2]] = paramd
+        elif kdepth == 2: 
             # a structure parameter 
             if not 'parameters' in pd[pop_name]:
                 pd[pop_name]['parameters'] = {} 
@@ -293,9 +313,6 @@ def unflatten_params(flat_params):
                 param_name = ks[2]
                 pd[pop_name]['basis'][specie_name]['parameters'][param_name] = paramd
     return pd
-
-
-
 
 
 # TODO: update convenience constructors to return System objects. 

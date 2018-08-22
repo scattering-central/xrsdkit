@@ -22,6 +22,12 @@ form_factor_names = [\
 'spherical',\
 'spherical_normal']
 
+# supported noise models
+noise_model_names = ['flat']
+noise_params = dict(
+    flat = ['I0']
+    )
+
 # supported parameters for each structure
 structure_params = dict(
     unidentified = [],
