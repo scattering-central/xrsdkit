@@ -8,8 +8,6 @@ from . import profiler
 from .. import * 
 from ..scattering.form_factors import atomic_params
 
-# TODO: use System.fit_report to pack and unpack fitting objective, q-range, settings (on make_pif/unpack_pif)
-
 def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=None):
     """Make a pypif.obj.ChemicalSystem object describing XRSD data.
 
@@ -54,7 +52,6 @@ def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=No
     if q_I is not None:
         csys.properties.extend(profile_properties(q_I))
     return csys
-    # TODO: unpack sys.fit_report into csys attributes
     # TODO: update invocations of make_pif() to take System objects as input
 
 def unpack_pif(pp):
@@ -82,8 +79,33 @@ def unpack_pif(pp):
     # unpack classification outputs 
     classification_labels['system_classification'] = cls_dict.pop('system_classification').value
 
+    # unpack fit report
+    fit_rpt = {}
+    if 'fit_report' in props_dict:
+        prop = props_dict.pop('fit_report')
+        for tg in prop.tags:
+            if 'success: ' in tg: fit_rpt['success'] = bool(tg.strip('success: '))
+            if 'initial_objective: ' in tg: fit_rpt['initial_objective'] = float(tg.strip('initial_objective: '))
+            if 'final_objective: ' in tg: fit_rpt['final_objective'] = float(tg.strip('final_objective: '))
+            if 'error_weighted: ' in tg: fit_rpt['error_weighted'] = bool(tg.strip('error_weighted: '))
+            if 'logI_weighted: ' in tg: fit_rpt['logI_weighted'] = bool(tg.strip('logI_weighted: '))
+            if 'q_range: ' in tg: 
+                bds = tg.strip('q_range: []').split(',')
+                fit_rpt['q_range'] = [float(bds[0]), float(bds[1])]
+            if 'fit_snr: ' in tg: fit_rpt['fit_snr'] = float(tg.strip('fit_snr: '))
+
+    # unpack noise model
+    noise_model = {} 
+    if 'noise_classification' in cls_dict:
+        noise_cls = cls_dict.pop('noise_classification')
+        noise_ids = noise_cls.split('__')
+        for noise_id in noise_ids:
+            noise_model[noise_id] = {}
+            for param_nm in noise_params[noise_id]:
+                noise_param_name = 'noise__'+noise_id+'__'+param_nm
+                noise_model[noise_id][param_nm] = param_from_pif_property(props_dict.pop(noise_param_name)) 
+
     # use the remaining cls_dict entries to rebuild the System  
-    # TODO: handle noise differently (i.e. not as a population) at the System level 
     popd = OrderedDict()
     # identify population names and structure specifications 
     for cls_nm, cls in cls_dict.items():
@@ -123,9 +145,9 @@ def unpack_pif(pp):
                 param_from_pif_property(param_nm,props_dict[pl])
 
     # popd should now contain all system information: build the System
-    # TODO: extract noise parameters, add to sys
-    # TODO: extract fit_report, add to sys
     sys = System(popd)
+    sys.fit_report = fit_rpt
+    sys.noise_model = noise_model
 
     # unpack remaining properties not related to the system definition
     for prop_nm, prop in props_dict.items():
@@ -197,13 +219,15 @@ def profile_properties(q_I):
             #fnm,fval,'spectrum profiling quantity'))
     return pp
 
-
 def pack_system_objects(sys):
     """Return pypif.obj objects describing System attributes"""
     all_props = []
     all_clss = [] 
     sys_cls = ''
     ipop = 0
+    all_clss.append(noise_classification(sys.noise_model))
+    all_props.extend(noise_properties(sys.noise_model))
+    all_props.append(fit_report_property(sys.fit_report))
     for struct_nm in structure_names: # use structure_names to impose order 
         struct_pops = OrderedDict() 
         for pop_nm,pop in sys.populations.items():
@@ -237,6 +261,26 @@ def pack_system_objects(sys):
             ipop += 1
     all_clss.append(Classification('system_classification',sys_cls,None))
     return all_clss, all_props
+
+def noise_classification(noise_model):
+    noise_cls = ''
+    for nm in noise_model_names:
+        if nm in noise_model:
+            if noise_cls: noise_cls += '__'
+            noise_cls += nm
+    return Classification('noise_classification',noise_cls,None)
+
+def noise_properties(noise_model):
+    props = []
+    for noise_nm,params in noise_model.items():
+        for pnm,pd in params.items():
+            props.append(pif_property_from_param('noise__'+noise_nm+'__'+pnm,pd))
+    return props
+
+def fit_report_property(fit_report):
+    prop = Property('fit_report',fit_report['final_objective'])
+    prop.tags = [rpt_key+': '+str(rpt_val) for rpt_key,rpt_val in fit_report.items()]
+    return prop
 
 def _sort_populations(struct_nm,pops_dict):
     """Sort a set of populations (all with the same structure)"""
@@ -322,7 +366,7 @@ def setting_properties(ip,pop):
     pps = []
     for stgnm,stgval in pop.settings.items():
         pp = Property('pop{}_{}'.format(ip,stgnm))
-        pp.tags = str(stgval)
+        pp.tags = [str(stgval)]
         pps.append(pp)
     return pps
 
@@ -337,7 +381,7 @@ def specie_setting_properties(ip,isp,specie):
     pps = []
     for stgnm,stgval in specie.settings.items():
         pp = Property('pop{}_specie{}_{}'.format(ip,isp,stgnm))
-        pp.tags = str(stgval)
+        pp.tags = [str(stgval)]
         pps.append(pp)
     return pps
 
