@@ -8,8 +8,8 @@ class Specie(object):
         self.form = None
         self.settings = {}
         self.parameters = {}
-        make_coord = lambda : {'value':0.,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None}  
-        self.coordinates = [make_coord(),make_coord(),make_coord()]
+        self.coordinates = [copy.deepcopy(coord_default),\
+        copy.deepcopy(coord_default),copy.deepcopy(coord_default)]
         self.set_form(form)
         self.update_settings(settings)
         self.update_parameters(parameters)
@@ -21,7 +21,7 @@ class Specie(object):
             if stg_nm in self.settings:
                 new_settings[stg_nm] = self.settings[stg_nm]
             else:
-                new_settings[stg_nm] = setting_defaults[stg_nm]
+                new_settings[stg_nm] = copy.copy(setting_defaults[stg_nm])
         self.settings = new_settings 
         new_params = dict.fromkeys(form_factor_params[form])
         for param_nm in form_factor_params[form]:
@@ -34,16 +34,16 @@ class Specie(object):
 
     def to_dict(self):
         sd = {}
-        sd['form'] = self.form
+        sd['form'] = copy.copy(self.form)
         sd['settings'] = {}
         for stg_nm,stg in self.settings.items():
-            sd['settings'][stg_nm] = stg 
+            sd['settings'][stg_nm] = copy.copy(stg) 
         sd['parameters'] = {}
         for param_nm,param in self.parameters.items():
             sd['parameters'][param_nm] = copy.deepcopy(param)
         sd['coordinates'] = [None,None,None] 
-        for ic,cparam in enumerate(self.coordinates):
-            sd['coordinates'][ic] = copy.deepcopy(cparam)
+        for ic,cdict in enumerate(self.coordinates):
+            sd['coordinates'][ic] = copy.deepcopy(cdict)
         return sd
 
     @classmethod

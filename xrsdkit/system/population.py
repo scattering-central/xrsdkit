@@ -52,10 +52,10 @@ class Population(object):
 
     def to_dict(self):
         pd = {} 
-        pd['structure'] = self.structure
+        pd['structure'] = copy.copy(self.structure)
         pd['settings'] = {}
         for stg_nm,stg in self.settings.items():
-            pd['settings'][stg_nm] = stg 
+            pd['settings'][stg_nm] = copy.copy(stg)
         pd['parameters'] = {}
         for param_nm,param in self.parameters.items():
             pd['parameters'][param_nm] = copy.deepcopy(param)

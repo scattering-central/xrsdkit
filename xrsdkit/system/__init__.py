@@ -30,35 +30,20 @@ def structure_form_exception(structure,form):
 class System(object):
 
     def __init__(self,populations={}):
+        # TODO: polymorphic constructor inputs 
         self.populations = {}
         self.update_from_dict(populations)
         self.fit_report = {}
+        #
+        # TODO: incorporate noise_model construct in lieu of noise populations
+        self.noise_model = {'flat':{'I0':0.}}
+        #
 
     def to_dict(self):
         sd = {} 
         for pop_nm,pop in self.populations.items():
             sd[pop_nm] = pop.to_dict()
         return sd
-
-    def to_ordered_dict(self):
-        od = OrderedDict()
-        ## Step 1: Standardize order of populations by structure and form,
-        ## excluding entries for noise or unidentified structures
-        for stnm in structure_names:
-            for ffnm in form_factor_names:
-                for pop_nm,pop in self.populations.items():
-                    if not pop_nm == 'noise' \
-                    and not pop.structure == 'unidentified':
-                        if pop.structure == stnm \
-                        and ffnm in [pop.basis[snm]['form'] for snm in pop.basis.keys()]:
-                            ## Step 2: Standardize order of species by form factor
-                            od[pop_nm] = pop.to_ordered_dict()
-        ## Step 3: if noise or unidentified populations, put at the end
-        for pop_nm,pop in self.populations.items():
-            if pop_nm == 'noise' \
-            or pop.structure == 'unidentified':
-                od[pop_nm] = pop.to_ordered_dict() 
-        return od
 
     def update_from_dict(self,d):
         for pop_name,pd_new in d.items():
@@ -174,9 +159,9 @@ class System(object):
             kdepth = len(ks)
             param_name = ks[-1]
             if re.match('coordinate_.',param_name):
-                vary_flag = False
-                p_bounds = [-1.,1.]
-                p_expr = None
+                vary_flag = coord_default['fixed']
+                p_bounds = coord_default['bounds'] 
+                p_expr = coord_default['constraint_expr'] 
             else:
                 vary_flag = not param_defaults[param_name]['fixed']
                 if 'fixed' in pd: vary_flag = not pd['fixed']

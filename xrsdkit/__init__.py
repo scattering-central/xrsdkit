@@ -125,6 +125,8 @@ param_defaults = dict(
     b3 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
     )
 
+coord_default = {'value':0.,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None}
+
 setting_defaults = dict(
     lattice = 'fcc',
     interaction = 'hard_spheres',
@@ -188,5 +190,4 @@ parameter_units = dict(
     a3 = 'arbitrary',
     b3 = 'arbitrary'
     )
-
 
