@@ -7,6 +7,7 @@ from pypif.obj import ChemicalSystem, Property, Classification, Id, Value, Scala
 from . import profiler
 from .. import * 
 from ..scattering.form_factors import atomic_params
+from ..system import System
 
 def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=None):
     """Make a pypif.obj.ChemicalSystem object describing XRSD data.
@@ -59,7 +60,7 @@ def unpack_pif(pp):
     expt_id = None
     t_utc = None
     q_I = None
-    temp = None
+    temperature = None
     features = OrderedDict()
     regression_outputs = {}
     classification_labels = {}
@@ -157,7 +158,7 @@ def unpack_pif(pp):
                 if val.name == 'scattering vector magnitude':
                     q = [float(sca.value) for sca in val.scalars]
                 if val.name == 'temperature':
-                    temp = float(val.scalars[0].value)
+                    temperature = float(val.scalars[0].value)
                 if val.name == 'source wavelength':
                     src_wl = float(val.scalars[0].value)
             q_I = np.vstack([q,I]).T
@@ -178,7 +179,7 @@ def unpack_pif(pp):
             if 'time (utc): ' in ttgg:
                 t_utc = float(ttgg.replace('time (utc): ',''))
 
-    return pp.uid,sys,q_I,expt_id,t_utc,temp_C,src_wl,\
+    return pp.uid,sys,q_I,expt_id,t_utc,temperature,src_wl,\
         features,classification_labels,regression_outputs
 
 def id_tag(idname,idval,tags=None):

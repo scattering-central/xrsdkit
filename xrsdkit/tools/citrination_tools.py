@@ -32,7 +32,8 @@ def get_data_from_Citrination(client, dataset_id_list):
         list of pif objects. Each of them contains data about one sample.
     """
     data = []
-    # reg_labels is a list of dicts of regression model outputs for each sample
+    # reg_labels is a list of dicts,
+    # containing regression model outputs for each sample
     reg_labels = []
     # all_reg_labels will be the set of all
     # unique regression labels over the provided datasets 
@@ -41,29 +42,28 @@ def get_data_from_Citrination(client, dataset_id_list):
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for i,pp in enumerate(pifs):
-        pif_uid, expt_id, t_utc, q_I, temp, src_wl, populations,fp,pb,pc, \
-            pp_feats, cl_model_outputs, reg_model_outputs = piftools.unpack_pif(pp)
-        feats = OrderedDict.fromkeys(profiler.profile_keys)
-        feats.update(pp_feats)
+        pif_uid, sys, q_I, expt_id, t_utc, temp, src_wl, \
+        features, classification_labels, regression_outputs = piftools.unpack_pif(pp)
 
-        # i is needed to keep relation between rows and corresponding pifs
-        data_row = [expt_id]+list(feats.values())+[cl_model_outputs]+[i]
+        # NOTE: the index `i` is added at the end of each data row,
+        # as a way to index the pif that was originally packed there 
+        data_row = [expt_id]+list(features.values())+list(classification_labels.values())+[i]
 
         data.append(data_row)
-        for k,v in reg_model_outputs.items():
+        for k,v in regression_outputs.items():
             all_reg_labels.add(k)
-        reg_labels.append(reg_model_outputs)
+        reg_labels.append(regression_outputs)
 
     reg_labels_list = list(all_reg_labels)
     reg_labels_list.sort()
 
     for i,rl in enumerate(reg_labels):
         # create a dict of labels for all possible regression models
-        lb = OrderedDict.fromkeys(reg_labels_list)
+        orl = OrderedDict.fromkeys(reg_labels_list)
         # fill in values that were found in the record
-        lb.update(rl)
+        orl.update(rl)
         # add the regression labels to the end of the data row
-        data[i] = data[i] + list(lb.values())
+        data[i] = data[i] + list(orl.values())
 
     colnames = ['experiment_id']
     colnames.extend(profiler.profile_keys)
@@ -266,7 +266,7 @@ def downsample_one_experiment(data_fr, min_distance):
             # between itself and all other samples
             min_distance_array = np.array([min(group_dist_matrix[i,:]) for i in range(group_size)])
             best_idx = np.argmax(min_distance_array)
-            print('- best sample: {} (min distance: {})'.format(best_idx,min_distance_array[best_idx]))
+            #print('- best sample: {} (min distance: {})'.format(best_idx,min_distance_array[best_idx]))
             df = df.append(group.iloc[best_idx])
             sampled_idxs = [best_idx] 
             continue_downsampling = True
@@ -282,7 +282,7 @@ def downsample_one_experiment(data_fr, min_distance):
                 min_distance_array = np.array([min(sample_dist_matrix[:,j]) for j in range(group_size)])
                 best_idx = np.argmax(min_distance_array)
                 best_min_distance = min_distance_array[best_idx]
-                print('- next best sample: {} (min distance: {})'.format(best_idx,best_min_distance))
+                #print('- next best sample: {} (min distance: {})'.format(best_idx,best_min_distance))
 
                 # if we have at least 10 samples,
                 # and all remaining samples are close to current data set,
