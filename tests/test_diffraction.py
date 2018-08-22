@@ -18,7 +18,7 @@ fcc_Al = Population('crystalline',
     basis={'Al':Al_atom_dict}
     )
 
-fcc_Al_system = System({'fcc_Al':fcc_Al})
+fcc_Al_system = System({'fcc_Al':fcc_Al.to_dict()})
 
 glassy_Al = Population('disordered',
     settings={'interaction':'hard_spheres'},
@@ -30,9 +30,9 @@ glassy_Al = Population('disordered',
     basis={'Al':Al_atom_dict}
     )
 
-glassy_Al_system = System({'glassy_Al':glassy_Al})
+glassy_Al_system = System({'glassy_Al':glassy_Al.to_dict()})
 
-mixed_Al_system = System({'glassy_Al':glassy_Al,'fcc_Al':fcc_Al})
+mixed_Al_system = System({'glassy_Al':glassy_Al.to_dict(),'fcc_Al':fcc_Al.to_dict()})
 
 def test_Al_scattering():
     qvals = np.arange(1.,5.,0.001)
@@ -40,13 +40,13 @@ def test_Al_scattering():
     I_gls = glassy_Al_system.compute_intensity(qvals,0.8265616)
     I_mxd = mixed_Al_system.compute_intensity(qvals,0.8265616)
 
-    from matplotlib import pyplot as plt
-    plt.figure(4)
-    plt.plot(qvals,I_fcc)
-    plt.plot(qvals,I_gls)
-    plt.plot(qvals,I_mxd)
-    plt.legend(['fcc','glassy','mixed'])
-    plt.show()
+    #from matplotlib import pyplot as plt
+    #plt.figure(4)
+    #plt.plot(qvals,I_fcc)
+    #plt.plot(qvals,I_gls)
+    #plt.plot(qvals,I_mxd)
+    #plt.legend(['fcc','glassy','mixed'])
+    #plt.show()
     
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)

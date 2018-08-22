@@ -121,14 +121,14 @@ def unpack_pif(pp):
         # moving forward, we assume the structure has been assigned,
         # all species in the basis have been identified,
         # and all settings and params exist in props_dict
-        for param_nm in structure_params[popd[popnm]['structure']]]:
+        for param_nm in structure_params[popd[popnm]['structure']]:
             pl = 'pop{}_{}'.format(ip,param_nm) 
             populations[popnm]['parameters'][param_nm] = \
             param_from_pif_property(param_nm,props_dict[pl])
-        for stg_nm in structure_settings[popd[popnm]['structure']]]:  
+        for stg_nm in structure_settings[popd[popnm]['structure']]:  
             tp = setting_datatypes[stg_nm]
             populations[popnm]['settings'][stg_nm] = \
-            tp(props_dict['pop{}_{}'.format(ip,stg_nm)].tags[0]
+            tp(props_dict['pop{}_{}'.format(ip,stg_nm)].tags[0])
         for isp, specie_nm in enumerate(popd[popnm]['basis'].keys()):
             specie_form = popd[popnm]['basis'][specie_nm]['form']
             for param_nm in form_factor_params[specie_form]:
@@ -138,7 +138,7 @@ def unpack_pif(pp):
             for stg_nm in form_factor_settings[specie_form]:  
                 tp = setting_datatypes[stg_nm]
                 populations[popnm]['basis'][specie_nm]['settings'][stg_nm] = \
-                tp(props_dict['pop{}_specie{}_{}'.format(ip,isp,stg_nm)].tags[0]
+                tp(props_dict['pop{}_specie{}_{}'.format(ip,isp,stg_nm)].tags[0])
             for ic in range(3):
                 pl = 'pop{}_specie{}_coordinate{}'.format(ip,ist,ic)
                 populations[popnm]['basis'][specie_nm]['coordinates'][ic] = \

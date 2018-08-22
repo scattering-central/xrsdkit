@@ -109,6 +109,10 @@ regression_params = [
 'r_hard','v_fraction'\
 ]
 
+noise_param_defaults = dict(
+    I0 = {'value':0.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
+    )
+
 param_defaults = dict(
     I0 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
     rg = {'value':10.,'fixed':False,'bounds':[0.1,None],'constraint_expr':None},

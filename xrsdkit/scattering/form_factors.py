@@ -51,7 +51,7 @@ def site_ff_squared(q,site_def):
 
 def standard_atomic_ff(q,atom_symbol):
     pars = atomic_params[atom_symbol]
-    return atomic_ff(q,pars)
+    return atomic_ff(q,pars['Z'],pars['a'],pars['b'])
 
 def atomic_ff(q,Z,a,b):
     g = q*1./(2*np.pi)

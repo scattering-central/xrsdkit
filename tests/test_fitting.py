@@ -7,11 +7,6 @@ from xrsdkit.system import System, fit
     
 src_wl = 0.8265616
 
-noise_dict = dict(
-    structure='diffuse',
-    parameters={'I0':{'value':0.1}},
-    basis={'flat_noise':{'form':'flat'}}
-    )
 np_dict =  dict(
     structure='diffuse',
     parameters={'I0':{'value':1000}},
@@ -41,11 +36,9 @@ np_sl_dict = dict(
     )
 
 np_pops_dict = dict(
-    noise = noise_dict,
     nanoparticles = np_dict
     )
 np_sl_pops_dict = dict(
-    noise = noise_dict,
     nanoparticles = np_dict,
     np_superlattice = np_sl_dict
     )

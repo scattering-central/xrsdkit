@@ -30,11 +30,11 @@ def structure_form_exception(structure,form):
 class System(object):
 
     def __init__(self,populations={}):
-        # TODO: polymorphic constructor inputs 
+        # TODO: consider polymorphic constructor inputs 
         self.populations = {}
         self.update_from_dict(populations)
         self.fit_report = {} # this dict gets populated after self.fit() 
-        self.noise_model = {'flat':{'I0':copy.deepcopy(param_defaults['I0'])}}
+        self.noise_model = {'flat':{'I0':copy.deepcopy(noise_param_defaults['I0'])}}
 
     def to_dict(self):
         sd = {} 
@@ -102,7 +102,7 @@ class System(object):
         I = np.zeros(len(q))
         for noise_type,noise_params in self.noise_model.items():
             if noise_type == 'flat':
-                I += noise_params['I0'] * np.ones(len(q))
+                I += noise_params['I0']['value'] * np.ones(len(q))
         for pop_name,pop in self.populations.items():
             I += pop.compute_intensity(q,source_wavelength)
         return I
@@ -233,22 +233,20 @@ def fit(sys,q,I,source_wavelength,dI=None,
         Dict reporting quantities of interest
         about the fit result.
     """
-    p_save = sys.to_dict()
-    p_opt = sys.to_dict()
-    sys_opt = System.from_dict(p_opt)
-    rpt = {} 
 
-    for pop_name,pd in p_opt.items():
-        if pd['structure'] == 'unidentified':
-            return p_opt,rpt 
+    for pop_name,p in sys.populations.items():
+        if p.structure == 'unidentified':
+            return sys.to_dict(),rpt 
+
+    # the System to optimize starts as a copy of the input System
+    sys_opt = System.from_dict(sys.to_dict())
+    rpt = {} 
 
     obj_init = sys_opt.evaluate_residual(q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
     lmf_params = sys_opt.pack_lmfit_params() 
     lmf_res = lmfit.minimize(sys_opt.lmf_evaluate,
         lmf_params,method='nelder-mead',
         kws={'q':q,'I':I,'error_weighted':error_weighted,'logI_weighted':logI_weighted,'q_range':q_range})
-
-    p_opt = sys_opt.to_dict()
 
     fit_obj = sys_opt.evaluate_residual(q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
     I_opt = sys_opt.compute_intensity(q,source_wavelength)
@@ -285,7 +283,7 @@ def unflatten_params(flat_params):
         if pop_name == 'noise':
             # a noise parameter
             if not 'noise_model' in pd: pd['noise_model'] = {}
-            if not ks[1] in pd['noise_model']: pd[ks[1]] = {}
+            if not ks[1] in pd['noise_model']: pd['noise_model'][ks[1]] = {}
             pd['noise_model'][ks[1]][ks[2]] = paramd
         elif kdepth == 2: 
             # a structure parameter 
