@@ -14,11 +14,12 @@ import re
 
 import numpy as np
 import lmfit
+import yaml
 
 from .population import Population
 from .specie import Specie
 from .. import * 
-from ..tools import compute_chi2
+from ..tools import primitives, compute_chi2
 
 def structure_form_exception(structure,form):
     msg = 'structure specification {}'\
@@ -42,9 +43,9 @@ class System(object):
     def __init__(self,populations={}):
         # TODO: consider polymorphic constructor inputs 
         self.populations = {}
-        self.update_from_dict(populations)
         self.fit_report = {} # this dict gets populated after self.fit() 
         self.noise_model = {'flat':{'I0':copy.deepcopy(noise_param_defaults['I0'])}}
+        self.update_from_dict(populations)
 
     def to_dict(self):
         sd = {} 

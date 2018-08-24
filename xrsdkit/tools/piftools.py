@@ -228,7 +228,8 @@ def pack_system_objects(sys):
     ipop = 0
     all_clss.append(noise_classification(sys.noise_model))
     all_props.extend(noise_properties(sys.noise_model))
-    all_props.append(fit_report_property(sys.fit_report))
+    if sys.fit_report:
+        all_props.append(fit_report_property(sys.fit_report))
     for struct_nm in structure_names: # use structure_names to impose order 
         struct_pops = OrderedDict() 
         for pop_nm,pop in sys.populations.items():
@@ -252,8 +253,8 @@ def pack_system_objects(sys):
                 # sort any species with same form
                 ff_species = _sort_species(ff_nm,ff_species)
                 for specie_nm,specie in ff_species.items():
-                    all_props.extend(specie_param_properties(ipop,ispec,pop))
-                    all_props.extend(specie_setting_properties(ipop,ispec,pop))
+                    all_props.extend(specie_param_properties(ipop,ispec,specie))
+                    all_props.extend(specie_setting_properties(ipop,ispec,specie))
                     if bas_cls: bas_cls += '__'
                     bas_cls += 'specie{}_{}'.format(ispec,specie.form)
                     all_clss.append(Classification('pop{}_specie{}_form'.format(ipop,ispec),specie.form,[specie_nm]))
@@ -279,13 +280,16 @@ def noise_properties(noise_model):
     return props
 
 def fit_report_property(fit_report):
+    prop_val = None
     prop = Property('fit_report',fit_report['final_objective'])
     prop.tags = [rpt_key+': '+str(rpt_val) for rpt_key,rpt_val in fit_report.items()]
     return prop
 
+# TODO: consider basis content when sorting populations?
+# currently only sorts on basis of structure params
 def _sort_populations(struct_nm,pops_dict):
     """Sort a set of populations (all with the same structure)"""
-    if struct_nm == 'unidentified': 
+    if struct_nm == 'unidentified' or len(pops_dict) < 2: 
         return pops_dict
     new_pops = OrderedDict()
 
@@ -302,32 +306,39 @@ def _sort_populations(struct_nm,pops_dict):
         for l in pop_labels: param_vals[l].append(crystalline_structures.index(pops_dict[l].settings['lattice']))
         param_labels.append('lattice')
         dtypes['lattice']='int'
+        for param_nm in crystalline_structure_params[pops_dict[l].settings['lattice']]:
+            for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
+            param_labels.append(param_nm)
+            dtypes[param_nm]='float'
     # likewise for xrsdkit.disordered_structures 
     if struct_nm == 'disordered': 
         for l in pop_labels: param_vals[l].append(disordered_structures.index(pops_dict[l].settings['interaction']))
         param_labels.append('interaction')
         dtypes['interaction']='int'
-    # for all structures, order by their xrsdkit.structure_params,
+        for param_nm in disordered_structure_params[pops_dict[l].settings['interaction']]:
+            for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
+            param_labels.append(param_nm)
+            dtypes[param_nm]='float'
+    # for all structures, order by their structure_params,
     # from highest to lowest priority
     for param_nm in structure_params[struct_nm]:
         for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
         param_labels.append(param_nm)
-        dtypes[param_nm]='float32'
+        dtypes[param_nm]='float'
     param_ar = np.array(
         [tuple([l]+param_vals[l]) for l in pop_labels], 
-        dtype = [('pop_name','U10')]+[(pl,dtypes[pl]) for pl in param_labels]
+        dtype = [('pop_name','U32')]+[(pl,dtypes[pl]) for pl in param_labels]
         )
 
     # TODO: make tests that ensure the sort results are correct
     param_ar.sort(axis=0,order=param_labels)
+    for ip,p in enumerate(param_ar): new_pops[p[0]] = pops_dict[p[0]]
 
-    for ip,p in enumerate(param_ar):
-        new_pops[p[0]] = pops_dict[p[0]]
     return new_pops
 
 def _sort_species(ff_nm,species_dict):
     """Sort a set of species (all with the same form)"""
-    if ff_nm == 'flat':
+    if ff_nm == 'flat' or len(species_dict)<2:
         return species_dict
     new_species = OrderedDict()
 
@@ -342,20 +353,20 @@ def _sort_species(ff_nm,species_dict):
     if ff_nm == 'atomic':  
         for l in specie_labels: param_vals[l].append(species_dict[l].parameters['Z'])
         param_labels.append('Z') 
-        dtypes.append('float32')
+        dtypes['Z'] = 'float'
     if ff_nm == 'standard_atomic':
         for l in specie_labels: param_vals[l].append(atomic_params[specie.settings['symbol']['Z']])
         param_labels.append('Z') 
-        dtypes.append('float32')
+        dtypes['Z'] = 'float'
     for param_nm in form_factor_params[ff_nm]:
         for l in specie_labels: param_vals[l].append(species_dict[l].parameters[param_nm]['value'])
         param_labels.append(param_nm)
-        dtypes[param_nm]='float32'
+        dtypes[param_nm]='float'
+    
     param_ar = np.array(
         [tuple([l]+param_vals[l]) for l in specie_labels], 
-        dtype = [('specie_name','U10')]+[(pl,dtypes[pl]) for pl in param_labels]
+        dtype = [('specie_name','U32')]+[(pl,dtypes[pl]) for pl in param_labels]
         )
-
     # TODO: make tests that ensure the sort results are correct
     param_ar.sort(axis=0,order=param_labels)
 
@@ -389,7 +400,7 @@ def specie_setting_properties(ip,isp,specie):
 def specie_param_properties(ip,isp,specie):
     pps = []
     for ic,cd in enumerate(specie.coordinates):
-        pnm = 'pop{}_specie{}_coordinate{}'.format(ip,ist,ic)
+        pnm = 'pop{}_specie{}_coordinate{}'.format(ip,isp,ic)
         pps.append(pif_property_from_param(pnm,cd))
     for param_nm,pd in specie.parameters.items():
         pnm = 'pop{}_specie{}_{}'.format(ip,isp,param_nm)
@@ -411,11 +422,11 @@ def param_from_pif_property(param_nm,prop):
     return pdict
 
 def pif_property_from_param(param_nm,paramd):
-    pp = Property(param_nm,pd['value'])
+    pp = Property(param_nm,paramd['value'])
     pp.tags = []
-    pp.tags.append('fixed: {}'.format(bool(pd['fixed'])))
-    pp.tags.append('bounds: [{},{}]'.format(pd['bounds'][0],pd['bounds'][1]))
-    pp.tags.append('constraint_expr: {}'.format(pd['constraint_expr']))
+    pp.tags.append('fixed: {}'.format(bool(paramd['fixed'])))
+    pp.tags.append('bounds: [{},{}]'.format(paramd['bounds'][0],paramd['bounds'][1]))
+    pp.tags.append('constraint_expr: {}'.format(paramd['constraint_expr']))
     return pp
 
 #def scalar_property(fname,fval,desc=None,data_type=None,funits=None):
