@@ -99,12 +99,12 @@ def unpack_pif(pp):
     noise_model = {} 
     if 'noise_classification' in cls_dict:
         noise_cls = cls_dict.pop('noise_classification')
-        noise_ids = noise_cls.split('__')
+        noise_ids = noise_cls.value.split('__')
         for noise_id in noise_ids:
             noise_model[noise_id] = {}
             for param_nm in noise_params[noise_id]:
                 noise_param_name = 'noise__'+noise_id+'__'+param_nm
-                noise_model[noise_id][param_nm] = param_from_pif_property(props_dict.pop(noise_param_name)) 
+                noise_model[noise_id][param_nm] = param_from_pif_property(param_nm,props_dict.pop(noise_param_name)) 
 
     # use the remaining cls_dict entries to rebuild the System  
     popd = OrderedDict()
@@ -124,25 +124,25 @@ def unpack_pif(pp):
         # and all settings and params exist in props_dict
         for param_nm in structure_params[popd[popnm]['structure']]:
             pl = 'pop{}_{}'.format(ip,param_nm) 
-            populations[popnm]['parameters'][param_nm] = \
+            popd[popnm]['parameters'][param_nm] = \
             param_from_pif_property(param_nm,props_dict[pl])
         for stg_nm in structure_settings[popd[popnm]['structure']]:  
             tp = setting_datatypes[stg_nm]
-            populations[popnm]['settings'][stg_nm] = \
+            popd[popnm]['settings'][stg_nm] = \
             tp(props_dict['pop{}_{}'.format(ip,stg_nm)].tags[0])
         for isp, specie_nm in enumerate(popd[popnm]['basis'].keys()):
             specie_form = popd[popnm]['basis'][specie_nm]['form']
             for param_nm in form_factor_params[specie_form]:
                 pl = 'pop{}_specie{}_{}'.format(ip,isp,param_nm) 
-                populations[popnm]['basis'][specie_nm]['parameters'][param_nm] = \
+                popd[popnm]['basis'][specie_nm]['parameters'][param_nm] = \
                 param_from_pif_property(param_nm,props_dict[pl])
             for stg_nm in form_factor_settings[specie_form]:  
                 tp = setting_datatypes[stg_nm]
-                populations[popnm]['basis'][specie_nm]['settings'][stg_nm] = \
+                popd[popnm]['basis'][specie_nm]['settings'][stg_nm] = \
                 tp(props_dict['pop{}_specie{}_{}'.format(ip,isp,stg_nm)].tags[0])
             for ic in range(3):
-                pl = 'pop{}_specie{}_coordinate{}'.format(ip,ist,ic)
-                populations[popnm]['basis'][specie_nm]['coordinates'][ic] = \
+                pl = 'pop{}_specie{}_coordinate{}'.format(ip,isp,ic)
+                popd[popnm]['basis'][specie_nm]['coordinates'][ic] = \
                 param_from_pif_property(param_nm,props_dict[pl])
 
     # popd should now contain all system information: build the System
@@ -243,6 +243,10 @@ def pack_system_objects(sys):
             if sys_cls: sys_cls += '__'
             sys_cls += 'pop{}_{}'.format(ipop,pop.structure)
             all_clss.append(Classification('pop{}_structure'.format(ipop),pop.structure,[pop_nm]))
+            if pop.structure == 'crystalline':
+                all_clss.append(Classification('pop{}_lattice'.format(ipop),pop.settings['lattice']))
+            if pop.structure == 'disordered':
+                all_clss.append(Classification('pop{}_interaction'.format(ipop),pop.settings['interaction']))
             bas_cls = ''
             ispec = 0
             for ff_nm in form_factor_names: # use form_factor_names to impose order
@@ -416,7 +420,15 @@ def param_from_pif_property(param_nm,prop):
                 pdict['fixed'] = bool(tg.strip('fixed: '))
             if 'bounds: ' in tg:
                 bds = tg.strip('bounds: []').split(',')
-                pdict['bounds'] = [float(bds[0]), float(bds[1])]
+                try: 
+                    lbd = float(bds[0]) 
+                except:
+                    lbd = None
+                try:
+                    ubd = float(bds[1]) 
+                except:
+                    ubd = None
+                pdict['bounds'] = [lbd, ubd]
             if 'constraint_expr: ' in tg:
                 pdict['constraint_expr'] = tg.strip('constraint_expr: ')
     return pdict
