@@ -109,16 +109,28 @@ def unpack_pif(pp):
     # use the remaining cls_dict entries to rebuild the System  
     popd = OrderedDict()
     # identify population names and structure specifications 
-    for cls_nm, cls in cls_dict.items():
-        if re.compile('pop[0-9]*_structure').match(cls_nm): 
+    ip = 0
+    pops_found = False
+    while not pops_found:
+        if 'pop{}_structure'.format(ip) in cls_dict:
+            cls = cls_dict['pop{}_structure'.format(ip)] 
             popd[cls.tags[0]] = dict(structure=cls.value,
             basis={},settings={},parameters={}) 
+            ip += 1
+        else:
+            pops_found = True
     for ip,popnm in enumerate(popd.keys()):
         # identify any specie names and form factor specifications
-        for cls_nm, cls in cls_dict.items():
-            if re.compile('pop{}_specie[0-9]*_form'.format(ip)).match(cls_nm):
+        isp = 0
+        species_found = False
+        while not species_found:
+            if 'pop{}_specie{}_form'.format(ip,isp) in cls_dict:
+                cls = cls_dict['pop{}_specie{}_form'.format(ip,isp)]
                 popd[popnm]['basis'][cls.tags[0]] = dict(form=cls.value,
                 settings={},parameters={},coordinates=[None,None,None])
+                isp += 1
+            else:
+                species_found = True
         # moving forward, we assume the structure has been assigned,
         # all species in the basis have been identified,
         # and all settings and params exist in props_dict
@@ -290,7 +302,7 @@ def fit_report_property(fit_report):
     return prop
 
 # TODO: consider basis content when sorting populations?
-# currently only sorts on basis of structure params
+# currently only sorts on structure params
 def _sort_populations(struct_nm,pops_dict):
     """Sort a set of populations (all with the same structure)"""
     if struct_nm == 'unidentified' or len(pops_dict) < 2: 
@@ -305,8 +317,8 @@ def _sort_populations(struct_nm,pops_dict):
     for l in pop_labels: param_vals[l] = []
     param_labels = []
     dtypes = {}
-    # order crystalline structures primarily according to the list xrsdkit.crystalline_structures
     if struct_nm == 'crystalline': 
+        # order crystalline structures primarily according to the list xrsdkit.crystalline_structures
         for l in pop_labels: param_vals[l].append(crystalline_structures.index(pops_dict[l].settings['lattice']))
         param_labels.append('lattice')
         dtypes['lattice']='int'
@@ -380,7 +392,10 @@ def _sort_species(ff_nm,species_dict):
 
 def setting_properties(ip,pop):
     pps = []
-    for stgnm,stgval in pop.settings.items():
+    for stgnm in structure_settings[pop.structure]:
+        stgval = setting_defaults[stgnm]
+        if stgnm in pop.settings:
+            stgval = pop.settings[stgnm]
         pp = Property('pop{}_{}'.format(ip,stgnm))
         pp.tags = [str(stgval)]
         pps.append(pp)
@@ -388,7 +403,15 @@ def setting_properties(ip,pop):
 
 def param_properties(ip,pop):
     pps = []
-    for param_nm,pd in pop.parameters.items():
+    param_nms = copy.deepcopy(structure_params[pop.structure])
+    if pop.structure == 'crystalline':
+        param_nms.extend(crystalline_structure_params[pop.settings['lattice']])
+    if pop.structure == 'disordered':
+        param_nms.extend(disordered_structure_params[pop.settings['interaction']])
+    for param_nm in param_nms:
+        pd = copy.deepcopy(param_defaults[param_nm])
+        if param_nm in pop.parameters:
+            pd = pop.parameters[param_nm]
         pnm = 'pop{}_{}'.format(ip,param_nm)
         pps.append(pif_property_from_param(pnm,pd))
     return pps
