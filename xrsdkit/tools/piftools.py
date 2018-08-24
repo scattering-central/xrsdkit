@@ -77,7 +77,7 @@ def unpack_pif(pp):
         for prop in pp.properties:
             props_dict[prop.name] = prop
 
-    # unpack classification outputs 
+    # unpack system classification, add basis classifications later 
     classification_labels['system_classification'] = cls_dict.pop('system_classification').value
 
     # unpack fit report
@@ -131,6 +131,9 @@ def unpack_pif(pp):
                 isp += 1
             else:
                 species_found = True
+            # unpack the basis classification for this population
+            basis_cls_label = 'pop{}_basis_classification'.format(ip)
+            classification_labels[basis_cls_label] = cls_dict.pop(basis_cls_label).value
         # moving forward, we assume the structure has been assigned,
         # all species in the basis have been identified,
         # and all settings and params exist in props_dict
