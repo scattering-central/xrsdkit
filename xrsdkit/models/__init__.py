@@ -155,8 +155,7 @@ def get_possible_regression_models(data):
         sys_cls.remove('unidentified')
     model_labels = OrderedDict.fromkeys(sys_cls)
     for cls in sys_cls:
-        cls_data = data[(data['system_classification']==cls)]
-
+        cls_data = data.loc[data.system_classification==cls].copy()
         print('determining regression models for system class {}'.format(cls))
         #drop the columns where all values are None:
         cls_data.dropna(axis=1,how='all',inplace=True)
