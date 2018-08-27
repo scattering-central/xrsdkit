@@ -33,10 +33,11 @@ class CitrinationSystemClassifier(object):
 
         inputs = self.append_str_property(sample_params)
         # TODO: add a .yml index of dataview_ids like dataset_ids
-        resp = self.client.predict("64", inputs) # "64" is ID of dataview on Citrination
+        # '64' is the ID of the data view for the system classifier on Citrination
+        resp = self.client.predict('64', inputs) 
 
-        population = resp[0].get_value("system_classification").value
-        uncertainty = resp[0].get_value("system_classification").loss
+        population = resp[0].get_value('system_classification').value
+        uncertainty = resp[0].get_value('system_classification').loss
 
         return population, uncertainty
 

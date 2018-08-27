@@ -131,9 +131,12 @@ def unpack_pif(pp):
                 isp += 1
             else:
                 species_found = True
-            # unpack the basis classification for this population
-            basis_cls_label = 'pop{}_basis_classification'.format(ip)
-            classification_labels[basis_cls_label] = cls_dict.pop(basis_cls_label).value
+            if not popd[popnm]['structure'] == 'unidentified':
+                # unpack the basis classification for this population
+                basis_cls_label = 'pop{}_basis_classification'.format(ip)
+                if not basis_cls_label in cls_dict:
+                    import pdb; pdb.set_trace()
+                classification_labels[basis_cls_label] = cls_dict[basis_cls_label].value
         # moving forward, we assume the structure has been assigned,
         # all species in the basis have been identified,
         # and all settings and params exist in props_dict
@@ -245,41 +248,44 @@ def pack_system_objects(sys):
     all_props.extend(noise_properties(sys.noise_model))
     if sys.fit_report:
         all_props.append(fit_report_property(sys.fit_report))
-    for struct_nm in structure_names: # use structure_names to impose order 
-        struct_pops = OrderedDict() 
-        for pop_nm,pop in sys.populations.items():
-            if pop.structure == struct_nm:
-                struct_pops[pop_nm] = pop
-        # sort any populations with same structure
-        struct_pops = _sort_populations(struct_nm,struct_pops)
-        for pop_nm,pop in struct_pops.items():
-            all_props.extend(param_properties(ipop,pop))
-            all_props.extend(setting_properties(ipop,pop))
-            if sys_cls: sys_cls += '__'
-            sys_cls += 'pop{}_{}'.format(ipop,pop.structure)
-            all_clss.append(Classification('pop{}_structure'.format(ipop),pop.structure,[pop_nm]))
-            if pop.structure == 'crystalline':
-                all_clss.append(Classification('pop{}_lattice'.format(ipop),pop.settings['lattice']))
-            if pop.structure == 'disordered':
-                all_clss.append(Classification('pop{}_interaction'.format(ipop),pop.settings['interaction']))
-            bas_cls = ''
-            ispec = 0
-            for ff_nm in form_factor_names: # use form_factor_names to impose order
-                ff_species = OrderedDict() 
-                for specie_nm,specie in pop.basis.items():
-                    if specie.form == ff_nm:
-                        ff_species[specie_nm] = specie
-                # sort any species with same form
-                ff_species = _sort_species(ff_nm,ff_species)
-                for specie_nm,specie in ff_species.items():
-                    all_props.extend(specie_param_properties(ipop,ispec,specie))
-                    all_props.extend(specie_setting_properties(ipop,ispec,specie))
-                    if bas_cls: bas_cls += '__'
-                    bas_cls += 'specie{}_{}'.format(ispec,specie.form)
-                    all_clss.append(Classification('pop{}_specie{}_form'.format(ipop,ispec),specie.form,[specie_nm]))
-                    ispec += 1
-            all_clss.append(Classification('pop{}_basis_classification'.format(ipop),bas_cls,None))
-            ipop += 1
+    if any([p.structure=='unidentified' for pnm,p in sys.populations.items()]):
+        sys_cls = 'unidentified'
+    else:
+        for struct_nm in structure_names: # use structure_names to impose order 
+            struct_pops = OrderedDict() 
+            for pop_nm,pop in sys.populations.items():
+                if pop.structure == struct_nm:
+                    struct_pops[pop_nm] = pop
+            # sort any populations with same structure
+            struct_pops = _sort_populations(struct_nm,struct_pops)
+            for pop_nm,pop in struct_pops.items():
+                all_props.extend(param_properties(ipop,pop))
+                all_props.extend(setting_properties(ipop,pop))
+                if sys_cls: sys_cls += '__'
+                sys_cls += 'pop{}_{}'.format(ipop,pop.structure)
+                all_clss.append(Classification('pop{}_structure'.format(ipop),pop.structure,[pop_nm]))
+                if pop.structure == 'crystalline':
+                    all_clss.append(Classification('pop{}_lattice'.format(ipop),pop.settings['lattice']))
+                if pop.structure == 'disordered':
+                    all_clss.append(Classification('pop{}_interaction'.format(ipop),pop.settings['interaction']))
+                bas_cls = ''
+                ispec = 0
+                for ff_nm in form_factor_names: # use form_factor_names to impose order
+                    ff_species = OrderedDict() 
+                    for specie_nm,specie in pop.basis.items():
+                        if specie.form == ff_nm:
+                            ff_species[specie_nm] = specie
+                    # sort any species with same form
+                    ff_species = _sort_species(ff_nm,ff_species)
+                    for specie_nm,specie in ff_species.items():
+                        all_props.extend(specie_param_properties(ipop,ispec,specie))
+                        all_props.extend(specie_setting_properties(ipop,ispec,specie))
+                        if bas_cls: bas_cls += '__'
+                        bas_cls += 'specie{}_{}'.format(ispec,specie.form)
+                        all_clss.append(Classification('pop{}_specie{}_form'.format(ipop,ispec),specie.form,[specie_nm]))
+                        ispec += 1
+                all_clss.append(Classification('pop{}_basis_classification'.format(ipop),bas_cls,None))
+                ipop += 1
     all_clss.append(Classification('system_classification',sys_cls,None))
     return all_clss, all_props
 
