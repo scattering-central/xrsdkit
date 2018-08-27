@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import os
+import copy
 
 import pandas as pd
 import numpy as np
@@ -10,7 +11,6 @@ from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery,
 
 from ..tools import profiler
 from ..tools import piftools
-
 
 def get_data_from_Citrination(client, dataset_id_list):
     """Get data from Citrination and create a dataframe.
@@ -32,45 +32,53 @@ def get_data_from_Citrination(client, dataset_id_list):
         list of pif objects. Each of them contains data about one sample.
     """
     data = []
-    # reg_labels is a list of dicts of regression model outputs for each sample
+    # reg_labels and cls_labels are lists of dicts,
+    # containing regression and classification outputs for each sample
     reg_labels = []
-    # all_reg_labels will be the set of all
-    # unique regression labels over the provided datasets 
+    cls_labels = []
+    # all_reg_labels and all_cls_labels are sets of all
+    # unique labels over the provided datasets 
     all_reg_labels = set()
+    all_cls_labels = set()
 
     pifs = get_pifs_from_Citrination(client,dataset_id_list)
 
     for i,pp in enumerate(pifs):
-        pif_uid, expt_id, t_utc, q_I, temp, src_wl, populations,fp,pb,pc, \
-            pp_feats, cl_model_outputs, reg_model_outputs = piftools.unpack_pif(pp)
-        feats = OrderedDict.fromkeys(profiler.profile_keys)
-        feats.update(pp_feats)
+        pif_uid, sys, q_I, expt_id, t_utc, temp, src_wl, \
+        features, classification_labels, regression_outputs = piftools.unpack_pif(pp)
 
-        # i is needed to keep relation between rows and corresponding pifs
-        data_row = [expt_id]+list(feats.values())+[cl_model_outputs]+[i]
-
-        data.append(data_row)
-        for k,v in reg_model_outputs.items():
+        for k,v in regression_outputs.items():
             all_reg_labels.add(k)
-        reg_labels.append(reg_model_outputs)
+        reg_labels.append(regression_outputs)
+
+        for k,v in classification_labels.items():
+            all_cls_labels.add(k)
+        cls_labels.append(classification_labels)
+
+        # NOTE: the index `i` is added at the end of each data row,
+        # to index the pif that was originally packed there 
+        data_row = [expt_id] + list(features.values()) + [i]
+        data.append(data_row)
 
     reg_labels_list = list(all_reg_labels)
     reg_labels_list.sort()
 
-    for i,rl in enumerate(reg_labels):
-        # create a dict of labels for all possible regression models
-        lb = OrderedDict.fromkeys(reg_labels_list)
-        # fill in values that were found in the record
-        lb.update(rl)
-        # add the regression labels to the end of the data row
-        data[i] = data[i] + list(lb.values())
+    cls_labels_list = list(all_cls_labels)
+    cls_labels_list.sort()
 
-    colnames = ['experiment_id']
-    colnames.extend(profiler.profile_keys)
-    colnames.extend(['system_class'])
-    # local_id is the number of corresponding pif
-    colnames.extend(['local_id'])
-    colnames.extend(reg_labels_list)
+    for datai,rli,cli in zip(data,reg_labels,cls_labels):
+        orl = OrderedDict.fromkeys(reg_labels_list)
+        ocl = OrderedDict.fromkeys(cls_labels_list)
+        orl.update(rli)
+        ocl.update(cli)
+        datai.extend(list(orl.values()))
+        datai.extend(list(ocl.values()))
+
+    colnames = ['experiment_id'] + \
+            copy.deepcopy(profiler.profile_keys) + \
+            ['local_id'] + \
+            reg_labels_list + \
+            cls_labels_list
 
     d = pd.DataFrame(data=data, columns=colnames)
     df_work = d.where((pd.notnull(d)), None) # replace all NaN by None
@@ -155,24 +163,26 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True,
             expt_local_ids[exp_id] = data_sample.local_id.tolist()
 
         stat['by_exp'][exp_id] = [df.shape[0], dsamp.shape[0]]
-        for cl in df.system_class.unique():
+        for cl in df.system_classification.unique():
             if cl not in stat['by_sys_class']:
                 stat['by_sys_class'][cl] = [0,0] # [before downsampling, after]
             stat['by_sys_class'][cl][0] += \
-                len(df.groupby(['system_class']).groups[cl])
+                len(df.groupby(['system_classification']).groups[cl])
             stat['by_sys_class'][cl][1] += \
-                len(dsamp.groupby(['system_class']).groups[cl])
+                len(dsamp.groupby(['system_classification']).groups[cl])
 
     # save the statistics of downsampling:
     p = os.path.abspath(__file__)
     d = os.path.dirname(os.path.dirname(p))
 
     if test:
-        file_path = os.path.join(d,'models','modeling_data','testing_data',
-                                 'datasets_statistics.txt')
+        dir_path = os.path.join(d,'models','modeling_data','testing_data')
+        if not os.path.exists(dir_path): os.mkdir(dir_path)
+        file_path = os.path.join(dir_path,'dataset_statistics.txt')
+
     else:
         file_path = os.path.join(d,'models','modeling_data',
-                                 'datasets_statistics.txt')
+                                 'dataset_statistics.txt')
     with open(file_path, 'w') as txt_file:
         txt_file.write('Downsampling statistics: \n [before downsampling, after downsampling] \n \n')
         for a_k, a_v in stat.items():
@@ -194,17 +204,17 @@ def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True,
         ds_map_filepath = os.path.join(d2,'models','modeling_data',
                                        'dataset_ids.yml')
         dataset_ids = yaml.load(open(ds_map_filepath,'rb'))
-        sys_classifier_dsid = dataset_ids['system_classifier']
+        sys_classifier_dsid = dataset_ids['system_classification']
 
         for expt_id in all_exp:
             # sort sample of pifs by classes
-            all_sys_classes = expt_samples[expt_id].system_class.unique()
+            all_sys_classes = expt_samples[expt_id].system_classification.unique()
             pifs_by_sys_class = {}
             for cl in all_sys_classes:
                 pifs_by_sys_class[cl] = []
 
             for pif_local_id in expt_local_ids[expt_id]:
-                cl = data.iloc[pif_local_id].system_class
+                cl = data.iloc[pif_local_id].system_classification
                 pifs_by_sys_class[cl].append(pifs[pif_local_id])
 
             d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
@@ -244,13 +254,13 @@ def downsample_one_experiment(data_fr, min_distance):
         that was chosen using distance between the samples
     """
     expt_id = data_fr['experiment_id'].iloc[0] 
-    groups_by_class = data_fr.groupby('system_class')
+    groups_by_class = data_fr.groupby('system_classification')
     sample = pd.DataFrame(columns=data_fr.columns)
     print('downsampling records from experiment: {}'.format(expt_id))
     print('total sample size: {}'.format(len(data_fr)))
     for name, group in groups_by_class:
         group_size = len(group)
-        sys_cls = group['system_class'].iloc[0] 
+        sys_cls = group['system_classification'].iloc[0] 
         print('- number of samples for system class {}: {}'.format(sys_cls,group_size))
         if group_size >= 10:
             df = pd.DataFrame(columns=data_fr.columns)
@@ -266,7 +276,7 @@ def downsample_one_experiment(data_fr, min_distance):
             # between itself and all other samples
             min_distance_array = np.array([min(group_dist_matrix[i,:]) for i in range(group_size)])
             best_idx = np.argmax(min_distance_array)
-            print('- best sample: {} (min distance: {})'.format(best_idx,min_distance_array[best_idx]))
+            #print('- best sample: {} (min distance: {})'.format(best_idx,min_distance_array[best_idx]))
             df = df.append(group.iloc[best_idx])
             sampled_idxs = [best_idx] 
             continue_downsampling = True
@@ -282,7 +292,7 @@ def downsample_one_experiment(data_fr, min_distance):
                 min_distance_array = np.array([min(sample_dist_matrix[:,j]) for j in range(group_size)])
                 best_idx = np.argmax(min_distance_array)
                 best_min_distance = min_distance_array[best_idx]
-                print('- next best sample: {} (min distance: {})'.format(best_idx,best_min_distance))
+                #print('- next best sample: {} (min distance: {})'.format(best_idx,best_min_distance))
 
                 # if we have at least 10 samples,
                 # and all remaining samples are close to current data set,

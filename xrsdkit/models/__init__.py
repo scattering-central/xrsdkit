@@ -26,10 +26,10 @@ if os.path.exists(api_key_file):
 src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
 src_dsid_list = yaml.load(open(src_dsid_file,'r'))
 
-system_classes = ['noise','pop0_unidentified']
+system_classes = ['noise','unidentified']
 regression_models = OrderedDict()
 regression_models['noise'] = {}
-regression_models['pop0_unidentified'] = {}
+regression_models['unidentified'] = {}
 classification_models = OrderedDict()
 
 # here we only recreate the models from yml files
@@ -47,8 +47,8 @@ for fn in os.listdir(regression_models_dir):
             regression_models[sys_cls][l] = Regressor(l, yml_path)
 
 # recreate the classification models
-yml_file_cl = os.path.join(modeling_data_dir,'classifiers','system_class.yml')
-classification_models['system_class'] = SystemClassifier(yml_file_cl)
+yml_file_cl = os.path.join(modeling_data_dir,'classifiers','system_classification.yml')
+classification_models['system_classification'] = SystemClassifier(yml_file_cl)
 
 def downsample_and_train(
     source_dataset_ids=src_dsid_list,
@@ -88,7 +88,7 @@ def downsample_and_train(
 
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
-    print(classifier_results_to_str(sys_cls['system_class']))
+    print(classifier_results_to_str(sys_cls['system_classification']))
 
     # regression models:
     reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
@@ -119,17 +119,17 @@ def train_system_classifier(data, hyper_parameters_search=False):
         fitted sklearn SGDClassifier.
     """
     # TODO: update this when we have multiple classification models:
-    # currently it only handles the system_class label.
-    models = OrderedDict.fromkeys(['system_class'])
+    # currently it only handles the system_classification label.
+    models = OrderedDict.fromkeys(['system_classification'])
     for label,model in models.items():
         if label in classification_models:
             model = classification_models[label]
         else:
             print('training classifier for {}:'.format(label))
-            #if label == 'system_class':
+            #if label == 'system_classification':
             model = SystemClassifier()
         model.train(data, hyper_parameters_search=hyper_parameters_search)
-        classification_models['system_class'] = model
+        classification_models['system_classification'] = model
         models[label] = model
     return models
 
@@ -144,21 +144,21 @@ def get_possible_regression_models(data):
     Returns
     -------
     model_labels : dict
-        dictionary of possible regression models for each system_class
+        dictionary of possible regression models for each system class
         (a possible model can be sufficiently trained using provided data)
     """
 
-    sys_cls = list(data.system_class.unique())
+    sys_cls = list(data.system_classification.unique())
     if 'noise' in sys_cls:
         sys_cls.remove('noise')
-    if 'pop0_unidentified' in sys_cls:
-        sys_cls.remove('pop0_unidentified')
+    if 'unidentified' in sys_cls:
+        sys_cls.remove('unidentified')
     model_labels = OrderedDict.fromkeys(sys_cls)
     for cls in sys_cls:
-        cls_data = data[(data['system_class']==cls)]
+        cls_data = data[(data['system_classification']==cls)]
 
         print('determining regression models for system class {}'.format(cls))
-        #drop the collumns where all values are None:
+        #drop the columns where all values are None:
         cls_data.dropna(axis=1,how='all',inplace=True)
         cols = cls_data.columns
         possible_models = []
@@ -183,16 +183,18 @@ def train_regression_models(data, hyper_parameters_search=False,
     Returns
     -------
     models : dict
-        the dict keys are system_class names, and the values are
-        dictionaries of regression models for the system_class
+        the dict keys are system class names, and the values are
+        dictionaries of regression models for the system class
     """
     possible_models = get_possible_regression_models(data)
 
     models = OrderedDict.fromkeys(possible_models.keys())
-    for k in models.keys(): models[k] = {}
+    for k in models.keys(): 
+        models[k] = {}
+        if not k in regression_models: regression_models[k] = {}
 
-    for k, v in possible_models.items(): # v is the list of possible models for given system_class
-        pop_data = data[(data['system_class']==k)]
+    for k, v in possible_models.items(): # v is the list of possible models for given system class
+        pop_data = data[(data['system_classification']==k)]
         print('attempting to train regression models for {}'.format(k))
         for m in v:
             # check if we already recreated this model from a yml file:
@@ -218,8 +220,8 @@ def save_regression_models(models=regression_models, test=False):
     Parameters
     ----------
     models : dict
-        the dict keys are system_class names, and the values are
-        dictionaries of regression models for the system_class
+        the dict keys are system class names, and the values are
+        dictionaries of regression models for the system class
     test : bool (optional)
         if True, the models will be saved in the testing dir.
     """
@@ -365,8 +367,8 @@ def predict(features):
     """
     results = {}
     # TODO: update this function when we will have some classifiers
-    results['system_class'] = classification_models['system_class'].classify(features)
-    sys_cl = results['system_class'][0]
+    results['system_classification'] = classification_models['system_classification'].classify(features)
+    sys_cl = results['system_classification'][0]
 
     for param_nm, regressor in regression_models[sys_cl].items():
         results[param_nm] = regressor.predict(features)

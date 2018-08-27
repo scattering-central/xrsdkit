@@ -7,56 +7,26 @@ from . import form_factors as xrff
 from . import structure_factors as xrsf
 from ..tools import peak_math
 
-def compute_intensity(q,populations,source_wavelength):
-    """Compute scattering/diffraction intensity for some `q` values.
-
-    TODO: Document the equation.
-
-    Parameters
-    ----------
-    q : array
-        Array of q values at which intensities will be computed.
-    populations : dict
-        Each entry in the dict describes a population of scatterers.
-        See the module documentation for the dict specifications. 
-    source_wavelength : float 
-        Wavelength of radiation source in Angstroms
-
-    Returns
-    ------- 
-    I : array
-        Array of scattering intensities for each of the input q values
-    """
-    n_q = len(q)
-    I = np.zeros(n_q)
-    for pop_name,popd in populations.items():
-        st = popd['structure']
-        if st == 'diffuse':
-            I += diffuse_intensity(q,popd,source_wavelength)
-        elif st == 'hard_spheres':
-            I += hard_sphere_intensity(q,popd,source_wavelength)
-        elif st == 'fcc':
-            #if any([ any([specie_name in diffuse_form_factor_names 
-            #    for specie_name in specie_dict.keys()])
-            #    for coord,specie_dict in popd['basis'].items()]):
-            #    msg = 'Populations of type {} are currently not supported '\
-            #        'in crystalline arrangements.'.format(diffuse_form_factor_names)
-            #    raise ValueError(msg)
-            I += fcc_intensity(q,popd,source_wavelength)
-        elif st == 'unidentified':
-            pass
-        else:
-            msg = 'structure specification {} is not supported'.format(st)
-            raise ValueError(msg)
-    return I
-
 def diffuse_intensity(q,popd,source_wavelength):
-    basis = popd['basis']
-    #species = basis[list(basis.keys())[0]]
-    I0 = 1.
-    if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
-    F_q = xrff.compute_ff_squared(q,basis)
+    I0 = popd['parameters']['I0']['value']
+    F_q = xrff.compute_ff_squared(q,popd['basis'])
     return I0*F_q
+
+def disordered_intensity(q,popd,source_wavelength):
+    if popd['settings']['interaction'] == 'hard_spheres':
+        return hard_sphere_intensity(q,popd,source_wavelength)
+    else:
+        msg = 'interaction specification {} is not supported'\
+            .format(popd['settings']['interaction'])
+        raise ValueError(msg)
+
+def crystalline_intensity(q,popd,source_wavelength):
+    if popd['settings']['lattice'] == 'fcc':
+        return fcc_intensity(q,popd,source_wavelength)
+    else:
+        msg = 'lattice specification {} is not supported'\
+            .format(popd['settings']['lattice'])
+        raise ValueError(msg)
 
 #def _specie_count(species_dict):
 #    n_distinct = OrderedDict.fromkeys(species_dict)
@@ -69,10 +39,9 @@ def diffuse_intensity(q,popd,source_wavelength):
 
 def hard_sphere_intensity(q,popd,source_wavelength):
     basis = popd['basis']
-    r = popd['parameters']['r_hard']
-    p = popd['parameters']['v_fraction']
-    I0 = 1.
-    if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
+    r = popd['parameters']['r_hard']['value']
+    p = popd['parameters']['v_fraction']['value']
+    I0 = popd['parameters']['I0']['value']
     F_q = xrsf.hard_sphere_sf(q,r,p)
     P_q = xrff.compute_ff_squared(q,basis)
 
@@ -84,6 +53,7 @@ def hard_sphere_intensity(q,popd,source_wavelength):
     #return I0*pz*ltz * F_q * P_q 
     return I0 * F_q * P_q 
 
+# TODO: refactor to generalize crystalline intensities
 def fcc_intensity(q,popd,source_wavelength):
     n_q = len(q)
     I = np.zeros(n_q)
@@ -91,9 +61,8 @@ def fcc_intensity(q,popd,source_wavelength):
     profile_name = popd['settings']['profile']
     q_min = popd['settings']['q_min']
     q_max = popd['settings']['q_max']
-    lat_a = popd['parameters']['a']
-    I0 = 1.
-    if 'I0' in popd['parameters']: I0 = popd['parameters']['I0']
+    lat_a = popd['parameters']['a']['value']
+    I0 = popd['parameters']['I0']['value']
     # get d-spacings corresponding to the q-range limits
     d_min = 2*np.pi/q_max
     if q_min > 0.:
@@ -148,7 +117,18 @@ def fcc_intensity(q,popd,source_wavelength):
         hkl_range = np.outer(q/q_pk,hkl).T
         F_along_hkl = xrsf.fcc_sf(q_pk,hkl_range,basis)
         # compute a line shape 
-        line_shape = peak_math.peak_profile(q,q_pk,profile_name,popd['parameters'])
+        if profile_name == 'gaussian':
+            hwhm_g = popd['parameters']['hwhm_g']['value']  
+            line_shape = peak_math.gaussian_profile(q,q_pk,hwhm_g)
+        elif profile_name == 'lorentzian':
+            hwhm_l = popd['parameters']['hwhm_l']['value']  
+            line_shape = peak_math.lorentzian_profile(q,q_pk,hwhm_l)
+        elif profile_name == 'voigt':
+            hwhm_g = popd['parameters']['hwhm_g']['value']  
+            hwhm_l = popd['parameters']['hwhm_l']['value']  
+            line_shape = peak_math.voigt_profile(q,q_pk,hwhm_g,hwhm_l)
+        else:
+            raise ValueError('peak profile {} is not supported'.format(profile_name))
         I += (F_along_hkl*F_along_hkl.conjugate()).real\
             *mult[hkl]*line_shape
 

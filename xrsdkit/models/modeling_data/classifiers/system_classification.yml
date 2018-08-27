@@ -1,4 +1,4 @@
-system_class:
+system_classification:
   cross_valid_results: !!python/object/apply:collections.OrderedDict
   - - - 'all system classes :'
       - [pop0_diffuse__site0_spherical_normal__pop1_hard_spheres__site0_guinier_porod,

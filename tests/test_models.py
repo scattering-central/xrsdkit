@@ -9,8 +9,10 @@ def test_training():
         a_key = open(api_key_file, 'r').readline().strip()
         cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
         downsample_and_train(
-            [22,23,28,29,30],cl,
+            [22,23,29,30],
+            cl,
             save_samples=False,
             save_models=False,
-            train_hyperparameters=False)
+            train_hyperparameters=False,
+            test=True)
 

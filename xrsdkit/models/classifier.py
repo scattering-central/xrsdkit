@@ -84,7 +84,7 @@ class Classifier(XRSDModel):
             mean not weighted accuracy.
         """
         experiments = df.experiment_id.unique()# we have at least 3 experiments
-        sys_classes = df.system_class.unique().tolist()
+        sys_classes = df.system_classification.unique().tolist()
         test_scores_by_ex = {}
         test_scores_by_sys_classes = dict.fromkeys(sys_classes) # do not use (sys_classes, [])
         for k,v in test_scores_by_sys_classes.items():
@@ -97,8 +97,8 @@ class Classifier(XRSDModel):
             test = df[(df['experiment_id'] == experiments[i])]
             # remove from the test set the samples of the classes
             # that do not exists in the training set:
-            cl_in_training_set = tr.system_class.unique()
-            test = test[(test['system_class'].isin(cl_in_training_set))]
+            cl_in_training_set = tr.system_classification.unique()
+            test = test[(test['system_classification'].isin(cl_in_training_set))]
 
             model.fit(tr[features], tr[self.target])
             y_pred = model.predict(test[features])
@@ -106,12 +106,12 @@ class Classifier(XRSDModel):
             pred_labels.extend(y_pred)
             true_labels.extend(test[self.target])
 
-            labels_from_test = test.system_class.value_counts().keys().tolist()
+            labels_from_test = test.system_classification.value_counts().keys().tolist()
             cmat = confusion_matrix(test[self.target], y_pred, labels_from_test)
 
             # for each class we devided the number of right predictions
             # by the total number of samples for this class at test set:
-            accuracies_by_classes = cmat.diagonal()/test.system_class.value_counts().tolist()
+            accuracies_by_classes = cmat.diagonal()/test.system_classification.value_counts().tolist()
 
             average_acc_for_this_exp = sum(accuracies_by_classes)/len(accuracies_by_classes)
             scores.append(average_acc_for_this_exp)
@@ -180,6 +180,6 @@ class SystemClassifier(Classifier):
     """
 
     def __init__(self,yml_file):
-        super(SystemClassifier,self).__init__('system_class', yml_file)
+        super(SystemClassifier,self).__init__('system_classification', yml_file)
 
 

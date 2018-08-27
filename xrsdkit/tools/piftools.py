@@ -1,42 +1,33 @@
 from collections import OrderedDict
+import re
 
 import numpy as np
 from pypif.obj import ChemicalSystem, Property, Classification, Id, Value, Scalar
 
 from . import profiler
-from .. import contains_params, contains_site_params, regression_params, structure_params, \
-    form_factor_params, ordered_populations, structure_settings, \
-    form_factor_settings, setting_datatypes, update_populations
+from .. import * 
+from ..scattering.form_factors import atomic_params
+from ..system import System
 
-# TODO: pack and unpack fitting objective, q-range, settings
-# (add input/output for fit_report dict on make_pif/unpack_pif)
-
-def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,src_wl=None,
-    populations=None,fixed_params=None,param_bounds=None,param_constraints=None):
+def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=None):
     """Make a pypif.obj.ChemicalSystem object describing XRSD data.
 
     Parameters
     ----------
     uid : str
         record id, should be unique across the dataset
-    expt_id : str
-        experiment id, should be shared across the experiment 
-    t_utc : int
-        UTC time in seconds
+    sys : xrsdkit.system.System 
+        System object describing populations and parameters
     q_I : array
         n-by-2 array of q (1/Angstrom) and intensity (arb)
+    expt_id : str
+        experiment id for the system, used for dataset grouping
+    t_utc : int
+        UTC time in seconds
     temp_C : float
         temperature of the sample in degrees C
     src_wl : float
         wavelength of light source in Angstroms 
-    populations : dict
-        dict defining sample populations and parameters 
-    fixed_params : dict
-        dict defining fixed parameters, if any
-    param_bounds : dict
-        dict defining parameter bounds, if any 
-    param_constraints : dict
-        dict defining parameter equality constraints, if any 
 
     Returns
     -------
@@ -55,33 +46,30 @@ def make_pif(uid,expt_id=None,t_utc=None,q_I=None,temp_C=None,src_wl=None,
         csys.tags.append('time (utc): '+str(int(t_utc)))
     if q_I is not None:
         csys.properties.extend(q_I_properties(q_I,temp_C,src_wl))
-    if populations is not None: # is not empty Dict
-        opd = ordered_populations(populations)
-        csys.classifications.extend(system_classifications(opd))
-        csys.properties.extend(system_properties(opd,fixed_params,param_bounds,param_constraints))
+    if sys is not None: 
+        sys_clss, sys_props = pack_system_objects(sys)
+        csys.classifications.extend(sys_clss)
+        csys.properties.extend(sys_props)
     if q_I is not None:
         csys.properties.extend(profile_properties(q_I))
     return csys
-
+    # TODO: update invocations of make_pif() to take System objects as input
 
 def unpack_pif(pp):
-    #print(pif.dumps(pp, indent=4))
+    
     expt_id = None
     t_utc = None
     q_I = None
-    temp = None
+    temperature = None
     features = OrderedDict()
-    populations = OrderedDict()
-    fp, pb, pc = {}, {}, {}
-    reg_pp_outputs={}
+    regression_outputs = {}
+    classification_labels = {}
 
     # pack classification labels into a dict
     cls_dict = {}
     if pp.classifications is not None:
         for cl in pp.classifications:
-            cls_dict[cl.name] = cl.value
-            if cl.value == 'unidentified':
-                cls_dict[cl.name] = 'pop0_unidentified'
+            cls_dict[cl.name] = cl
 
     # pack properties into a dict
     props_dict = {}
@@ -89,115 +77,98 @@ def unpack_pif(pp):
         for prop in pp.properties:
             props_dict[prop.name] = prop
 
-    # take the system_classification out of the cls_dict,
-    # label it as noise if not otherwise labeled
-    cl_pp_output = 'noise'
-    #if 'system_classification' in cls_dict:   # changed
-    if cls_dict['system_classification'] is not None:
-        cl_pp_output = cls_dict.pop('system_classification')
+    # unpack system classification, add basis classifications later 
+    classification_labels['system_classification'] = cls_dict.pop('system_classification').value
 
-    # assume the remaining classifications are labels for the populations
-    all_pops_found = False
+    # unpack fit report
+    fit_rpt = {}
+    if 'fit_report' in props_dict:
+        prop = props_dict.pop('fit_report')
+        for tg in prop.tags:
+            if 'success: ' in tg: fit_rpt['success'] = bool(tg.strip('success: '))
+            if 'initial_objective: ' in tg: fit_rpt['initial_objective'] = float(tg.strip('initial_objective: '))
+            if 'final_objective: ' in tg: fit_rpt['final_objective'] = float(tg.strip('final_objective: '))
+            if 'error_weighted: ' in tg: fit_rpt['error_weighted'] = bool(tg.strip('error_weighted: '))
+            if 'logI_weighted: ' in tg: fit_rpt['logI_weighted'] = bool(tg.strip('logI_weighted: '))
+            if 'q_range: ' in tg: 
+                bds = tg.strip('q_range: []').split(',')
+                fit_rpt['q_range'] = [float(bds[0]), float(bds[1])]
+            if 'fit_snr: ' in tg: fit_rpt['fit_snr'] = float(tg.strip('fit_snr: '))
+
+    # unpack noise model
+    noise_model = {} 
+    if 'noise_classification' in cls_dict:
+        noise_cls = cls_dict.pop('noise_classification')
+        noise_ids = noise_cls.value.split('__')
+        for noise_id in noise_ids:
+            noise_model[noise_id] = {}
+            for param_nm in noise_params[noise_id]:
+                noise_param_name = 'noise__'+noise_id+'__'+param_nm
+                noise_model[noise_id][param_nm] = param_from_pif_property(param_nm,props_dict.pop(noise_param_name)) 
+
+    # use the remaining cls_dict entries to rebuild the System  
+    popd = OrderedDict()
+    # identify population names and structure specifications 
     ip = 0
-    while not all_pops_found:
-        pop_name_label = 'pop{}_name'.format(ip)
-        pop_structure_label = 'pop{}_structure'.format(ip)
-        if pop_name_label in cls_dict:
-            pop_name = cls_dict[pop_name_label]
-            structure_name = cls_dict[pop_structure_label]
-            populations[pop_name] = {} 
-            populations[pop_name]['structure'] = structure_name
-            param_labels = ['pop{}_{}'.format(ip,param_nm) for param_nm in structure_params[structure_name]]
-            if any([pl in props_dict for pl in param_labels]):
-                populations[pop_name]['parameters'] = {} ########
-                for pl,param_nm in zip(param_labels,structure_params[structure_name]): 
-                    if pl in props_dict:
-                        populations[pop_name]['parameters'][param_nm] = \
-                        props_dict[pl].scalars[0].value
-                        if props_dict[pl].tags is not None: # added
-                            for tg in props_dict[pl].tags:
-                                if 'fixed value: ' in tg:
-                                    fp_val = bool(tg.strip('fixed value: '))
-                                    update_populations(fp,{pop_name:{'parameters':{param_nm:fp_val}}})
-                                if 'bounds: ' in tg:
-                                    bds = tg.strip('bounds: []').split(',')
-                                    lbnd, ubnd = float(bds[0]), float(bds[1])
-                                    update_populations(pb,{pop_name:{'parameters':{param_nm:[lbnd,ubnd]}}})
-                                if 'constraint expression: ' in tg:
-                                    cexpr = tg.strip('constraint expression: ')
-                                    update_populations(pc,{pop_name:{'parameters':{param_nm:cexpr}}})
-                            #update_populations(pb,param_bounds_from_tags(props_dict[pl].tags)) # TODO imlement param_bounds_from_tags
-                            #update_populations(pc,param_constraints_from_tags(props_dict[pl].tags))
-            stg_labels = ['pop{}_{}'.format(ip,stg_nm) for stg_nm in structure_settings[structure_name]]
-            if any([sl in props_dict for sl in stg_labels]):
-                populations[pop_name]['settings'] = {}
-                for sl,stg_nm in zip(stg_labels,structure_settings[structure_name]): 
-                    tp = setting_datatypes[stg_nm]
-                    populations[pop_name]['settings'][stg_nm] = \
-                    tp(props_dict[sl].tags[0])
-
-            if 'pop{}_site0_name'.format(ip) in cls_dict:
-                populations[pop_name]['basis'] = {} 
-                all_sites_found = False
-                ist = 0
-                while not all_sites_found:
-                    site_name_label = 'pop{}_site{}_name'.format(ip,ist)
-                    site_form_label = 'pop{}_site{}_form'.format(ip,ist)
-                    if site_name_label in cls_dict:
-                        site_name = cls_dict[site_name_label]
-                        site_form = cls_dict[site_form_label]
-                        populations[pop_name]['basis'][site_name] = {}
-                        populations[pop_name]['basis'][site_name]['form'] = site_form 
-                        param_labels = ['pop{}_site{}_{}'.format(ip,ist,param_nm) for param_nm in form_factor_params[site_form]]
-                        if any([pl in props_dict for pl in param_labels]):
-                            populations[pop_name]['basis'][site_name]['parameters'] = {} 
-                            for pl,param_nm in zip(param_labels,form_factor_params[site_form]): 
-                                if pl in props_dict:
-                                    populations[pop_name]['basis'][site_name]['parameters'][param_nm] = \
-                                    props_dict[pl].scalars[0].value
-                                    if props_dict[pl].tags is not None: # added
-                                        for tg in props_dict[pl].tags:
-                                            if 'fixed value: ' in tg:
-                                                fp_val = bool(tg.strip('fixed value: '))
-                                                update_populations(fp,{pop_name:{'basis':{site_name:{'parameters':{param_nm:fp_val}}}}})
-                                            if 'bounds: ' in tg:
-                                                bds = tg.strip('bounds: []').split(',')
-                                                lbnd, ubnd = float(bds[0]), float(bds[1])
-                                                update_populations(pb,{pop_name:{'basis':{site_name:{'parameters':{param_nm:[lbnd,ubnd]}}}}})
-                                            if 'constraint expression: ' in tg:
-                                                cexpr = tg.strip('constraint expression: ')
-                                                update_populations(pc,{pop_name:{'basis':{site_name:{'parameters':{param_nm:cexpr}}}}})
-                        stg_labels = ['pop{}_site{}_{}'.format(ip,ist,stg_nm) for stg_nm in form_factor_settings[site_form]]
-                        if any([sl in props_dict for sl in stg_labels]):
-                            populations[pop_name]['basis'][site_name]['settings'] = {}
-                            for sl,stg_nm in zip(stg_labels,form_factor_settings[site_form]): 
-                                if sl in props_dict:
-                                    tp = setting_datatypes[stg_nm]
-                                    populations[pop_name]['basis'][site_name]['settings'][stg_nm] = \
-                                    tp(props_dict[sl].tags[0])
-                        coord_labels = ['pop{}_site{}_coordinate{}'.format(ip,ist,ic) for ic in [0,1,2]]
-                        if all([cl in props_dict for cl in coord_labels]):
-                            c0 = props_dict['pop{}_site{}_coordinate0'.format(ip,ist)].scalars[0].value
-                            c1 = props_dict['pop{}_site{}_coordinate1'.format(ip,ist)].scalars[0].value
-                            c2 = props_dict['pop{}_site{}_coordinate2'.format(ip,ist)].scalars[0].value
-                            populations[pop_name]['basis'][site_name]['coordinates'] = [c0,c1,c2]
-                            # TODO: deal with fixed_params, param_bounds, param_constraints on coordinates
-                        ist += 1
-                    else:
-                        all_sites_found = True
-            ip += 1 
+    pops_found = False
+    while not pops_found:
+        if 'pop{}_structure'.format(ip) in cls_dict:
+            cls = cls_dict['pop{}_structure'.format(ip)] 
+            popd[cls.tags[0]] = dict(structure=cls.value,
+            basis={},settings={},parameters={}) 
+            ip += 1
         else:
-            all_pops_found = True
+            pops_found = True
+    for ip,popnm in enumerate(popd.keys()):
+        # identify any specie names and form factor specifications
+        isp = 0
+        species_found = False
+        while not species_found:
+            if 'pop{}_specie{}_form'.format(ip,isp) in cls_dict:
+                cls = cls_dict['pop{}_specie{}_form'.format(ip,isp)]
+                popd[popnm]['basis'][cls.tags[0]] = dict(form=cls.value,
+                settings={},parameters={},coordinates=[None,None,None])
+                isp += 1
+            else:
+                species_found = True
+            if not popd[popnm]['structure'] == 'unidentified':
+                # unpack the basis classification for this population
+                basis_cls_label = 'pop{}_basis_classification'.format(ip)
+                if not basis_cls_label in cls_dict:
+                    import pdb; pdb.set_trace()
+                classification_labels[basis_cls_label] = cls_dict[basis_cls_label].value
+        # moving forward, we assume the structure has been assigned,
+        # all species in the basis have been identified,
+        # and all settings and params exist in props_dict
+        for param_nm in structure_params[popd[popnm]['structure']]:
+            pl = 'pop{}_{}'.format(ip,param_nm) 
+            popd[popnm]['parameters'][param_nm] = \
+            param_from_pif_property(param_nm,props_dict[pl])
+        for stg_nm in structure_settings[popd[popnm]['structure']]:  
+            tp = setting_datatypes[stg_nm]
+            popd[popnm]['settings'][stg_nm] = \
+            tp(props_dict['pop{}_{}'.format(ip,stg_nm)].tags[0])
+        for isp, specie_nm in enumerate(popd[popnm]['basis'].keys()):
+            specie_form = popd[popnm]['basis'][specie_nm]['form']
+            for param_nm in form_factor_params[specie_form]:
+                pl = 'pop{}_specie{}_{}'.format(ip,isp,param_nm) 
+                popd[popnm]['basis'][specie_nm]['parameters'][param_nm] = \
+                param_from_pif_property(param_nm,props_dict[pl])
+            for stg_nm in form_factor_settings[specie_form]:  
+                tp = setting_datatypes[stg_nm]
+                popd[popnm]['basis'][specie_nm]['settings'][stg_nm] = \
+                tp(props_dict['pop{}_specie{}_{}'.format(ip,isp,stg_nm)].tags[0])
+            for ic in range(3):
+                pl = 'pop{}_specie{}_coordinate{}'.format(ip,isp,ic)
+                popd[popnm]['basis'][specie_nm]['coordinates'][ic] = \
+                param_from_pif_property(param_nm,props_dict[pl])
 
-    if pp.ids is not None:
-        for iidd in pp.ids:
-            if iidd.name == 'EXPERIMENT_ID':
-                expt_id = iidd.value
-    if pp.tags is not None:
-        for ttgg in pp.tags:
-            if 'time (utc): ' in ttgg:
-                t_utc = float(ttgg.replace('time (utc): ',''))
+    # popd should now contain all system information: build the System
+    sys = System(popd)
+    sys.fit_report = fit_rpt
+    sys.noise_model = noise_model
 
+    # unpack remaining properties not related to the system definition
     for prop_nm, prop in props_dict.items():
         if prop_nm == 'Intensity':
             I = [float(sca.value) for sca in prop.scalars]
@@ -205,15 +176,29 @@ def unpack_pif(pp):
                 if val.name == 'scattering vector magnitude':
                     q = [float(sca.value) for sca in val.scalars]
                 if val.name == 'temperature':
-                    temp = float(val.scalars[0].value)
+                    temperature = float(val.scalars[0].value)
                 if val.name == 'source wavelength':
                     src_wl = float(val.scalars[0].value)
             q_I = np.vstack([q,I]).T
         elif prop_nm in profiler.profile_keys:
             features[prop_nm] = float(prop.scalars[0].value)
         elif any([rp == prop_nm[-1*len(rp):] for rp in regression_params]):
-            reg_pp_outputs[prop_nm]= prop.scalars[0].value
-    return pp.uid,expt_id,t_utc,q_I,temp,src_wl,populations,fp,pb,pc,features,cl_pp_output,reg_pp_outputs
+            regression_outputs[prop_nm]= prop.scalars[0].value
+
+    # unpack the experiment_id
+    if pp.ids is not None:
+        for iidd in pp.ids:
+            if iidd.name == 'EXPERIMENT_ID':
+                expt_id = iidd.value
+
+    # unpack the time in seconds utc
+    if pp.tags is not None:
+        for ttgg in pp.tags:
+            if 'time (utc): ' in ttgg:
+                t_utc = float(ttgg.replace('time (utc): ',''))
+
+    return pp.uid,sys,q_I,expt_id,t_utc,temperature,src_wl,\
+        features,classification_labels,regression_outputs
 
 def id_tag(idname,idval,tags=None):
     return Id(idname,idval,tags)
@@ -253,143 +238,254 @@ def profile_properties(q_I):
             #fnm,fval,'spectrum profiling quantity'))
     return pp
 
-def system_classifications(opd):
-    if any([popdef['structure'] == 'unidentified' for popnm,popdef in opd.items()]):
-        return [Classification('system_classification','pop0_unidentified')]
+def pack_system_objects(sys):
+    """Return pypif.obj objects describing System attributes"""
+    all_props = []
+    all_clss = [] 
+    sys_cls = ''
+    ipop = 0
+    all_clss.append(noise_classification(sys.noise_model))
+    all_props.extend(noise_properties(sys.noise_model))
+    if sys.fit_report:
+        all_props.append(fit_report_property(sys.fit_report))
+    if any([p.structure=='unidentified' for pnm,p in sys.populations.items()]):
+        sys_cls = 'unidentified'
     else:
-        clss = []
-        sys_cls = ''
-        for ip,pop_nm in enumerate(opd.keys()):
-            popd = opd[pop_nm]
-            if not pop_nm == 'noise':
-                sys_cls += 'pop{}_{}__'.format(ip,popd['structure'])
-                popnm_cls = Classification('pop{}_name'.format(ip),pop_nm)
-                pop_cls = Classification('pop{}_structure'.format(ip),popd['structure'])
-                clss.extend([popnm_cls,pop_cls])
-                if "basis" in popd.keys():
-                    for ist,site_nm in enumerate(popd['basis'].keys()):
-                        sited = popd['basis'][site_nm]
-                        sys_cls += 'site{}_{}__'.format(ist,sited['form'])
-                        sitenm_cls = Classification('pop{}_site{}_name'.format(ip,ist),site_nm)
-                        site_cls = Classification('pop{}_site{}_form'.format(ip,ist),sited['form'])
-                        clss.extend([sitenm_cls,site_cls])
-        if sys_cls[-2:] == '__':
-            sys_cls = sys_cls[:-2]
-        if sys_cls == '':
-            sys_cls = 'noise'
-        clss.append(Classification('system_classification',sys_cls))
-        return clss
+        for struct_nm in structure_names: # use structure_names to impose order 
+            struct_pops = OrderedDict() 
+            for pop_nm,pop in sys.populations.items():
+                if pop.structure == struct_nm:
+                    struct_pops[pop_nm] = pop
+            # sort any populations with same structure
+            struct_pops = _sort_populations(struct_nm,struct_pops)
+            for pop_nm,pop in struct_pops.items():
+                all_props.extend(param_properties(ipop,pop))
+                all_props.extend(setting_properties(ipop,pop))
+                if sys_cls: sys_cls += '__'
+                sys_cls += 'pop{}_{}'.format(ipop,pop.structure)
+                all_clss.append(Classification('pop{}_structure'.format(ipop),pop.structure,[pop_nm]))
+                if pop.structure == 'crystalline':
+                    all_clss.append(Classification('pop{}_lattice'.format(ipop),pop.settings['lattice']))
+                if pop.structure == 'disordered':
+                    all_clss.append(Classification('pop{}_interaction'.format(ipop),pop.settings['interaction']))
+                bas_cls = ''
+                ispec = 0
+                for ff_nm in form_factor_names: # use form_factor_names to impose order
+                    ff_species = OrderedDict() 
+                    for specie_nm,specie in pop.basis.items():
+                        if specie.form == ff_nm:
+                            ff_species[specie_nm] = specie
+                    # sort any species with same form
+                    ff_species = _sort_species(ff_nm,ff_species)
+                    for specie_nm,specie in ff_species.items():
+                        all_props.extend(specie_param_properties(ipop,ispec,specie))
+                        all_props.extend(specie_setting_properties(ipop,ispec,specie))
+                        if bas_cls: bas_cls += '__'
+                        bas_cls += 'specie{}_{}'.format(ispec,specie.form)
+                        all_clss.append(Classification('pop{}_specie{}_form'.format(ipop,ispec),specie.form,[specie_nm]))
+                        ispec += 1
+                all_clss.append(Classification('pop{}_basis_classification'.format(ipop),bas_cls,None))
+                ipop += 1
+    all_clss.append(Classification('system_classification',sys_cls,None))
+    return all_clss, all_props
 
-def system_properties(opd,fixed_params,param_bounds,param_constraints):
-    properties = []
-    for ip,popnm in enumerate(opd.keys()):
-        if popnm == 'noise' and not opd[popnm]['structure'] == 'unidentified':
-            properties.append(Property('noise_intensity',opd[popnm]['parameters']['I0']))
-        else:
-            popd = opd[popnm]
-            popfp, poppb, poppc = None, None, None
-            if contains_params(fixed_params,popnm): popfp = fixed_params[popnm]
-            if contains_params(param_bounds,popnm): poppb = param_bounds[popnm]
-            if contains_params(param_constraints,popnm): poppc = param_constraints[popnm]
-            if 'settings' in popd:
-                properties.extend(setting_properties(ip,popd))
-            if 'parameters' in popd:
-                properties.extend(param_properties(ip,popd,popfp,poppb,poppc))
-            if 'basis' in popd:
-                for ist, stnm in enumerate(popd['basis'].keys()):
-                    stdef = popd['basis'][stnm]
-                    stfp, stpb, stpc = None, None, None
-                    if contains_site_params(fixed_params,popnm,stnm):
-                        stfp = fixed_params[popnm]['basis'][stnm]
-                    if contains_site_params(param_bounds,popnm,stnm):
-                        stpb = param_bounds[popnm]['basis'][stnm]
-                    if contains_site_params(param_constraints,popnm,stnm):
-                        stpc = param_constraints[popnm]['basis'][stnm]
-                    if 'coordinates' in stdef:
-                        properties.extend(site_coord_properties(ip,ist,stdef))
-                    if 'settings' in stdef:
-                        properties.extend(site_setting_properties(ip,ist,stdef))
-                    if 'parameters' in stdef:
-                        properties.extend(site_param_properties(ip,ist,stdef,stfp,stpb,stpc))
-    return properties
+def noise_classification(noise_model):
+    noise_cls = ''
+    for nm in noise_model_names:
+        if nm in noise_model:
+            if noise_cls: noise_cls += '__'
+            noise_cls += nm
+    return Classification('noise_classification',noise_cls,None)
 
-def setting_properties(ip,popd):
+def noise_properties(noise_model):
+    props = []
+    for noise_nm,params in noise_model.items():
+        for pnm,pd in params.items():
+            props.append(pif_property_from_param('noise__'+noise_nm+'__'+pnm,pd))
+    return props
+
+def fit_report_property(fit_report):
+    prop_val = None
+    prop = Property('fit_report',fit_report['final_objective'])
+    prop.tags = [rpt_key+': '+str(rpt_val) for rpt_key,rpt_val in fit_report.items()]
+    return prop
+
+# TODO: consider basis content when sorting populations?
+# currently only sorts on structure params
+def _sort_populations(struct_nm,pops_dict):
+    """Sort a set of populations (all with the same structure)"""
+    if struct_nm == 'unidentified' or len(pops_dict) < 2: 
+        return pops_dict
+    new_pops = OrderedDict()
+
+    # get a list of the population labels
+    pop_labels = list(pops_dict.keys())
+
+    # collect params for each population
+    param_vals = dict.fromkeys(pop_labels)
+    for l in pop_labels: param_vals[l] = []
+    param_labels = []
+    dtypes = {}
+    if struct_nm == 'crystalline': 
+        # order crystalline structures primarily according to the list xrsdkit.crystalline_structures
+        for l in pop_labels: param_vals[l].append(crystalline_structures.index(pops_dict[l].settings['lattice']))
+        param_labels.append('lattice')
+        dtypes['lattice']='int'
+        for param_nm in crystalline_structure_params[pops_dict[l].settings['lattice']]:
+            for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
+            param_labels.append(param_nm)
+            dtypes[param_nm]='float'
+    # likewise for xrsdkit.disordered_structures 
+    if struct_nm == 'disordered': 
+        for l in pop_labels: param_vals[l].append(disordered_structures.index(pops_dict[l].settings['interaction']))
+        param_labels.append('interaction')
+        dtypes['interaction']='int'
+        for param_nm in disordered_structure_params[pops_dict[l].settings['interaction']]:
+            for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
+            param_labels.append(param_nm)
+            dtypes[param_nm]='float'
+    # for all structures, order by their structure_params,
+    # from highest to lowest priority
+    for param_nm in structure_params[struct_nm]:
+        for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
+        param_labels.append(param_nm)
+        dtypes[param_nm]='float'
+    param_ar = np.array(
+        [tuple([l]+param_vals[l]) for l in pop_labels], 
+        dtype = [('pop_name','U32')]+[(pl,dtypes[pl]) for pl in param_labels]
+        )
+
+    # TODO: make tests that ensure the sort results are correct
+    param_ar.sort(axis=0,order=param_labels)
+    for ip,p in enumerate(param_ar): new_pops[p[0]] = pops_dict[p[0]]
+
+    return new_pops
+
+def _sort_species(ff_nm,species_dict):
+    """Sort a set of species (all with the same form)"""
+    if ff_nm == 'flat' or len(species_dict)<2:
+        return species_dict
+    new_species = OrderedDict()
+
+    # get list of specie labels
+    specie_labels = list(species_dict.keys())
+
+    # collect parameter values, labels, dtypes
+    param_vals = dict.fromkeys(specie_labels)
+    for l in specie_labels: param_vals[l] = []
+    param_labels = []
+    dtypes = {}
+    if ff_nm == 'atomic':  
+        for l in specie_labels: param_vals[l].append(species_dict[l].parameters['Z'])
+        param_labels.append('Z') 
+        dtypes['Z'] = 'float'
+    if ff_nm == 'standard_atomic':
+        for l in specie_labels: param_vals[l].append(atomic_params[specie.settings['symbol']['Z']])
+        param_labels.append('Z') 
+        dtypes['Z'] = 'float'
+    for param_nm in form_factor_params[ff_nm]:
+        for l in specie_labels: param_vals[l].append(species_dict[l].parameters[param_nm]['value'])
+        param_labels.append(param_nm)
+        dtypes[param_nm]='float'
+    
+    param_ar = np.array(
+        [tuple([l]+param_vals[l]) for l in specie_labels], 
+        dtype = [('specie_name','U32')]+[(pl,dtypes[pl]) for pl in param_labels]
+        )
+    # TODO: make tests that ensure the sort results are correct
+    param_ar.sort(axis=0,order=param_labels)
+
+    for ip,p in enumerate(param_ar):
+        new_species[p[0]] = species_dict[p[0]]
+    return new_species
+
+def setting_properties(ip,pop):
     pps = []
-    for stgnm,stgval in popd['settings'].items():
+    for stgnm in structure_settings[pop.structure]:
+        stgval = setting_defaults[stgnm]
+        if stgnm in pop.settings:
+            stgval = pop.settings[stgnm]
         pp = Property('pop{}_{}'.format(ip,stgnm))
-        pp.tags = str(stgval)
+        pp.tags = [str(stgval)]
         pps.append(pp)
     return pps
 
-def param_properties(ip,popd,popfp=None,poppb=None,poppc=None):
+def param_properties(ip,pop):
     pps = []
-    for pnm,pval in popd['parameters'].items():
-        pp = Property('pop{}_{}'.format(ip,pnm),pval)
-        pp.tags = []
-        if popfp is not None:
-            if pnm in popfp['parameters']:
-                pp.tags.append('fixed value: {}'.format(bool(pval)))
-        if poppb is not None:
-            if pnm in poppb['parameters']:
-                lbnd = poppb['parameters'][pnm][0]
-                ubnd = poppb['parameters'][pnm][1]
-                pp.tags.append('bounds: [{},{}]'.format(lbnd,ubnd))
-        if poppc is not None:
-            if pnm in poppc['parameters']:
-                cexpr = poppc['parameters'][pnm]
-                pp.tags.append('constraint expression: {}'.format(cexpr))
-        pps.append(pp)
+    param_nms = copy.deepcopy(structure_params[pop.structure])
+    if pop.structure == 'crystalline':
+        param_nms.extend(crystalline_structure_params[pop.settings['lattice']])
+    if pop.structure == 'disordered':
+        param_nms.extend(disordered_structure_params[pop.settings['interaction']])
+    for param_nm in param_nms:
+        pd = copy.deepcopy(param_defaults[param_nm])
+        if param_nm in pop.parameters:
+            pd = pop.parameters[param_nm]
+        pnm = 'pop{}_{}'.format(ip,param_nm)
+        pps.append(pif_property_from_param(pnm,pd))
     return pps
-                                    
-def site_setting_properties(ip,ist,stdef):
+
+def specie_setting_properties(ip,isp,specie):
     pps = []
-    for stgnm,stgval in stdef['settings'].items():
-        pp = Property('pop{}_site{}_{}'.format(ip,ist,stgnm))
-        pp.tags = str(stgval)
+    for stgnm,stgval in specie.settings.items():
+        pp = Property('pop{}_specie{}_{}'.format(ip,isp,stgnm))
+        pp.tags = [str(stgval)]
         pps.append(pp)
     return pps
 
-# TODO: deal with fixed_params, param_bounds, param_constraints on site coordinates
-def site_coord_properties(ip,ist,stdef):
+def specie_param_properties(ip,isp,specie):
     pps = []
-    for ic,cval in enumerate(stdef['coordinates']):
-        pp = Property('pop{}_site{}_coordinate{}'.format(ip,ist,ic),cval)
-        pps.append(pp)
+    for ic,cd in enumerate(specie.coordinates):
+        pnm = 'pop{}_specie{}_coordinate{}'.format(ip,isp,ic)
+        pps.append(pif_property_from_param(pnm,cd))
+    for param_nm,pd in specie.parameters.items():
+        pnm = 'pop{}_specie{}_{}'.format(ip,isp,param_nm)
+        pps.append(pif_property_from_param(pnm,pd))
     return pps
 
-def site_param_properties(ip,ist,stdef,stfp,stpb,stpc):
-    pps = []
-    for pnm,pval in stdef['parameters'].items():
-        pp = Property('pop{}_site{}_{}'.format(ip,ist,pnm),pval)
-        pps.append(pp)
-        pp.tags = []
-        if stfp is not None:
-            if pnm in stfp['parameters']:
-                pp.tags.append('fixed value: {}'.format(bool(pval)))
-        if stpb is not None:
-            if pnm in stpb['parameters']:
-                lbnd = stpb['parameters'][pnm][0]
-                ubnd = stpb['parameters'][pnm][1]
-                pp.tags.append('bounds: [{},{}]'.format(lbnd,ubnd))
-        if stpc is not None:
-            if pnm in stpc['parameters']:
-                cexpr = stpc['parameters'][pnm]
-                pp.tags.append('constraint expression: {}'.format(cexpr))
-    return pps
+def param_from_pif_property(param_nm,prop):
+    pdict = copy.deepcopy(param_defaults[param_nm])
+    pdict['value'] = prop.scalars[0].value
+    if prop.tags is not None:
+        for tg in prop.tags:
+            if 'fixed: ' in tg:
+                pdict['fixed'] = bool(tg.strip('fixed: '))
+            if 'bounds: ' in tg:
+                bds = tg.strip('bounds: []').split(',')
+                try: 
+                    lbd = float(bds[0]) 
+                except:
+                    lbd = None
+                try:
+                    ubd = float(bds[1]) 
+                except:
+                    ubd = None
+                pdict['bounds'] = [lbd, ubd]
+            if 'constraint_expr: ' in tg:
+                pdict['constraint_expr'] = tg.strip('constraint_expr: ')
+    return pdict
 
-def scalar_property(fname,fval,desc=None,data_type=None,funits=None):
-    pf = Property()
-    pf.name = fname
-    if isinstance(fval,list):
-        pf.scalars = [Scalar(v) for v in fval]
-    else:
-        pf.scalars = [Scalar(fval)]
-    if desc:
-        pf.tags = [desc]
-    if data_type:
-        pf.dataType = data_type 
-    if funits:
-        pf.units = funits
-    return pf
+def pif_property_from_param(param_nm,paramd):
+    pp = Property(param_nm,paramd['value'])
+    pp.tags = []
+    pp.tags.append('fixed: {}'.format(bool(paramd['fixed'])))
+    pp.tags.append('bounds: [{},{}]'.format(paramd['bounds'][0],paramd['bounds'][1]))
+    pp.tags.append('constraint_expr: {}'.format(paramd['constraint_expr']))
+    return pp
+
+#def scalar_property(fname,fval,desc=None,data_type=None,funits=None):
+#    pf = Property()
+#    pf.name = fname
+#    if isinstance(fval,list):
+#        pf.scalars = [Scalar(v) for v in fval]
+#    else:
+#        pf.scalars = [Scalar(fval)]
+#    if desc:
+#        pf.tags = [desc]
+#    if data_type:
+#        pf.dataType = data_type 
+#    if funits:
+#        pf.units = funits
+#    return pf
 
 
