@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import os
 import copy
+import re
 
 import pandas as pd
 import numpy as np
@@ -9,8 +10,8 @@ from sklearn import preprocessing
 from pypif import pif
 from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
 
-from ..tools import profiler
-from ..tools import piftools
+from ..tools import profiler, piftools
+from ..models import modeling_data_dir, testing_data_dir
 
 def get_data_from_Citrination(client, dataset_id_list):
     """Get data from Citrination and create a dataframe.
@@ -107,145 +108,131 @@ def get_pifs_from_Citrination(client, dataset_id_list):
     print('done - found {} records'.format(len(pifs)))
     return pifs
 
+# TODO refactor the modeling dataset index: it can no longer be divided simply by system class
+def save_modeling_datasets(df,grp_cols,all_groups,all_samples,test=True):
+    dir_path = modeling_data_dir
+    if test:
+        dir_path = os.path.join(dir_path,'models','modeling_data','testing_data')
+    file_path = os.path.join(dir_path,'dataset_statistics.txt')
 
-def downsample_Citrination_datasets(client, dataset_id_list, save_samples=True,
-                                    train_hyperparameters=False, test=False):
-    """Down-sample one or more datasets, and optionally save the samples.
+    with open(file_path, 'w') as txt_file:
+        txt_file.write('Downsampling statistics:\n\n')
+        for grpk,samp in zip(all_groups.groups.keys(),all_samples):
+            txt_file.write(grp_cols+'\n')
+            txt_file.write(grpk+'\n')
+            txt_file.write(len(samp)+' / '+len(all_groups.groups[grpk])+'\n')
+
+    modeling_dsid_file = os.path.join(modeling_data_dir,'modeling_dataset_ids.yml')
+    all_dsids = yaml.load(open(modeling_dsid_file,'rb'))
+
+    ds_map_filepath = os.path.join(modeling_data_dir,'dsid_map.yml')
+    ds_map = yaml.load(open(ds_map_filepath,'rb'))
+
+
+    # TODO: Take all_dsids one at a time,
+    # and associate each one with a group.
+    # (NOTE: If the group already exists in the ds_map,
+    # should we re-use that dsid?)
+    # If we run out of available modeling datasets,
+    # we will add more to the list by hand.
+    # ds_map should be an embedded dict,
+    # keyed by all_groups.groups.keys.
+
+    # For each dataset that gets assigned to a group,
+    # set its title to 'xrsdkit modeling dataset',
+    # set its description to list the group labels,
+    # create a new version,
+    # and upload the group.
+
+    # Then, upload the entire sample for system_classifier,
+    # and upload each system_class into a dataset 
+    # for that system's basis_classifiers.
+    #            pif.dump(pp, open(jsf,'w'))
+    #            client.data.upload(ds_id, jsf)
+    #    with open(ds_map_filepath, 'w') as yaml_file:
+    #        yaml.dump(dataset_ids, yaml_file)
+
+
+# TODO: generate all unique sets of labels and the corresponding dataframe groups 
+def group_by_labels(df):
+    grp_cols = ['experiment_id','system_classification']
+    for col in df.columns:
+        if re.compile('pop._basis_classification').match(col): grp_cols.append(col)
+        if re.compile('pop._lattice').match(col): grp_cols.append(col)
+        if re.compile('pop._interaction').match(col): grp_cols.append(col)
+    all_groups = df.groupby(grp_cols)
+    return grp_cols, all_groups
+
+    #all_labels = []
+    #all_groups = []
+    # first, group by experiment_id: 
+    #expt_grps = df.groupby('experiment_id')
+    #for expt_id,expt_grp in expt_grps.items():
+    #    expt_lbls = {'experiment_id':expt_id}
+    #    # next, group by system_classification:
+    #    sys_cls_grps = expt_grp.groupby('system_classification')
+    #    for sys_cls, sys_cls_grp in sys_cls_grps.items():
+    #        sys_cls_lbls = copy.deepcopy(expt_lbls)
+    #        sys_cls_lbls['system_classification'] = sys_cls
+    #        # TODO:
+    #        # finally, group by population classifications:
+    #        # NOTE: this is tricky
+
+def downsample_by_group(df):
+    """Group and down-sample a DataFrame of xrsd records.
         
-    Down-sampled datasets are (optionally) saved to their datasets as assigned
-    in the index file at xrsdkit/models/modeling_data/dataset_ids.yml. 
-
     Parameters
     ----------
-    client : citrination_client.CitrinationClient
-        A python Citrination client for managing datasets
-    dataset_id_list : list of int
-        List of dataset ids (integers) that will be down-sampled 
-    save_samples : bool
-        if True, the down-sampled data will be saved to a dataset
-    train_hyperparameters : bool
-        if True, the models will be optimized
-        over a grid of hyperparameters during training
+    df : pandas.DataFrame
+        dataframe containing xrsd samples 
 
     Returns
     -------
-    full_downsampled_dataset : pandas.DataFrame
-        dataframe containing all of the down-sampled data from 
+    unscaled_data : pandas.DataFrame
+        DataFrame containing all of the down-sampled data from 
         all of the datasets in `dataset_id_list`. 
         Features in this DataFrame are not scaled:
         the correct scaler should be applied before training models.
     """
-
-    stat = dict(by_exp = {}, by_sys_class = {})
-
-    data, pifs = get_data_from_Citrination(client, dataset_id_list)
-
     #### create data_sample ########################
-    data_sample = pd.DataFrame(columns=data.columns)
-    expt_samples = {}
-    expt_local_ids = {} # local ids of samples to save by exp
-    all_exp = data.experiment_id.unique()
+    data_sample = pd.DataFrame(columns=df.columns)
+    #expt_samples = {}
+    #expt_local_ids = {} # local ids of samples to save by exp
+    #all_exp = data.experiment_id.unique()
+    group_cols, all_groups = group_by_labels(df)
 
-    features = profiler.profile_keys
-
-    scaler = preprocessing.StandardScaler()
-    scaler.fit(data[features])
-
-    transformed_data = pd.DataFrame(columns=data.columns, data=data[data.columns])
-    transformed_data[features] = scaler.transform(data[features])
-
-    for exp_id in all_exp:
-        df = transformed_data[transformed_data['experiment_id']==exp_id]
-        dsamp = downsample_one_experiment(df, 1.0)
+    all_samples = []
+    #for exp_id in all_exp:
+    # downsample each group independently
+    for group_labels,grp in all_groups.groups.items():
+        #lbl_df = _filter_by_labels(data,lbls)
+        dsamp = downsample(df.iloc[grp].copy(), 1.0)
         data_sample = data_sample.append(dsamp)
-        if save_samples:
-            expt_samples[exp_id] = data_sample
-            expt_local_ids[exp_id] = data_sample.local_id.tolist()
+        all_samples.append(dsamp)
+    return data_sample, group_cols, all_groups, all_samples
 
-        stat['by_exp'][exp_id] = [df.shape[0], dsamp.shape[0]]
-        for cl in df.system_classification.unique():
-            if cl not in stat['by_sys_class']:
-                stat['by_sys_class'][cl] = [0,0] # [before downsampling, after]
-            stat['by_sys_class'][cl][0] += \
-                len(df.groupby(['system_classification']).groups[cl])
-            stat['by_sys_class'][cl][1] += \
-                len(dsamp.groupby(['system_classification']).groups[cl])
 
-    # save the statistics of downsampling:
-    p = os.path.abspath(__file__)
-    d = os.path.dirname(os.path.dirname(p))
+def downsample(df, min_distance):
+    """Downsample records from one DataFrame.
 
-    if test:
-        dir_path = os.path.join(d,'models','modeling_data','testing_data')
-        if not os.path.exists(dir_path): os.mkdir(dir_path)
-        file_path = os.path.join(dir_path,'dataset_statistics.txt')
-
-    else:
-        file_path = os.path.join(d,'models','modeling_data',
-                                 'dataset_statistics.txt')
-    with open(file_path, 'w') as txt_file:
-        txt_file.write('Downsampling statistics: \n [before downsampling, after downsampling] \n \n')
-        for a_k, a_v in stat.items():
-            txt_file.write(a_k + '\n')
-            for k, v in a_v.items():
-                txt_file.write(k + ' : ' + str(v) + '\n')
-            txt_file.write('\n')
-    ################################################
-
-    # store references to unscaled data for all samples in data_sample
-    samples_to_save = data_sample.local_id.tolist()
-    unscaled_data = pd.DataFrame(columns=data.columns)
-    for samp_id in samples_to_save:
-        unscaled_data = unscaled_data.append(data.iloc[samp_id])
-
-    if save_samples:
-        p = os.path.abspath(__file__)
-        d2 = os.path.dirname(os.path.dirname(p))
-        ds_map_filepath = os.path.join(d2,'models','modeling_data',
-                                       'dataset_ids.yml')
-        dataset_ids = yaml.load(open(ds_map_filepath,'rb'))
-        sys_classifier_dsid = dataset_ids['system_classification']
-
-        for expt_id in all_exp:
-            # sort sample of pifs by classes
-            all_sys_classes = expt_samples[expt_id].system_classification.unique()
-            pifs_by_sys_class = {}
-            for cl in all_sys_classes:
-                pifs_by_sys_class[cl] = []
-
-            for pif_local_id in expt_local_ids[expt_id]:
-                cl = data.iloc[pif_local_id].system_classification
-                pifs_by_sys_class[cl].append(pifs[pif_local_id])
-
-            d = os.path.dirname(os.path.dirname(os.path.dirname(p)))
-            for cl,pp in pifs_by_sys_class.items():
-                # check if this system class has an assigned dataset id
-                if cl in dataset_ids:
-                    ds_id = dataset_ids[cl]
-                # if not, create a new one and add it to the index
-                else:
-                    ds = client.data.create_dataset(name = cl,
-                        description ='Downsampled modeling data for system class {}'.format(cl))
-                    ds_id = ds.id
-                    dataset_ids[cl] = ds_id
-                jsf = os.path.join(d, cl+'_'+expt_id+'.json')
-                pif.dump(pp, open(jsf,'w'))
-                client.data.upload(ds_id, jsf)
-                # upload into the large sample for the main classifier:
-                client.data.upload(sys_classifier_dsid, jsf)
-        with open(ds_map_filepath, 'w') as yaml_file:
-            yaml.dump(dataset_ids, yaml_file)
-    return unscaled_data 
-
-def downsample_one_experiment(data_fr, min_distance):
-    """Downsample records from one experimental dataset.
+    Transforms the DataFrame feature arrays 
+    (scaling by the columns in profiler.profile_keys),
+    before collecting at least 10 samples.
+    If the size of `df` is <= 10, it is returned directly.
+    If it is larger than 10, the first point is chosen
+    based on greatest nearest-neighbor distance.
+    Subsequent points are chosen  
+    in order of decreasing nearest-neighbor distance
+    to the already-sampled points. 
 
     Parameters
     ----------
-    data_fr : pandas.DataFrame
-        dataframe containing the samples from one experiment.
+    df : pandas.DataFrame
+        dataframe containing xrsd samples 
     min_distance : float
-        the minimal allowed distance between the samples.
+        the minimum allowed nearest-neighbor distance 
+        for continuing to downsample after 10 or more samples
+        have been selected 
 
     Returns
     -------
@@ -253,61 +240,50 @@ def downsample_one_experiment(data_fr, min_distance):
         dataframe containing subset of rows
         that was chosen using distance between the samples
     """
-    expt_id = data_fr['experiment_id'].iloc[0] 
-    groups_by_class = data_fr.groupby('system_classification')
-    sample = pd.DataFrame(columns=data_fr.columns)
-    print('downsampling records from experiment: {}'.format(expt_id))
-    print('total sample size: {}'.format(len(data_fr)))
-    for name, group in groups_by_class:
-        group_size = len(group)
-        sys_cls = group['system_classification'].iloc[0] 
-        print('- number of samples for system class {}: {}'.format(sys_cls,group_size))
-        if group_size >= 10:
-            df = pd.DataFrame(columns=data_fr.columns)
-            # define the distance between two samples in feature space 
-            group_dist_func = lambda i,j: sum(
-                (group.iloc[i][profiler.profile_keys]
-                - group.iloc[j][profiler.profile_keys]).abs())
+    df_size = len(df)
+    sample = pd.DataFrame(columns=df.columns)
+    print('total DataFrame size: {}'.format(df_size))
+    if df_size <= 10:
+        sample = sample.append(df)
+    else:
+        features = profiler.profile_keys
+        scaler = preprocessing.StandardScaler()
+        scaler.fit(df[features])
+        tr_df = pd.DataFrame(columns=df.columns, data=df[df.columns])
 
-            print('- building inter-sample distance matrix...')
-            group_dist_matrix = np.array([[group_dist_func(i,j) for i in range(group_size)] for j in range(group_size)])
-            # get the most isolated sample first:
-            # this should be the sample with the greatest minimum distance
-            # between itself and all other samples
-            min_distance_array = np.array([min(group_dist_matrix[i,:]) for i in range(group_size)])
-            best_idx = np.argmax(min_distance_array)
-            #print('- best sample: {} (min distance: {})'.format(best_idx,min_distance_array[best_idx]))
-            df = df.append(group.iloc[best_idx])
-            sampled_idxs = [best_idx] 
-            continue_downsampling = True
-            while(continue_downsampling):
+        features_matr = scaler.transform(df[features]) # features_matr is a np arraly
+        tr_df[features] = features_matr
+        # define the distance between two samples in feature space
 
-                # find the next best index to sample:
-                # the sample with the greatest minimum distance
-                # between itself and the downsampled samples
-                sample_size = len(df)
-                sample_dist_matrix = np.array([group_dist_matrix[i,:] for i in sampled_idxs])
-                #sample_dist_matrix = np.array([[sample_dist_func(i,j) 
-                #for i in range(group_size)] for j in range(sample_size)])
-                min_distance_array = np.array([min(sample_dist_matrix[:,j]) for j in range(group_size)])
-                best_idx = np.argmax(min_distance_array)
-                best_min_distance = min_distance_array[best_idx]
-                #print('- next best sample: {} (min distance: {})'.format(best_idx,best_min_distance))
-
-                # if we have at least 10 samples,
-                # and all remaining samples are close to current data set,
-                # down-sampling can stop here.
-                if sample_size >= 10 and best_min_distance < min_distance: 
-                    continue_downsampling = False
-                else:
-                    sampled_idxs.append(best_idx)
-                    df = df.append(group.iloc[best_idx])
-
-            print('- down-sampled to: {}'.format(len(df)))
-            sample = sample.append(df)
-        else:
-            print('- skipped downsampling (insufficient data)')
-            sample = sample.append(group)
-    print('number of samples retained for {}: {}'.format(expt_id,len(sample)))
+        dist_func = lambda i,j: np.sum(
+            np.abs(features_matr[i]
+            - features_matr[j]))
+        dist_matrix = np.array([[dist_func(i,j) for i in range(df_size)] for j in range(df_size)])
+        # get the most isolated sample first:
+        # this should be the sample with the greatest 
+        # nearest-neighbor distance 
+        nn_distance_array = np.array([min(dist_matrix[i,:]) for i in range(df_size)])
+        best_idx = np.argmax(nn_distance_array)
+        sample = sample.append(df.iloc[best_idx])
+        sampled_idxs = [best_idx] 
+        continue_downsampling = True
+        while(continue_downsampling):
+            # find the next best index to sample:
+            # the sample with the greatest minimum distance
+            # between itself and the downsampled samples
+            sample_size = len(sample)
+            sample_dist_matrix = np.array([dist_matrix[i,:] for i in sampled_idxs])
+            nn_distance_array = np.array([min(sample_dist_matrix[:,j]) for j in range(df_size)])
+            best_idx = np.argmax(nn_distance_array)
+            best_nn_distance = nn_distance_array[best_idx]
+            # if we have at least 10 samples,
+            # and all remaining samples are close to the current sample,
+            # down-sampling can stop here.
+            if sample_size >= 10 and best_nn_distance < min_distance: 
+                continue_downsampling = False
+            else:
+                sampled_idxs.append(best_idx)
+                sample = sample.append(df.iloc[best_idx])
+        print('downsampled DataFrame size: {}/{}'.format(len(sampled_idxs),df_size))
     return sample
 

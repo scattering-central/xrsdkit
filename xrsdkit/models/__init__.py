@@ -9,12 +9,13 @@ from .regressor import Regressor
 from .classifier import SystemClassifier
 from .. import regression_params
 from ..tools.profiler import profile_spectrum
-from ..tools.citrination_tools import downsample_Citrination_datasets
+from ..tools.citrination_tools import get_data_from_Citrination, downsample_by_group
 
 file_path = os.path.abspath(__file__)
 src_dir = os.path.dirname(os.path.dirname(file_path))
 root_dir = os.path.dirname(src_dir)
 modeling_data_dir = os.path.join(src_dir,'models','modeling_data')
+testing_data_dir = os.path.join(src_dir,'models','modeling_data','testing_data')
 regression_models_dir = os.path.join(modeling_data_dir,'regressors')
 
 api_key_file = os.path.join(root_dir, 'api_key.txt')
@@ -26,7 +27,7 @@ if os.path.exists(api_key_file):
 src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
 src_dsid_list = yaml.load(open(src_dsid_file,'r'))
 
-model_dsid_file = os.path.join(src_dir,'models','modeling_data','dataset_ids.yml')
+model_dsid_file = os.path.join(src_dir,'models','modeling_data','modeling_dataset_ids.yml')
 model_dsids = yaml.load(open(model_dsid_file,'r'))
 
 system_classes = ['noise','unidentified']
@@ -85,11 +86,9 @@ def downsample_and_train(
         saved in modleling_data/tesding_data dir;
         if Fasle, in modleling_data dir.
     """
-
-    data = downsample_Citrination_datasets(citrination_client, source_dataset_ids,
-                                           save_samples=save_samples, test=test)
-    train_from_dataframe(data,train_hyperparameters,save_models,test)
-
+    df, pifs_list = get_data_from_Citrination(citrination_client,source_dataset_ids)
+    df_sample, all_lbls, all_grps, all_samples = downsample_by_group(df)
+    train_from_dataframe(df_sample,train_hyperparameters,save_models,test)
 
 def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
     # system classifier:
