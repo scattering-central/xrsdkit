@@ -171,15 +171,3 @@ class Classifier(XRSDModel):
         return  params
 
 
-class SystemClassifier(Classifier):
-    """Classifier for determining the material system (structures and form factors).
-
-    See the main xrsdkit package documentation 
-    for all supported structures and parameters
-    for defining the material system.
-    """
-
-    def __init__(self,yml_file):
-        super(SystemClassifier,self).__init__('system_classification', yml_file)
-
-
