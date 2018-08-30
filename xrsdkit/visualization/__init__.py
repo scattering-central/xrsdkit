@@ -64,7 +64,7 @@ def visualize_dataframe(data,
     pca_comp_to_use = [0,1],
     show_plots = False,
     save_plots = False,
-    saving_dir = testing_data_dir):
+    saving_dir = test_dir):
     """Makes a labeled scatterplot of data. 
 
     If use_pca is True,
