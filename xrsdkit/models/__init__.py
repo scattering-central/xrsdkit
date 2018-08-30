@@ -26,6 +26,9 @@ if os.path.exists(api_key_file):
 src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
 src_dsid_list = yaml.load(open(src_dsid_file,'r'))
 
+model_dsid_file = os.path.join(src_dir,'models','modeling_data','dataset_ids.yml')
+model_dsids = yaml.load(open(model_dsid_file,'r'))
+
 system_classes = ['noise','unidentified']
 regression_models = OrderedDict()
 regression_models['noise'] = {}
@@ -85,10 +88,12 @@ def downsample_and_train(
 
     data = downsample_Citrination_datasets(citrination_client, source_dataset_ids,
                                            save_samples=save_samples, test=test)
+    train_from_dataframe(data,train_hyperparameters,save_models,test)
 
+
+def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
     # system classifier:
     sys_cls = train_system_classifier(data, hyper_parameters_search=train_hyperparameters)
-    print(classifier_results_to_str(sys_cls['system_classification']))
 
     # regression models:
     reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)

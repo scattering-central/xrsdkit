@@ -61,16 +61,17 @@ To predict scatters populations we can use local scikit-learn models or remote C
 
     (TODO: update this example to new API) 
 
-The full script for this example can be found here:
-https://github.com/scattering-central/saxskit/blob/dev/examples/predict.py
-
-The output should look like this:
-https://github.com/scattering-central/saxskit/blob/dev/examples/output.png
-
 There are some more detailed examples of predictions, 
 training and updating of models,
 and least-squares fitting, 
 in the "examples" directory.
+
+**Download the training data and visualize it with or without PCA:** ::
+
+    from  xrsdkit.visualization import download_and_visualize
+
+    download_and_visualize(features = ['Imax_over_Imean','Ilowq_over_Imean'], use_pca=False, save_plots=True)
+    download_and_visualize(use_pca=True,save_plots=True)
 
 
 Installation
