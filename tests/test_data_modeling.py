@@ -2,8 +2,8 @@ import os
 
 from citrination_client import CitrinationClient
 from xrsdkit.tools.citrination_tools import get_data_from_Citrination 
-from xrsdkit.models import root_dir, model_dsids, train_from_dataframe
-from xrsdkit.visualization import visualize_dataframe_PCA 
+from xrsdkit.models import root_dir, model_dsids, downsample_by_group, train_from_dataframe
+from xrsdkit.visualization import visualize_dataframe
 
 def download_pifs():
     api_key_file = os.path.join(root_dir, 'api_key.txt')
@@ -23,7 +23,7 @@ def test_training():
 
 def test_visualization():
     if df is not None:
-        visualize_dataframe_PCA(data=df,show_plots=False, save_plots=False)
+        visualize_dataframe(df)
 
 def test_downsampling():
     if df is not None:
