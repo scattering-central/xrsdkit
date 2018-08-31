@@ -18,9 +18,11 @@ file_path = os.path.abspath(__file__)
 src_dir = os.path.dirname(os.path.dirname(file_path))
 root_dir = os.path.dirname(src_dir)
 modeling_data_dir = os.path.join(src_dir,'models','modeling_data')
-testing_data_dir = os.path.join(src_dir,'models','modeling_data','testing_data')
+testing_data_dir = os.path.join(src_dir,'models','modeling_data','test')
 regression_models_dir = os.path.join(modeling_data_dir,'regressors')
 classification_models_dir = os.path.join(modeling_data_dir,'classifiers')
+test_regression_models_dir = os.path.join(testing_data_dir,'regressors')
+test_classification_models_dir = os.path.join(testing_data_dir,'classifiers')
 
 api_key_file = os.path.join(root_dir, 'api_key.txt')
 citcl = None
@@ -173,8 +175,6 @@ def downsample_by_group(df):
         all_samples.append(dsamp)
     return data_sample, group_cols, all_groups, all_samples
 
-
-
 def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
     # regression models:
     reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
@@ -185,7 +185,7 @@ def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test
     # to the regression_models and classification_models dicts.
     if save_models:
         save_regression_models(reg_models, test=test)
-        save_classification_model(cls_models, test=test)
+        save_classification_models(cls_models, test=test)
 
 def train_regression_models(data, hyper_parameters_search=False):
     """Train all trainable regression models from `data`.
@@ -249,6 +249,7 @@ def train_regression_models(data, hyper_parameters_search=False):
                             reg_model.train(bas_cls_data, hyper_parameters_search)
                             if reg_model.trained:
                                 specie_models[param_nm] = reg_model 
+    return reg_models
 
 def trainable_regression_models(data):
     """Get a data structure for all regression models trainable from `data`. 
@@ -420,44 +421,53 @@ def save_regression_models(models=regression_models, test=False):
     test : bool (optional)
         if True, the models will be saved in the testing dir.
     """
+    rg_root_dir = regression_models_dir
+    if test: rg_root_dir = test_regression_models_dir 
+    if not os.path.exists(rg_root_dir): os.mkdir(rg_root_dir)
     for sys_cls, sys_models in models.items():
-        sys_dir_path = os.path.join(regression_models_dir,sys_cls)
+        sys_dir_path = os.path.join(rg_root_dir,sys_cls)
         if not sys_cls in regression_models: regression_models[sys_cls] = {}
+        if not os.path.exists(sys_dir_path): os.mkdir(sys_dir_path)
         for pop_id, pop_models in sys_models.items():
             pop_dir_path = os.path.join(sys_dir_path,pop_id)
             if not pop_id in regression_models[sys_cls]: regression_models[sys_cls][pop_id] = {}
+            if not os.path.exists(pop_dir_path): os.mkdir(pop_dir_path)
             for k,v in pop_models.items():
                 if k in regression_params:
-                    regression_models[sys_cls][pop_id][k] = v
-                    yml_path = os.path.join(pop_dir_path,k+'.yml')
-                    txt_path = os.path.join(pop_dir_path,k+'.txt')
-                    save_model_data(v,yml_path,txt_path)
+                    if v:
+                        regression_models[sys_cls][pop_id][k] = v
+                        yml_path = os.path.join(pop_dir_path,k+'.yml')
+                        txt_path = os.path.join(pop_dir_path,k+'.txt')
+                        save_model_data(v,yml_path,txt_path)
                 else:
                     if not k in regression_models[sys_cls][pop_id]: regression_models[sys_cls][pop_id][k] = {}
-                    if k in crystalline_structures:
-                        for param_nm in crystalline_structure_params[k]:
-                            regression_models[sys_cls][pop_id][k][param_nm] = v[param_nm]
-                            yml_path = os.path.join(pop_dir_path,k,param_nm+'.yml')
-                            txt_path = os.path.join(pop_dir_path,k,param_nm+'.txt')
-                            save_model_data(v[param_nm],yml_path,txt_path)
-                    elif k in disordered_structure:
-                        for param_nm in disordered_structure_params[k]:
-                            regression_models[sys_cls][pop_id][k][param_nm] = v[param_nm]
-                            yml_path = os.path.join(pop_dir_path,k,param_nm+'.yml')
-                            txt_path = os.path.join(pop_dir_path,k,param_nm+'.txt')
-                            save_model_data(v[param_nm],yml_path,txt_path)
+                    pop_subdir_path = os.path.join(pop_dir_path,k)
+                    if not os.path.exists(pop_subdir_path): os.mkdir(pop_subdir_path)
+                    if k in crystalline_structures+disordered_structures:
+                        if k in crystalline_structures: param_nms = crystalline_structure_params[k]
+                        if k in disordered_structures: param_nms = disordered_structure_params[k]
+                        for param_nm in param_nms:
+                            if v[param_nm]:
+                                regression_models[sys_cls][pop_id][k][param_nm] = v[param_nm]
+                                yml_path = os.path.join(pop_subdir_path,param_nm+'.yml')
+                                txt_path = os.path.join(pop_subdir_path,param_nm+'.txt')
+                                save_model_data(v[param_nm],yml_path,txt_path)
                     else:
                         # k is a basis class label,
                         # v is a dict of dicts of models for each specie
                         bas_dir = os.path.join(pop_dir_path,k)
+                        if not os.path.exists(bas_dir): os.mkdir(bas_dir)
                         for specie_id, specie_models in v.items():
                             if not specie_id in regression_models[sys_cls][pop_id][k]:
                                 regression_models[sys_cls][pop_id][k][specie_id] = {}
+                            specie_dir = os.path.join(bas_dir,specie_id)
+                            if not os.path.exists(specie_dir): os.mkdir(specie_dir)
                             for param_nm, param_model in specie_models.items():
-                                regression_models[sys_cls][pop_id][k][specie_id][param_nm] = param_model
-                                yml_path = os.path.join(bas_dir,specie_id,param_nm+'.yml')
-                                txt_path = os.path.join(bas_dir,specie_id,param_nm+'.txt')
-                                save_model_data(v[param_nm],yml_path,txt_path)
+                                if param_model:
+                                    regression_models[sys_cls][pop_id][k][specie_id][param_nm] = param_model
+                                    yml_path = os.path.join(specie_dir,param_nm+'.yml')
+                                    txt_path = os.path.join(specie_dir,param_nm+'.txt')
+                                    save_model_data(param_model,yml_path,txt_path)
 
 def save_classification_models(models=classification_models, test=False):
     """Serialize `models` to .yml files, and update local classification_models.
@@ -473,22 +483,30 @@ def save_classification_models(models=classification_models, test=False):
     test : bool (optional)
         if True, the models will be saved in the testing dir.
     """
+    cl_root_dir = classification_models_dir
+    if test: cl_root_dir = test_classification_models_dir
+    if not os.path.exists(cl_root_dir): os.mkdir(cl_root_dir)
     for sys_cls, sys_mod in models.items():
         if sys_cls == 'system_classification':
-            classification_models[sys_cls] = sys_mod
-            yml_path = os.path.join(classification_models_dir,'system_classification.yml')
-            txt_path = os.path.join(classification_models_dir,'system_classification.txt')
-            save_model_data(sys_mod,yml_path,txt_path)
+            if sys_mod:
+                classification_models[sys_cls] = sys_mod
+                yml_path = os.path.join(cl_root_dir,'system_classification.yml')
+                txt_path = os.path.join(cl_root_dir,'system_classification.txt')
+                save_model_data(sys_mod,yml_path,txt_path)
         else:
-            sys_dir_path = os.path.join(classification_models_dir,sys_cls)
+            sys_dir_path = os.path.join(cl_root_dir,sys_cls)
             if not sys_cls in classification_models: classification_models[sys_cls] = {}
-            for pop_id, pop_models in sys_models.items():
+            if not os.path.exists(sys_dir_path): os.mkdir(sys_dir_path)
+            for pop_id, pop_models in sys_mod.items():
                 if not pop_id in classification_models[sys_cls]: classification_models[sys_cls][pop_id] = {}
+                pop_dir_path = os.path.join(sys_dir_path,pop_id)
+                if not os.path.exists(pop_dir_path): os.mkdir(pop_dir_path)
                 for cls_label, m in pop_models.items():
-                    classification_models[sys_cls][pop_id][cls_label] = m
-                    yml_path = os.path.join(sys_dir_path,pop_id,cls_label+'.yml')
-                    txt_path = os.path.join(sys_dir_path,pop_id,cls_label+'.txt')
-                    save_model_data(m,yml_path,txt_path)
+                    if m:
+                        classification_models[sys_cls][pop_id][cls_label] = m
+                        yml_path = os.path.join(sys_dir_path,pop_id,cls_label+'.yml')
+                        txt_path = os.path.join(sys_dir_path,pop_id,cls_label+'.txt')
+                        save_model_data(m,yml_path,txt_path)
 
 # TODO refactor the modeling dataset index: it can no longer be divided simply by system class
 def save_modeling_datasets(df,grp_cols,all_groups,all_samples,test=True):
@@ -509,7 +527,6 @@ def save_modeling_datasets(df,grp_cols,all_groups,all_samples,test=True):
 
     ds_map_filepath = os.path.join(modeling_data_dir,'dsid_map.yml')
     ds_map = yaml.load(open(ds_map_filepath,'rb'))
-
 
     # TODO: Take all_dsids one at a time,
     # and associate each one with a group.
@@ -544,21 +561,6 @@ def group_by_labels(df):
         if re.compile('pop._interaction').match(col): grp_cols.append(col)
     all_groups = df.groupby(grp_cols)
     return grp_cols, all_groups
-
-    #all_labels = []
-    #all_groups = []
-    # first, group by experiment_id: 
-    #expt_grps = df.groupby('experiment_id')
-    #for expt_id,expt_grp in expt_grps.items():
-    #    expt_lbls = {'experiment_id':expt_id}
-    #    # next, group by system_classification:
-    #    sys_cls_grps = expt_grp.groupby('system_classification')
-    #    for sys_cls, sys_cls_grp in sys_cls_grps.items():
-    #        sys_cls_lbls = copy.deepcopy(expt_lbls)
-    #        sys_cls_lbls['system_classification'] = sys_cls
-    #        # TODO:
-    #        # finally, group by population classifications:
-    #        # NOTE: this is tricky
 
 # helper function - to set parameters for scalers and models
 def set_param(m_s, param):

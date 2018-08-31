@@ -150,7 +150,7 @@ class XRSDModel(object):
                 return False
         else:
             print('model {}: all training data have identical outputs ({})'.format(
-            self.target,float(dataframe[self.target].iloc[0])))
+            self.target,dataframe[self.target].iloc[0]))
             return False
 
 
