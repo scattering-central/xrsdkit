@@ -164,20 +164,20 @@ class Regressor(XRSDModel):
 
     # TODO
     def print_CV_report(self):
-    """Return a string describing the model's cross-validation metrics.
+        """Return a string describing the model's cross-validation metrics.
 
-    Returns
-    -------
-    CV_report : str
-        string with formated results of cross validatin.
-    """
-    CV_report = 'Cross validation results for {} Regressor\n'.format(self.target) \
-        'Accuracies by train/test split:\n' \
-        self.print_accuracies() \
-        'Weighted-average accuracy: {}\n'.format(self.average_accuracy(False)) \
-        'Unweighted-average accuracy: {}\n'.format(self.average_accuracy(True)) \
-        '\n\nNOTE: Weighted metrics are weighted by test set size' 
-    return CV_report
+        Returns
+        -------
+        CV_report : str
+            string with formated results of cross validatin.
+        """
+        CV_report = 'Cross validation results for {} Regressor\n'.format(self.target) + \
+            'Accuracies by train/test split:\n' + \
+            self.print_accuracies() + \
+            'Weighted-average accuracy: {}\n'.format(self.average_accuracy(False)) + \
+            'Unweighted-average accuracy: {}\n'.format(self.average_accuracy(True)) + \
+            '\n\nNOTE: Weighted metrics are weighted by test set size' 
+        return CV_report
 
 
 
