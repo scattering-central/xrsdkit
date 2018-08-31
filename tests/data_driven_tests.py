@@ -25,5 +25,9 @@ def test_visualization():
     if df is not None:
         visualize_dataframe_PCA(data=df,show_plots=False, save_plots=False)
 
+def test_downsampling():
+    if df is not None:
+        downsample_by_group(df) 
+
 
 
