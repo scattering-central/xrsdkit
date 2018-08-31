@@ -11,12 +11,13 @@ from .regressor import Regressor
 from .classifier import Classifier
 from ..tools import primitives
 from ..tools.profiler import profile_spectrum
-from ..tools.citrination_tools import downsample_Citrination_datasets
+from ..tools.citrination_tools import get_data_from_Citrination, downsample_by_group
 
 file_path = os.path.abspath(__file__)
 src_dir = os.path.dirname(os.path.dirname(file_path))
 root_dir = os.path.dirname(src_dir)
 modeling_data_dir = os.path.join(src_dir,'models','modeling_data')
+testing_data_dir = os.path.join(src_dir,'models','modeling_data','testing_data')
 regression_models_dir = os.path.join(modeling_data_dir,'regressors')
 classification_models_dir = os.path.join(modeling_data_dir,'classifiers')
 
@@ -29,7 +30,7 @@ if os.path.exists(api_key_file):
 src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
 src_dsid_list = yaml.load(open(src_dsid_file,'r'))
 
-model_dsid_file = os.path.join(src_dir,'models','modeling_data','dataset_ids.yml')
+model_dsid_file = os.path.join(src_dir,'models','modeling_data','modeling_dataset_ids.yml')
 model_dsids = yaml.load(open(model_dsid_file,'r'))
 
 # --- LOAD READY-TRAINED MODELS --- #
@@ -132,10 +133,9 @@ def downsample_and_train(
         if True, the downsampling statistics and models will be
         saved in modeling_data/testing_data dir
     """
-    # get a down-sampled training set
-    data = downsample_Citrination_datasets(citrination_client, source_dataset_ids,
-                                           save_samples=save_samples, test=test)
-    train_from_dataframe(data,train_hyperparameters,save_models,test)
+    df, pifs_list = get_data_from_Citrination(citrination_client,source_dataset_ids)
+    df_sample, all_lbls, all_grps, all_samples = downsample_by_group(df)
+    train_from_dataframe(df_sample,train_hyperparameters,save_models,test)
 
 def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
     # regression models:
@@ -486,7 +486,6 @@ def classifier_results_to_str(model_dict):
     results_str += 'The accuracy was calculated for each system class for each split (one experiment out) \n ' \
                        'as percent of right predicted labels. Then accuracy was averaged for each system class, \n ' \
                        'and then averaged for all system class'
-
     return results_str
 
 def regressors_results_to_str(cross_valid_results):
@@ -502,7 +501,6 @@ def regressors_results_to_str(cross_valid_results):
     results_str : str
         string with formated results of cross validatin.
     """
-
     results_str = "Cross validation results for Regressors \n"
     for a_k, a_v in cross_valid_results.items():
         results_str += (a_k + '\n')
