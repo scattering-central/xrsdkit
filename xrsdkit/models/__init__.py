@@ -4,6 +4,7 @@ from collections import OrderedDict
 
 import yaml
 import numpy as np
+import pandas as pd
 from citrination_client import CitrinationClient
 
 from .. import * 
@@ -11,7 +12,7 @@ from .regressor import Regressor
 from .classifier import Classifier
 from ..tools import primitives
 from ..tools.profiler import profile_spectrum
-from ..tools.citrination_tools import get_data_from_Citrination, downsample_by_group
+from ..tools.citrination_tools import downsample, get_data_from_Citrination
 
 file_path = os.path.abspath(__file__)
 src_dir = os.path.dirname(os.path.dirname(file_path))
@@ -138,6 +139,41 @@ def downsample_and_train(
     df, pifs_list = get_data_from_Citrination(citrination_client,source_dataset_ids)
     df_sample, all_lbls, all_grps, all_samples = downsample_by_group(df)
     train_from_dataframe(df_sample,train_hyperparameters,save_models,test)
+
+def downsample_by_group(df):
+    """Group and down-sample a DataFrame of xrsd records.
+        
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        dataframe containing xrsd samples 
+
+    Returns
+    -------
+    unscaled_data : pandas.DataFrame
+        DataFrame containing all of the down-sampled data from 
+        all of the datasets in `dataset_id_list`. 
+        Features in this DataFrame are not scaled:
+        the correct scaler should be applied before training models.
+    """
+    #### create data_sample ########################
+    data_sample = pd.DataFrame(columns=df.columns)
+    #expt_samples = {}
+    #expt_local_ids = {} # local ids of samples to save by exp
+    #all_exp = data.experiment_id.unique()
+    group_cols, all_groups = group_by_labels(df)
+
+    all_samples = []
+    #for exp_id in all_exp:
+    # downsample each group independently
+    for group_labels,grp in all_groups.groups.items():
+        #lbl_df = _filter_by_labels(data,lbls)
+        dsamp = downsample(df.iloc[grp].copy(), 1.0)
+        data_sample = data_sample.append(dsamp)
+        all_samples.append(dsamp)
+    return data_sample, group_cols, all_groups, all_samples
+
+
 
 def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
     # regression models:
@@ -351,11 +387,11 @@ def trainable_classification_models(data):
             if structure_id == 'crystalline':
                 lattice_cls_header = pop_id+'_lattice'
                 lattice_cls_labels = list(sys_cls_data[lattice_cls_header].unique())
-                if len(lattice_cls_labels) > 0: cls_models[sys_cls][pop_id]['lattice_classification'] = None
+                if len(lattice_cls_labels) > 0: cls_models[sys_cls][pop_id]['lattice'] = None
             if structure_id == 'disordered':
                 interxn_cls_header = pop_id+'_interaction'
                 interxn_cls_labels = list(sys_cls_data[interxn_cls_header].unique())
-                if len(interxn_cls_labels) > 0: cls_models[sys_cls][pop_id]['interaction_classification'] = None
+                if len(interxn_cls_labels) > 0: cls_models[sys_cls][pop_id]['interaction'] = None
     return cls_models
 
 def save_model_data(model,yml_path,txt_path):

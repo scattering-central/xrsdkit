@@ -107,40 +107,6 @@ def get_pifs_from_Citrination(client, dataset_id_list):
     print('done - found {} records'.format(len(pifs)))
     return pifs
 
-def downsample_by_group(df):
-    """Group and down-sample a DataFrame of xrsd records.
-        
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        dataframe containing xrsd samples 
-
-    Returns
-    -------
-    unscaled_data : pandas.DataFrame
-        DataFrame containing all of the down-sampled data from 
-        all of the datasets in `dataset_id_list`. 
-        Features in this DataFrame are not scaled:
-        the correct scaler should be applied before training models.
-    """
-    #### create data_sample ########################
-    data_sample = pd.DataFrame(columns=df.columns)
-    #expt_samples = {}
-    #expt_local_ids = {} # local ids of samples to save by exp
-    #all_exp = data.experiment_id.unique()
-    group_cols, all_groups = group_by_labels(df)
-
-    all_samples = []
-    #for exp_id in all_exp:
-    # downsample each group independently
-    for group_labels,grp in all_groups.groups.items():
-        #lbl_df = _filter_by_labels(data,lbls)
-        dsamp = downsample(df.iloc[grp].copy(), 1.0)
-        data_sample = data_sample.append(dsamp)
-        all_samples.append(dsamp)
-    return data_sample, group_cols, all_groups, all_samples
-
-
 def downsample(df, min_distance):
     """Downsample records from one DataFrame.
 

@@ -85,14 +85,10 @@ class XRSDModel(object):
         # NOTE: after cross-validation for parameter selection,
         # the entire dataset is used for final training
         new_model.fit(data[profiler.profile_keys], data[self.target])
-
-        cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
-
+        #self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
         self.scaler = new_scaler
         self.model = new_model
-        self.cross_valid_results = cross_valid_results
         self.trained = True
-
 
     def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring=None):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
