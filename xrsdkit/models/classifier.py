@@ -167,7 +167,54 @@ class Classifier(XRSDModel):
         """
         params = super(Classifier,self).hyperparameters_search(
         transformed_data,data_labels,group_by,n_leave_out,scoring)
-
         return  params
 
+    # TODO
+    def print_labels(self):
+        return ''
+
+    # TODO
+    def print_confusion_matrix(self):
+        return ''
+
+    # TODO
+    def print_F1_scores(self):
+        return ''
+
+    # TODO
+    def print_accuracies(self):
+        return ''
+
+    # TODO
+    def average_F1(self,weighted=False):
+        return -1.
+
+    # TODO
+    def average_accuracy(self,weighted=False):
+        return -1.
+
+    # TODO
+    def print_CV_report(self):
+    """Return a string describing the model's cross-validation metrics.
+
+    Returns
+    -------
+    CV_report : str
+        string with formated results of cross validatin.
+    """
+    CV_report = 'Cross validation results for {} Classifier\n'.format(self.target) \
+        'All labels : \n' \
+        self.print_labels()+'\n' \
+        'Confusion matrix:\n' \
+        self.print_confusion_matrix()+'\n' \
+        'F1 scores by label:\n' \
+        self.print_F1_scores()+'\n' \
+        'Label-averaged unweighted F1 score: {}\n'.format(self.average_F1(False)) \
+        'Label-averaged weighted F1 score: {}\n'.format(self.average_F1(True)) \
+        'Accuracies by label:\n' \
+        self.print_accuracies() \
+        'Label-averaged unweighted accuracy: {}\n'.format(self.average_accuracy(False)) \
+        'Label-averaged weighted accuracy: {}\n'.format(self.average_accuracy(True)) \
+        '\n\nNOTE: Weighted metrics are weighted by test set size' 
+    return CV_report
 

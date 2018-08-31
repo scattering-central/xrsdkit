@@ -37,9 +37,9 @@ model_dsids = yaml.load(open(model_dsid_file,'r'))
 # for any models currently saved as yml files,
 # the model parameters are loaded and the model 
 # is added to one of the dicts of saved models 
-# (either regression_models or classification_models)
-# for models not currently saved as yml files, 
-# the models can be created by train_regression_models()
+# (either regression_models or classification_models).
+# For models not currently saved as yml files, 
+# the models must first be created by train_regression_models()
 regression_models = OrderedDict()
 classification_models = OrderedDict()
 
@@ -359,13 +359,13 @@ def trainable_classification_models(data):
 def save_model_data(model,yml_path,txt_path):
     with open(yml_path,'w') as yml_file:
         model_data = dict(
-            scaler=primitives(v.scaler.__dict__),
-            model=primitives(v.model.__dict__),
-            cross_valid_results=primitives(v.cross_valid_results)
+            scaler=primitives(model.scaler.__dict__),
+            model=primitives(model.model.__dict__),
+            cross_valid_results=primitives(model.cross_valid_results)
             ) 
         yaml.dump(model_data,yml_file)
     with open(txt_path,'w') as txt_file:
-        res_str = regressors_results_to_str(v.cross_valid_results)
+        res_str = model.print_CV_report()
         txt_file.write(res_str)
 
 def save_regression_models(models=regression_models, test=False):
@@ -451,63 +451,6 @@ def save_classification_models(models=classification_models, test=False):
                     yml_path = os.path.join(sys_dir_path,pop_id,cls_label+'.yml')
                     txt_path = os.path.join(sys_dir_path,pop_id,cls_label+'.txt')
                     save_model_data(m,yml_path,txt_path)
-
-
-def classifier_results_to_str(model_dict):
-    """Convert the dict with cross validation results to str.
-
-    Parameters
-    ----------
-    model_dict : dict
-        with scaler, model, parameters, and cross validation results.
-
-    Returns
-    -------
-    results_str : str
-        string with formated results of cross validatin.
-    """
-
-    results_str = "Cross validation results for System Classifier \n"
-    results_str +='confusion_matrix : \n'
-    results_str += str(model_dict.cross_valid_results["confusion matrix :"])+ '\n'
-    results_str += '\n System classes : \n'
-    for s in model_dict.cross_valid_results["model was tested for :"]:
-        results_str += str(s)+ '\n'
-    results_str += '\n F1 score by classes : \n'
-    results_str += str(model_dict.cross_valid_results["F1 score by sys_classes"])+ '\n'
-    results_str += '\n F1 averaged not weighted : \n'
-    results_str += str(model_dict.cross_valid_results["F1 score averaged not weighted :"])+ '\n'
-    results_str += '\n mean not weighted acc by system classes : \n'
-    for k, v in model_dict.cross_valid_results["mean not weighted accuracies by system classes :"].items():
-        if isinstance(v, float):
-            results_str += str(k)+ ": " + str(v) + '\n'
-    results_str +='\n mean accuracy : \n'
-    results_str += str(model_dict.cross_valid_results["mean not weighted accuracy :"])+ '\n'
-    results_str += 'The accuracy was calculated for each system class for each split (one experiment out) \n ' \
-                       'as percent of right predicted labels. Then accuracy was averaged for each system class, \n ' \
-                       'and then averaged for all system class'
-    return results_str
-
-def regressors_results_to_str(cross_valid_results):
-    """Convert the dict with cross validation results to str.
-
-    Parameters
-    ----------
-    cross_valid_results : dict
-        with cross validation relults.
-
-    Returns
-    -------
-    results_str : str
-        string with formated results of cross validatin.
-    """
-    results_str = "Cross validation results for Regressors \n"
-    for a_k, a_v in cross_valid_results.items():
-        results_str += (a_k + '\n')
-        for k,v in a_v.items():
-            results_str += (k + ' : ' + str(v) + '\n')
-        results_str += '\n'
-    return results_str
 
 # helper function - to set parameters for scalers and models
 def set_param(m_s, param):
