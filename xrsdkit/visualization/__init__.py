@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 from ..tools.citrination_tools import get_data_from_Citrination
 from ..tools.visualization_tools import doPCA, plot_2d
-from ..models import cl, src_dir, src_dsid_list, modeling_data_dir
+from ..models import citcl, src_dir, src_dsid_list, modeling_data_dir
 from ..tools import profiler
 
 default_targets=['system_classification','experiment_id']
@@ -11,7 +11,7 @@ test_dir = os.path.join(modeling_data_dir,'testing_data')
 
 def download_and_visualize(
     source_dataset_ids = src_dsid_list,
-    citrination_client = cl,
+    citrination_client = citcl,
     labels = default_targets,
     features = profiler.profile_keys,
     use_pca = True,
