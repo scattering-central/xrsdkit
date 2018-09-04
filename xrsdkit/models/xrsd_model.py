@@ -18,7 +18,7 @@ class XRSDModel(object):
 
         if yml_file:
             content = yaml.load(open(yml_file,'rb'))
-            self.load_model_data(content[label])
+            self.load_model_data(content)
         else:
             self.set_model()
 
