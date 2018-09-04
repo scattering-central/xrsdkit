@@ -19,7 +19,7 @@ df = download_pifs()
 
 def test_training():
     if df is not None:
-        train_from_dataframe(df,train_hyperparameters=False,test=True)
+        train_from_dataframe(df,train_hyperparameters=False,save_models=True,test=True)
 
 def test_visualization():
     if df is not None:
