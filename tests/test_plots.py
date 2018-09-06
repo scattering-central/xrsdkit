@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from xrsdkit.system import System, fit 
-from xrsdkit.visualization import run_fit_gui
+from xrsdkit.visualization import plot_xrsd_fit, draw_xrsd_fit
     
 src_wl = 0.8265616
 
@@ -26,13 +26,17 @@ q_I = np.loadtxt(f,dtype=float,delimiter=',')
 q = q_I[:,0]
 I = q_I[:,1]
 
-def test_fit():
-    fit_sys = fit(np_sys,q,I,src_wl)
-    #I_guess = np_sys.compute_intensity(q,src_wl)
-    #I_fit = fit_sys.compute_intensity(q,src_wl)
+def test_plot():
+    show=False
+    if 'DISPLAY' in os.environ:
+        show=True 
+    mpl_fig = plot_xrsd_fit(np_sys,q_I,src_wl,show) 
+    opt_np_sys = fit(np_sys,q,I,src_wl)
+    draw_xrsd_fit(mpl_fig,opt_np_sys,q_I,src_wl,show)
 
 #def test_fit_gui():
 #    if 'DISPLAY' in os.environ:
 #        fit_sys, good_fit_flag = run_fit_gui(np_sys,q_I,src_wl)
+
 
 
