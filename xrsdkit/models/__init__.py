@@ -53,33 +53,43 @@ for sys_cls in os.listdir(regression_models_dir):
     sys_cls_dir = os.path.join(regression_models_dir,sys_cls)
     # the directory for the system class has subdirectories
     # for each population in the system
-    for pop_cls in os.listdir(sys_cls_dir):
-        regression_models[sys_cls][pop_cls] = {}
-        pop_cls_dir = os.path.join(sys_cls_dir,pop_cls)
+    for pop_id in os.listdir(sys_cls_dir):
+        regression_models[sys_cls][pop_id] = {}
+        pop_dir = os.path.join(sys_cls_dir,pop_id)
         # the directory for the population has model parameter files,
-        # as well as a subdirectory for each basis class
-        # that has been modeled for this population class
-        for itm in os.listdir(pop_cls_dir):
-            if itm.endswith('.yml'):
-                param_nm = itm.split('.')[0]
-                yml_path = os.path.join(pop_cls_dir,itm)
-                regression_models[sys_cls][pop_cls][param_nm] = Regressor(param_nm,yml_path) 
-            elif not itm.endswith('.txt'):
-                # this must be a subdirectory for a basis class
-                bas_cls = itm.split('.')[0]
-                regression_models[sys_cls][pop_cls][bas_cls] = {} 
-                bas_cls_dir = os.path.join(pop_cls_dir,bas_cls)
+        # subdirectories for parameters of each modellable structure,
+        # and subdirectories for each modellable basis class
+        for pop_itm in os.listdir(pop_dir):
+            if pop_itm in crystalline_structures+disordered_structures:
+                # subdirectory for lattice or disordered structure params
+                regression_models[sys_cls][pop_id][pop_itm] = {}
+                pop_subdir = os.path.join(pop_dir,pop_itm)
+                for pop_subitm in os.listdir(pop_subdir):
+                    if pop_subitm.endswith('.yml'):
+                        param_nm = pop_subitm.split('.')[0]
+                        yml_path = os.path.join(pop_subdir,pop_subitm)
+                        regression_models[sys_cls][pop_id][pop_itm][param_nm] = Regressor(param_nm,yml_path) 
+            elif pop_itm.endswith('.yml'):
+                # model parameters
+                param_nm = pop_itm.split('.')[0]
+                yml_path = os.path.join(pop_dir,pop_itm)
+                regression_models[sys_cls][pop_id][param_nm] = Regressor(param_nm,yml_path) 
+            elif not pop_itm.endswith('.txt'):
+                # subdirectory for a basis class
+                bas_cls = pop_itm.split('.')[0]
+                regression_models[sys_cls][pop_id][bas_cls] = {} 
+                bas_cls_dir = os.path.join(pop_dir,bas_cls)
                 # the directory for the basis class has subdirectories
-                # for each site in the basis
-                for site_cls in os.listdir(bas_cls_dir):
-                    regression_models[sys_cls][pop_cls][bas_cls][site_cls] = {}
-                    site_cls_dir = os.path.join(bas_cls_dir,site_cls)
-                    # the directory for the site should contain only model parameter files 
-                    for itm in os.listdir(site_cls_dir):
-                        if itm.endswith('.yml'):
-                            param_nm = itm.split('.')[0]
-                            yml_path = os.path.join(site_cls_dir,itm)
-                            regression_models[sys_cls][pop_cls][bas_cls][site_cls][param_nm] = \
+                # for each specie in the basis
+                for specie_id in os.listdir(bas_cls_dir):
+                    regression_models[sys_cls][pop_id][bas_cls][specie_id] = {}
+                    specie_dir = os.path.join(bas_cls_dir,specie_id)
+                    # the directory for the specie should contain only model parameter files 
+                    for specie_itm in os.listdir(specie_dir):
+                        if specie_itm.endswith('.yml'):
+                            param_nm = specie_itm.split('.')[0]
+                            yml_path = os.path.join(specie_dir,specie_itm)
+                            regression_models[sys_cls][pop_id][bas_cls][specie_id][param_nm] = \
                             Regressor(param_nm,yml_path)
 
 
@@ -95,15 +105,16 @@ for sys_cls in os.listdir(classification_models_dir):
         # for each population in the system
         for pop_id in os.listdir(sys_cls_dir):
             classification_models[sys_cls][pop_id] = {}
-            pop_cls_dir = os.path.join(sys_cls_dir,pop_id)
+            pop_dir = os.path.join(sys_cls_dir,pop_id)
             # the directory for the population class
-            # contains a yml file with model parameters
+            # yml files with model parameters
             # for the population's basis classifier
-            for itm in os.listdir(pop_cls_dir):
-                if itm.endswith('.yml'):
-                    yml_path = os.path.join(pop_cls_dir,itm)
-                    model_type = os.path.splitext(itm)[0]
-                    model_label = pop_id+'_'+model
+            # and lattice or interaction classifiers if applicable
+            for pop_itm in os.listdir(pop_dir):
+                if pop_itm.endswith('.yml'):
+                    yml_path = os.path.join(pop_dir,pop_itm)
+                    model_type = os.path.splitext(pop_itm)[0]
+                    model_label = pop_id+'_'+model_type
                     classification_models[sys_cls][pop_id][model_type] = Classifier(model_label,yml_path)
 
 def downsample_and_train(
