@@ -96,7 +96,7 @@ class System(object):
     def update_from_dict(self,d):
         for pop_name,pd in d.items():
             if pop_name == 'noise':
-                self.update_noise_model(pd)
+                self.update_noise_params(pd)
             elif pop_name == 'fit_report':
                 self.fit_report.update(pd)
             elif not pop_name in self.populations:
@@ -398,12 +398,3 @@ def empty_site():
         parameters={}
         )
         
-def flat_noise(I0=1.E-3):
-    return dict(
-        structure='diffuse',
-        settings={},
-        parameters={'I0':I0},
-        basis={'flat_noise':{'form':'flat'}}
-        )
-
-
