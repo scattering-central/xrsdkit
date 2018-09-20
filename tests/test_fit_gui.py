@@ -11,7 +11,7 @@ np_dict =  dict(
     structure='diffuse',
     parameters={'I0':{'value':1000}},
     basis=dict(
-        spherical_nanoparticles=dict(
+        spheres=dict(
             form='spherical',
             parameters={'r':{'value':40.}},
             )   
@@ -26,8 +26,9 @@ q_I = np.loadtxt(f,dtype=float,delimiter=',')
 q = q_I[:,0]
 I = q_I[:,1]
 
-def test_fit():
-    fit_sys = fit(np_sys,q,I,src_wl)
-    #I_guess = np_sys.compute_intensity(q,src_wl)
-    #I_fit = fit_sys.compute_intensity(q,src_wl)
+def test_fit_gui():
+    if 'DISPLAY' in os.environ:
+        fit_sys, good_fit_flag = run_fit_gui(np_sys,q_I,src_wl)
+
+
 
