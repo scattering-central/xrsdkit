@@ -30,13 +30,7 @@ def test_plot():
     show=False
     if 'DISPLAY' in os.environ:
         show=True 
-    mpl_fig = plot_xrsd_fit(np_sys,q_I,src_wl,show) 
-    opt_np_sys = fit(np_sys,q,I,src_wl)
-    draw_xrsd_fit(mpl_fig,opt_np_sys,q_I,src_wl,show)
-
-#def test_fit_gui():
-#    if 'DISPLAY' in os.environ:
-#        fit_sys, good_fit_flag = run_fit_gui(np_sys,q_I,src_wl)
-
-
+    mpl_fig = plot_xrsd_fit(np_sys,src_wl,q,I,show) 
+    opt_np_sys = fit(np_sys,src_wl,q,I)
+    draw_xrsd_fit(mpl_fig,opt_np_sys,src_wl,q,I,show)
 

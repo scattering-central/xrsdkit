@@ -37,7 +37,7 @@ class Population(object):
         # update settings, add any that are missing
         for stg_nm in structure_settings[self.structure]:
             if stg_nm in new_settings:
-                self.update_setting(stgnm,new_settings[stg_nm])
+                self.update_setting(stg_nm,new_settings[stg_nm])
             elif not stg_nm in self.settings:
                 self.update_setting(stg_nm,copy.deepcopy(setting_defaults[stg_nm]))
 
