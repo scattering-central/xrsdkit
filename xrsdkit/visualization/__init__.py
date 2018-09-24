@@ -7,41 +7,26 @@ from ..tools.citrination_tools import get_data_from_Citrination
 from ..tools.visualization_tools import doPCA, plot_2d
 from ..models import citcl, src_dir, src_dsid_list, testing_data_dir
 from ..tools import profiler
-from .gui import XRSDFitGUI
 
 default_targets=['system_classification','experiment_id']
 
-def run_fit_gui(system,q_I,source_wavelength,
-    error_weighted=True,
-    logI_weighted=True,
-    q_range=[0.,float('inf')],
-    good_fit_prior=False):
-
-
-    # TBC
-
-
-    #gui = XRSDFitGUI(system,q_I,source_wavelength):
-    pass
-
-def plot_xrsd_fit(sys,q_I,source_wavelength,show_plot=False):
+def plot_xrsd_fit(sys,source_wavelength,q,I,dI=None,show_plot=False):
     mpl_fig = plt.figure() 
     ax_plot = mpl_fig.add_subplot(111)
-    draw_xrsd_fit(mpl_fig,sys,q_I,source_wavelength,show_plot)
+    draw_xrsd_fit(mpl_fig,sys,source_wavelength,q,I,dI,show_plot)
     return mpl_fig
 
-def draw_xrsd_fit(mpl_fig,sys,q_I,source_wavelength,show_plot=False):
+def draw_xrsd_fit(mpl_fig,sys,source_wavelength,q,I,dI=None,show_plot=False):
     ax_plot = mpl_fig.gca()
     ax_plot.clear()
-    ax_plot.semilogy(q_I[:,0],q_I[:,1],lw=2,color='black')
-    I_est = sys.compute_intensity(q_I[:,0],source_wavelength)
-    ax_plot.semilogy(q_I[:,0],I_est,lw=2,color='red')
-    #colors='gbcmyk'
-    I_noise = sys.compute_noise_intensity(q_I[:,0])
-    ax_plot.semilogy(q_I[:,0],I_noise,lw=1) 
+    ax_plot.semilogy(q,I,lw=2,color='black')
+    I_est = sys.compute_intensity(q,source_wavelength)
+    ax_plot.semilogy(q,I_est,lw=2,color='red')
+    I_noise = sys.compute_noise_intensity(q)
+    ax_plot.semilogy(q,I_noise,lw=1) 
     for popnm,pop in sys.populations.items():
-        I_p = pop.compute_intensity(q_I[:,0],source_wavelength)
-        ax_plot.semilogy(q_I[:,0],I_p,lw=1)#,color=colors[ip])
+        I_p = pop.compute_intensity(q,source_wavelength)
+        ax_plot.semilogy(q,I_p,lw=1)
     ax_plot.set_xlabel('q (1/Angstrom)')
     ax_plot.set_ylabel('Intensity (counts)')
     ax_plot.legend(['measured','computed','noise']+list(sys.populations.keys()))
