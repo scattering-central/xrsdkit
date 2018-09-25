@@ -618,20 +618,22 @@ def predict(features):
             # we should save this value and then use for predictions
             try:
                 results[pop][name] = cls.classify(features)
+                sps = results[pop][name][0]
+                # add regression values:
+                reg_mods = reg_models_to_use[pop][sps]
+                for s, s_pars in reg_mods.items():
+                    results[pop][s] = {}
+                    for p, m in s_pars.items():
+                        try:
+                            results[pop][s][p] = m.predict(features)
+                        except:
+                            pass
+
             except:# all training data have identical outputs,
                 # the model was not trained and cannot be used for prediction
                 pass
 
-    for pop, pop_itm in reg_models_to_use.items():
-        for sps, sp in pop_itm.items():
-            results[pop][sps] = {}
-            for name, model in sp.items():
-                results[pop][sps][name] = {}
-                if isinstance(model,dict):
-                    for n, m in model.items():
-                        results[pop][sps][name][n] = m.predict(features)
-                else:
-                    results[pop][sps][name] = model.predict(features)
+
 
     return results
 
