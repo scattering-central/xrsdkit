@@ -601,12 +601,37 @@ def predict(features):
         dictionary with predicted system class and parameters
     """
     results = {}
-    # TODO: update this function when we will have some classifiers
+
     results['system_classification'] = classification_models['system_classification'].classify(features)
     sys_cl = results['system_classification'][0]
 
-    for param_nm, regressor in regression_models[sys_cl].items():
-        results[param_nm] = regressor.predict(features)
+    if sys_cl == 'unidentified':
+        return results
+
+    cl_models_to_use = classification_models[sys_cl]
+    reg_models_to_use = regression_models[sys_cl]
+
+    for pop, pop_classifiers in cl_models_to_use.items():
+        results[pop] = {}
+        for name, cls in pop_classifiers.items():
+            #TODO when all training data have identical outputs
+            # we should save this value and then use for predictions
+            try:
+                results[pop][name] = cls.classify(features)
+            except:# all training data have identical outputs,
+                # the model was not trained and cannot be used for prediction
+                pass
+
+    for pop, pop_itm in reg_models_to_use.items():
+        for sps, sp in pop_itm.items():
+            results[pop][sps] = {}
+            for name, model in sp.items():
+                results[pop][sps][name] = {}
+                if isinstance(model,dict):
+                    for n, m in model.items():
+                        results[pop][sps][name][n] = m.predict(features)
+                else:
+                    results[pop][sps][name] = model.predict(features)
 
     return results
 
