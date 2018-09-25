@@ -27,10 +27,11 @@ q = q_I[:,0]
 I = q_I[:,1]
 
 def test_plot():
-    show=False
+    # NOTE: if this runs on python 2.7 with no 'DISPLAY',
+    # it crashes even if show=False,
+    # when matplotlib tries to create its figure().
     if 'DISPLAY' in os.environ:
-        show=True 
-    mpl_fig = plot_xrsd_fit(np_sys,src_wl,q,I,show) 
-    opt_np_sys = fit(np_sys,src_wl,q,I)
-    draw_xrsd_fit(mpl_fig,opt_np_sys,src_wl,q,I,show)
+        mpl_fig = plot_xrsd_fit(np_sys,src_wl,q,I,True) 
+        opt_np_sys = fit(np_sys,src_wl,q,I)
+        draw_xrsd_fit(mpl_fig,opt_np_sys,src_wl,q,I,True)
 

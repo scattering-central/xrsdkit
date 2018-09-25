@@ -8,4 +8,3 @@ citrination_client
 pypif
 pymatgen
 matplotlib
-tkinter

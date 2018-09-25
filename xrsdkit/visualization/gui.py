@@ -1,20 +1,21 @@
 from collections import OrderedDict
 from functools import partial
 import copy
-
+import sys
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
-import tkinter
-from tkinter import Tk, Frame, Canvas, Button, Label, Entry, \
-OptionMenu, Scrollbar, Checkbutton, \
-StringVar, DoubleVar, BooleanVar, IntVar
 
 from .. import *
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
+
+if sys.version_info[0] < 3:
+    import Tkinter as tkinter
+else:
+    import tkinter
 
 def run_fit_gui(system,source_wavelength,q,I,dI=None,
     error_weighted=True,
@@ -62,7 +63,7 @@ class XRSDFitGUI(object):
         self.q_range = q_range
         self.good_fit = good_fit_prior
 
-        self.fit_gui = Tk()
+        self.fit_gui = tkinter.Tk()
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
         # setup the main gui objects
         self._build_gui()
@@ -83,15 +84,15 @@ class XRSDFitGUI(object):
     def _build_gui(self):
         self.fit_gui.title('xrsd profile fitter')
         # a horizontal scrollbar and a main canvas belong to the main gui:
-        scrollbar = Scrollbar(self.fit_gui,orient='horizontal')
-        fit_gui_canvas = Canvas(self.fit_gui)
+        scrollbar = tkinter.Scrollbar(self.fit_gui,orient='horizontal')
+        fit_gui_canvas = tkinter.Canvas(self.fit_gui)
         scrollbar.pack(side=tkinter.BOTTOM,fill=tkinter.X)
         fit_gui_canvas.pack(fill=tkinter.BOTH,expand=tkinter.YES)
         scrollbar.config(command=fit_gui_canvas.xview)
         fit_gui_canvas.config(xscrollcommand=scrollbar.set)
         # the main widget will be a frame,
         # displayed as a window item on the main canvas:
-        self.main_frame = Frame(fit_gui_canvas,bd=4,relief=tkinter.SUNKEN)
+        self.main_frame = tkinter.Frame(fit_gui_canvas,bd=4,relief=tkinter.SUNKEN)
         main_frame_window = fit_gui_canvas.create_window(0,0,window=self.main_frame,anchor='nw')
         # _canvas_configure() ensures that the window item and scrollbar
         # remain the correct size for the underlying widget
@@ -121,11 +122,11 @@ class XRSDFitGUI(object):
         # containing a canvas, which contains a window item,
         # which displays a view on a plot widget 
         # built from FigureCanvasTkAgg.get_tk_widget()
-        plot_frame = Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
+        plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
         plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
         self.fig = plot_xrsd_fit(self.sys,self.src_wl,self.q,self.I,self.dI,False)
-        plot_frame_canvas = Canvas(plot_frame)
-        yscr = Scrollbar(plot_frame)
+        plot_frame_canvas = tkinter.Canvas(plot_frame)
+        yscr = tkinter.Scrollbar(plot_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
         plot_frame_canvas.pack(fill='both',expand=True)
         plot_frame_canvas.config(yscrollcommand=yscr.set)
@@ -142,19 +143,19 @@ class XRSDFitGUI(object):
         # containing a canvas, which contains a window item,
         # which displays a view on a frame full of entry widgets and labels, 
         # which are used to control parameters, settings, etc. 
-        control_frame = Frame(self.main_frame)
+        control_frame = tkinter.Frame(self.main_frame)
         control_frame.pack(side=tkinter.RIGHT,fill='y')
-        control_frame_canvas = Canvas(control_frame)
+        control_frame_canvas = tkinter.Canvas(control_frame)
         control_frame.bind_all("<MouseWheel>", partial(self.on_mousewheel,control_frame_canvas))
         control_frame.bind_all("<Button-4>", partial(self.on_trackpad,control_frame_canvas))
         control_frame.bind_all("<Button-5>", partial(self.on_trackpad,control_frame_canvas))
-        yscr = Scrollbar(control_frame)
+        yscr = tkinter.Scrollbar(control_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
         control_frame_canvas.pack(fill='both',expand=True)
         control_frame_canvas.config(yscrollcommand=yscr.set)
         yscr.config(command=control_frame_canvas.yview)
         # TODO: figure out a way to set or control the width of the control widget
-        self.control_widget = Frame(control_frame_canvas)
+        self.control_widget = tkinter.Frame(control_frame_canvas)
         control_canvas_window = control_frame_canvas.create_window((0,0),window=self.control_widget,anchor='nw')
         control_frame_canvas.bind("<Configure>",partial(
             self._canvas_configure,control_frame_canvas,self.control_widget,control_canvas_window))
@@ -204,43 +205,43 @@ class XRSDFitGUI(object):
     def _create_fit_control_frame(self):
         # TODO: callbacks for fit controls to update instance attributes
         # TODO: wavelength entry
-        cf = Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
         self._frames['fit_control'] = cf
-        self._vars['fit_control']['objective'] = StringVar(cf)
-        self._vars['fit_control']['error_weighted'] = BooleanVar(cf)
-        self._vars['fit_control']['logI_weighted'] = BooleanVar(cf)
-        self._vars['fit_control']['q_range'] = [DoubleVar(cf),DoubleVar(cf)]
+        self._vars['fit_control']['objective'] = tkinter.StringVar(cf)
+        self._vars['fit_control']['error_weighted'] = tkinter.BooleanVar(cf)
+        self._vars['fit_control']['logI_weighted'] = tkinter.BooleanVar(cf)
+        self._vars['fit_control']['q_range'] = [tkinter.DoubleVar(cf),tkinter.DoubleVar(cf)]
         
-        objl = Label(cf,text='objective:',anchor='e')
+        objl = tkinter.Label(cf,text='objective:',anchor='e')
         objl.grid(row=0,column=0,sticky='e')
-        rese = Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
+        rese = tkinter.Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
         rese.grid(row=0,column=1,sticky='ew')
-        self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
-        fitcb = Checkbutton(cf,text='Good fit', variable=self._vars['fit_control']['good_fit'])
+        self._vars['fit_control']['good_fit'] = tkinter.tkinter.BooleanVar(cf)
+        fitcb = tkinter.Checkbutton(cf,text='Good fit', variable=self._vars['fit_control']['good_fit'])
         fitcb.grid(row=0,column=2,sticky='ew')
         self._vars['fit_control']['good_fit'].set(self.good_fit)
 
-        q_range_lbl = Label(cf,text='q-range:',anchor='e')
+        q_range_lbl = tkinter.Label(cf,text='q-range:',anchor='e')
         q_range_lbl.grid(row=1,column=0,sticky='e')
-        q_lo_ent = Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][0])
-        q_hi_ent = Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][1])
+        q_lo_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][0])
+        q_hi_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][1])
         q_lo_ent.grid(row=1,column=1,sticky='ew')
         q_hi_ent.grid(row=1,column=2,sticky='ew')
         self._vars['fit_control']['q_range'][0].set(self.q_range[0])
         self._vars['fit_control']['q_range'][1].set(self.q_range[1])
 
-        ewtcb = Checkbutton(cf,text='error weighted',variable=self._vars['fit_control']['error_weighted'])
+        ewtcb = tkinter.Checkbutton(cf,text='error weighted',variable=self._vars['fit_control']['error_weighted'])
         ewtcb.select()
         ewtcb.grid(row=2,column=0,sticky='w')
-        logwtbox = Checkbutton(cf,text='log(I) weighted',variable=self._vars['fit_control']['logI_weighted'])
+        logwtbox = tkinter.Checkbutton(cf,text='log(I) weighted',variable=self._vars['fit_control']['logI_weighted'])
         logwtbox.select()
         logwtbox.grid(row=3,column=0,sticky='w')
 
-        estbtn = Button(cf,text='Estimate',width=8,command=self._estimate)
+        estbtn = tkinter.Button(cf,text='Estimate',width=8,command=self._estimate)
         estbtn.grid(row=2,column=1,rowspan=2,sticky='nesw')
-        fitbtn = Button(cf,text='Fit',width=8,command=self._fit)
+        fitbtn = tkinter.Button(cf,text='Fit',width=8,command=self._fit)
         fitbtn.grid(row=2,column=2,rowspan=2,sticky='nesw')
         cf.pack(pady=2,padx=2,fill='both',expand=True)
 
@@ -253,14 +254,14 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['objective'].set(str(obj_val))
 
     def _create_noise_frame(self):
-        nf = Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         self._frames['noise_model'] = nf
-        nmf = Frame(nf,bd=0) 
-        nl = Label(nmf,text='noise model:',width=12,anchor='e',padx=10)
+        nmf = tkinter.Frame(nf,bd=0) 
+        nl = tkinter.Label(nmf,text='noise model:',width=12,anchor='e',padx=10)
         nl.pack(side=tkinter.LEFT)
-        ntpvar = StringVar(nmf)
+        ntpvar = tkinter.StringVar(nmf)
         ntp_option_dict = list(noise_model_names)
-        ntpcb = OptionMenu(nmf,ntpvar,*ntp_option_dict)
+        ntpcb = tkinter.OptionMenu(nmf,ntpvar,*ntp_option_dict)
         ntpvar.set(self.sys.noise_model.model)
         ntpvar.trace('w',self._update_noise_frame)
         ntpcb.pack(side=tkinter.LEFT,fill='x')
@@ -275,24 +276,24 @@ class XRSDFitGUI(object):
         
     def _create_pop_frame(self,pop_nm):
         pop = self.sys.populations[pop_nm]
-        pf = Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        pf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         self._frames['populations'][pop_nm] = pf
         pop_struct = self.sys.populations[pop_nm].structure
 
         # sub-frame for name and structure 
-        plf = Frame(pf,bd=0)
+        plf = tkinter.Frame(pf,bd=0)
         plf.grid_columnconfigure(2,weight=1)
-        popl = Label(plf,text='population:',anchor='e')
-        popnml = Label(plf,text=pop_nm,anchor='w')
+        popl = tkinter.Label(plf,text='population:',anchor='e')
+        popnml = tkinter.Label(plf,text=pop_nm,anchor='w')
         popl.grid(row=0,column=0,sticky='e')
         popnml.grid(row=0,column=1,padx=10,sticky='ew')
-        rmb = Button(plf,text='x',command=partial(self._remove_population,pop_nm))
+        rmb = tkinter.Button(plf,text='x',command=partial(self._remove_population,pop_nm))
         rmb.grid(row=0,column=2,sticky='e')
-        strl = Label(plf,text='structure:',width=12,anchor='e')
+        strl = tkinter.Label(plf,text='structure:',width=12,anchor='e')
         strl.grid(row=1,column=0,sticky='e')
-        strvar = StringVar(plf)
+        strvar = tkinter.StringVar(plf)
         str_option_dict = OrderedDict.fromkeys(structure_names)
-        strcb = OptionMenu(plf,strvar,*str_option_dict)
+        strcb = tkinter.OptionMenu(plf,strvar,*str_option_dict)
         strvar.set(pop_struct)
         strvar.trace('w',partial(self._update_structure,pop_nm))
         strcb.grid(row=1,column=1,sticky='ew')
@@ -329,24 +330,24 @@ class XRSDFitGUI(object):
     def _create_specie_frame(self,pop_nm,specie_nm):
         parent_frame = self._frames['populations'][pop_nm]
         specie = self.sys.populations[pop_nm].basis[specie_nm]
-        specief = Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
+        specief = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
         self._frames['species'][pop_nm][specie_nm] = specief
         pop_struct = self.sys.populations[pop_nm].structure
 
         # sub-frame for name and form factor
-        speclf = Frame(specief,bd=0)
+        speclf = tkinter.Frame(specief,bd=0)
         speclf.grid_columnconfigure(2,weight=1)
-        specl = Label(speclf,text='specie:',anchor='e')
-        specnml = Label(speclf,text=specie_nm,anchor='w')
+        specl = tkinter.Label(speclf,text='specie:',anchor='e')
+        specnml = tkinter.Label(speclf,text=specie_nm,anchor='w')
         specl.grid(row=0,column=0,sticky='e')
         specnml.grid(row=0,column=1,padx=10,sticky='w')
-        rmb = Button(speclf,text='x',command=partial(self._remove_specie,pop_nm,specie_nm))
+        rmb = tkinter.Button(speclf,text='x',command=partial(self._remove_specie,pop_nm,specie_nm))
         rmb.grid(row=0,column=2,sticky='e')
-        ffl = Label(speclf,text='form factor:',width=12,anchor='e')
+        ffl = tkinter.Label(speclf,text='form factor:',width=12,anchor='e')
         ffl.grid(row=1,column=0,sticky='e')
-        ffvar = StringVar(speclf)
+        ffvar = tkinter.StringVar(speclf)
         ff_option_dict = OrderedDict.fromkeys(form_factor_names)
-        ffcb = OptionMenu(speclf,ffvar,*ff_option_dict)
+        ffcb = tkinter.OptionMenu(speclf,ffvar,*ff_option_dict)
         ffvar.set(specie.form)
         ffvar.trace('w',partial(self._update_form_factor))
         ffcb.grid(row=1,column=1,sticky='ew') 
@@ -397,9 +398,9 @@ class XRSDFitGUI(object):
             param_default = param_defaults[param_nm]
         if not param_nm in param_vars: param_vars[param_nm] = {}
 
-        paramf = Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
+        paramf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
         paramf.grid_columnconfigure(2,weight=1)
-        paramv = DoubleVar(paramf)
+        paramv = tkinter.DoubleVar(paramf)
         p = copy.deepcopy(param_default)
         if param_nm in ['coordx','coordy','coordz']:
             if param_nm == 'coordx': cidx = 0
@@ -411,29 +412,29 @@ class XRSDFitGUI(object):
         param_frames[param_nm] = paramf
         param_vars[param_nm]['value'] = paramv
 
-        pl = Label(paramf,text='parameter:',anchor='e')
+        pl = tkinter.Label(paramf,text='parameter:',anchor='e')
         pl.grid(row=0,column=0,sticky='e')
-        pnml = Label(paramf,text=param_nm,anchor='w') 
+        pnml = tkinter.Label(paramf,text=param_nm,anchor='w') 
         pnml.grid(row=0,column=1,sticky='w')
 
-        pfixvar = BooleanVar(paramf)
+        pfixvar = tkinter.BooleanVar(paramf)
         param_vars[param_nm]['fixed'] = pfixvar
         pfixvar.set(p['fixed'])
         psw = self.connected_checkbutton(paramf,pfixvar,
             partial(self._update_param,pop_nm,specie_nm,param_nm,'fixed'),'fixed')
         psw.grid(row=0,column=2,sticky='w')
 
-        vl = Label(paramf,text='value:',anchor='e')
+        vl = tkinter.Label(paramf,text='value:',anchor='e')
         vl.grid(row=1,column=0,columnspan=1,sticky='e')
         paramv.set(p['value'])
         pe = self.connected_entry(paramf,paramv,
             partial(self._update_param,pop_nm,specie_nm,param_nm,'value'),16)
         pe.grid(row=1,column=1,columnspan=2,sticky='ew')
 
-        pbndl = Label(paramf,text='bounds:',anchor='e')
+        pbndl = tkinter.Label(paramf,text='bounds:',anchor='e')
         pbndl.grid(row=2,column=0,sticky='e')
-        lbndv = DoubleVar(paramf)
-        ubndv = DoubleVar(paramf)
+        lbndv = tkinter.DoubleVar(paramf)
+        ubndv = tkinter.DoubleVar(paramf)
         param_vars[param_nm]['bounds']=[lbndv,ubndv]
         pbnde1 = self.connected_entry(paramf,lbndv,
             partial(self._update_param,pop_nm,specie_nm,param_nm,'bounds',0),8)
@@ -444,16 +445,16 @@ class XRSDFitGUI(object):
         pbnde1.grid(row=2,column=1,sticky='ew')
         pbnde2.grid(row=2,column=2,sticky='ew')
 
-        pvarl = Label(paramf,text='variable name:',anchor='e')
+        pvarl = tkinter.Label(paramf,text='variable name:',anchor='e')
         pvarl.grid(row=3,column=0,sticky='e')
-        pvar = Entry(paramf,width=18) 
+        pvar = tkinter.Entry(paramf,width=18) 
         pvar.insert(0,param_var_nm) 
         pvar.config(state='readonly')
         pvar.grid(row=3,column=1,columnspan=2,sticky='ew')
 
-        pexpl = Label(paramf,text='constraint:',anchor='e')
+        pexpl = tkinter.Label(paramf,text='constraint:',anchor='e')
         pexpl.grid(row=4,column=0,sticky='e')
-        exprv = StringVar(paramf)
+        exprv = tkinter.StringVar(paramf)
         param_vars[param_nm]['constraint_expr'] = exprv 
         exprv.set(p['constraint_expr'])
         pexpe = self.connected_entry(paramf,exprv,
@@ -474,19 +475,19 @@ class XRSDFitGUI(object):
             parent_obj = self.sys.populations[pop_nm].basis[specie_nm]
             parent_frame = self._frames['species'][pop_nm][specie_nm]
 
-        stgf = Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
+        stgf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
         stgf.grid_columnconfigure(1,weight=1)
 
         if setting_datatypes[stg_nm] is str:
-            stgv = StringVar(parent_frame)
+            stgv = tkinter.StringVar(parent_frame)
         elif setting_datatypes[stg_nm] is int:
-            stgv = IntVar(parent_frame)
+            stgv = tkinter.IntVar(parent_frame)
         elif setting_datatypes[stg_nm] is float:
-            stgv = DoubleVar(parent_frame)
+            stgv = tkinter.DoubleVar(parent_frame)
         stg_frames[stg_nm] = stgf
         stg_vars[stg_nm] = stgv
 
-        stgl = Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
+        stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
         stgl.grid(row=0,column=0,sticky='e')
         s = setting_defaults[stg_nm]
         if stg_nm in parent_obj.settings:
@@ -503,31 +504,31 @@ class XRSDFitGUI(object):
         self._update_fit_objective()
 
     def _create_new_pop_frame(self):
-        npf = Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        npf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         npf.grid_columnconfigure(1,weight=1)
         self._frames['new_population'] = npf
-        addl = Label(npf,text='new population:',anchor='w')
+        addl = tkinter.Label(npf,text='new population:',anchor='w')
         addl.grid(row=0,column=0,sticky='w')
-        self._vars['new_population_name'] = StringVar(npf)
+        self._vars['new_population_name'] = tkinter.StringVar(npf)
         nme = self.connected_entry(npf,self._vars['new_population_name'],None,12)
         nme.grid(row=0,column=1,sticky='ew')
         nme.bind('<Return>',self._new_population)
-        addb = Button(npf,text='+',command=self._new_population)
+        addb = tkinter.Button(npf,text='+',command=self._new_population)
         addb.grid(row=0,column=2,sticky='e')
         npf.pack(pady=2,padx=2,fill='x',expand=True)
 
     def _create_new_specie_frame(self,pop_nm):
         pf = self._frames['populations'][pop_nm]
-        nsf = Frame(pf,bd=2,pady=10,padx=10,relief=tkinter.GROOVE)
+        nsf = tkinter.Frame(pf,bd=2,pady=10,padx=10,relief=tkinter.GROOVE)
         nsf.grid_columnconfigure(1,weight=1)
         self._frames['new_species'][pop_nm] = nsf
-        self._vars['new_specie_names'][pop_nm] = StringVar(pf)
-        addl = Label(nsf,text='new specie:',anchor='e')
+        self._vars['new_specie_names'][pop_nm] = tkinter.StringVar(pf)
+        addl = tkinter.Label(nsf,text='new specie:',anchor='e')
         addl.grid(row=0,column=0,sticky='w')
         stnme = self.connected_entry(nsf,self._vars['new_specie_names'][pop_nm],None,12)
         stnme.grid(row=0,column=1,sticky='ew')
         stnme.bind('<Return>',partial(self._new_specie,pop_nm))
-        addb = Button(nsf,text='+',command=partial(self._new_specie,pop_nm))
+        addb = tkinter.Button(nsf,text='+',command=partial(self._new_specie,pop_nm))
         addb.grid(row=0,column=2,sticky='e')
         nsf.pack(fill='x',expand=True)
 
@@ -901,18 +902,18 @@ class XRSDFitGUI(object):
         if cbfun:
             # piggyback on entry validation to update internal data
             # NOTE: validatecommand must return a boolean, or else it will disconnect quietly
-            e = Entry(parent,width=entry_width,textvariable=tkvar,validate="focusout",validatecommand=cbfun)
+            e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar,validate="focusout",validatecommand=cbfun)
             # also respond to the return key
             e.bind('<Return>',cbfun)
         else:
-            e = Entry(parent,width=entry_width,textvariable=tkvar)
+            e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar)
         return e
 
     @staticmethod
     def connected_checkbutton(parent,boolvar,cbfun=None,label=''):
         if cbfun:
-            e = Checkbutton(parent,text=label,variable=boolvar,command=cbfun,anchor='w')
+            e = tkinter.Checkbutton(parent,text=label,variable=boolvar,command=cbfun,anchor='w')
         else:
-            e = Checkbutton(parent,text=label,variable=boolvar,anchor='w')
+            e = tkinter.Checkbutton(parent,text=label,variable=boolvar,anchor='w')
         return e
 
