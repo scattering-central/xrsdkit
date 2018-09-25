@@ -96,7 +96,10 @@ for sys_cls in os.listdir(regression_models_dir):
 # --- LOAD CLASSIFICATION MODELS --- #
 if not os.path.exists(classification_models_dir): os.mkdir(classification_models_dir)
 yml_path = os.path.join(classification_models_dir,'system_classification.yml')
-classification_models['system_classification'] = Classifier('system_classification',yml_path)
+
+if os.path.exists(yml_path):
+    classification_models['system_classification'] = Classifier('system_classification',yml_path)
+    
 for sys_cls in os.listdir(classification_models_dir):
     if not sys_cls.endswith('.yml') and not sys_cls.endswith('.txt'):
         classification_models[sys_cls] = {}
@@ -106,7 +109,7 @@ for sys_cls in os.listdir(classification_models_dir):
         for pop_id in os.listdir(sys_cls_dir):
             classification_models[sys_cls][pop_id] = {}
             pop_dir = os.path.join(sys_cls_dir,pop_id)
-            # the directory for the population class
+            # the directory for the population class contains
             # yml files with model parameters
             # for the population's basis classifier
             # and lattice or interaction classifiers if applicable
