@@ -610,30 +610,55 @@ def predict(features):
 
     cl_models_to_use = classification_models[sys_cl]
     reg_models_to_use = regression_models[sys_cl]
+    pop_structures = {}
+    
+    # extract the structures of each population from the system class
+    for pop_struct in sys_cl.split('__'):
+        pop_structures[pop_struct[:4]] = pop_struct[5:]
 
-    for pop, pop_classifiers in cl_models_to_use.items():
-        results[pop] = {}
-        for name, cls in pop_classifiers.items():
-            #TODO when all training data have identical outputs
-            # we should save this value and then use for predictions
-            try:
-                results[pop][name] = cls.classify(features)
-                sps = results[pop][name][0]
-                # add regression values:
-                reg_mods = reg_models_to_use[pop][sps]
-                for s, s_pars in reg_mods.items():
-                    results[pop][s] = {}
-                    for p, m in s_pars.items():
-                        try:
-                            results[pop][s][p] = m.predict(features)
-                        except:
-                            pass
+    for pop_id, pop_classifiers in cl_models_to_use.items():
+        results[pop_id] = {'structure':pop_structures[pop_id]}
 
-            except:# all training data have identical outputs,
-                # the model was not trained and cannot be used for prediction
-                pass
+        # evaluate parameters of this population
+        for param_nm in structure_params[pop_structures[pop_id]]:
+            regmodl = reg_models_to_use[pop_id][param_nm]
+            if regmodl.trained:
+                results[pop_id][param_nm] = regmodl.predict(features)    
+            else:
+                # TODO: give every model a default value when it is trained,
+                # use that value here if model training failed. 
+                results[pop_id][param_nm] = (default_params[param_nm]['value'],0.) 
 
+        # classify the basis of this population
+        bas_clsfr = pop_classifiers['basis_classification'] 
+        if bas_clsfr.trained:
+            results[pop_id]['basis_classification'] = bas_clsfr.classify(features)
+            bas_cl = results[pop_id]['basis_classification'][0]
+        else:
+            # TODO: default values
+            # ... for now, use this dummy default value 
+            bas_cl = 'specie0_diffuse'
+            results[pop_id]['basis_classification'] = ('specie0_diffuse',0.)
 
+        # extract the form factors of each specie from the basis class
+        specie_forms = {}
+        for spec_ff in bas_cl.split('__'):
+            specie_forms[specie_form[:7]] = specie_form[8:]
+
+        # TODO (later): if the structure is crystalline or disordered,
+        # evaluate the lattice classifier or interaction classifer,
+        # respectively
+
+        for specie_id, specie_ff in specie_forms.items():
+            results[pop_id][specie_id] = {}
+            for param_nm in form_factor_params[specie_forms[specie_id]]:
+                regmodl = reg_models_to_use[pop_id][bas_cl][specie_id][param_nm]
+                if regmodl.trained:
+                    results[pop_id][specie_id][param_nm] = regmodl.predict(features)
+                else:
+                    results[pop_id][specie_id][param_nm] = regmodl.predict(features)
+                
+            # TODO (later): if the specie is atomic, classify its atom symbol
 
     return results
 
