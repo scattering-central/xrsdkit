@@ -5,8 +5,14 @@ import sys
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+mplv = matplotlib.__version__
+mplvmaj = int(mplv.split('.')[0])
 from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+if mplvmaj > 2:
+    from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+else:
+    from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 
 from .. import *
 from . import plot_xrsd_fit, draw_xrsd_fit
