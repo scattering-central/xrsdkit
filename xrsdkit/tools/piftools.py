@@ -373,12 +373,8 @@ def _sort_species(ff_nm,species_dict):
     for l in specie_labels: param_vals[l] = []
     param_labels = []
     dtypes = {}
-    if ff_nm == 'atomic':  
-        for l in specie_labels: param_vals[l].append(species_dict[l].parameters['Z'])
-        param_labels.append('Z') 
-        dtypes['Z'] = 'float'
-    if ff_nm == 'standard_atomic':
-        for l in specie_labels: param_vals[l].append(atomic_params[specie.settings['symbol']['Z']])
+    if ff_nm == 'atomic':
+        for l in specie_labels: param_vals[l].append(atomic_params[specie.settings['symbol']]['Z'])
         param_labels.append('Z') 
         dtypes['Z'] = 'float'
     for param_nm in form_factor_params[ff_nm]:

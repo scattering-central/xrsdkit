@@ -13,9 +13,9 @@ def test_spherical_normal():
 
 qvals = np.arange(0.,2.,0.01)
 def test_plot_ff():
-    ff_H = xrff.standard_atomic_ff(qvals,'H')
-    ff_Al = xrff.standard_atomic_ff(qvals,'Al')
-    ff_U = xrff.standard_atomic_ff(qvals,'U')
+    ff_H = xrff.atomic_ff(qvals,'H')
+    ff_Al = xrff.atomic_ff(qvals,'Al')
+    ff_U = xrff.atomic_ff(qvals,'U')
     ff2_gp = xrff.guinier_porod_intensity(qvals,20,4)
     ff2_poly = xrff.spherical_normal_intensity(qvals,20,0.2)
     ff_mono = xrff.spherical_ff(qvals,20)

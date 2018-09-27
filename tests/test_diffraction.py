@@ -6,7 +6,7 @@ from xrsdkit.scattering import structure_factors as xrsf
 from xrsdkit.tools import peak_math
 from xrsdkit.system import System, Population, Specie
    
-Al_atom_dict = dict(form='standard_atomic',settings={'symbol':'Al'})
+Al_atom_dict = dict(form='atomic',settings={'symbol':'Al'})
 
 fcc_Al = Population('crystalline',
     settings={'lattice':'fcc','q_max':5.},

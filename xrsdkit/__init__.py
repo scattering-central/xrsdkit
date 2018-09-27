@@ -17,7 +17,6 @@ structure_names = [\
 form_factor_names = [\
 'flat',\
 'atomic',\
-'standard_atomic',\
 'guinier_porod',\
 'spherical',\
 'spherical_normal']
@@ -49,23 +48,25 @@ structure_settings = dict(
 # ff = Z - 41.78214 * s**2 * sum_i(a_i*exp(-b_i*s**2)),
 # where Z is the atomic number, s = sin(theta)/lambda,
 # and a_i, b_i are the form factor parameters.
+# All of these parameters are contained in
+# xrsdkit/scattering/atomic_scattering_params.yaml,
+# and any new sets of Z, {a}, and {b} can be implemented
+# by adding them to this file with a unique symbol.
 form_factor_params = dict(
     flat = [],
-    atomic = ['Z','a0','a1','a2','a3','b0','b1','b2','b3'],
-    standard_atomic = [],
+    atomic = [],
     guinier_porod = ['rg','D'],
     spherical = ['r'],
     spherical_normal = ['r0','sigma']
     )
 
 # supported settings for each form factor 
-# NOTE: standard_atomic form factors are specified
+# NOTE: atomic form factors are specified
 # by providing the atomic symbol (as a setting)
 # TODO: add settings for spherical_normal sampling resolution 
 form_factor_settings = dict(
     flat = [],
-    atomic = [],
-    standard_atomic = ['symbol'],
+    atomic = ['symbol'],
     guinier_porod = [],
     spherical = [],
     spherical_normal = []
@@ -92,11 +93,10 @@ crystalline_structure_params = dict(
 all_params = [\
 'I0',\
 'a','hwhm_g','hwhm_l',\
-'G','rg','D',\
+'rg','D',\
 'r',\
 'r0','sigma',\
-'r_hard','v_fraction',\
-'a0','a1','a2','a3','b0','b1','b2','b3'\
+'r_hard','v_fraction'\
 ]
 
 # params to model with regression:
@@ -120,15 +120,7 @@ param_defaults = dict(
     v_fraction = {'value':0.5,'fixed':False,'bounds':[0.01,0.7405],'constraint_expr':None},
     hwhm_g = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None},
     hwhm_l = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None},
-    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},
-    a0 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
-    a1 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
-    a2 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
-    a3 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
-    b0 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
-    b1 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
-    b2 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
-    b3 = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
+    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
     )
 
 noise_param_defaults = dict(
@@ -157,7 +149,6 @@ setting_datatypes = dict(
 
 param_descriptions = dict(
     I0 = 'Intensity prefactor',
-    G = 'Guinier-Porod model Guinier factor',
     rg = 'Guinier-Porod model radius of gyration',
     D = 'Guinier-Porod model Porod exponent',
     r = 'Radius of spherical population',
@@ -167,20 +158,11 @@ param_descriptions = dict(
     v_fraction = 'volume fraction of particles in hard sphere (Percus-Yevick) structure factor',
     hwhm_g = 'Gaussian profile half-width at half-max',
     hwhm_l = 'Lorentzian profile half-width at half-max',
-    a = 'First lattice parameter',
-    a0 = 'atomic form factor coefficient',
-    b0 = 'atomic form factor exponent',
-    a1 = 'atomic form factor coefficient',
-    b1 = 'atomic form factor exponent',
-    a2 = 'atomic form factor coefficient',
-    b2 = 'atomic form factor exponent',
-    a3 = 'atomic form factor coefficient',
-    b3 = 'atomic form factor exponent'
+    a = 'First lattice parameter'
     )
 
 parameter_units = dict(
     I0 = 'arbitrary',
-    G = 'arbitrary',
     rg = 'Angstrom',
     D = 'unitless',
     r = 'Angstrom',
@@ -190,14 +172,6 @@ parameter_units = dict(
     v_fraction = 'unitless',
     hwhm_g = '1/Angstrom',
     hwhm_l = '1/Angstrom',
-    a = 'Angstrom',
-    a0 = 'arbitrary',
-    b0 = 'arbitrary',
-    a1 = 'arbitrary',
-    b1 = 'arbitrary',
-    a2 = 'arbitrary',
-    b2 = 'arbitrary',
-    a3 = 'arbitrary',
-    b3 = 'arbitrary'
+    a = 'Angstrom'
     )
 
