@@ -373,9 +373,10 @@ def train_classification_models(data, hyper_parameters_search=False):
         else:
             for pop_id,pop_models in sys_models.items():
                 for cls_label in pop_models.keys():
-                    model_label = pop_id+'_'+cls_label 
+                    model_label = pop_id+'_'+cls_label
+                    data_subset = data[data['system_classification']==sys_cls_lbl]
                     m = Classifier(model_label,None)
-                    m.train(data, hyper_parameters_search=hyper_parameters_search)
+                    m.train(data_subset, hyper_parameters_search=hyper_parameters_search)
                     pop_models[cls_label] = m 
     return cls_models
 
@@ -414,7 +415,9 @@ def save_model_data(model,yml_path,txt_path):
         model_data = dict(
             scaler=primitives(model.scaler.__dict__),
             model=primitives(model.model.__dict__),
-            cross_valid_results=primitives(model.cross_valid_results)
+            cross_valid_results=primitives(model.cross_valid_results),
+            trained=model.trained,
+            default_val = model.default_val
             ) 
         yaml.dump(model_data,yml_file)
     with open(txt_path,'w') as txt_file:
@@ -621,29 +624,32 @@ def predict(features):
 
         # evaluate parameters of this population
         for param_nm in structure_params[pop_structures[pop_id]]:
-            regmodl = reg_models_to_use[pop_id][param_nm]
-            if regmodl.trained:
-                results[pop_id][param_nm] = regmodl.predict(features)    
+            if param_nm in reg_models_to_use[pop_id] \
+                    and reg_models_to_use[pop_id][param_nm].trained:
+                results[pop_id][param_nm] = \
+                    reg_models_to_use[pop_id][param_nm].predict(features)
             else:
-                # TODO: give every model a default value when it is trained,
-                # use that value here if model training failed. 
-                results[pop_id][param_nm] = (default_params[param_nm]['value'],0.) 
+                # the model was created but did not trained;
+                # the default value for the model was saved
+                if param_nm in reg_models_to_use[pop_id]:
+                    results[pop_id][param_nm] = reg_models_to_use[pop_id].default_val
+                else:
+                    # we do not have a model
+                    results[pop_id][param_nm] = param_defaults[param_nm]['value']
 
         # classify the basis of this population
         bas_clsfr = pop_classifiers['basis_classification'] 
         if bas_clsfr.trained:
             results[pop_id]['basis_classification'] = bas_clsfr.classify(features)
-            bas_cl = results[pop_id]['basis_classification'][0]
+
         else:
-            # TODO: default values
-            # ... for now, use this dummy default value 
-            bas_cl = 'specie0_diffuse'
-            results[pop_id]['basis_classification'] = ('specie0_diffuse',0.)
+            results[pop_id]['basis_classification'] = (bas_clsfr.default_val,1.)
+        bas_cl = results[pop_id]['basis_classification'][0]
 
         # extract the form factors of each specie from the basis class
         specie_forms = {}
         for spec_ff in bas_cl.split('__'):
-            specie_forms[specie_form[:7]] = specie_form[8:]
+            specie_forms[spec_ff[:7]] = spec_ff[8:]
 
         # TODO (later): if the structure is crystalline or disordered,
         # evaluate the lattice classifier or interaction classifer,
@@ -652,11 +658,12 @@ def predict(features):
         for specie_id, specie_ff in specie_forms.items():
             results[pop_id][specie_id] = {}
             for param_nm in form_factor_params[specie_forms[specie_id]]:
-                regmodl = reg_models_to_use[pop_id][bas_cl][specie_id][param_nm]
-                if regmodl.trained:
-                    results[pop_id][specie_id][param_nm] = regmodl.predict(features)
+                if param_nm in reg_models_to_use[pop_id][bas_cl][specie_id] \
+                        and reg_models_to_use[pop_id][bas_cl][specie_id][param_nm].trained:
+                    results[pop_id][specie_id][param_nm] = \
+                        reg_models_to_use[pop_id][bas_cl][specie_id][param_nm].predict(features)
                 else:
-                    results[pop_id][specie_id][param_nm] = regmodl.predict(features)
+                    results[pop_id][specie_id][param_nm] = param_defaults[param_nm]['value']
                 
             # TODO (later): if the specie is atomic, classify its atom symbol
 

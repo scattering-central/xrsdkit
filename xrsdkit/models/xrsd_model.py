@@ -15,6 +15,7 @@ class XRSDModel(object):
         self.target = label
         self.trained = False
         self.model_file = yml_file
+        self.default_val = None
 
         if yml_file:
             content = yaml.load(open(yml_file,'rb'))
@@ -30,6 +31,8 @@ class XRSDModel(object):
         set_param(self.model,model_data['model'])
         set_param(self.scaler,model_data['scaler'])
         self.cross_valid_results = model_data['cross_valid_results']
+        self.trained = model_data['trained']
+        self.default_val = model_data['default_val']
 
     def set_model(self, model_hyperparams={}):
         self.model = self.build_model(model_hyperparams)
@@ -55,6 +58,8 @@ class XRSDModel(object):
         d = all_data[all_data[self.target].isnull() == False]
         training_possible = self.check_label(d)
         if not training_possible:
+            # all samples have identical labels or we have <5 samples
+            self.default_val = d[self.target].unique()[0] # use a value as the default value
             return 
 
         # drop the rows with NaN in profile_keys (features):
@@ -109,7 +114,6 @@ class XRSDModel(object):
         clf.best_params_ : dict
             Dictionary of the best found hyperparameters.
         """
-        #print("all experiments: ", data['experiment_id'].unique())
         if n_leave_out:
             cv=model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
                 transformed_data, np.ravel(data_labels), groups=group_by)
