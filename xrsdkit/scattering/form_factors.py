@@ -25,12 +25,7 @@ def site_ff(q,site_def):
     if ff == 'flat':
         return np.ones(len(q))
     elif ff == 'atomic':
-        Z = site_def['parameters']['Z']['value']
-        a = [site_def['parameters'][a_key]['value'] for a_key in ['a0','a1','a2','a3']]
-        b = [site_def['parameters'][b_key]['value'] for b_key in ['b0','b1','b2','b3']]
-        return atomic_ff(q,Z,a,b)
-    elif ff == 'standard_atomic':
-        return standard_atomic_ff(q,site_def['settings']['symbol'])
+        return atomic_ff(q,site_def['settings']['symbol'])
     elif ff == 'spherical':
         return spherical_ff(q,site_def['parameters']['r']['value'])
     else:
@@ -49,11 +44,11 @@ def site_ff_squared(q,site_def):
     else:
         return site_ff(q,site_def)**2
 
-def standard_atomic_ff(q,atom_symbol):
+def atomic_ff(q,atom_symbol):
     pars = atomic_params[atom_symbol]
-    return atomic_ff(q,pars['Z'],pars['a'],pars['b'])
+    return compute_atomic_ff(q,pars['Z'],pars['a'],pars['b'])
 
-def atomic_ff(q,Z,a,b):
+def compute_atomic_ff(q,Z,a,b):
     g = q*1./(2*np.pi)
     s = g*1./2
     s2 = s**2

@@ -77,7 +77,7 @@ def unpack_pif(pp):
         for prop in pp.properties:
             props_dict[prop.name] = prop
 
-    # unpack system classification, add basis classifications later 
+    # unpack system classification
     classification_labels['system_classification'] = cls_dict.pop('system_classification').value
 
     # unpack fit report
@@ -134,8 +134,6 @@ def unpack_pif(pp):
             if not popd[popnm]['structure'] == 'unidentified':
                 # unpack the basis classification for this population
                 basis_cls_label = 'pop{}_basis_classification'.format(ip)
-                if not basis_cls_label in cls_dict:
-                    import pdb; pdb.set_trace()
                 classification_labels[basis_cls_label] = cls_dict[basis_cls_label].value
         # moving forward, we assume the structure has been assigned,
         # all species in the basis have been identified,
@@ -146,8 +144,12 @@ def unpack_pif(pp):
             param_from_pif_property(param_nm,props_dict[pl])
         for stg_nm in structure_settings[popd[popnm]['structure']]:  
             tp = setting_datatypes[stg_nm]
-            popd[popnm]['settings'][stg_nm] = \
-            tp(props_dict['pop{}_{}'.format(ip,stg_nm)].tags[0])
+            stg_label = 'pop{}_{}'.format(ip,stg_nm) 
+            stg_val = tp(props_dict[stg_label].tags[0])
+            popd[popnm]['settings'][stg_nm] = stg_val
+            # unpack classification labels for structure settings
+            if stg_nm in ['lattice','interaction']:
+                classification_labels[stg_label] = stg_val
         for isp, specie_nm in enumerate(popd[popnm]['basis'].keys()):
             specie_form = popd[popnm]['basis'][specie_nm]['form']
             for param_nm in form_factor_params[specie_form]:
@@ -264,10 +266,6 @@ def pack_system_objects(sys):
                 if sys_cls: sys_cls += '__'
                 sys_cls += 'pop{}_{}'.format(ipop,pop.structure)
                 all_clss.append(Classification('pop{}_structure'.format(ipop),pop.structure,[pop_nm]))
-                if pop.structure == 'crystalline':
-                    all_clss.append(Classification('pop{}_lattice'.format(ipop),pop.settings['lattice']))
-                if pop.structure == 'disordered':
-                    all_clss.append(Classification('pop{}_interaction'.format(ipop),pop.settings['interaction']))
                 bas_cls = ''
                 ispec = 0
                 for ff_nm in form_factor_names: # use form_factor_names to impose order
@@ -375,12 +373,8 @@ def _sort_species(ff_nm,species_dict):
     for l in specie_labels: param_vals[l] = []
     param_labels = []
     dtypes = {}
-    if ff_nm == 'atomic':  
-        for l in specie_labels: param_vals[l].append(species_dict[l].parameters['Z'])
-        param_labels.append('Z') 
-        dtypes['Z'] = 'float'
-    if ff_nm == 'standard_atomic':
-        for l in specie_labels: param_vals[l].append(atomic_params[specie.settings['symbol']['Z']])
+    if ff_nm == 'atomic':
+        for l in specie_labels: param_vals[l].append(atomic_params[specie.settings['symbol']]['Z'])
         param_labels.append('Z') 
         dtypes['Z'] = 'float'
     for param_nm in form_factor_params[ff_nm]:
