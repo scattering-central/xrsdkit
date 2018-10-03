@@ -163,7 +163,7 @@ def unpack_pif(pp):
             for ic,coord_id in enumerate(['x','y','z']):
                 # TODO: (later): coordinates should be regression outputs,
                 # if more than one specie exists in the population
-                pl = 'pop{}_specie{}_coord{}'.format(ip,isp,ic)
+                pl = 'pop{}_specie{}_coord{}'.format(ip,isp,coord_id)
                 sysd[popnm]['basis'][specie_nm]['coordinates'][ic] = \
                 param_from_pif_property(param_nm,props_dict[pl])
 
@@ -248,17 +248,17 @@ def pack_system_objects(sys):
     all_clss = [] 
     sys_cls = ''
     ipop = 0
-    #
-    # TODO: handle non-flat noise here
-    all_clss.append(Classification('noise_classification','flat',None))
-    #
-    #
-    all_props.extend(noise_properties(sys.noise_model))
     if sys.fit_report:
         all_props.append(fit_report_property(sys.fit_report))
     if any([p.structure=='unidentified' for pnm,p in sys.populations.items()]):
         sys_cls = 'unidentified'
     else:
+        #
+        # TODO: handle non-flat noise here
+        all_clss.append(Classification('noise_classification','flat',None))
+        #
+        #
+        all_props.extend(noise_properties(sys.noise_model))
         for struct_nm in structure_names: # use structure_names to impose order 
             struct_pops = OrderedDict() 
             for pop_nm,pop in sys.populations.items():
@@ -299,7 +299,7 @@ def I0_fraction_properties(sys,src_wl):
     #
     # TODO: handle non-flat noise here
     #I0_noise = sys.compute_noise_intensity([0])
-    I0_noise = sys.noise_model['flat']['I0']['value']
+    I0_noise = sys.noise_model.parameters['I0']['value']
     #
     #
     if I0 == 0:
@@ -321,7 +321,7 @@ def noise_properties(noise_model):
     props = []
     #
     # TODO: handle non-flat noise here
-    for param_nm,pd in noise_model['flat'].items():
+    for param_nm,pd in noise_model.parameters.items():
         props.append(pif_property_from_param('noise_'+param_nm,pd))
     return props
 
@@ -465,13 +465,13 @@ def specie_param_properties(ip,isp,specie):
 
 def param_from_pif_property(param_nm,prop):
     pdict = copy.deepcopy(param_defaults[param_nm])
-    pdict['value'] = prop.scalars[0].value
+    pdict['value'] = float(prop.scalars[0].value)
     if prop.tags is not None:
         for tg in prop.tags:
             if 'fixed: ' in tg:
-                pdict['fixed'] = bool(tg.strip('fixed: '))
+                pdict['fixed'] = bool(tg[7:])
             if 'bounds: ' in tg:
-                bds = tg.strip('bounds: []').split(',')
+                bds = tg[8:].strip('[]').split(',')
                 try: 
                     lbd = float(bds[0]) 
                 except:
@@ -482,7 +482,9 @@ def param_from_pif_property(param_nm,prop):
                     ubd = None
                 pdict['bounds'] = [lbd, ubd]
             if 'constraint_expr: ' in tg:
-                pdict['constraint_expr'] = tg.strip('constraint_expr: ')
+                expr = tg[17:]
+                if expr == 'None': expr = None
+                pdict['constraint_expr'] = expr
     return pdict
 
 def pif_property_from_param(param_nm,paramd):
