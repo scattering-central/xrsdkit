@@ -220,49 +220,56 @@ def train_regression_models(data, hyper_parameters_search=False):
     """
     reg_models = trainable_regression_models(data)
     for sys_cls,sys_models in reg_models.items():
+        print(os.linesep+'Training regressors for system class: ')
+        print(sys_cls)
         sys_cls_data = data[(data['system_classification']==sys_cls)]
         for pop_id,pop_models in sys_models.items():
+            print('population id: {}'.format(pop_id))
             for k in pop_models.keys():
                 if k in regression_params:
+                    print('    parameter: {}'.format(k))
                     # train reg_models[sys_cls][pop_id][k]
                     target = pop_id+'_'+k
                     reg_model = Regressor(target, None)
                     reg_model.train(sys_cls_data, hyper_parameters_search)
-                    if reg_model.trained:
-                        pop_models[k] = reg_model 
+                    pop_models[k] = reg_model 
                 elif k in crystalline_structures:
+                    print('    structure: {}'.format(k))
                     for param_nm in crystalline_structure_params[k]:
+                        print('        parameter: {}'.format(param_nm))
                         # train reg_models[sys_cls][pop_id][k][param_nm]
                         lattice_label = pop_id+'_lattice'
                         sub_cls_data = sys_cls_data[(sys_cls_data[lattice_label]==k)]
                         target = pop_id+'_'+param_nm
                         reg_model = Regressor(target, None)
                         reg_model.train(sub_cls_data, hyper_parameters_search)
-                        if reg_model.trained:
-                            pop_models[k][param_nm] = reg_model 
+                        pop_models[k][param_nm] = reg_model 
                 elif k in disordered_structures:
+                    print('    interaction: {}'.format(k))
                     for param_nm in disordered_structure_params[k]:
+                        print('        parameter: {}'.format(param_nm))
                         # train reg_models[sys_cls][pop_id][k][param_nm]
                         interxn_label = pop_id+'_interaction'
                         sub_cls_data = sys_cls_data[(sys_cls_data[interxn_label]==k)]
                         target = pop_id+'_'+param_nm
                         reg_model = Regressor(target, None)
                         reg_model.train(sub_cls_data, hyper_parameters_search)
-                        if reg_model.trained:
-                            pop_models[k][param_nm] = reg_model 
+                        pop_models[k][param_nm] = reg_model 
                 else:
                     # k is a basis classification
+                    print('    basis class: {}'.format(k))
                     bas_cls = k
                     bas_models = pop_models[k] 
                     bas_cls_label = pop_id+'_basis_classification'
                     bas_cls_data = sys_cls_data[(sys_cls_data[bas_cls_label]==bas_cls)]
                     for specie_id,specie_models in bas_models.items():
+                        print('        specie id: {}'.format(specie_id))
                         for param_nm in specie_models.keys():
+                            print('            parameter: {}'.format(param_nm))
                             target = pop_id+'_'+specie_id+'_'+param_nm
                             reg_model = Regressor(target, None)
                             reg_model.train(bas_cls_data, hyper_parameters_search)
-                            if reg_model.trained:
-                                specie_models[param_nm] = reg_model 
+                            specie_models[param_nm] = reg_model 
     return reg_models
 
 def trainable_regression_models(data):
@@ -299,7 +306,7 @@ def trainable_regression_models(data):
             pop_id = pop_struct[:re.compile('pop._').match(pop_struct).end()-1]
             structure_id = pop_struct[re.compile('pop._').match(pop_struct).end():]
             reg_models[sys_cls][pop_id] = {}
-            for param_nm in structure_params[structure_id]:
+            for param_nm in structure_params[structure_id]+['I0_fraction']:
                 reg_label = pop_id+'_'+param_nm
                 if reg_label in sys_cls_data.columns and param_nm in regression_params:
                     reg_models[sys_cls][pop_id][param_nm] = None
@@ -632,7 +639,7 @@ def predict(features):
                 # the model was created but did not trained;
                 # the default value for the model was saved
                 if param_nm in reg_models_to_use[pop_id]:
-                    results[pop_id][param_nm] = reg_models_to_use[pop_id].default_val
+                    results[pop_id][param_nm] = reg_models_to_use[pop_id][param_nm].default_val
                 else:
                     # we do not have a model
                     results[pop_id][param_nm] = param_defaults[param_nm]['value']
