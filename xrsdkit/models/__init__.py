@@ -3,6 +3,7 @@ import re
 from collections import OrderedDict
 
 import yaml
+import json
 import numpy as np
 import pandas as pd
 from citrination_client import CitrinationClient
@@ -411,15 +412,39 @@ def trainable_classification_models(data):
     return cls_models
 
 def save_model_data(model,yml_path,txt_path):
+    print()
     with open(yml_path,'w') as yml_file:
         model_data = dict(
-            scaler=primitives(model.scaler.__dict__),
-            model=primitives(model.model.__dict__),
-            cross_valid_results=primitives(model.cross_valid_results),
+            scaler=dict(),
+            model = dict(model_hyperparams=dict(), trained_par=dict()),
+            cross_valid_results=model.cross_valid_results,
             trained=model.trained,
             default_val = model.default_val
-            ) 
-        yaml.dump(model_data,yml_file)
+            )
+
+        if model.trained:
+            hyp_par = ['alpha', 'loss', 'penalty', 'l1_ratio', 'max_iter', 'epsilon']
+            for p in hyp_par:
+                if p in model.model.__dict__:
+                    model_data['model']['model_hyperparams'][p]= model.model.__dict__[p]
+
+            mod_par = ['coef_', 'intercept_', 'classes_', '_expanded_class_weight']
+            for p in mod_par:
+                if p in model.model.__dict__:
+                    model_data['model']['trained_par'][p] = getattr(model.model, p).tolist()
+
+
+            model_data['scaler']=model.scaler.__dict__
+            scaler_par = ['mean_', 'var_', 'scale_']
+            for p in scaler_par:
+                if p in model.scaler.__dict__:
+                     model_data['scaler'][p] = getattr(model.scaler, p).tolist()
+
+        #print(model_data)
+
+        json_txt = json.dumps(model_data, indent=4)
+        yml_file.write(json_txt)
+        #yaml.dump(model_data,yml_file)
     with open(txt_path,'w') as txt_file:
         res_str = model.print_CV_report()
         txt_file.write(res_str)
