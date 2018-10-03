@@ -102,6 +102,7 @@ all_params = [\
 # params to model with regression:
 # intensity-scaling parameters are excluded
 regression_params = [
+'I0_fraction',\
 'a','hwhm_g','hwhm_l',\
 'rg','D',\
 'r',\
