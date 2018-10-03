@@ -129,18 +129,16 @@ def fcc_intensity(q,popd,source_wavelength):
             line_shape = peak_math.voigt_profile(q,q_pk,hwhm_g,hwhm_l)
         else:
             raise ValueError('peak profile {} is not supported'.format(profile_name))
+        th = np.arcsin(source_wavelength * q_pk/(4.*np.pi))
+        # compute the polarization factor 
+        pz = 1. + np.cos(2.*th)**2 
+        # compute the Lorentz factor 
+        ltz = 1. / (np.sin(th)*np.sin(2*th))
+        # TODO: compute Debye-Waller factors if parameters given
+        dbw = 1. 
+        # multiply correction factors into the intensity
         I += (F_along_hkl*F_along_hkl.conjugate()).real\
-            *mult[hkl]*line_shape
-
-    th = np.arcsin(source_wavelength * q/(4.*np.pi))
-    # compute the polarization factor 
-    pz = 1. + np.cos(2.*th)**2 
-    # compute the Lorentz factor 
-    ltz = 1. / (np.sin(th)*np.sin(2*th))
-    # TODO: compute Debye-Waller factors if parameters given
-    dbw = np.ones(n_q)
-    # multiply correction factors into the intensity
-    I = I0*I*pz*ltz*dbw 
-    return I
+            *mult[hkl]*pz*ltz*dbw*line_shape
+    return I0*I
 
 

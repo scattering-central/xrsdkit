@@ -38,43 +38,80 @@ def load_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(sd)
 
+class NoiseModel(object):
+
+    def __init__(self,model,params={}):
+        self.model = model
+        self.parameters = {}
+        for param_nm in noise_params[model]:
+            self.parameters[param_nm] = copy.deepcopy(noise_param_defaults[param_nm])  
+        for param_nm in params:
+            self.update_parameter(param_nm,params[param_nm])
+
+    def to_dict(self):
+        nd = {} 
+        nd['model'] = copy.copy(self.model)
+        nd['parameters'] = {}
+        for param_nm,param in self.parameters.items():
+            nd['parameters'][param_nm] = copy.deepcopy(param)
+        return nd
+
+    def set_model(self,new_model):
+        self.update_parameters()
+
+    def update_parameters(self,new_params={}):
+        current_param_nms = list(self.parameters.keys())
+        valid_param_nms = copy.deepcopy(noise_params[self.model])
+        # remove any non-valid params
+        for param_nm in current_param_nms:
+            if not param_nm in valid_param_nms:
+                self.parameters.pop(param_nm)
+        # add any missing params, taking from new_params if available 
+        for param_nm in valid_param_nms:
+            if not param_nm in self.parameters:
+                self.parameters[param_nm] = copy.deepcopy(noise_param_defaults[param_nm]) 
+            if param_nm in new_params:
+                self.update_parameter(param_nm,new_params[param_nm])
+
+    def update_parameter(self,param_nm,new_param_dict): 
+        self.parameters[param_nm].update(new_param_dict)
+
 class System(object):
 
     def __init__(self,populations={}):
         # TODO: consider polymorphic constructor inputs 
         self.populations = {}
         self.fit_report = {} # this dict gets populated after self.fit() 
-        self.noise_model = {'flat':{'I0':copy.deepcopy(noise_param_defaults['I0'])}}
+        self.noise_model = NoiseModel('flat')
         self.update_from_dict(populations)
 
     def to_dict(self):
         sd = {} 
         for pop_nm,pop in self.populations.items():
             sd[pop_nm] = pop.to_dict()
-        sd['noise_model'] = copy.deepcopy(self.noise_model)
+        sd['noise'] = self.noise_model.to_dict()
         sd['fit_report'] = copy.deepcopy(self.fit_report)
         return sd
 
     def update_from_dict(self,d):
         for pop_name,pd in d.items():
-            if pop_name == 'noise_model':
-                self.update_noise_params(pd)
+            if pop_name == 'noise':
+                self.update_noise_model(pd)
             elif pop_name == 'fit_report':
                 self.fit_report.update(pd)
             elif not pop_name in self.populations:
                 self.populations[pop_name] = Population.from_dict(pd) 
 
-    def update_noise_params(self,noise_dict):
-        for noise_type,noise_params in noise_dict.items():
-            if noise_type in self.noise_model:
-                self.noise_model[noise_type].update(copy.deepcopy(noise_params))
-            else:
-                self.noise_model[noise_type] = copy.deepcopy(noise_params)
+    def update_noise_model(self,noise_dict):
+        if 'model' in noise_dict:
+            self.noise_model.set_model(noise_dict['model'])
+        if 'parameters' in noise_dict:
+            self.noise_model.update_parameters(noise_dict['parameters'])
 
     def update_params_from_dict(self,pd):
         for pop_name, popd in pd.items():
-            if pop_name == 'noise_model':
-                self.update_noise_params(popd)
+            if pop_name == 'noise':
+                self.update_noise_model(popd)
             else:
                 if 'parameters' in popd:
                     for param_name, paramd in popd['parameters'].items():
@@ -113,12 +150,18 @@ class System(object):
         I : array
             Array of scattering intensities for each of the input q values
         """
-        I = np.zeros(len(q))
-        for noise_type,noise_params in self.noise_model.items():
-            if noise_type == 'flat':
-                I += noise_params['I0']['value'] * np.ones(len(q))
+        I = self.compute_noise_intensity(q)
         for pop_name,pop in self.populations.items():
             I += pop.compute_intensity(q,source_wavelength)
+        return I
+
+    def compute_noise_intensity(self,q):
+        I = np.zeros(len(q))
+        noise_modnm = self.noise_model.model
+        if not noise_modnm in noise_model_names:
+            raise ValueError('unsupported noise specification: {}'.format(noise_modnm))
+        if noise_modnm == 'flat':
+            I += self.noise_model.parameters['I0']['value'] * np.ones(len(q))
         return I
 
     def evaluate_residual(self,q,I,source_wavelength,dI=None,
@@ -202,9 +245,8 @@ class System(object):
     
     def flatten_params(self):
         pd = {} 
-        for noise_type,noise_params in self.noise_model.items():
-            for param_name,paramd in self.noise_model[noise_type].items():
-                pd['noise__'+noise_type+'__'+param_name] = paramd
+        for param_name,paramd in self.noise_model.parameters.items():
+            pd['noise__'+param_name] = paramd
         for pop_name,pop in self.populations.items():
             for param_name,paramd in pop.parameters.items():
                 pd[pop_name+'__'+param_name] = paramd
@@ -296,9 +338,9 @@ def unflatten_params(flat_params):
             pd[pop_name] = {} 
         if pop_name == 'noise':
             # a noise parameter
-            if not 'noise_model' in pd: pd['noise_model'] = {}
-            if not ks[1] in pd['noise_model']: pd['noise_model'][ks[1]] = {}
-            pd['noise_model'][ks[1]][ks[2]] = paramd
+            if not 'noise' in pd: pd['noise'] = {}
+            if not 'parameters' in pd['noise']: pd['noise']['parameters'] = {}
+            pd['noise']['parameters'][ks[1]] = paramd
         elif kdepth == 2: 
             # a structure parameter 
             if not 'parameters' in pd[pop_name]:

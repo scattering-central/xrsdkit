@@ -50,10 +50,11 @@ def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=No
         sys_clss, sys_props = pack_system_objects(sys)
         csys.classifications.extend(sys_clss)
         csys.properties.extend(sys_props)
+    if sys is not None and src_wl is not None:
+        csys.properties.extend(I0_fraction_properties(sys,src_wl))
     if q_I is not None:
         csys.properties.extend(profile_properties(q_I))
     return csys
-    # TODO: update invocations of make_pif() to take System objects as input
 
 def unpack_pif(pp):
     
@@ -96,81 +97,82 @@ def unpack_pif(pp):
             if 'fit_snr: ' in tg: fit_rpt['fit_snr'] = float(tg.strip('fit_snr: '))
 
     # unpack noise model
-    noise_model = {} 
+    noise_model = {'model':None,'parameters':{}} 
     if 'noise_classification' in cls_dict:
         noise_cls = cls_dict.pop('noise_classification')
-        noise_ids = noise_cls.value.split('__')
-        for noise_id in noise_ids:
-            noise_model[noise_id] = {}
-            for param_nm in noise_params[noise_id]:
-                noise_param_name = 'noise__'+noise_id+'__'+param_nm
-                noise_model[noise_id][param_nm] = param_from_pif_property(param_nm,props_dict.pop(noise_param_name)) 
+        noise_model['model'] = noise_cls.value
+        for param_nm in noise_params[noise_cls.value]:
+            noise_param_name = 'noise_'+param_nm
+            noise_model['parameters'][param_nm] = param_from_pif_property(param_nm,props_dict.pop(noise_param_name)) 
 
     # use the remaining cls_dict entries to rebuild the System  
-    popd = OrderedDict()
+    sysd = OrderedDict()
     # identify population names and structure specifications 
     ip = 0
     pops_found = False
     while not pops_found:
         if 'pop{}_structure'.format(ip) in cls_dict:
             cls = cls_dict['pop{}_structure'.format(ip)] 
-            popd[cls.tags[0]] = dict(structure=cls.value,
+            sysd[cls.tags[0]] = dict(structure=cls.value,
             basis={},settings={},parameters={}) 
             ip += 1
         else:
             pops_found = True
-    for ip,popnm in enumerate(popd.keys()):
+    for ip,popnm in enumerate(sysd.keys()):
         # identify any specie names and form factor specifications
         isp = 0
         species_found = False
         while not species_found:
             if 'pop{}_specie{}_form'.format(ip,isp) in cls_dict:
                 cls = cls_dict['pop{}_specie{}_form'.format(ip,isp)]
-                popd[popnm]['basis'][cls.tags[0]] = dict(form=cls.value,
+                sysd[popnm]['basis'][cls.tags[0]] = dict(form=cls.value,
                 settings={},parameters={},coordinates=[None,None,None])
                 isp += 1
             else:
                 species_found = True
-            if not popd[popnm]['structure'] == 'unidentified':
+            if not sysd[popnm]['structure'] == 'unidentified':
                 # unpack the basis classification for this population
                 basis_cls_label = 'pop{}_basis_classification'.format(ip)
                 classification_labels[basis_cls_label] = cls_dict[basis_cls_label].value
         # moving forward, we assume the structure has been assigned,
         # all species in the basis have been identified,
         # and all settings and params exist in props_dict
-        for param_nm in structure_params[popd[popnm]['structure']]:
+        for param_nm in structure_params[sysd[popnm]['structure']]:
             pl = 'pop{}_{}'.format(ip,param_nm) 
-            popd[popnm]['parameters'][param_nm] = \
+            sysd[popnm]['parameters'][param_nm] = \
             param_from_pif_property(param_nm,props_dict[pl])
-        for stg_nm in structure_settings[popd[popnm]['structure']]:  
+        for stg_nm in structure_settings[sysd[popnm]['structure']]:  
             tp = setting_datatypes[stg_nm]
             stg_label = 'pop{}_{}'.format(ip,stg_nm) 
             stg_val = tp(props_dict[stg_label].tags[0])
-            popd[popnm]['settings'][stg_nm] = stg_val
+            sysd[popnm]['settings'][stg_nm] = stg_val
             # unpack classification labels for structure settings
             if stg_nm in ['lattice','interaction']:
                 classification_labels[stg_label] = stg_val
-        for isp, specie_nm in enumerate(popd[popnm]['basis'].keys()):
-            specie_form = popd[popnm]['basis'][specie_nm]['form']
+        for isp, specie_nm in enumerate(sysd[popnm]['basis'].keys()):
+            # TODO (later): unpack classification label for atom symbol, if atomic
+            specie_form = sysd[popnm]['basis'][specie_nm]['form']
             for param_nm in form_factor_params[specie_form]:
                 pl = 'pop{}_specie{}_{}'.format(ip,isp,param_nm) 
-                popd[popnm]['basis'][specie_nm]['parameters'][param_nm] = \
+                sysd[popnm]['basis'][specie_nm]['parameters'][param_nm] = \
                 param_from_pif_property(param_nm,props_dict[pl])
             for stg_nm in form_factor_settings[specie_form]:  
                 tp = setting_datatypes[stg_nm]
-                popd[popnm]['basis'][specie_nm]['settings'][stg_nm] = \
+                sysd[popnm]['basis'][specie_nm]['settings'][stg_nm] = \
                 tp(props_dict['pop{}_specie{}_{}'.format(ip,isp,stg_nm)].tags[0])
-            for ic in range(3):
-                pl = 'pop{}_specie{}_coordinate{}'.format(ip,isp,ic)
-                popd[popnm]['basis'][specie_nm]['coordinates'][ic] = \
+            for ic,coord_id in enumerate(['x','y','z']):
+                # TODO: (later): coordinates should be regression outputs,
+                # if more than one specie exists in the population
+                pl = 'pop{}_specie{}_coord{}'.format(ip,isp,coord_id)
+                sysd[popnm]['basis'][specie_nm]['coordinates'][ic] = \
                 param_from_pif_property(param_nm,props_dict[pl])
 
-    # popd should now contain all system information: build the System
-    sys = System(popd)
-    sys.fit_report = fit_rpt
-    sys.noise_model = noise_model
+    # sysd should now contain all system information: build the System
+    sysd['noise'] = noise_model
+    sysd['fit_report'] = fit_rpt
+    sys = System(sysd)
 
-    # unpack remaining properties not related to the system definition
+    # unpack remaining properties not related to the system structure 
     for prop_nm, prop in props_dict.items():
         if prop_nm == 'Intensity':
             I = [float(sca.value) for sca in prop.scalars]
@@ -185,7 +187,7 @@ def unpack_pif(pp):
         elif prop_nm in profiler.profile_keys:
             features[prop_nm] = float(prop.scalars[0].value)
         elif any([rp == prop_nm[-1*len(rp):] for rp in regression_params]):
-            regression_outputs[prop_nm]= prop.scalars[0].value
+            regression_outputs[prop_nm] = prop.scalars[0].value
 
     # unpack the experiment_id
     if pp.ids is not None:
@@ -246,13 +248,17 @@ def pack_system_objects(sys):
     all_clss = [] 
     sys_cls = ''
     ipop = 0
-    all_clss.append(noise_classification(sys.noise_model))
-    all_props.extend(noise_properties(sys.noise_model))
     if sys.fit_report:
         all_props.append(fit_report_property(sys.fit_report))
     if any([p.structure=='unidentified' for pnm,p in sys.populations.items()]):
         sys_cls = 'unidentified'
     else:
+        #
+        # TODO: handle non-flat noise here
+        all_clss.append(Classification('noise_classification','flat',None))
+        #
+        #
+        all_props.extend(noise_properties(sys.noise_model))
         for struct_nm in structure_names: # use structure_names to impose order 
             struct_pops = OrderedDict() 
             for pop_nm,pop in sys.populations.items():
@@ -287,19 +293,36 @@ def pack_system_objects(sys):
     all_clss.append(Classification('system_classification',sys_cls,None))
     return all_clss, all_props
 
-def noise_classification(noise_model):
-    noise_cls = ''
-    for nm in noise_model_names:
-        if nm in noise_model:
-            if noise_cls: noise_cls += '__'
-            noise_cls += nm
-    return Classification('noise_classification',noise_cls,None)
+def I0_fraction_properties(sys,src_wl):
+    props = []
+    I0 = sys.compute_intensity(np.array([0.]),src_wl)[0]
+    #
+    # TODO: handle non-flat noise here
+    #I0_noise = sys.compute_noise_intensity([0])
+    I0_noise = sys.noise_model.parameters['I0']['value']
+    #
+    #
+    if I0 == 0:
+        prop_val = 0. 
+    else:
+        prop_val = I0_noise/I0
+    props.append(Property('noise_I0_fraction',prop_val))
+    for pop_nm,pop in sys.populations.items():
+        if not pop.structure == 'unidentified':
+            prop_nm = pop_nm+'_I0_fraction'
+            if I0 == 0:
+                prop_val = 0. 
+            else:
+                prop_val = pop.compute_intensity(np.array([0.]),src_wl)[0]/I0
+            props.append(Property(prop_nm,prop_val))
+    return props
 
 def noise_properties(noise_model):
     props = []
-    for noise_nm,params in noise_model.items():
-        for pnm,pd in params.items():
-            props.append(pif_property_from_param('noise__'+noise_nm+'__'+pnm,pd))
+    #
+    # TODO: handle non-flat noise here
+    for param_nm,pd in noise_model.parameters.items():
+        props.append(pif_property_from_param('noise_'+param_nm,pd))
     return props
 
 def fit_report_property(fit_report):
@@ -430,7 +453,10 @@ def specie_setting_properties(ip,isp,specie):
 def specie_param_properties(ip,isp,specie):
     pps = []
     for ic,cd in enumerate(specie.coordinates):
-        pnm = 'pop{}_specie{}_coordinate{}'.format(ip,isp,ic)
+        if ic == 0: coord_id = 'x'
+        if ic == 1: coord_id = 'y'
+        if ic == 2: coord_id = 'z'
+        pnm = 'pop{}_specie{}_coord{}'.format(ip,isp,coord_id)
         pps.append(pif_property_from_param(pnm,cd))
     for param_nm,pd in specie.parameters.items():
         pnm = 'pop{}_specie{}_{}'.format(ip,isp,param_nm)
@@ -439,13 +465,13 @@ def specie_param_properties(ip,isp,specie):
 
 def param_from_pif_property(param_nm,prop):
     pdict = copy.deepcopy(param_defaults[param_nm])
-    pdict['value'] = prop.scalars[0].value
+    pdict['value'] = float(prop.scalars[0].value)
     if prop.tags is not None:
         for tg in prop.tags:
             if 'fixed: ' in tg:
-                pdict['fixed'] = bool(tg.strip('fixed: '))
+                pdict['fixed'] = bool(tg[7:])
             if 'bounds: ' in tg:
-                bds = tg.strip('bounds: []').split(',')
+                bds = tg[8:].strip('[]').split(',')
                 try: 
                     lbd = float(bds[0]) 
                 except:
@@ -456,7 +482,9 @@ def param_from_pif_property(param_nm,prop):
                     ubd = None
                 pdict['bounds'] = [lbd, ubd]
             if 'constraint_expr: ' in tg:
-                pdict['constraint_expr'] = tg.strip('constraint_expr: ')
+                expr = tg[17:]
+                if expr == 'None': expr = None
+                pdict['constraint_expr'] = expr
     return pdict
 
 def pif_property_from_param(param_nm,paramd):
