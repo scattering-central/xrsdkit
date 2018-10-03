@@ -46,12 +46,10 @@ def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=No
         csys.tags.append('time (utc): '+str(int(t_utc)))
     if q_I is not None:
         csys.properties.extend(q_I_properties(q_I,temp_C,src_wl))
-    if sys is not None: 
-        sys_clss, sys_props = pack_system_objects(sys)
+    if sys is not None and src_wl is not None:
+        sys_clss, sys_props = pack_system_objects(sys,src_wl)
         csys.classifications.extend(sys_clss)
         csys.properties.extend(sys_props)
-    if sys is not None and src_wl is not None:
-        csys.properties.extend(I0_fraction_properties(sys,src_wl))
     if q_I is not None:
         csys.properties.extend(profile_properties(q_I))
     return csys
@@ -242,7 +240,7 @@ def profile_properties(q_I):
             #fnm,fval,'spectrum profiling quantity'))
     return pp
 
-def pack_system_objects(sys):
+def pack_system_objects(sys,src_wl):
     """Return pypif.obj objects describing System attributes"""
     all_props = []
     all_clss = [] 
@@ -253,12 +251,15 @@ def pack_system_objects(sys):
     if any([p.structure=='unidentified' for pnm,p in sys.populations.items()]):
         sys_cls = 'unidentified'
     else:
-        #
-        # TODO: handle non-flat noise here
-        all_clss.append(Classification('noise_classification','flat',None))
-        #
-        #
-        all_props.extend(noise_properties(sys.noise_model))
+        I0 = sys.compute_intensity(np.array([0.]),src_wl)[0]
+        I0_noise = sys.compute_noise_intensity(np.array([0.]))[0]
+        if I0 == 0.: 
+            all_props.append(Property('noise_I0_fraction',0.))
+        else:
+            all_props.append(Property('noise_I0_fraction',I0_noise/I0))
+        all_clss.append(Classification('noise_classification',sys.noise_model.model,None))
+        for param_nm,pd in sys.noise_model.parameters.items():
+            all_props.append(pif_property_from_param('noise_'+param_nm,pd))
         for struct_nm in structure_names: # use structure_names to impose order 
             struct_pops = OrderedDict() 
             for pop_nm,pop in sys.populations.items():
@@ -267,6 +268,11 @@ def pack_system_objects(sys):
             # sort any populations with same structure
             struct_pops = _sort_populations(struct_nm,struct_pops)
             for pop_nm,pop in struct_pops.items():
+                if I0 == 0.:
+                    all_props.append(Property('pop{}_I0_fraction'.format(ipop),0.))
+                else:
+                    all_props.append(Property('pop{}_I0_fraction'.format(ipop),
+                    pop.compute_intensity(np.array([0.]),src_wl)[0]/I0))
                 all_props.extend(param_properties(ipop,pop))
                 all_props.extend(setting_properties(ipop,pop))
                 if sys_cls: sys_cls += '__'
@@ -292,38 +298,6 @@ def pack_system_objects(sys):
                 ipop += 1
     all_clss.append(Classification('system_classification',sys_cls,None))
     return all_clss, all_props
-
-def I0_fraction_properties(sys,src_wl):
-    props = []
-    I0 = sys.compute_intensity(np.array([0.]),src_wl)[0]
-    #
-    # TODO: handle non-flat noise here
-    #I0_noise = sys.compute_noise_intensity([0])
-    I0_noise = sys.noise_model.parameters['I0']['value']
-    #
-    #
-    if I0 == 0:
-        prop_val = 0. 
-    else:
-        prop_val = I0_noise/I0
-    props.append(Property('noise_I0_fraction',prop_val))
-    for pop_nm,pop in sys.populations.items():
-        if not pop.structure == 'unidentified':
-            prop_nm = pop_nm+'_I0_fraction'
-            if I0 == 0:
-                prop_val = 0. 
-            else:
-                prop_val = pop.compute_intensity(np.array([0.]),src_wl)[0]/I0
-            props.append(Property(prop_nm,prop_val))
-    return props
-
-def noise_properties(noise_model):
-    props = []
-    #
-    # TODO: handle non-flat noise here
-    for param_nm,pd in noise_model.parameters.items():
-        props.append(pif_property_from_param('noise_'+param_nm,pd))
-    return props
 
 def fit_report_property(fit_report):
     prop_val = None
