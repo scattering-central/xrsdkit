@@ -25,6 +25,7 @@ classification_models_dir = os.path.join(modeling_data_dir,'classifiers')
 
 # find directory containing test modeling data
 testing_data_dir = os.path.join(src_dir,'models','modeling_data','test')
+if not os.path.exists(testing_data_dir): os.mkdir(testing_data_dir)
 test_regression_models_dir = os.path.join(testing_data_dir,'regressors')
 test_classification_models_dir = os.path.join(testing_data_dir,'classifiers')
 
