@@ -77,6 +77,11 @@ class Population(object):
             structure_form_exception(self.structure,ff_name)
         self.basis[specie_name] = Specie(ff_name,settings,parameters,coordinates)
 
+    def remove_specie(self,specie_name):
+        # TODO: check for violated constraints
+        # in absence of this specie? 
+        self.basis.pop(specie_name)
+
     def to_dict(self):
         pd = {} 
         pd['structure'] = copy.copy(self.structure)

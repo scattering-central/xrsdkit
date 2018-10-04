@@ -129,7 +129,7 @@ class System(object):
                                 self.populations[pop_name].basis[specie_name].parameters[param_name].update(
                                 specied['parameters'][param_name])
 
-    def remove_population(pop_nm):
+    def remove_population(self,pop_nm):
         # TODO: check for violated constraints
         # in absence of this population
         self.populations.pop(pop_nm)
