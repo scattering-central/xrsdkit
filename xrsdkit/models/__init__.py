@@ -17,22 +17,30 @@ from ..tools.citrination_tools import downsample, get_data_from_Citrination
 file_path = os.path.abspath(__file__)
 src_dir = os.path.dirname(os.path.dirname(file_path))
 root_dir = os.path.dirname(src_dir)
+
+# find directory containing packaged modeling data
 modeling_data_dir = os.path.join(src_dir,'models','modeling_data')
-testing_data_dir = os.path.join(src_dir,'models','modeling_data','test')
 regression_models_dir = os.path.join(modeling_data_dir,'regressors')
 classification_models_dir = os.path.join(modeling_data_dir,'classifiers')
+
+# find directory containing test modeling data
+testing_data_dir = os.path.join(src_dir,'models','modeling_data','test')
+if not os.path.exists(testing_data_dir): os.mkdir(testing_data_dir)
 test_regression_models_dir = os.path.join(testing_data_dir,'regressors')
 test_classification_models_dir = os.path.join(testing_data_dir,'classifiers')
 
+# read api key from file if present
+# TODO (later): look for user's api key in their home directory?
+# NOTE: this will be platform-dependent
 api_key_file = os.path.join(root_dir, 'api_key.txt')
 citcl = None
 if os.path.exists(api_key_file):
     a_key = open(api_key_file, 'r').readline().strip()
     citcl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
 
+# read index of Citrination dataset ids 
 src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
 src_dsid_list = yaml.load(open(src_dsid_file,'r'))
-
 model_dsid_file = os.path.join(src_dir,'models','modeling_data','modeling_dataset_ids.yml')
 model_dsids = yaml.load(open(model_dsid_file,'r'))
 
@@ -43,82 +51,88 @@ model_dsids = yaml.load(open(model_dsid_file,'r'))
 # (either regression_models or classification_models).
 # For models not currently saved as yml files, 
 # the models must first be created by train_regression_models()
-regression_models = OrderedDict()
-classification_models = OrderedDict()
 
 # --- LOAD REGRESSION MODELS --- #
-if not os.path.exists(regression_models_dir): os.mkdir(regression_models_dir)
-for sys_cls in os.listdir(regression_models_dir):
-    regression_models[sys_cls] = {}
-    sys_cls_dir = os.path.join(regression_models_dir,sys_cls)
-    # the directory for the system class has subdirectories
-    # for each population in the system
-    for pop_id in os.listdir(sys_cls_dir):
-        regression_models[sys_cls][pop_id] = {}
-        pop_dir = os.path.join(sys_cls_dir,pop_id)
-        # the directory for the population has model parameter files,
-        # subdirectories for parameters of each modellable structure,
-        # and subdirectories for each modellable basis class
-        for pop_itm in os.listdir(pop_dir):
-            if pop_itm in crystalline_structures+disordered_structures:
-                # subdirectory for lattice or disordered structure params
-                regression_models[sys_cls][pop_id][pop_itm] = {}
-                pop_subdir = os.path.join(pop_dir,pop_itm)
-                for pop_subitm in os.listdir(pop_subdir):
-                    if pop_subitm.endswith('.yml'):
-                        param_nm = pop_subitm.split('.')[0]
-                        yml_path = os.path.join(pop_subdir,pop_subitm)
-                        regression_models[sys_cls][pop_id][pop_itm][param_nm] = Regressor(param_nm,yml_path) 
-            elif pop_itm.endswith('.yml'):
-                # model parameters
-                param_nm = pop_itm.split('.')[0]
-                yml_path = os.path.join(pop_dir,pop_itm)
-                regression_models[sys_cls][pop_id][param_nm] = Regressor(param_nm,yml_path) 
-            elif not pop_itm.endswith('.txt'):
-                # subdirectory for a basis class
-                bas_cls = pop_itm.split('.')[0]
-                regression_models[sys_cls][pop_id][bas_cls] = {} 
-                bas_cls_dir = os.path.join(pop_dir,bas_cls)
-                # the directory for the basis class has subdirectories
-                # for each specie in the basis
-                for specie_id in os.listdir(bas_cls_dir):
-                    regression_models[sys_cls][pop_id][bas_cls][specie_id] = {}
-                    specie_dir = os.path.join(bas_cls_dir,specie_id)
-                    # the directory for the specie should contain only model parameter files 
-                    for specie_itm in os.listdir(specie_dir):
-                        if specie_itm.endswith('.yml'):
-                            param_nm = specie_itm.split('.')[0]
-                            yml_path = os.path.join(specie_dir,specie_itm)
-                            regression_models[sys_cls][pop_id][bas_cls][specie_id][param_nm] = \
-                            Regressor(param_nm,yml_path)
-
-
-# --- LOAD CLASSIFICATION MODELS --- #
-if not os.path.exists(classification_models_dir): os.mkdir(classification_models_dir)
-yml_path = os.path.join(classification_models_dir,'system_classification.yml')
-
-if os.path.exists(yml_path):
-    classification_models['system_classification'] = Classifier('system_classification',yml_path)
-    
-for sys_cls in os.listdir(classification_models_dir):
-    if not sys_cls.endswith('.yml') and not sys_cls.endswith('.txt'):
-        classification_models[sys_cls] = {}
-        sys_cls_dir = os.path.join(classification_models_dir,sys_cls)
+def load_regression_models(model_root_dir=regression_models_dir):
+    model_dict = OrderedDict()
+    if not os.path.exists(model_root_dir): os.mkdir(model_root_dir)
+    for sys_cls in os.listdir(model_root_dir):
+        model_dict[sys_cls] = {}
+        sys_cls_dir = os.path.join(model_root_dir,sys_cls)
         # the directory for the system class has subdirectories
         # for each population in the system
         for pop_id in os.listdir(sys_cls_dir):
-            classification_models[sys_cls][pop_id] = {}
+            model_dict[sys_cls][pop_id] = {}
             pop_dir = os.path.join(sys_cls_dir,pop_id)
-            # the directory for the population class contains
-            # yml files with model parameters
-            # for the population's basis classifier
-            # and lattice or interaction classifiers if applicable
+            # the directory for the population has model parameter files,
+            # subdirectories for parameters of each modellable structure,
+            # and subdirectories for each modellable basis class
             for pop_itm in os.listdir(pop_dir):
-                if pop_itm.endswith('.yml'):
+                if pop_itm in crystalline_structures+disordered_structures:
+                    # subdirectory for lattice or disordered structure params
+                    model_dict[sys_cls][pop_id][pop_itm] = {}
+                    pop_subdir = os.path.join(pop_dir,pop_itm)
+                    for pop_subitm in os.listdir(pop_subdir):
+                        if pop_subitm.endswith('.yml'):
+                            param_nm = pop_subitm.split('.')[0]
+                            yml_path = os.path.join(pop_subdir,pop_subitm)
+                            model_dict[sys_cls][pop_id][pop_itm][param_nm] = Regressor(param_nm,yml_path) 
+                elif pop_itm.endswith('.yml'):
+                    # model parameters
+                    param_nm = pop_itm.split('.')[0]
                     yml_path = os.path.join(pop_dir,pop_itm)
-                    model_type = os.path.splitext(pop_itm)[0]
-                    model_label = pop_id+'_'+model_type
-                    classification_models[sys_cls][pop_id][model_type] = Classifier(model_label,yml_path)
+                    model_dict[sys_cls][pop_id][param_nm] = Regressor(param_nm,yml_path) 
+                elif not pop_itm.endswith('.txt'):
+                    # subdirectory for a basis class
+                    bas_cls = pop_itm.split('.')[0]
+                    model_dict[sys_cls][pop_id][bas_cls] = {} 
+                    bas_cls_dir = os.path.join(pop_dir,bas_cls)
+                    # the directory for the basis class has subdirectories
+                    # for each specie in the basis
+                    for specie_id in os.listdir(bas_cls_dir):
+                        model_dict[sys_cls][pop_id][bas_cls][specie_id] = {}
+                        specie_dir = os.path.join(bas_cls_dir,specie_id)
+                        # the directory for the specie should contain only model parameter files 
+                        for specie_itm in os.listdir(specie_dir):
+                            if specie_itm.endswith('.yml'):
+                                param_nm = specie_itm.split('.')[0]
+                                yml_path = os.path.join(specie_dir,specie_itm)
+                                model_dict[sys_cls][pop_id][bas_cls][specie_id][param_nm] = \
+                                Regressor(param_nm,yml_path)
+    return model_dict
+regression_models = load_regression_models(regression_models_dir)
+test_regression_models = load_regression_models(test_regression_models_dir) 
+
+
+# --- LOAD CLASSIFICATION MODELS --- #
+def load_classification_models(model_root_dir=classification_models_dir):  
+    model_dict = OrderedDict()
+    if not os.path.exists(model_root_dir): os.mkdir(model_root_dir)
+    yml_path = os.path.join(model_root_dir,'system_classification.yml')
+    if os.path.exists(yml_path):
+        model_dict['system_classification'] = Classifier('system_classification',yml_path)
+    for sys_cls in os.listdir(model_root_dir):
+        if not sys_cls.endswith('.yml') and not sys_cls.endswith('.txt'):
+            model_dict[sys_cls] = {}
+            sys_cls_dir = os.path.join(model_root_dir,sys_cls)
+            # the directory for the system class has subdirectories
+            # for each population in the system
+            for pop_id in os.listdir(sys_cls_dir):
+                model_dict[sys_cls][pop_id] = {}
+                pop_dir = os.path.join(sys_cls_dir,pop_id)
+                # the directory for the population class contains
+                # yml files with model parameters
+                # for the population's basis classifier
+                # and lattice or interaction classifiers if applicable
+                for pop_itm in os.listdir(pop_dir):
+                    if pop_itm.endswith('.yml'):
+                        yml_path = os.path.join(pop_dir,pop_itm)
+                        model_type = os.path.splitext(pop_itm)[0]
+                        model_label = pop_id+'_'+model_type
+                        model_dict[sys_cls][pop_id][model_type] = Classifier(model_label,yml_path)
+    return model_dict
+classification_models = load_classification_models(classification_models_dir) 
+test_classification_models = load_classification_models(test_classification_models_dir)  
 
 def downsample_and_train(
     source_dataset_ids=src_dsid_list,
@@ -220,49 +234,56 @@ def train_regression_models(data, hyper_parameters_search=False):
     """
     reg_models = trainable_regression_models(data)
     for sys_cls,sys_models in reg_models.items():
+        print(os.linesep+'Training regressors for system class: ')
+        print(sys_cls)
         sys_cls_data = data[(data['system_classification']==sys_cls)]
         for pop_id,pop_models in sys_models.items():
+            print('population id: {}'.format(pop_id))
             for k in pop_models.keys():
                 if k in regression_params:
+                    print('    parameter: {}'.format(k))
                     # train reg_models[sys_cls][pop_id][k]
                     target = pop_id+'_'+k
                     reg_model = Regressor(target, None)
                     reg_model.train(sys_cls_data, hyper_parameters_search)
-                    if reg_model.trained:
-                        pop_models[k] = reg_model 
+                    pop_models[k] = reg_model 
                 elif k in crystalline_structures:
+                    print('    structure: {}'.format(k))
                     for param_nm in crystalline_structure_params[k]:
+                        print('        parameter: {}'.format(param_nm))
                         # train reg_models[sys_cls][pop_id][k][param_nm]
                         lattice_label = pop_id+'_lattice'
                         sub_cls_data = sys_cls_data[(sys_cls_data[lattice_label]==k)]
                         target = pop_id+'_'+param_nm
                         reg_model = Regressor(target, None)
                         reg_model.train(sub_cls_data, hyper_parameters_search)
-                        if reg_model.trained:
-                            pop_models[k][param_nm] = reg_model 
+                        pop_models[k][param_nm] = reg_model 
                 elif k in disordered_structures:
+                    print('    interaction: {}'.format(k))
                     for param_nm in disordered_structure_params[k]:
+                        print('        parameter: {}'.format(param_nm))
                         # train reg_models[sys_cls][pop_id][k][param_nm]
                         interxn_label = pop_id+'_interaction'
                         sub_cls_data = sys_cls_data[(sys_cls_data[interxn_label]==k)]
                         target = pop_id+'_'+param_nm
                         reg_model = Regressor(target, None)
                         reg_model.train(sub_cls_data, hyper_parameters_search)
-                        if reg_model.trained:
-                            pop_models[k][param_nm] = reg_model 
+                        pop_models[k][param_nm] = reg_model 
                 else:
                     # k is a basis classification
+                    print('    basis class: {}'.format(k))
                     bas_cls = k
                     bas_models = pop_models[k] 
                     bas_cls_label = pop_id+'_basis_classification'
                     bas_cls_data = sys_cls_data[(sys_cls_data[bas_cls_label]==bas_cls)]
                     for specie_id,specie_models in bas_models.items():
+                        print('        specie id: {}'.format(specie_id))
                         for param_nm in specie_models.keys():
+                            print('            parameter: {}'.format(param_nm))
                             target = pop_id+'_'+specie_id+'_'+param_nm
                             reg_model = Regressor(target, None)
                             reg_model.train(bas_cls_data, hyper_parameters_search)
-                            if reg_model.trained:
-                                specie_models[param_nm] = reg_model 
+                            specie_models[param_nm] = reg_model 
     return reg_models
 
 def trainable_regression_models(data):
@@ -299,7 +320,7 @@ def trainable_regression_models(data):
             pop_id = pop_struct[:re.compile('pop._').match(pop_struct).end()-1]
             structure_id = pop_struct[re.compile('pop._').match(pop_struct).end():]
             reg_models[sys_cls][pop_id] = {}
-            for param_nm in structure_params[structure_id]:
+            for param_nm in structure_params[structure_id]+['I0_fraction']:
                 reg_label = pop_id+'_'+param_nm
                 if reg_label in sys_cls_data.columns and param_nm in regression_params:
                     reg_models[sys_cls][pop_id][param_nm] = None
@@ -588,7 +609,7 @@ def set_param(m_s, param):
             setattr(m_s, k, v)
 
 
-def predict(features):
+def predict(features,test=False):
     """Evaluate classifier and regression models to
     estimate parameters for the sample
 
@@ -603,16 +624,23 @@ def predict(features):
     results : dict
         dictionary with predicted system class and parameters
     """
+
+    classifiers=classification_models
+    regressors=regression_models
+    if test:
+        classifiers=test_classification_models
+        regressors=test_regression_models
+
     results = {}
 
-    results['system_classification'] = classification_models['system_classification'].classify(features)
+    results['system_classification'] = classifiers['system_classification'].classify(features)
     sys_cl = results['system_classification'][0]
 
     if sys_cl == 'unidentified':
         return results
 
-    cl_models_to_use = classification_models[sys_cl]
-    reg_models_to_use = regression_models[sys_cl]
+    cl_models_to_use = classifiers[sys_cl]
+    reg_models_to_use = regressors[sys_cl]
     pop_structures = {}
     
     # extract the structures of each population from the system class
@@ -620,28 +648,27 @@ def predict(features):
         pop_structures[pop_struct[:4]] = pop_struct[5:]
 
     for pop_id, pop_classifiers in cl_models_to_use.items():
-        results[pop_id] = {'structure':pop_structures[pop_id]}
+        results[pop_id] = {}
 
         # evaluate parameters of this population
-        for param_nm in structure_params[pop_structures[pop_id]]:
+        for param_nm in structure_params[pop_structures[pop_id]]+['I0_fraction']:
             if param_nm in reg_models_to_use[pop_id] \
                     and reg_models_to_use[pop_id][param_nm].trained:
                 results[pop_id][param_nm] = \
                     reg_models_to_use[pop_id][param_nm].predict(features)
             else:
-                # the model was created but did not trained;
+                # the model was created but not trained:
                 # the default value for the model was saved
                 if param_nm in reg_models_to_use[pop_id]:
-                    results[pop_id][param_nm] = reg_models_to_use[pop_id].default_val
-                else:
-                    # we do not have a model
+                    results[pop_id][param_nm] = reg_models_to_use[pop_id][param_nm].default_val
+                elif not param_nm == 'I0':
+                    # we do not have a model: save the default value unless the param is I0
                     results[pop_id][param_nm] = param_defaults[param_nm]['value']
 
         # classify the basis of this population
         bas_clsfr = pop_classifiers['basis_classification'] 
         if bas_clsfr.trained:
             results[pop_id]['basis_classification'] = bas_clsfr.classify(features)
-
         else:
             results[pop_id]['basis_classification'] = (bas_clsfr.default_val,1.)
         bas_cl = results[pop_id]['basis_classification'][0]
