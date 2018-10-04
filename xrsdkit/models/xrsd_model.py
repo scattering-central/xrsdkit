@@ -23,16 +23,16 @@ class XRSDModel(object):
         else:
             self.set_model()
 
-
     def load_model_data(self,model_data):
-        self.set_model()
-        # TODO: consider getting rid of the set_param method,
-        # in favor of something more concrete
-        set_param(self.model,model_data['model'])
-        set_param(self.scaler,model_data['scaler'])
-        self.cross_valid_results = model_data['cross_valid_results']
         self.trained = model_data['trained']
         self.default_val = model_data['default_val']
+        if self.trained:
+            self.set_model(model_data['model']['hyper_parameters'])
+            for k,v in model_data['model']['trained_par'].items():
+                setattr(self.model, k, np.array(v))
+            setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
+            setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
+            self.cross_valid_results = model_data['cross_valid_results']
 
     def set_model(self, model_hyperparams={}):
         self.model = self.build_model(model_hyperparams)
@@ -156,13 +156,3 @@ class XRSDModel(object):
             print('model {}: all training data have identical outputs ({})'.format(
             self.target,dataframe[self.target].iloc[0]))
             return False
-
-
-# helper function - to set parameters for scalers and models
-def set_param(m_s, param):
-    for k, v in param.items():
-        if isinstance(v, list):
-            setattr(m_s, k, np.array(v))
-        else:
-            setattr(m_s, k, v)
-
