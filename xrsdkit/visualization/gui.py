@@ -224,7 +224,7 @@ class XRSDFitGUI(object):
         objl.grid(row=0,column=0,sticky='e')
         rese = tkinter.Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
         rese.grid(row=0,column=1,sticky='ew')
-        self._vars['fit_control']['good_fit'] = tkinter.tkinter.BooleanVar(cf)
+        self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
         fitcb = tkinter.Checkbutton(cf,text='Good fit', variable=self._vars['fit_control']['good_fit'])
         fitcb.grid(row=0,column=2,sticky='ew')
         self._vars['fit_control']['good_fit'].set(self.good_fit)
@@ -439,8 +439,8 @@ class XRSDFitGUI(object):
 
         pbndl = tkinter.Label(paramf,text='bounds:',anchor='e')
         pbndl.grid(row=2,column=0,sticky='e')
-        lbndv = tkinter.DoubleVar(paramf)
-        ubndv = tkinter.DoubleVar(paramf)
+        lbndv = tkinter.StringVar(paramf)
+        ubndv = tkinter.StringVar(paramf)
         param_vars[param_nm]['bounds']=[lbndv,ubndv]
         pbnde1 = self.connected_entry(paramf,lbndv,
             partial(self._update_param,pop_nm,specie_nm,param_nm,'bounds',0),8)
@@ -498,10 +498,10 @@ class XRSDFitGUI(object):
         s = setting_defaults[stg_nm]
         if stg_nm in parent_obj.settings:
             s = parent_obj.settings[stg_nm]
+        stgv.set(str(s))
         stge = self.connected_entry(stgf,stgv,
             partial(self._update_setting,pop_nm,specie_nm,stg_nm))
         stge.grid(row=0,column=1,sticky='ew')
-        stgv.set(str(s))
         stgf.pack(fill='x',expand=True)
 
     def _draw_plots(self):
@@ -538,10 +538,11 @@ class XRSDFitGUI(object):
         addb.grid(row=0,column=2,sticky='e')
         nsf.pack(fill='x',expand=True)
 
-    def _update_param(self,pop_nm,specie_nm,param_nm,param_key,param_idx=None):
+    def _update_param(self,pop_nm,specie_nm,param_nm,param_key,param_idx=None,event=None):
         # param_key should be 'value', 'fixed', 'bounds', or 'constraint_expr'
         # if param_key == 'bounds', param_idx must be 0 or 1
         vflag = self._validate_param(pop_nm,specie_nm,param_nm,param_key,param_idx)
+        #print('{}.{}.{}.{}.{}: {}'.format(pop_nm,specie_nm,param_nm,param_key,param_idx,vflag))
         if vflag:
             if pop_nm == 'noise':
                 x = self.sys.noise_model
@@ -560,9 +561,12 @@ class XRSDFitGUI(object):
             else:
                 xp = x.parameters[param_nm]
             new_param = copy.deepcopy(xp)
-            if param_idx is not None:
+            if param_idx in [0,1]: 
                 new_val = tkv[param_key][param_idx].get()
-                new_param[param_key][param_idx] = new_val
+                if new_val in ['None','none','']:
+                    new_param[param_key][param_idx] = None
+                else: 
+                    new_param[param_key][param_idx] = float(new_val) 
             else:
                 new_val = tkv[param_key].get()
                 if param_key == 'constraint_expr':
@@ -580,8 +584,9 @@ class XRSDFitGUI(object):
             self._draw_plots()
         return vflag
 
-    def _update_setting(self,pop_nm,specie_nm,stg_nm):
+    def _update_setting(self,pop_nm,specie_nm,stg_nm,event=None):
         vflag = self._validate_setting(pop_nm,specie_nm,stg_nm) 
+        print('{}.{}.{}: {}'.format(pop_nm,specie_nm,stg_nm,vflag))
         if vflag:
             x = self.sys.populations[pop_nm]
             tkv = self._vars['settings'][pop_nm]
@@ -639,10 +644,12 @@ class XRSDFitGUI(object):
             x = self.sys.populations[pop_nm].parameters[param_nm]
             tkvs = self._vars['parameters'][pop_nm][param_nm]
         is_valid = True
-        if param_idx is not None:
+        if param_idx in [0,1]:
             old_val = x[param_key][param_idx]
             try:
                 new_val = tkvs[param_key][param_idx].get()
+                if not new_val in ['None','none','']:
+                    new_val = float(new_val)
             except:
                 is_valid = False
                 tkvs[param_key][param_idx].set(old_val)
@@ -656,13 +663,13 @@ class XRSDFitGUI(object):
                 tkvs[param_key].set(old_val)
         return is_valid
 
-    def _update_structure(self,pop_nm,*event_args):
+    def _update_structure(self,pop_nm,event=None):
         s = self._vars['structures'][pop_nm].get()
         if not s == self.sys.populations[pop_nm].structure:
             self.sys.populations[pop_nm].set_structure(s)
             self._update_pop_frame(pop_nm)
 
-    def _update_form_factor(self,pop_nm,specie_nm):
+    def _update_form_factor(self,pop_nm,specie_nm,event=None):
         f = self._vars['form_factors'][pop_nm][specie_nm].get()
         if not f == self.sys.populations[pop_nm].basis[specie_nm].form:
             self.sys.populations[pop_nm].basis[specie_nm].set_form(f)
@@ -673,14 +680,14 @@ class XRSDFitGUI(object):
         self.sys.remove_population(pop_nm)
         # remove any associated frames and vars
         self._update_control_frame()
-        self.draw_plots()
+        self._draw_plots()
 
     def _remove_specie(self,pop_nm,specie_nm):
         # remove the specie from the population
         self.sys.populations[pop_nm].remove_specie(specie_nm)
         # remove any associated frames and vars
         self._update_pop_frame(pop_nm) 
-        self.draw_plots()
+        self._draw_plots()
 
     def _update_control_frame(self):
         popfrm_nms = list(self._frames['populations'].keys())
@@ -848,18 +855,18 @@ class XRSDFitGUI(object):
         and not 'coordx' in self._frames['specie_parameters'][pop_nm][specie_nm].keys():
             self._create_coordinate_widgets(pop_nm,specie_nm)
 
-    def _new_population(self):
+    def _new_population(self,event=None):
         new_nm = self._vars['new_population_name'].get()
         if new_nm and not new_nm in self.sys.populations:
-            self.sys.add_population(new_nm,'unidentified')
+            self.sys.add_population(new_nm,'diffuse')
             self._frames['new_population'].pack_forget() 
-            self._create_pop_frame(pnm)
+            self._create_pop_frame(new_nm)
             self._frames['new_population'].pack(pady=2,padx=2,fill='x',expand=True)
 
-    def _new_specie(self,pop_nm):
+    def _new_specie(self,pop_nm,event=None):
         specie_nm = self._vars['new_specie_names'][pop_nm].get()
         if specie_nm and not specie_nm in self.sys.populations[pop_nm].basis:
-            self.sys.populations[pop_nm].add_specie(specie_nm,'standard_atomic')
+            self.sys.populations[pop_nm].add_specie(specie_nm,'atomic')
             self._frames['new_species'][pop_nm].pack_forget() 
             self._create_specie_frame(pop_nm,specie_nm)
             self._frames['new_species'][pop_nm].pack(fill='x',expand=True)
@@ -885,10 +892,6 @@ class XRSDFitGUI(object):
         # repack everything 
         # update fit objective
         # self.draw_plots()
-        pass
-
-    def _update_noise(self):
-        # TODO
         pass
 
     @staticmethod
