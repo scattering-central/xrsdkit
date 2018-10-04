@@ -3,8 +3,6 @@ import re
 from collections import OrderedDict
 
 import yaml
-import json
-import numpy as np
 import pandas as pd
 from citrination_client import CitrinationClient
 
@@ -12,7 +10,6 @@ from .. import *
 from .regressor import Regressor
 from .classifier import Classifier
 from ..tools import primitives
-from ..tools.profiler import profile_spectrum
 from ..tools.citrination_tools import downsample, get_data_from_Citrination
 
 file_path = os.path.abspath(__file__)
@@ -412,39 +409,30 @@ def trainable_classification_models(data):
     return cls_models
 
 def save_model_data(model,yml_path,txt_path):
-    print()
     with open(yml_path,'w') as yml_file:
         model_data = dict(
             scaler=dict(),
-            model = dict(model_hyperparams=dict(), trained_par=dict()),
-            cross_valid_results=model.cross_valid_results,
+            model=dict(hyper_parameters=dict(), trained_par=dict()),
+            cross_valid_results=primitives(model.cross_valid_results),
             trained=model.trained,
             default_val = model.default_val
             )
-
         if model.trained:
-            hyp_par = ['alpha', 'loss', 'penalty', 'l1_ratio', 'max_iter', 'epsilon']
-            for p in hyp_par:
+            hyper_par = ['loss', 'epsilon',  'penalty', 'alpha', 'l1_ratio']
+            for p in hyper_par:
                 if p in model.model.__dict__:
-                    model_data['model']['model_hyperparams'][p]= model.model.__dict__[p]
-
-            mod_par = ['coef_', 'intercept_', 'classes_', '_expanded_class_weight']
-            for p in mod_par:
+                    model_data['model']['hyper_parameters'][p] = model.model.__dict__[p]
+            # only "fitted" models can be used for prediction
+            # a model is "fitted" when is has
+            # "coef_", "intercept_", and "t_"(iteration count)
+            tr_par_arrays = ['coef_', 'intercept_', 'classes_']
+            for p in tr_par_arrays:
                 if p in model.model.__dict__:
-                    model_data['model']['trained_par'][p] = getattr(model.model, p).tolist()
-
-
-            model_data['scaler']=model.scaler.__dict__
-            scaler_par = ['mean_', 'var_', 'scale_']
-            for p in scaler_par:
-                if p in model.scaler.__dict__:
-                     model_data['scaler'][p] = getattr(model.scaler, p).tolist()
-
-        #print(model_data)
-
-        json_txt = json.dumps(model_data, indent=4)
-        yml_file.write(json_txt)
-        #yaml.dump(model_data,yml_file)
+                    model_data['model']['trained_par'][p] = model.model.__dict__[p].tolist()
+            model_data['model']['trained_par']['t_'] = model.model.__dict__['t_']
+            model_data['scaler']['mean_'] = model.scaler.__dict__['mean_'].tolist()
+            model_data['scaler']['scale_'] = model.scaler.__dict__['scale_'].tolist()
+        yaml.dump(model_data,yml_file)
     with open(txt_path,'w') as txt_file:
         res_str = model.print_CV_report()
         txt_file.write(res_str)
