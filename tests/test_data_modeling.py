@@ -8,6 +8,9 @@ from xrsdkit.tools.citrination_tools import get_data_from_Citrination
 from xrsdkit.models import predict, root_dir, model_dsids, downsample_by_group, train_from_dataframe
 from xrsdkit.visualization import visualize_dataframe
 
+# TODO: package a small dataframe for use in testing,
+# so that we don't have to download during tests 
+
 def download_pifs():
     api_key_file = os.path.join(root_dir, 'api_key.txt')
     df = None
@@ -38,8 +41,9 @@ def test_predict_spheres():
     f = open(datapath,'r')
     q_I = np.loadtxt(f,dtype=float,delimiter=',')
     feats = profiler.profile_spectrum(q_I)
-    pred = predict(feats,test=True)
-    print(pred)
+    # models will only be trained if a dataframe was downloaded
+    if df is not None:
+        pred = predict(feats,test=True)
 
 
 
