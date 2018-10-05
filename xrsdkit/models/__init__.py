@@ -459,7 +459,7 @@ def save_model_data(model,yml_path,txt_path):
         txt_file.write(res_str)
 
 def save_regression_models(models=regression_models, test=False):
-    """Serialize `models` to .yml files, and update local regression_models.
+    """Serialize `models` to .yml files, and also save them as module attributes.
 
     The models and scalers are saved to .yml,
     and a report of the cross-validation is saved to .txt.
@@ -473,25 +473,28 @@ def save_regression_models(models=regression_models, test=False):
         if True, the models will be saved in the testing dir.
     """
     rg_root_dir = regression_models_dir
-    if test: rg_root_dir = test_regression_models_dir 
+    model_dict = regression_models
+    if test: 
+        rg_root_dir = test_regression_models_dir 
+        model_dict = test_regression_models
     if not os.path.exists(rg_root_dir): os.mkdir(rg_root_dir)
     for sys_cls, sys_models in models.items():
         sys_dir_path = os.path.join(rg_root_dir,sys_cls)
-        if not sys_cls in regression_models: regression_models[sys_cls] = {}
+        if not sys_cls in model_dict: model_dict[sys_cls] = {}
         if not os.path.exists(sys_dir_path): os.mkdir(sys_dir_path)
         for pop_id, pop_models in sys_models.items():
             pop_dir_path = os.path.join(sys_dir_path,pop_id)
-            if not pop_id in regression_models[sys_cls]: regression_models[sys_cls][pop_id] = {}
+            if not pop_id in model_dict[sys_cls]: model_dict[sys_cls][pop_id] = {}
             if not os.path.exists(pop_dir_path): os.mkdir(pop_dir_path)
             for k,v in pop_models.items():
                 if k in regression_params:
                     if v:
-                        regression_models[sys_cls][pop_id][k] = v
+                        model_dict[sys_cls][pop_id][k] = v
                         yml_path = os.path.join(pop_dir_path,k+'.yml')
                         txt_path = os.path.join(pop_dir_path,k+'.txt')
                         save_model_data(v,yml_path,txt_path)
                 else:
-                    if not k in regression_models[sys_cls][pop_id]: regression_models[sys_cls][pop_id][k] = {}
+                    if not k in model_dict[sys_cls][pop_id]: model_dict[sys_cls][pop_id][k] = {}
                     pop_subdir_path = os.path.join(pop_dir_path,k)
                     if not os.path.exists(pop_subdir_path): os.mkdir(pop_subdir_path)
                     if k in crystalline_structures+disordered_structures:
@@ -499,7 +502,7 @@ def save_regression_models(models=regression_models, test=False):
                         if k in disordered_structures: param_nms = disordered_structure_params[k]
                         for param_nm in param_nms:
                             if v[param_nm]:
-                                regression_models[sys_cls][pop_id][k][param_nm] = v[param_nm]
+                                model_dict[sys_cls][pop_id][k][param_nm] = v[param_nm]
                                 yml_path = os.path.join(pop_subdir_path,param_nm+'.yml')
                                 txt_path = os.path.join(pop_subdir_path,param_nm+'.txt')
                                 save_model_data(v[param_nm],yml_path,txt_path)
@@ -509,19 +512,19 @@ def save_regression_models(models=regression_models, test=False):
                         bas_dir = os.path.join(pop_dir_path,k)
                         if not os.path.exists(bas_dir): os.mkdir(bas_dir)
                         for specie_id, specie_models in v.items():
-                            if not specie_id in regression_models[sys_cls][pop_id][k]:
-                                regression_models[sys_cls][pop_id][k][specie_id] = {}
+                            if not specie_id in model_dict[sys_cls][pop_id][k]:
+                                model_dict[sys_cls][pop_id][k][specie_id] = {}
                             specie_dir = os.path.join(bas_dir,specie_id)
                             if not os.path.exists(specie_dir): os.mkdir(specie_dir)
                             for param_nm, param_model in specie_models.items():
                                 if param_model:
-                                    regression_models[sys_cls][pop_id][k][specie_id][param_nm] = param_model
+                                    model_dict[sys_cls][pop_id][k][specie_id][param_nm] = param_model
                                     yml_path = os.path.join(specie_dir,param_nm+'.yml')
                                     txt_path = os.path.join(specie_dir,param_nm+'.txt')
                                     save_model_data(param_model,yml_path,txt_path)
 
 def save_classification_models(models=classification_models, test=False):
-    """Serialize `models` to .yml files, and update local classification_models.
+    """Serialize `models` to .yml files, and also save them as module attributes.
 
     The models and scalers are saved to .yml,
     and a report of the cross-validation is saved to .txt.
@@ -535,26 +538,29 @@ def save_classification_models(models=classification_models, test=False):
         if True, the models will be saved in the testing dir.
     """
     cl_root_dir = classification_models_dir
-    if test: cl_root_dir = test_classification_models_dir
+    model_dict = classification_models 
+    if test: 
+        cl_root_dir = test_classification_models_dir
+        model_dict = test_classification_models
     if not os.path.exists(cl_root_dir): os.mkdir(cl_root_dir)
     for sys_cls, sys_mod in models.items():
         if sys_cls == 'system_classification':
             if sys_mod:
-                classification_models[sys_cls] = sys_mod
+                model_dict[sys_cls] = sys_mod
                 yml_path = os.path.join(cl_root_dir,'system_classification.yml')
                 txt_path = os.path.join(cl_root_dir,'system_classification.txt')
                 save_model_data(sys_mod,yml_path,txt_path)
         else:
             sys_dir_path = os.path.join(cl_root_dir,sys_cls)
-            if not sys_cls in classification_models: classification_models[sys_cls] = {}
+            if not sys_cls in model_dict: model_dict[sys_cls] = {}
             if not os.path.exists(sys_dir_path): os.mkdir(sys_dir_path)
             for pop_id, pop_models in sys_mod.items():
-                if not pop_id in classification_models[sys_cls]: classification_models[sys_cls][pop_id] = {}
+                if not pop_id in model_dict[sys_cls]: model_dict[sys_cls][pop_id] = {}
                 pop_dir_path = os.path.join(sys_dir_path,pop_id)
                 if not os.path.exists(pop_dir_path): os.mkdir(pop_dir_path)
                 for cls_label, m in pop_models.items():
                     if m:
-                        classification_models[sys_cls][pop_id][cls_label] = m
+                        model_dict[sys_cls][pop_id][cls_label] = m
                         yml_path = os.path.join(sys_dir_path,pop_id,cls_label+'.yml')
                         txt_path = os.path.join(sys_dir_path,pop_id,cls_label+'.txt')
                         save_model_data(m,yml_path,txt_path)
