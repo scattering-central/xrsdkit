@@ -23,8 +23,8 @@ if sys.version_info[0] < 3:
 else:
     import tkinter
 
-def run_fit_gui(system,source_wavelength,q,I,dI=None,
-    error_weighted=True,
+def run_fit_gui(system,q,I,source_wavelength,
+    dI=None,error_weighted=True,
     logI_weighted=True,
     q_range=[0.,float('inf')],
     good_fit_prior=False):
@@ -32,6 +32,12 @@ def run_fit_gui(system,source_wavelength,q,I,dI=None,
     sys_opt, good_fit = gui.start()
     # collect results and return
     return sys_opt, good_fit
+
+# TODO: when a new frame is added to the control frame,
+#   call the canvas configuration method such that the scrollbar gets resized
+
+# TODO: when a population or specie is removed,
+#   ensure that the remaining populations and species remain in order
 
 # TODO: when a param is fixed or has a constraint set,
 #   make the entry widget read-only
@@ -130,7 +136,7 @@ class XRSDFitGUI(object):
         # built from FigureCanvasTkAgg.get_tk_widget()
         plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
         plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
-        self.fig = plot_xrsd_fit(self.sys,self.src_wl,self.q,self.I,self.dI,False)
+        self.fig = plot_xrsd_fit(self.sys,self.q,self.I,self.src_wl,self.dI,False)
         plot_frame_canvas = tkinter.Canvas(plot_frame)
         yscr = tkinter.Scrollbar(plot_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
@@ -205,12 +211,42 @@ class XRSDFitGUI(object):
         for pop_nm in self.sys.populations.keys():
             self._frames['parameters'][pop_nm] = OrderedDict()
             self._vars['parameters'][pop_nm] = OrderedDict()
-            self._create_pop_frame(pop_nm)
-        self._create_new_pop_frame()
+            self._frames['populations'][pop_nm] = self._create_pop_frame(pop_nm)
+        self._frames['new_population'] = self._create_new_pop_frame()
+        self._pack_population_frames()
+
+    def _pack_population_frames(self):
+        n_pop_frames = len(self._frames['populations'])
+        for pop_idx, pop_nm in enumerate(self._frames['populations'].keys()):
+            self._frames['populations'][pop_nm].grid(
+            row=2+pop_idx,pady=2,padx=2,sticky='ew')
+        self._frames['new_population'].grid(row=2+n_pop_frames,pady=2,padx=2,sticky='ew')
+
+    def _repack_pop_frames(self):
+        # 
+        # TODO: remove refs to vars belonging to obsolete frames
+        # 
+        for pop_nm,frm in self._frames['populations'].items(): frm.pack_forget() 
+        self._frames['new_population'].pack_forget()
+        new_pop_frms = OrderedDict()
+        # save the relevant frames, create new ones as needed 
+        for pop_nm in self._frames['populations'].keys(): 
+            if pop_nm in self.sys.populations:
+                new_pop_frms[pop_nm] = self._frames['populations'][pop_nm]
+        for pop_nm in self.sys.populations.keys():
+            if not pop_nm in self._frames['populations']:
+                new_pop_frms[pop_nm] = self._create_pop_frame(pop_nm)
+        # destroy any frames that didn't get saved 
+        for pop_nm,frm in self._frames['populations'].items():
+            if not pop_nm in self.sys.populations: frm.destroy()
+        # place the new frames in the _frames dict 
+        self._frames['populations'] = new_pop_frms
+        self._pack_population_frames()
 
     def _create_fit_control_frame(self):
         # TODO: callbacks for fit controls to update instance attributes
         # TODO: wavelength entry
+        print('create fit control frame')
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
@@ -249,17 +285,11 @@ class XRSDFitGUI(object):
         estbtn.grid(row=2,column=1,rowspan=2,sticky='nesw')
         fitbtn = tkinter.Button(cf,text='Fit',width=8,command=self._fit)
         fitbtn.grid(row=2,column=2,rowspan=2,sticky='nesw')
-        cf.pack(pady=2,padx=2,fill='both',expand=True)
-
-    def _update_fit_objective(self):
-        errwtd = self._vars['fit_control']['error_weighted'].get()
-        logwtd = self._vars['fit_control']['logI_weighted'].get()
-        qrng = [self._vars['fit_control']['q_range'][0].get(),\
-            self._vars['fit_control']['q_range'][1].get()]
-        obj_val = self.sys.evaluate_residual(self.src_wl,self.q,self.I,self.dI,errwtd,logwtd,qrng)
-        self._vars['fit_control']['objective'].set(str(obj_val))
+        #cf.pack(pady=2,padx=2,fill='both',expand=True)
+        cf.grid(row=0,pady=2,padx=2,sticky='ew')
 
     def _create_noise_frame(self):
+        print('create noise frame')
         nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         self._frames['noise_model'] = nf
         nmf = tkinter.Frame(nf,bd=0) 
@@ -269,24 +299,52 @@ class XRSDFitGUI(object):
         ntp_option_dict = list(noise_model_names)
         ntpcb = tkinter.OptionMenu(nmf,ntpvar,*ntp_option_dict)
         ntpvar.set(self.sys.noise_model.model)
-        ntpvar.trace('w',self._update_noise_frame)
+        ntpvar.trace('w',self._repack_noise_frame)
         ntpcb.pack(side=tkinter.LEFT,fill='x')
         self._vars['noise_model'] = ntpvar
-        nmf.pack(fill='x',expand=True)
+        nmf.grid(row=0,sticky='ew')
 
         self._frames['parameters']['noise'] = OrderedDict()
         self._vars['parameters']['noise'] = OrderedDict()
-        for ip,noise_param_nm in enumerate(noise_params[self.sys.noise_model.model]):
-            self._create_param_widget('noise',None,noise_param_nm) 
-        nf.pack(pady=2,padx=2,fill='x',expand=True)
-        
+        for noise_param_nm in noise_params[self.sys.noise_model.model]:
+            self._frames['parameters']['noise'][noise_param_nm] = \
+            self._create_param_frame('noise',None,noise_param_nm) 
+        self._pack_noise_params()
+        nf.grid(row=1,pady=2,padx=2,sticky='ew')
+
+    def _repack_noise_frame(self):
+        print('repack noise frame')
+        # 
+        # TODO: remove refs to vars belonging to obsolete frames
+        # 
+        nmdl = self.sys.noise_model.model
+        for par_nm,frm in self._frames['parameters']['noise'].items(): frm.pack_forget() 
+        new_par_frms = OrderedDict()
+        # save the relevant frames, create new ones as needed 
+        for par_nm in noise_model_params[nmdl]: 
+            if par_nm in self._frames['parameters']['noise']:
+                new_par_frms[par_nm] = self._frames['parameters']['noise'][par_nm]
+            else:
+                new_par_frms[par_nm] = self._create_param_frame('noise',None,par_nm)
+        # destroy any frames that didn't get repacked
+        for par_nm,frm in self._frames['parameters']['noise'].items():
+            if not par_nm in noise_model_params[nmdl]: frm.destroy()
+        # place the new frames in the _frames dict 
+        self._frames['parameters']['noise'] = new_par_frms
+        self._pack_noise_params()
+
+    def _pack_noise_params(self):
+        for param_idx, paramf in enumerate(self._frames['parameters']['noise'].values()):
+            paramf.grid(row=1+param_idx,sticky='ew')
+
     def _create_pop_frame(self,pop_nm):
+        print('create pop frame: {}'.format(pop_nm))
         pop = self.sys.populations[pop_nm]
         pf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         self._frames['populations'][pop_nm] = pf
         pop_struct = self.sys.populations[pop_nm].structure
-
-        # sub-frame for name and structure 
+        #
+        # NAME and STRUCTURE: 
         plf = tkinter.Frame(pf,bd=0)
         plf.grid_columnconfigure(2,weight=1)
         popl = tkinter.Label(plf,text='population:',anchor='e')
@@ -304,23 +362,30 @@ class XRSDFitGUI(object):
         strvar.trace('w',partial(self._update_structure,pop_nm))
         strcb.grid(row=1,column=1,sticky='ew')
         self._vars['structures'][pop_nm] = strvar
-        plf.pack(fill='x',expand=True)
-
+        plf.grid(row=0,sticky='ew')
+        #
+        # SETTINGS:
         self._frames['settings'][pop_nm] = OrderedDict()
         self._vars['settings'][pop_nm] = OrderedDict()
         for stg_nm in structure_settings[pop_struct]:
-            self._create_setting_widget(pop_nm,None,stg_nm)
-
+            self._frames['settings'][pop_nm][stg_nm] = \
+            self._create_setting_frame(pop_nm,None,stg_nm)
+        #
+        # PARAMETERS:
         self._frames['parameters'][pop_nm] = OrderedDict()
         self._vars['parameters'][pop_nm] = OrderedDict()
         param_nms = copy.deepcopy(structure_params[pop_struct])
-        if pop_struct == 'crystalline': 
-            param_nms.extend(copy.deepcopy(crystalline_structure_params[pop_struct]))
-        if pop_struct == 'disordered': 
-            param_nms.extend(copy.deepcopy(disordered_structure_params[pop_struct]))
+        if pop_struct == 'crystalline':
+            pop_lat = self.sys.populations[pop_nm].settings['lattice'] 
+            param_nms.extend(copy.deepcopy(crystalline_structure_params[pop_lat]))
+        if pop_struct == 'disordered':
+            pop_interxn = self.sys.populations[pop_nm].settings['interaction'] 
+            param_nms.extend(copy.deepcopy(disordered_structure_params[pop_interxn]))
         for param_nm in param_nms:
-            self._create_param_widget(pop_nm,None,param_nm)
-
+            self._frames['parameters'][pop_nm][param_nm] = \
+            self._create_param_frame(pop_nm,None,param_nm)
+        #
+        # SPECIES:
         self._frames['species'][pop_nm] = OrderedDict()
         self._frames['specie_parameters'][pop_nm] = OrderedDict()
         self._frames['specie_settings'][pop_nm] = OrderedDict()
@@ -328,59 +393,136 @@ class XRSDFitGUI(object):
         self._vars['specie_parameters'][pop_nm] = OrderedDict()
         self._vars['specie_settings'][pop_nm] = OrderedDict()
         for specie_nm,specie in self.sys.populations[pop_nm].basis.items():
+            self._frames['species'][pop_nm][specie_nm] = \
             self._create_specie_frame(pop_nm,specie_nm)
-        self._create_new_specie_frame(pop_nm)
+        self._frames['new_species'][pop_nm] = self._create_new_specie_frame(pop_nm)
+        #
+        # PACKING:
+        self._pack_setting_frames(pop_nm)
+        self._pack_parameter_frames(pop_nm)
+        self._pack_specie_frames(pop_nm)
+        return pf
 
-        pf.pack(pady=2,padx=2,fill='x',expand=True)
-
-    def _create_specie_frame(self,pop_nm,specie_nm):
-        parent_frame = self._frames['populations'][pop_nm]
-        specie = self.sys.populations[pop_nm].basis[specie_nm]
-        specief = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
-        self._frames['species'][pop_nm][specie_nm] = specief
+    def _repack_pop_frame(self,pop_nm):
+        print('repack pop frame: {}'.format(pop_nm))
+        # 
+        # TODO: remove refs to vars belonging to obsolete frames
+        # 
         pop_struct = self.sys.populations[pop_nm].structure
+        #
+        # SETTINGS: 
+        for stg_nm,frm in self._frames['settings'][pop_nm].items(): frm.pack_forget() 
+        new_stg_frms = OrderedDict()
+        # save the relevant frames, create new ones as needed 
+        for stg_nm in structure_settings[pop_struct]:
+            if stg_nm in self._frames['settings'][pop_nm]:
+                new_stg_frms[stg_nm] = self._frames['settings'][pop_nm][stg_nm]
+            else:
+                new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,None,stg_nm)
+        # destroy any frames that didn't get repacked
+        for stg_nm,frm in self._frames['settings'][pop_nm].items():
+            if not stg_nm in structure_settings[pop_struct]: frm.destroy()
+        # place the new frames in the _frames dict 
+        self._frames['settings'][pop_nm] = new_stg_frms
+        #
+        # PARAMETERS: 
+        for par_nm,frm in self._frames['parameters'][pop_nm].items(): frm.pack_forget() 
+        new_par_frms = OrderedDict()
+        # save the relevant frames, create new ones as needed 
+        param_nms = copy.deepcopy(structure_params[pop_struct])
+        if pop_struct == 'crystalline':
+            pop_lat = self.sys.populations[pop_nm].settings['lattice'] 
+            param_nms.extend(copy.deepcopy(crystalline_structure_params[pop_lat]))
+        if pop_struct == 'disordered':
+            pop_interxn = self.sys.populations[pop_nm].settings['interaction'] 
+            param_nms.extend(copy.deepcopy(disordered_structure_params[pop_interxn]))
+        for par_nm in param_nms: 
+            if par_nm in self._frames['parameters'][pop_nm]:
+                new_par_frms[par_nm] = self._frames['parameters'][pop_nm][par_nm]
+            else:
+                new_par_frms[par_nm] = self._create_param_frame(pop_nm,None,par_nm)
+        # destroy any frames that didn't get repacked
+        for par_nm,frm in self._frames['parameters'][pop_nm].items():
+            if not par_nm in param_nms: frm.destroy()
+        # place the new frames in the _frames dict 
+        self._frames['parameters'][pop_nm] = new_par_frms
+        #
+        # SPECIES: 
+        for spc_nm,frm in self._frames['species'][pop_nm].items(): frm.pack_forget() 
+        self._frames['new_species'][pop_nm].pack_forget()
+        new_spc_frms = OrderedDict()
+        # save the relevant frames, destroy any that are obsolete  
+        for spc_nm in self._frames['species'][pop_nm].keys():
+            if spc_nm in self.sys.populations[pop_nm].basis:
+                new_spc_frms[spc_nm] = self._frames['species'][pop_nm][spc_nm]
+            else:
+                self._frames['species'][pop_nm][spc_nm].destroy()
+        # check for new species, add frames as needed
+        for spc_nm in self.sys.populations[pop_nm].basis.keys():
+            if not spc_nm in new_spc_frms:
+                new_spc_frms[spc_nm] = self._create_specie_frame(pop_nm,spc_nm)
+        # place the new frames in the _frames dict 
+        self._frames['species'][pop_nm] = new_spc_frms
+        # PACKING 
+        self._pack_setting_frames(pop_nm)
+        self._pack_parameter_frames(pop_nm)
+        self._pack_specie_frames(pop_nm)
 
-        # sub-frame for name and form factor
-        speclf = tkinter.Frame(specief,bd=0)
-        speclf.grid_columnconfigure(2,weight=1)
-        specl = tkinter.Label(speclf,text='specie:',anchor='e')
-        specnml = tkinter.Label(speclf,text=specie_nm,anchor='w')
-        specl.grid(row=0,column=0,sticky='e')
-        specnml.grid(row=0,column=1,padx=10,sticky='w')
-        rmb = tkinter.Button(speclf,text='x',command=partial(self._remove_specie,pop_nm,specie_nm))
-        rmb.grid(row=0,column=2,sticky='e')
-        ffl = tkinter.Label(speclf,text='form factor:',width=12,anchor='e')
-        ffl.grid(row=1,column=0,sticky='e')
-        ffvar = tkinter.StringVar(speclf)
-        ff_option_dict = OrderedDict.fromkeys(form_factor_names)
-        ffcb = tkinter.OptionMenu(speclf,ffvar,*ff_option_dict)
-        ffvar.set(specie.form)
-        ffvar.trace('w',partial(self._update_form_factor))
-        ffcb.grid(row=1,column=1,sticky='ew') 
-        self._vars['form_factors'][pop_nm][specie_nm] = ffvar
-        speclf.pack(fill='x',expand=True)
+    def _pack_setting_frames(self,pop_nm):
+        for stg_idx, stg_frm in enumerate(self._frames['settings'][pop_nm].values()):
+            stg_frm.grid(row=1+stg_idx,sticky='ew')
 
-        self._frames['specie_settings'][pop_nm][specie_nm] = OrderedDict()
-        self._vars['specie_settings'][pop_nm][specie_nm] = OrderedDict()
-        for istg,stg_nm in enumerate(form_factor_settings[specie.form]):
-            self._create_setting_widget(pop_nm,specie_nm,stg_nm)
+    def _pack_parameter_frames(self,pop_nm):
+        n_stg_frms = len(self._frames['settings'][pop_nm])
+        for param_idx, paramf in enumerate(self._frames['parameters'][pop_nm].values()):
+            paramf.grid(row=1+n_stg_frms+param_idx,sticky='ew')
 
-        self._frames['specie_parameters'][pop_nm][specie_nm] = OrderedDict()
-        self._vars['specie_parameters'][pop_nm][specie_nm] = OrderedDict()
-        for ip,param_nm in enumerate(form_factor_params[specie.form]):
-            self._create_param_widget(pop_nm,specie_nm,param_nm)
+    def _pack_specie_frames(self,pop_nm):
+        n_stg_frms = len(self._frames['settings'][pop_nm])
+        n_param_frms = len(self._frames['parameters'][pop_nm])
+        n_specie_frms = len(self._frames['species'][pop_nm])
+        for spc_idx, specief in enumerate(self._frames['species'][pop_nm].values()):
+            specief.grid(row=1+n_stg_frms+n_param_frms,sticky='ew')
+        bottom_row = 1+n_stg_frms+n_param_frms+n_specie_frms
+        self._frames['new_species'][pop_nm].grid(row=bottom_row,sticky='ew')
 
-        specief.pack(fill='x',expand=True)
+    def _create_setting_frame(self,pop_nm,specie_nm,stg_nm):
+        print('create setting frame: {}.{}.{}'.format(pop_nm,specie_nm,stg_nm))
+        stg_vars = self._vars['settings'][pop_nm]
+        stg_frames = self._frames['settings'][pop_nm]
+        parent_obj = self.sys.populations[pop_nm]
+        parent_frame = self._frames['populations'][pop_nm]
+        stg_default = setting_defaults[stg_nm]
+        if specie_nm:
+            stg_vars = self._vars['specie_settings'][pop_nm][specie_nm]
+            stg_frames = self._frames['specie_settings'][pop_nm][specie_nm]
+            parent_obj = self.sys.populations[pop_nm].basis[specie_nm]
+            parent_frame = self._frames['species'][pop_nm][specie_nm]
+        stgf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
+        stgf.grid_columnconfigure(1,weight=1)
 
-        if pop_struct == 'crystalline': 
-            self._create_coordinate_widgets(pop_nm,specie_nm)
+        if setting_datatypes[stg_nm] is str:
+            stgv = tkinter.StringVar(parent_frame)
+        elif setting_datatypes[stg_nm] is int:
+            stgv = tkinter.IntVar(parent_frame)
+        elif setting_datatypes[stg_nm] is float:
+            stgv = tkinter.DoubleVar(parent_frame)
+        stg_frames[stg_nm] = stgf
+        stg_vars[stg_nm] = stgv
 
-    def _create_coordinate_widgets(self,pop_nm,specie_nm):
-        self._create_param_widget(pop_nm,specie_nm,'coordx')
-        self._create_param_widget(pop_nm,specie_nm,'coordy')
-        self._create_param_widget(pop_nm,specie_nm,'coordz')
+        stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
+        stgl.grid(row=0,column=0,sticky='e')
+        s = setting_defaults[stg_nm]
+        if stg_nm in parent_obj.settings:
+            s = parent_obj.settings[stg_nm]
+        stgv.set(str(s))
+        stge = self.connected_entry(stgf,stgv,
+            partial(self._update_setting,pop_nm,specie_nm,stg_nm))
+        stge.grid(row=0,column=1,sticky='ew')
+        return stgf
 
-    def _create_param_widget(self,pop_nm,specie_nm,param_nm):
+    def _create_param_frame(self,pop_nm,specie_nm,param_nm):
+        print('create param frame: {}.{}.{}'.format(pop_nm,specie_nm,param_nm))
         param_vars = self._vars['parameters'][pop_nm]
         param_frames = self._frames['parameters'][pop_nm]
         param_var_nm = pop_nm+'__'+param_nm
@@ -402,6 +544,7 @@ class XRSDFitGUI(object):
             parent_frame = self._frames['populations'][pop_nm]
             parent_obj = self.sys.populations[pop_nm]
             param_default = param_defaults[param_nm]
+        param_idx = len(param_frames)
         if not param_nm in param_vars: param_vars[param_nm] = {}
 
         paramf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
@@ -466,50 +609,111 @@ class XRSDFitGUI(object):
         pexpe = self.connected_entry(paramf,exprv,
             partial(self._update_param,pop_nm,specie_nm,param_nm,'constraint_expr'),16)
         pexpe.grid(row=4,column=1,columnspan=2,sticky='ew')
+        return paramf
 
-        paramf.pack(fill='x',expand=True)
-
-    def _create_setting_widget(self,pop_nm,specie_nm,stg_nm):
-        stg_vars = self._vars['settings'][pop_nm]
-        stg_frames = self._frames['settings'][pop_nm]
-        parent_obj = self.sys.populations[pop_nm]
+    def _create_specie_frame(self,pop_nm,specie_nm):
+        print('create specie frame: {}.{}'.format(pop_nm,specie_nm))
         parent_frame = self._frames['populations'][pop_nm]
-        stg_default = setting_defaults[stg_nm]
-        if specie_nm:
-            stg_vars = self._vars['specie_settings'][pop_nm][specie_nm]
-            stg_frames = self._frames['specie_settings'][pop_nm][specie_nm]
-            parent_obj = self.sys.populations[pop_nm].basis[specie_nm]
-            parent_frame = self._frames['species'][pop_nm][specie_nm]
+        specie = self.sys.populations[pop_nm].basis[specie_nm]
+        specief = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
+        self._frames['species'][pop_nm][specie_nm] = specief
+        pop_struct = self.sys.populations[pop_nm].structure
+        #
+        # NAME and FORM FACTOR: 
+        speclf = tkinter.Frame(specief,bd=0)
+        speclf.grid_columnconfigure(2,weight=1)
+        specl = tkinter.Label(speclf,text='specie:',anchor='e')
+        specnml = tkinter.Label(speclf,text=specie_nm,anchor='w')
+        specl.grid(row=0,column=0,sticky='e')
+        specnml.grid(row=0,column=1,padx=10,sticky='w')
+        rmb = tkinter.Button(speclf,text='x',command=partial(self._remove_specie,pop_nm,specie_nm))
+        rmb.grid(row=0,column=2,sticky='e')
+        ffl = tkinter.Label(speclf,text='form factor:',width=12,anchor='e')
+        ffl.grid(row=1,column=0,sticky='e')
+        ffvar = tkinter.StringVar(speclf)
+        ff_option_dict = OrderedDict.fromkeys(form_factor_names)
+        ffcb = tkinter.OptionMenu(speclf,ffvar,*ff_option_dict)
+        ffvar.set(specie.form)
+        ffvar.trace('w',partial(self._update_form_factor))
+        ffcb.grid(row=1,column=1,sticky='ew') 
+        self._vars['form_factors'][pop_nm][specie_nm] = ffvar
+        speclf.grid(row=0,sticky='ew')
+        #
+        # SETTINGS:
+        self._frames['specie_settings'][pop_nm][specie_nm] = OrderedDict()
+        self._vars['specie_settings'][pop_nm][specie_nm] = OrderedDict()
+        for istg,stg_nm in enumerate(form_factor_settings[specie.form]):
+            self._frames['specie_settings'][pop_nm][specie_nm][stg_nm] = \
+            self._create_setting_frame(pop_nm,specie_nm,stg_nm)
+        #
+        # PARAMETERS:
+        self._frames['specie_parameters'][pop_nm][specie_nm] = OrderedDict()
+        self._vars['specie_parameters'][pop_nm][specie_nm] = OrderedDict()
+        for param_nm in form_factor_params[specie.form]:
+            self._frames['specie_parameters'][pop_nm][specie_nm][param_nm] = \
+            self._create_param_frame(pop_nm,specie_nm,param_nm)
+        if pop_struct == 'crystalline': 
+            self._frames['specie_parameters'][pop_nm][specie_nm]['coordx'] = \
+            self._create_param_frame(pop_nm,specie_nm,'coordx')
+            self._frames['specie_parameters'][pop_nm][specie_nm]['coordy'] = \
+            self._create_param_frame(pop_nm,specie_nm,'coordy')
+            self._frames['specie_parameters'][pop_nm][specie_nm]['coordz'] = \
+            self._create_param_frame(pop_nm,specie_nm,'coordz')
+        self._pack_specie_setting_frames(pop_nm,specie_nm)
+        self._pack_specie_parameter_frames(pop_nm,specie_nm)
+        return specief
 
-        stgf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
-        stgf.grid_columnconfigure(1,weight=1)
+    def _repack_specie_frame(self,pop_nm,specie_nm):
+        print('repack specie frame: {}.{}'.format(pop_nm,specie_nm))
+        # 
+        # TODO: remove refs to vars belonging to obsolete frames
+        # 
+        spc_form = self.sys.populations[pop_nm].basis[specie_nm].form
+        #
+        # SETTINGS: 
+        for stg_nm,frm in self._frames['specie_settings'][pop_nm][specie_nm].items(): frm.pack_forget() 
+        new_stg_frms = OrderedDict()
+        # save the relevant frames, create new ones as needed 
+        for stg_nm in form_factor_settings[spc_form]:
+            if stg_nm in self._frames['specie_settings'][pop_nm][specie_nm]:
+                new_stg_frms[stg_nm] = self._frames['specie_settings'][pop_nm][specie_nm][stg_nm]
+            else:
+                new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,specie_nm,stg_nm)
+        # destroy any frames that didn't get repacked
+        for stg_nm,frm in self._frames['specie_settings'][pop_nm][specie_nm].items():
+            if not stg_nm in form_factor_settings[spc_form]: frm.destroy()
+        # place the new frames in the _frames dict 
+        self._frames['specie_settings'][pop_nm][specie_nm] = new_stg_frms
+        #
+        # PARAMETERS: 
+        for par_nm,frm in self._frames['specie_parameters'][pop_nm][specie_nm].items(): frm.pack_forget() 
+        new_par_frms = OrderedDict()
+        # save the relevant frames, create new ones as needed 
+        for par_nm in form_factor_params[spc_form]: 
+            if par_nm in self._frames['specie_parameters'][pop_nm][specie_nm]:
+                new_par_frms[par_nm] = self._frames['specie_parameters'][pop_nm][specie_nm][par_nm]
+            else:
+                new_par_frms[par_nm] = self._create_param_frame(pop_nm,specie_nm,par_nm)
+        # destroy any frames that didn't get repacked
+        for par_nm,frm in self._frames['specie_parameters'][pop_nm][specie_nm].items():
+            if not par_nm in form_factor_params[spc_form]: frm.destroy()
+        # place the new frames in the _frames dict 
+        self._frames['specie_parameters'][pop_nm][specie_nm] = new_par_frms
+        # PACKING 
+        self._pack_specie_setting_frames(pop_nm,specie_nm)
+        self._pack_specie_parameter_frames(pop_nm,specie_nm)
 
-        if setting_datatypes[stg_nm] is str:
-            stgv = tkinter.StringVar(parent_frame)
-        elif setting_datatypes[stg_nm] is int:
-            stgv = tkinter.IntVar(parent_frame)
-        elif setting_datatypes[stg_nm] is float:
-            stgv = tkinter.DoubleVar(parent_frame)
-        stg_frames[stg_nm] = stgf
-        stg_vars[stg_nm] = stgv
+    def _pack_specie_setting_frames(self,pop_nm,specie_nm):
+        for stg_idx, stg_frm in enumerate(self._frames['specie_settings'][pop_nm][specie_nm].values()):
+            stg_frm.grid(row=1+stg_idx,sticky='ew')
 
-        stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
-        stgl.grid(row=0,column=0,sticky='e')
-        s = setting_defaults[stg_nm]
-        if stg_nm in parent_obj.settings:
-            s = parent_obj.settings[stg_nm]
-        stgv.set(str(s))
-        stge = self.connected_entry(stgf,stgv,
-            partial(self._update_setting,pop_nm,specie_nm,stg_nm))
-        stge.grid(row=0,column=1,sticky='ew')
-        stgf.pack(fill='x',expand=True)
-
-    def _draw_plots(self):
-        draw_xrsd_fit(self.fig,self.sys_opt,self.src_wl,self.q,self.I,None,False)
-        self.mpl_canvas.draw()
-        self._update_fit_objective()
+    def _pack_specie_parameter_frames(self,pop_nm,specie_nm):
+        n_stg_frms = len(self._frames['specie_settings'][pop_nm][specie_nm])
+        for param_idx, paramf in enumerate(self._frames['specie_parameters'][pop_nm][specie_nm].values()):
+            paramf.grid(row=1+n_stg_frms+param_idx,sticky='ew')
 
     def _create_new_pop_frame(self):
+        print('create new pop frame')
         npf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         npf.grid_columnconfigure(1,weight=1)
         self._frames['new_population'] = npf
@@ -521,9 +725,12 @@ class XRSDFitGUI(object):
         nme.bind('<Return>',self._new_population)
         addb = tkinter.Button(npf,text='+',command=self._new_population)
         addb.grid(row=0,column=2,sticky='e')
-        npf.pack(pady=2,padx=2,fill='x',expand=True)
+        #npf.pack(pady=2,padx=2,fill='x',expand=True)
+        npops = len(self._frames['populations'])
+        return npf
 
     def _create_new_specie_frame(self,pop_nm):
+        print('create new specie frame: {}'.format(pop_nm))
         pf = self._frames['populations'][pop_nm]
         nsf = tkinter.Frame(pf,bd=2,pady=10,padx=10,relief=tkinter.GROOVE)
         nsf.grid_columnconfigure(1,weight=1)
@@ -536,13 +743,28 @@ class XRSDFitGUI(object):
         stnme.bind('<Return>',partial(self._new_specie,pop_nm))
         addb = tkinter.Button(nsf,text='+',command=partial(self._new_specie,pop_nm))
         addb.grid(row=0,column=2,sticky='e')
-        nsf.pack(fill='x',expand=True)
+        return nsf
+
+    def _draw_plots(self):
+        print('draw_plots')
+        draw_xrsd_fit(self.fig,self.sys_opt,self.q,self.I,self.src_wl,self.dI,False)
+        self.mpl_canvas.draw()
+        self._update_fit_objective()
+
+    def _update_fit_objective(self):
+        errwtd = self._vars['fit_control']['error_weighted'].get()
+        logwtd = self._vars['fit_control']['logI_weighted'].get()
+        qrng = [self._vars['fit_control']['q_range'][0].get(),\
+            self._vars['fit_control']['q_range'][1].get()]
+        obj_val = self.sys.evaluate_residual(self.q,self.I,self.src_wl,self.dI,errwtd,logwtd,qrng)
+        self._vars['fit_control']['objective'].set(str(obj_val))
 
     def _update_param(self,pop_nm,specie_nm,param_nm,param_key,param_idx=None,event=None):
         # param_key should be 'value', 'fixed', 'bounds', or 'constraint_expr'
         # if param_key == 'bounds', param_idx must be 0 or 1
         vflag = self._validate_param(pop_nm,specie_nm,param_nm,param_key,param_idx)
-        #print('{}.{}.{}.{}.{}: {}'.format(pop_nm,specie_nm,param_nm,param_key,param_idx,vflag))
+        print('update_param {}.{}.{}.{}.{}: {}'.format(pop_nm,specie_nm,param_nm,param_key,param_idx,vflag))
+        print('trigger event: {}'.format(event))
         if vflag:
             if pop_nm == 'noise':
                 x = self.sys.noise_model
@@ -561,12 +783,15 @@ class XRSDFitGUI(object):
             else:
                 xp = x.parameters[param_nm]
             new_param = copy.deepcopy(xp)
+            param_changed = False
             if param_idx in [0,1]: 
                 new_val = tkv[param_key][param_idx].get()
                 if new_val in ['None','none','']:
                     new_param[param_key][param_idx] = None
                 else: 
                     new_param[param_key][param_idx] = float(new_val) 
+                if not new_param[param_key][param_idx] == xp[param_key][param_idx]: 
+                    param_changed = True
             else:
                 new_val = tkv[param_key].get()
                 if param_key == 'constraint_expr':
@@ -574,19 +799,23 @@ class XRSDFitGUI(object):
                     if new_val in ['None','none','']:
                         new_val = None
                 new_param[param_key] = new_val 
-            if param_nm in ['coordx','coordy','coordz']:
-                if param_nm == 'coordx': cidx = 0
-                if param_nm == 'coordy': cidx = 1
-                if param_nm == 'coordz': cidx = 2
-                x.update_coordinate(cidx,new_param)
-            else:
-                x.update_parameter(param_nm,new_param)
-            self._draw_plots()
+                if not new_param[param_key] == xp[param_key]: 
+                    param_changed = True
+            if param_changed: 
+                if param_nm in ['coordx','coordy','coordz']:
+                    if param_nm == 'coordx': cidx = 0
+                    if param_nm == 'coordy': cidx = 1
+                    if param_nm == 'coordz': cidx = 2
+                    x.update_coordinate(cidx,new_param)
+                else:
+                    x.update_parameter(param_nm,new_param)
+                self._draw_plots()
         return vflag
 
     def _update_setting(self,pop_nm,specie_nm,stg_nm,event=None):
         vflag = self._validate_setting(pop_nm,specie_nm,stg_nm) 
-        print('{}.{}.{}: {}'.format(pop_nm,specie_nm,stg_nm,vflag))
+        print('update_setting {}.{}.{}: {}'.format(pop_nm,specie_nm,stg_nm,vflag))
+        print('trigger event: {}'.format(event))
         if vflag:
             x = self.sys.populations[pop_nm]
             tkv = self._vars['settings'][pop_nm]
@@ -594,9 +823,13 @@ class XRSDFitGUI(object):
                 x = x.basis[specie_nm] 
                 tkv = self._vars['specie_settings'][pop_nm][specie_nm][stg_nm]
             new_val = tkv.get()
-            x.update_setting(stg_nm,new_val)
-            self._update_specie_frame(pop_nm,specie_nm) 
-            self._draw_plots()
+            if not new_val == x.settings[stg_nm]:
+                x.update_setting(stg_nm,new_val)
+                if specie_nm:
+                    self._repack_specie_frame(pop_nm,specie_nm)
+                else:
+                    self._repack_pop_frame(pop_nm)
+                self._draw_plots()
         return vflag
 
     def _validate_setting(self,pop_nm,specie_nm,stg_nm):
@@ -663,223 +896,66 @@ class XRSDFitGUI(object):
                 tkvs[param_key].set(old_val)
         return is_valid
 
-    def _update_structure(self,pop_nm,event=None):
-        s = self._vars['structures'][pop_nm].get()
-        if not s == self.sys.populations[pop_nm].structure:
-            self.sys.populations[pop_nm].set_structure(s)
-            self._update_pop_frame(pop_nm)
-
-    def _update_form_factor(self,pop_nm,specie_nm,event=None):
-        f = self._vars['form_factors'][pop_nm][specie_nm].get()
-        if not f == self.sys.populations[pop_nm].basis[specie_nm].form:
-            self.sys.populations[pop_nm].basis[specie_nm].set_form(f)
-            self._update_specie_frame(pop_nm,specie_nm)
-
-    def _remove_population(self,pop_nm):
-        # remove the population from self.sys
-        self.sys.remove_population(pop_nm)
-        # remove any associated frames and vars
-        self._update_control_frame()
-        self._draw_plots()
-
-    def _remove_specie(self,pop_nm,specie_nm):
-        # remove the specie from the population
-        self.sys.populations[pop_nm].remove_specie(specie_nm)
-        # remove any associated frames and vars
-        self._update_pop_frame(pop_nm) 
-        self._draw_plots()
-
-    def _update_control_frame(self):
-        popfrm_nms = list(self._frames['populations'].keys())
-        for pnm in popfrm_nms:
-            if not pnm in self.sys.populations:
-                self._frames['settings'].pop(pnm)
-                self._frames['parameters'].pop(pnm)
-                self._frames['species'].pop(pnm)
-                self._frames['specie_settings'].pop(pnm)
-                self._frames['specie_parameters'].pop(pnm)
-                self._frames['new_species'].pop(pnm)
-                self._frames['populations'][pnm].pack_forget() 
-                self._frames['populations'][pnm].destroy()
-                self._frames['populations'].pop(pnm)
-                self._vars['structures'].pop(pnm)
-                self._vars['settings'].pop(pnm)
-                self._vars['parameters'].pop(pnm)
-                self._vars['form_factors'].pop(pnm)
-                self._vars['specie_settings'].pop(pnm)
-                self._vars['specie_parameters'].pop(pnm)
-                self._vars['new_specie_names'].pop(pnm)
-        self._update_noise_frame()
-        for pnm in self.sys.populations.keys():
-            if pnm in self._frames['populations']:
-                self._update_pop_frame(pnm)
-            else:
-                self._frames['new_population'].pack_forget() 
-                self._create_pop_frame(pnm)
-                self._frames['new_population'].pack(pady=2,padx=2,fill='x',expand=True)
-
-    def _update_noise_frame(self):
-        parfrm_nms = list(self._frames['parameters']['noise'].keys())
-        # remove any obsolete param widgets
-        for par_nm in parfrm_nms:
-            if not par_nm in self.sys.noise_model.parameters:
-                self._frames['parameters']['noise'][par_nm].pack_forget()
-                self._frames['parameters']['noise'][par_nm].destroy()
-                self._frames['parameters']['noise'].pop(par_nm)
-                self._vars['parameters']['noise'].pop(par_nm)
-        # repack param widgets, add any that are missing
-        param_nms = copy.deepcopy(noise_params[self.sys.noise_model.model])
-        for param_nm in param_nms:
-            if not param_nm in self._frames['parameters']['noise']:
-                self._create_param_widget('noise',None,param_nm)
-            else:
-                self._frames['parameters']['noise'][param_nm].pack_forget()
-                self._frames['parameters']['noise'][param_nm].pack(fill='x',expand=True)
-                self._vars['parameters']['noise'][param_nm]['value'].set(
-                self.sys.noise_model.parameters[param_nm]['value'])
-
-    def _update_pop_frame(self,pop_nm):
-        stgfrm_nms = list(self._frames['settings'][pop_nm].keys())
-        parfrm_nms = list(self._frames['parameters'][pop_nm].keys())
-        spcfrm_nms = list(self._frames['species'][pop_nm].keys())
-        pop_struct = self.sys.populations[pop_nm].structure
-        # remove any obsolete setting widgets
-        for stg_nm in stgfrm_nms:
-            if not stg_nm in self.sys.populations[pop_nm].settings:
-                self._frames['settings'][pop_nm][stg_nm].pack_forget()
-                self._frames['settings'][pop_nm][stg_nm].destroy()
-                self._frames['settings'][pop_nm].pop(stg_nm)
-                self._vars['settings'][pop_nm].pop(stg_nm)
-        # remove any obsolete param widgets
-        for par_nm in parfrm_nms:
-            if not par_nm in self.sys.populations[pop_nm].parameters:
-                self._frames['parameters'][pop_nm][par_nm].pack_forget()
-                self._frames['parameters'][pop_nm][par_nm].destroy()
-                self._frames['parameters'][pop_nm].pop(par_nm)
-                self._vars['parameters'][pop_nm].pop(par_nm)
-        # remove any obsolete specie widgets
-        for spc_nm in spcfrm_nms:
-            if not spc_nm in self.sys.populations[pop_nm].basis:
-                self._frames['specie_parameters'][pop_nm].pop(spc_nm)
-                self._frames['specie_settings'][pop_nm].pop(spc_nm)
-                self._frames['species'][pop_nm][spc_nm].pack_forget()
-                self._frames['species'][pop_nm][spc_nm].destroy()
-                self._frames['species'][pop_nm].pop(spc_nm)
-                self._vars['form_factors'][pop_nm].pop(spc_nm)
-                self._vars['specie_settings'][pop_nm].pop(spc_nm)
-                self._vars['specie_parameters'][pop_nm].pop(spc_nm)
-        # repack setting widgets, add any that are missing
-        for stg_nm in structure_settings[pop_struct]:
-            if not stg_nm in self._frames['settings'][pop_nm]:
-                self._create_setting_widget(pop_nm,None,stg_nm)
-            else:
-                self._frames['settings'][pop_nm][stg_nm].pack_forget()
-                self._frames['settings'][pop_nm][stg_nm].pack(fill='x',expand=True)
-        # repack param widgets, add any that are missing
-        param_nms = copy.deepcopy(structure_params[pop_struct])
-        if pop_struct == 'crystalline': 
-            pop_lat = self.sys.populations[pop_nm].settings['lattice']
-            param_nms.extend(copy.deepcopy(crystalline_structure_params[pop_lat]))
-        if pop_struct == 'disordered': 
-            pop_int = self.sys.populations[pop_nm].settings['interaction']
-            param_nms.extend(copy.deepcopy(disordered_structure_params[pop_int]))
-        for param_nm in param_nms:
-            if not param_nm in self._frames['parameters'][pop_nm]:
-                self._create_param_widget(pop_nm,None,param_nm)
-            else:
-                self._frames['parameters'][pop_nm][param_nm].pack_forget()
-                self._frames['parameters'][pop_nm][param_nm].pack(fill='x',expand=True)
-                self._vars['parameters'][pop_nm][param_nm]['value'].set(
-                self.sys.populations[pop_nm].parameters[param_nm]['value'])
-        # update and repack any specie widgets, add any that are missing
-        self._frames['new_species'][pop_nm].pack_forget()
-        for specie_nm in self.sys.populations[pop_nm].basis.keys():
-            if not specie_nm in self._frames['species'][pop_nm]:
-                self._create_specie_frame(pop_nm,specie_nm)
-            else:
-                self._update_specie_frame(pop_nm,specie_nm)
-                self._frames['species'][pop_nm][specie_nm].pack_forget()
-                self._frames['species'][pop_nm][specie_nm].pack(fill='x',expand=True)
-        self._frames['new_species'][pop_nm].pack(fill='x',expand=True)
-
-    def _update_specie_frame(self,pop_nm,specie_nm):
-        stgfrm_nms = list(self._frames['specie_settings'][pop_nm][specie_nm].keys())
-        parfrm_nms = list(self._frames['specie_parameters'][pop_nm][specie_nm].keys())
-        pop_struct = self.sys.populations[pop_nm].structure
-        specie_form = self.sys.populations[pop_nm].basis[specie_nm].form
-        # remove any obsolete setting widgets
-        for stg_nm in stgfrm_nms:
-            if not stg_nm in self.sys.populations[pop_nm].basis[specie_nm].settings:
-                self._frames['specie_settings'][pop_nm][specie_nm][stg_nm].pack_forget()
-                self._frames['specie_settings'][pop_nm][specie_nm][stg_nm].destroy()
-                self._frames['specie_settings'][pop_nm][specie_nm].pop(stg_nm)
-                self._vars['specie_settings'][pop_nm][specie_nm].pop(stg_nm)
-        # remove any obsolete param widgets
-        for par_nm in parfrm_nms:
-            if (not par_nm in self.sys.populations[pop_nm].basis[specie_nm].parameters 
-                and not par_nm in ['coordx','coordy','coordz']) \
-            or (par_nm in ['coordx','coordy','coordz'] 
-                and not pop_struct == 'crystalline'):
-                self._frames['specie_parameters'][pop_nm][specie_nm][par_nm].pack_forget()
-                self._frames['specie_parameters'][pop_nm][specie_nm][par_nm].destroy()
-                self._frames['specie_parameters'][pop_nm][specie_nm].pop(par_nm)
-                self._vars['specie_parameters'][pop_nm][specie_nm].pop(par_nm)
-        # repack setting widgets, add any that are missing
-        for stg_nm in form_factor_settings[specie_form]:
-            if not stg_nm in self._frames['specie_settings'][pop_nm][specie_nm]:
-                self._create_setting_widget(pop_nm,specie_nm,stg_nm)
-            else:
-                self._frames['specie_settings'][pop_nm][specie_nm][stg_nm].pack_forget()
-                self._frames['specie_settings'][pop_nm][specie_nm][stg_nm].pack(fill='x',expand=True)
-        # repack param widgets, add any that are missing
-        param_nms = copy.deepcopy(form_factor_params[specie_form])
-        for param_nm in param_nms:
-            if not param_nm in self._frames['specie_parameters'][pop_nm][specie_nm]:
-                self._create_param_widget(pop_nm,specie_nm,param_nm)
-            else:
-                self._frames['specie_parameters'][pop_nm][specie_nm][param_nm].pack_forget()
-                self._frames['specie_parameters'][pop_nm][specie_nm][param_nm].pack(fill='x',expand=True)
-                if param_nm in ['coordx','coordy','coordz']:
-                    if param_nm == 'coordx': cidx = 0
-                    if param_nm == 'coordy': cidx = 1
-                    if param_nm == 'coordz': cidx = 2
-                    self._vars['specie_parameters'][pop_nm][specie_nm][param_nm]['value'].set(
-                    self.sys.populations[pop_nm].basis[specie_nm].coordinates[cidx]['value'])
-                else:
-                    self._vars['specie_parameters'][pop_nm][specie_nm][param_nm]['value'].set(
-                    self.sys.populations[pop_nm].basis[specie_nm].parameters[param_nm]['value'])
-        # if the structure has been updated to 'crystalline',
-        # but coordinate widgets do not exist,
-        # create them now
-        if pop_struct == 'crystalline' \
-        and not 'coordx' in self._frames['specie_parameters'][pop_nm][specie_nm].keys():
-            self._create_coordinate_widgets(pop_nm,specie_nm)
-
     def _new_population(self,event=None):
         new_nm = self._vars['new_population_name'].get()
         if new_nm and not new_nm in self.sys.populations:
             self.sys.add_population(new_nm,'diffuse')
             self._frames['new_population'].pack_forget() 
-            self._create_pop_frame(new_nm)
-            self._frames['new_population'].pack(pady=2,padx=2,fill='x',expand=True)
+            self._frames['populations'][new_nm] = self._create_pop_frame(new_nm)
+            npops = len(self._frames['populations'])
+            self._frames['populations'][new_nm].grid(row=1+npops,padx=2,pady=2,sticky='ew') 
+            self._frames['new_population'].grid(row=2+npops,padx=2,pady=2,sticky='ew') 
 
     def _new_specie(self,pop_nm,event=None):
         specie_nm = self._vars['new_specie_names'][pop_nm].get()
         if specie_nm and not specie_nm in self.sys.populations[pop_nm].basis:
             self.sys.populations[pop_nm].add_specie(specie_nm,'atomic')
             self._frames['new_species'][pop_nm].pack_forget() 
-            self._create_specie_frame(pop_nm,specie_nm)
-            self._frames['new_species'][pop_nm].pack(fill='x',expand=True)
+            self._frames['species'][pop_nm][specie_nm] = self._create_specie_frame(pop_nm,specie_nm)
+            n_stg_frms = len(self._frames['settings'][pop_nm])
+            n_param_frms = len(self._frames['parameters'][pop_nm])
+            n_specie_frms = len(self._frames['species'][pop_nm])
+            self._frames['species'][pop_nm][specie_nm].grid(row=1+n_stg_frms+n_param_frms+n_specie_frms,sticky='ew')  
+            self._frames['new_species'][pop_nm].grid(row=2+n_stg_frms+n_param_frms+n_specie_frms,sticky='ew')
+
+    def _update_structure(self,pop_nm,event=None):
+        print('update structure: {}'.format(pop_nm))
+        print('trigger event: {}'.format(event))
+        s = self._vars['structures'][pop_nm].get()
+        if not s == self.sys.populations[pop_nm].structure:
+            self.sys.populations[pop_nm].set_structure(s)
+            self._repack_pop_frame(pop_nm)
+
+    def _update_form_factor(self,pop_nm,specie_nm,event=None):
+        print('update form factor: {}.{}'.format(pop_nm,specie_nm))
+        print('trigger event: {}'.format(event))
+        f = self._vars['form_factors'][pop_nm][specie_nm].get()
+        if not f == self.sys.populations[pop_nm].basis[specie_nm].form:
+            self.sys.populations[pop_nm].basis[specie_nm].set_form(f)
+            self._repack_specie_frame(pop_nm,specie_nm)
+
+    def _remove_population(self,pop_nm):
+        # remove the population from self.sys
+        self.sys.remove_population(pop_nm)
+        self._repack_pop_frames()
+        self._draw_plots()
+
+    def _remove_specie(self,pop_nm,specie_nm):
+        # remove the specie from the population
+        self.sys.populations[pop_nm].remove_specie(specie_nm)
+        # TODO: repack only the specie frames?
+        self._repack_pop_frame(pop_nm)
+        self._draw_plots()
 
     def _fit(self):
         sys_opt = xrsdsys.fit(
-            self.sys,self.src_wl,
-            self.q,self.I,self.dI,
-            self.error_weighted,self.logI_weighted,self.q_range
+            self.sys,
+            self.q,self.I,self.src_wl,
+            self.error_weighted,self.logI_weighted,self.q_range,self.dI 
             )
         self.sys.update_from_dict(sys_opt.to_dict())
-        self._update_control_frame() 
-        self._update_fit_objective
+        # TODO: update all parameter vars
+        #self._update_control_frame() 
         self._draw_plots()
 
     def _estimate(self):
