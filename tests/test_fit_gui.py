@@ -28,7 +28,7 @@ I = q_I[:,1]
 
 def test_fit_gui():
     if 'DISPLAY' in os.environ:
-        fit_sys, good_fit_flag = run_fit_gui(np_sys,src_wl,q,I)
+        fit_sys, good_fit_flag = run_fit_gui(np_sys,q,I,src_wl)
 
 
 

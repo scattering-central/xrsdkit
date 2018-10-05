@@ -174,7 +174,7 @@ class System(object):
             I += self.noise_model.parameters['I0']['value'] * np.ones(len(q))
         return I
 
-    def evaluate_residual(self,source_wavelength,q,I,dI=None,
+    def evaluate_residual(self,q,I,source_wavelength,dI=None,
         error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
         """Evaluate the fit residual for a given populations dict.
     
@@ -229,7 +229,7 @@ class System(object):
         old_params.update(new_params)
         new_pd = unflatten_params(old_params)
         self.update_params_from_dict(new_pd)
-        return self.evaluate_residual(src_wl,q,I,dI,error_weighted,logI_weighted,q_range)
+        return self.evaluate_residual(q,I,src_wl,dI,error_weighted,logI_weighted,q_range)
 
     def pack_lmfit_params(self):
         p = self.flatten_params() 
@@ -306,7 +306,7 @@ def fit(sys,source_wavelength,q,I,dI=None,
     # the System to optimize starts as a copy of the input System
     sys_opt = System.from_dict(sys.to_dict())
 
-    obj_init = sys_opt.evaluate_residual(source_wavelength,q,I,dI,error_weighted,logI_weighted,q_range)
+    obj_init = sys_opt.evaluate_residual(q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
     lmf_params = sys_opt.pack_lmfit_params() 
     lmf_res = lmfit.minimize(sys_opt.lmf_evaluate,
         lmf_params,method='nelder-mead',
@@ -316,7 +316,7 @@ def fit(sys,source_wavelength,q,I,dI=None,
             'logI_weighted':logI_weighted,
             'q_range':q_range})
 
-    fit_obj = sys_opt.evaluate_residual(source_wavelength,q,I,dI,error_weighted,logI_weighted,q_range)
+    fit_obj = sys_opt.evaluate_residual(q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
     I_opt = sys_opt.compute_intensity(q,source_wavelength)
     I_bg = I - I_opt
     snr = np.mean(I_opt)/np.std(I_bg) 

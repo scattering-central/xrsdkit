@@ -10,13 +10,13 @@ from ..tools import profiler
 
 default_targets=['system_classification','experiment_id']
 
-def plot_xrsd_fit(sys,source_wavelength,q,I,dI=None,show_plot=False):
+def plot_xrsd_fit(sys,q,I,source_wavelength,dI=None,show_plot=False):
     mpl_fig = plt.figure() 
     ax_plot = mpl_fig.add_subplot(111)
-    draw_xrsd_fit(mpl_fig,sys,source_wavelength,q,I,dI,show_plot)
+    draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI,show_plot)
     return mpl_fig
 
-def draw_xrsd_fit(mpl_fig,sys,source_wavelength,q,I,dI=None,show_plot=False):
+def draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI=None,show_plot=False):
     ax_plot = mpl_fig.gca()
     ax_plot.clear()
     ax_plot.semilogy(q,I,lw=2,color='black')
