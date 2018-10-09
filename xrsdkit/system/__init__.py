@@ -1,13 +1,6 @@
-"""This package provides tools for analysis of scattering and diffraction patterns.
-
-A scattering/diffraction pattern is assumed to represent
-a material System composed of one or more Populations,
-each of which is composed of one or more Species.
-This module outlines a taxonomy of classes and attributes
-for describing and manipulating such a System.
-
-Developer note: This is the only module that should require revision
-when extending xrsdkit to new kinds of structures and form factors.
+"""This subpackage defines classes and attributes
+for describing a material system in enough detail
+to compute its scattering/diffraction pattern.
 """
 from collections import OrderedDict
 import re
@@ -21,12 +14,9 @@ from .specie import Specie
 from .. import * 
 from ..tools import primitives, compute_chi2
 
-def structure_form_exception(structure,form):
-    msg = 'structure specification {}'\
-        'does not support specie specification {}- '\
-        'this specie must be removed from the basis '\
-        'before setting this structure'.format(structure,form)
-    raise ValueError(msg)
+# TODO: when params, settings, etc are changed,
+#   ensure all attributes remain valid,
+#   wrt constraints as well as wrt supported options.
 
 def save_to_yaml(file_path,sys):
     sd = sys.to_dict()
@@ -101,6 +91,8 @@ class System(object):
                 self.fit_report.update(pd)
             elif not pop_name in self.populations:
                 self.populations[pop_name] = Population.from_dict(pd) 
+            else:
+                self.populations[pop_name].update_from_dict(pd)
 
     def update_noise_model(self,noise_dict):
         if 'model' in noise_dict:
@@ -126,6 +118,14 @@ class System(object):
                             for param_name, paramd in specied['parameters'].items():
                                 self.populations[pop_name].basis[specie_name].parameters[param_name].update(
                                 specied['parameters'][param_name])
+
+    def remove_population(self,pop_nm):
+        # TODO: check for violated constraints
+        # in absence of this population
+        self.populations.pop(pop_nm)
+
+    def add_population(self,pop_nm,structure,settings={},parameters={},basis={}):
+        self.populations[pop_nm] = Population(structure,settings,parameters,basis)
 
     @classmethod
     def from_dict(cls,d):
@@ -213,13 +213,13 @@ class System(object):
                 wts[idx_fit])
         return res 
     
-    def lmf_evaluate(self,lmf_params,q,I,error_weighted=True,logI_weighted=True,q_range=[None,None]):
+    def lmf_evaluate(self,lmf_params,src_wl,q,I,dI=None,error_weighted=True,logI_weighted=True,q_range=[None,None]):
         new_params = unpack_lmfit_params(lmf_params)
         old_params = self.flatten_params()
         old_params.update(new_params)
         new_pd = unflatten_params(old_params)
         self.update_params_from_dict(new_pd)
-        return self.evaluate_residual(q,I,error_weighted,logI_weighted,q_range)
+        return self.evaluate_residual(q,I,src_wl,dI,error_weighted,logI_weighted,q_range)
 
     def pack_lmfit_params(self):
         p = self.flatten_params() 
@@ -228,7 +228,7 @@ class System(object):
             ks = pkey.split('__')
             kdepth = len(ks)
             param_name = ks[-1]
-            if re.match('coordinate_.',param_name):
+            if re.match('coord.',param_name):
                 default = coord_default
             else:
                 default = param_defaults[param_name]
@@ -251,10 +251,10 @@ class System(object):
             for param_name,paramd in pop.parameters.items():
                 pd[pop_name+'__'+param_name] = paramd
             for specie_name,specie in pop.basis.items(): 
-                if pop.structure in crystalline_structures:
-                    pd[pop_name+'__'+specie_name+'__coordinate_0'] = specie.coordinates[0]
-                    pd[pop_name+'__'+specie_name+'__coordinate_1'] = specie.coordinates[1] 
-                    pd[pop_name+'__'+specie_name+'__coordinate_2'] = specie.coordinates[2]
+                if pop.structure == 'crystalline':
+                    pd[pop_name+'__'+specie_name+'__coordx'] = specie.coordinates[0]
+                    pd[pop_name+'__'+specie_name+'__coordy'] = specie.coordinates[1] 
+                    pd[pop_name+'__'+specie_name+'__coordz'] = specie.coordinates[2]
                 for param_name,paramd in specie.parameters.items():
                     pd[pop_name+'__'+specie_name+'__'+param_name] = paramd
         return pd
@@ -265,6 +265,8 @@ def fit(sys,q,I,source_wavelength,dI=None,
 
     Parameters
     ----------
+    sys : xrsdkit.system.System
+    source_wavelength : float
     q : array of float
         1d array of scattering vector magnitudes (1/Angstrom)
     I : array of float
@@ -283,26 +285,26 @@ def fit(sys,q,I,source_wavelength,dI=None,
 
     Returns
     -------
-    p_opt : dict
-        Dict of scattering populations with optimized parameters.
-    rpt : dict
-        Dict reporting quantities of interest
-        about the fit result.
+    sys_opt : xrsdkit.system.System 
+        Similar to input `sys`, but with fit-optimized parameters.
     """
 
     for pop_name,p in sys.populations.items():
         if p.structure == 'unidentified':
-            return sys.to_dict(),rpt 
+            return sys.to_dict()
 
     # the System to optimize starts as a copy of the input System
     sys_opt = System.from_dict(sys.to_dict())
-    rpt = {} 
 
     obj_init = sys_opt.evaluate_residual(q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
     lmf_params = sys_opt.pack_lmfit_params() 
     lmf_res = lmfit.minimize(sys_opt.lmf_evaluate,
         lmf_params,method='nelder-mead',
-        kws={'q':q,'I':I,'error_weighted':error_weighted,'logI_weighted':logI_weighted,'q_range':q_range})
+        kws={'src_wl':source_wavelength,
+            'q':q,'I':I,'dI':dI,
+            'error_weighted':error_weighted,
+            'logI_weighted':logI_weighted,
+            'q_range':q_range})
 
     fit_obj = sys_opt.evaluate_residual(q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
     I_opt = sys_opt.compute_intensity(q,source_wavelength)
@@ -354,11 +356,14 @@ def unflatten_params(flat_params):
                 pd[pop_name]['basis'] = {} 
             if not specie_name in pd[pop_name]['basis']:
                 pd[pop_name]['basis'][specie_name] = {}
-            if re.match('coordinate_.',ks[2]):
+            if re.match('coord.',ks[2]):
                 # a coordinate
                 if not 'coordinates' in pd[pop_name]['basis'][specie_name]:
                     pd[pop_name]['basis'][specie_name]['coordinates'] = [None,None,None]
-                coord_idx = int(ks[2][-1])
+                coord_id = ks[2][-1]
+                if coord_id == 'x': coord_idx = 0
+                if coord_id == 'y': coord_idx = 1
+                if coord_id == 'z': coord_idx = 2
                 pd[pop_name]['basis'][specie_name]['coordinates'][coord_idx] = paramd 
             else:
                 # a parameter for a form factor
@@ -398,12 +403,3 @@ def empty_site():
         parameters={}
         )
         
-def flat_noise(I0=1.E-3):
-    return dict(
-        structure='diffuse',
-        settings={},
-        parameters={'I0':I0},
-        basis={'flat_noise':{'form':'flat'}}
-        )
-
-

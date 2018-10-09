@@ -1,5 +1,7 @@
 import os
 from matplotlib import pyplot as plt
+#from matplotlib.figure import Figure
+from matplotlib import pyplot as plt
 
 from ..tools.citrination_tools import get_data_from_Citrination
 from ..tools.visualization_tools import doPCA, plot_2d
@@ -7,6 +9,29 @@ from ..models import citcl, src_dir, src_dsid_list, testing_data_dir
 from ..tools import profiler
 
 default_targets=['system_classification','experiment_id']
+
+def plot_xrsd_fit(sys,q,I,source_wavelength,dI=None,show_plot=False):
+    mpl_fig = plt.figure() 
+    ax_plot = mpl_fig.add_subplot(111)
+    draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI,show_plot)
+    return mpl_fig
+
+def draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI=None,show_plot=False):
+    ax_plot = mpl_fig.gca()
+    ax_plot.clear()
+    ax_plot.semilogy(q,I,lw=2,color='black')
+    I_est = sys.compute_intensity(q,source_wavelength)
+    ax_plot.semilogy(q,I_est,lw=2,color='red')
+    I_noise = sys.compute_noise_intensity(q)
+    ax_plot.semilogy(q,I_noise,lw=1) 
+    for popnm,pop in sys.populations.items():
+        I_p = pop.compute_intensity(q,source_wavelength)
+        ax_plot.semilogy(q,I_p,lw=1)
+    ax_plot.set_xlabel('q (1/Angstrom)')
+    ax_plot.set_ylabel('Intensity (counts)')
+    ax_plot.legend(['measured','computed','noise']+list(sys.populations.keys()))
+    if show_plot:
+        mpl_fig.show()
 
 def download_and_visualize(
     source_dataset_ids = src_dsid_list,

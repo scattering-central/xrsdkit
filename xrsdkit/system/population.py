@@ -6,6 +6,9 @@ from .. import *
 
 from ..scattering import diffuse_intensity, disordered_intensity, crystalline_intensity
 
+class StructureFormException(Exception):
+    pass
+
 class Population(object):
 
     def __init__(self,structure,settings={},parameters={},basis={}):
@@ -21,34 +24,76 @@ class Population(object):
 
     def set_structure(self,structure):
         self.check_structure(structure,self.basis_to_dict())
-        # first update settings
-        new_settings = dict.fromkeys(structure_settings[structure])
-        for stg_nm in structure_settings[structure]:
-            if stg_nm in self.settings:
-                new_settings[stg_nm] = self.settings[stg_nm]
-            else:
-                new_settings[stg_nm] = setting_defaults[stg_nm]
-        self.settings = new_settings
-        # second update self.parameters, wrt self.settings
-        new_params = dict.fromkeys(structure_params[structure])  
-        if structure == 'disordered':
-            new_params.update(dict.fromkeys(
-            disordered_structure_params[self.settings['interaction']]))
-        if structure == 'crystalline':
-            new_params.update(dict.fromkeys(
-            crystalline_structure_params[self.settings['lattice']]))
-        for param_nm in new_params.keys():
-            if param_nm in self.parameters:
-                new_params[param_nm] = self.parameters[param_nm]
-            else:
-                new_params[param_nm] = copy.deepcopy(param_defaults[param_nm])
-        self.parameters = new_params
         self.structure = structure
+        # first update settings,
+        # including any params associated with settings
+        self.update_settings()
+        # now update the rest of the params
+        self.update_parameters()
 
-    def add_specie(self,specie_name,ff_name,settings={},parameters={},coordinates=None):
+    def set_form(self,specie_nm,form):
+        if self.structure == 'crystalline' and form in noncrystalline_form_factors:
+            msg = 'structure {} does not support {} form factors'\
+            .format(self.structure,form)
+            raise StructureFormException(msg)
+        else:
+            self.basis[specie_nm].set_form(form)
+
+    def update_settings(self,new_settings={}):
+        current_stg_nms = list(self.settings.keys())
+        # remove any non-valid settings
+        for stg_nm in current_stg_nms:
+            if not stg_nm in structure_settings[self.structure]:
+                self.settings.pop(stg_nm)
+        # update settings, add any that are missing
+        for stg_nm in structure_settings[self.structure]:
+            if stg_nm in new_settings:
+                self.update_setting(stg_nm,new_settings[stg_nm])
+            elif not stg_nm in self.settings:
+                self.update_setting(stg_nm,copy.deepcopy(setting_defaults[stg_nm]))
+
+    def update_setting(self,stgnm,new_val):
+        self.settings[stgnm] = new_val
+        # if it is a lattice or interaction setting, update parameters 
+        if stgnm in ['lattice','interaction']:
+            self.update_parameters()
+
+    def update_parameters(self,new_params={}):
+        current_param_nms = list(self.parameters.keys())
+        valid_param_nms = copy.deepcopy(structure_params[self.structure])
+        if self.structure == 'crystalline': 
+            valid_param_nms.extend(
+            copy.deepcopy(crystalline_structure_params[self.settings['lattice']]))
+        if self.structure == 'disordered': 
+            valid_param_nms.extend(
+            copy.deepcopy(disordered_structure_params[self.settings['interaction']]))
+        # remove any non-valid params
+        for param_nm in current_param_nms:
+            if not param_nm in valid_param_nms:
+                self.parameters.pop(param_nm)
+        # add any missing params, taking from new_params if available 
+        for param_nm in valid_param_nms:
+            if not param_nm in self.parameters:
+                self.parameters[param_nm] = copy.deepcopy(param_defaults[param_nm]) 
+            if param_nm in new_params:
+                self.update_parameter(param_nm,new_params[param_nm])
+           
+    def update_parameter(self,param_nm,new_param_dict): 
+        #if param_nm in self.parameters:
+        #    if new_param_dict is not None:
+        self.parameters[param_nm].update(new_param_dict)
+
+    def add_specie(self,specie_name,ff_name,settings={},parameters={},coordinates=[]):
         if self.structure == 'crystalline' and ff_name in noncrystalline_form_factors:
-            structure_form_exception(self.structure,ff_name)
+            msg = 'structure {} does not support {} form factors'\
+            .format(self.structure,ff_name)
+            raise StructureFormException(msg) 
         self.basis[specie_name] = Specie(ff_name,settings,parameters,coordinates)
+
+    def remove_specie(self,specie_name):
+        # TODO: check for violated constraints
+        # in absence of this specie? 
+        self.basis.pop(specie_name)
 
     def to_dict(self):
         pd = {} 
@@ -94,25 +139,18 @@ class Population(object):
             self.update_basis(d['basis'])
         if 'structure' in d:
             self.set_structure(d['structure'])
-        if 'parameters' in d:
-            self.update_parameters(d['parameters'])
         if 'settings' in d:
             self.update_settings(d['settings'])
-
-    def update_parameters(self,pd):
-        for param_nm, paramd in pd.items():
-            if param_nm in self.parameters:
-                self.parameters[param_nm].update(paramd)
-
-    def update_settings(self,sd):
-        for stg_nm, sval in sd.items():
-            if stg_nm in self.settings:
-                self.settings[stg_nm] = sval
+        if 'parameters' in d:
+            self.update_parameters(d['parameters'])
 
     def update_basis(self,bd):
         self.check_structure(self.structure,bd)
         for specie_nm,specd in bd.items():
-            self.basis[specie_nm] = Specie.from_dict(specd)
+            if specie_nm in self.basis:
+                self.basis[specie_nm].update_from_dict(specd)
+            else:
+                self.basis[specie_nm] = Specie.from_dict(specd)
 
     @classmethod
     def from_dict(cls,d):
@@ -125,7 +163,9 @@ class Population(object):
         if structure == 'crystalline':
             for site_nm,specie_def in basis.items():
                 if specie_def['form'] in noncrystalline_form_factors:
-                    structure_form_exception(structure,specie_def['form'])
+                    msg = 'structure {} does not support {} form factors'\
+                    .format(structure,specie_def['form'])
+                    raise StructureFormException(msg)
 
     def compute_intensity(self,q,source_wavelength):
         if self.structure == 'diffuse':
