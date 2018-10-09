@@ -27,7 +27,7 @@ q = q_I[:,0]
 I = q_I[:,1]
 
 def test_fit():
-    fit_sys = fit(np_sys,src_wl,q,I)
+    fit_sys = fit(np_sys,q,I,src_wl)
     #I_guess = np_sys.compute_intensity(q,src_wl)
     #I_fit = fit_sys.compute_intensity(q,src_wl)
 
