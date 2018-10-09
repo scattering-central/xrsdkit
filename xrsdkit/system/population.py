@@ -6,6 +6,9 @@ from .. import *
 
 from ..scattering import diffuse_intensity, disordered_intensity, crystalline_intensity
 
+class StructureFormException(Exception):
+    pass
+
 class Population(object):
 
     def __init__(self,structure,settings={},parameters={},basis={}):
@@ -27,6 +30,14 @@ class Population(object):
         self.update_settings()
         # now update the rest of the params
         self.update_parameters()
+
+    def set_form(self,specie_nm,form):
+        if self.structure == 'crystalline' and form in noncrystalline_form_factors:
+            msg = 'structure {} does not support {} form factors'\
+            .format(self.structure,form)
+            raise StructureFormException(msg)
+        else:
+            self.basis[specie_nm].set_form(form)
 
     def update_settings(self,new_settings={}):
         current_stg_nms = list(self.settings.keys())
@@ -74,7 +85,9 @@ class Population(object):
 
     def add_specie(self,specie_name,ff_name,settings={},parameters={},coordinates=[]):
         if self.structure == 'crystalline' and ff_name in noncrystalline_form_factors:
-            structure_form_exception(self.structure,ff_name)
+            msg = 'structure {} does not support {} form factors'\
+            .format(self.structure,ff_name)
+            raise StructureFormException(msg) 
         self.basis[specie_name] = Specie(ff_name,settings,parameters,coordinates)
 
     def remove_specie(self,specie_name):
@@ -150,7 +163,9 @@ class Population(object):
         if structure == 'crystalline':
             for site_nm,specie_def in basis.items():
                 if specie_def['form'] in noncrystalline_form_factors:
-                    structure_form_exception(structure,specie_def['form'])
+                    msg = 'structure {} does not support {} form factors'\
+                    .format(structure,specie_def['form'])
+                    raise StructureFormException(msg)
 
     def compute_intensity(self,q,source_wavelength):
         if self.structure == 'diffuse':

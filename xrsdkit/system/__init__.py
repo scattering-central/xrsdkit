@@ -1,13 +1,6 @@
-"""This package provides tools for analysis of scattering and diffraction patterns.
-
-A scattering/diffraction pattern is assumed to represent
-a material System composed of one or more Populations,
-each of which is composed of one or more Species.
-This module outlines a taxonomy of classes and attributes
-for describing and manipulating such a System.
-
-Developer note: This is the only module that should require revision
-when extending xrsdkit to new kinds of structures and form factors.
+"""This subpackage defines classes and attributes
+for describing a material system in enough detail
+to compute its scattering/diffraction pattern.
 """
 from collections import OrderedDict
 import re
@@ -21,12 +14,9 @@ from .specie import Specie
 from .. import * 
 from ..tools import primitives, compute_chi2
 
-def structure_form_exception(structure,form):
-    msg = 'structure specification {}'\
-        'does not support specie specification {}- '\
-        'this specie must be removed from the basis '\
-        'before setting this structure'.format(structure,form)
-    raise ValueError(msg)
+# TODO: when params, settings, etc are changed,
+#   ensure all attributes remain valid,
+#   wrt constraints as well as wrt supported options.
 
 def save_to_yaml(file_path,sys):
     sd = sys.to_dict()
@@ -269,7 +259,7 @@ class System(object):
                     pd[pop_name+'__'+specie_name+'__'+param_name] = paramd
         return pd
 
-def fit(sys,source_wavelength,q,I,dI=None,
+def fit(sys,q,I,source_wavelength,dI=None,
     error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
     """Fit the I(q) pattern and return a dict of optimized parameters. 
 
