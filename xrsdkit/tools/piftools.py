@@ -235,8 +235,7 @@ def profile_properties(q_I):
     pp = []
     for fnm,fval in prof.items():
         if fval is not None:
-            props.append(scalar_property(
-            fnm,fval,'spectrum profiling quantity'))
+            pp.append(Property(fnm,fval))
     return pp
 
 def pack_system_objects(sys,src_wl):
