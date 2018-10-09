@@ -17,6 +17,7 @@ else:
 from .. import *
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
+from ..system.population import StructureFormException 
 
 if sys.version_info[0] < 3:
     import Tkinter as tkinter
@@ -28,37 +29,33 @@ def run_fit_gui(system,q,I,source_wavelength,
     logI_weighted=True,
     q_range=[0.,float('inf')],
     good_fit_prior=False):
-    gui = XRSDFitGUI(system,source_wavelength,q,I,dI,error_weighted,logI_weighted,q_range,good_fit_prior)
+    gui = XRSDFitGUI(system,q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range,good_fit_prior)
     sys_opt, good_fit = gui.start()
     # collect results and return
     return sys_opt, good_fit
 
-# TODO: when a new frame is added to the control frame,
-#   call the canvas configuration method such that the scrollbar gets resized
+# TODO (low): when a structure or form selection is rejected,
+#   get the associated combobox re-painted-
+#   currently the value does get reset, 
+#   but the cb does not repaint until it is focused-on
 
-# TODO: when a population or specie is removed,
-#   ensure that the remaining populations and species remain in order
+# TODO (low): in _validate_param(), 
+#   if param_key == 'constraint_expr', 
+#   validate the expression with lmfit/asteval
 
-# TODO: when a param is fixed or has a constraint set,
+# TODO (low): when a param is fixed or has a constraint set,
 #   make the entry widget read-only
 
-# TODO: make plot frame zoom-able (add matplotlib toolbar?)
+# TODO (low): make plot frame zoom-able (add matplotlib toolbar?)
 
-# TODO: whenever any param or selection is updated,
-#   ensure other params/selections remain valid,
-#   wrt constraints as well as wrt supported options.
-#   NOTE: This logic should be in xrsdkit.system.*
-
-# TODO: add basic IO
-
-# TODO: when frames are updated, make repacking optional,
-#   and only do so when necessary, because repacking is slow
+# TODO: ensure coordinate params are handled correctly 
+#   when structures are changed to/from crystalline
 
 class XRSDFitGUI(object):
 
-    def __init__(self,system,source_wavelength,
-        q,I,dI=None,
-        error_weighted=True,
+    def __init__(self,system,
+        q,I,source_wavelength,
+        dI=None,error_weighted=True,
         logI_weighted=True,
         q_range=[0.,float('inf')],
         good_fit_prior=False):
@@ -93,41 +90,42 @@ class XRSDFitGUI(object):
         # after the loop, return the (optimized) system
         return self.sys_opt, self.good_fit
 
-    def _build_gui(self):
-        self.fit_gui.title('xrsd profile fitter')
-        # a horizontal scrollbar and a main canvas belong to the main gui:
-        scrollbar = tkinter.Scrollbar(self.fit_gui,orient='horizontal')
-        fit_gui_canvas = tkinter.Canvas(self.fit_gui)
-        scrollbar.pack(side=tkinter.BOTTOM,fill=tkinter.X)
-        fit_gui_canvas.pack(fill=tkinter.BOTH,expand=tkinter.YES)
-        scrollbar.config(command=fit_gui_canvas.xview)
-        fit_gui_canvas.config(xscrollcommand=scrollbar.set)
-        # the main widget will be a frame,
-        # displayed as a window item on the main canvas:
-        self.main_frame = tkinter.Frame(fit_gui_canvas,bd=4,relief=tkinter.SUNKEN)
-        main_frame_window = fit_gui_canvas.create_window(0,0,window=self.main_frame,anchor='nw')
-        # _canvas_configure() ensures that the window item and scrollbar
-        # remain the correct size for the underlying widget
-        fit_gui_canvas.bind("<Configure>",partial(self._canvas_configure,fit_gui_canvas,self.main_frame,main_frame_window))
-
-    @staticmethod
-    def _canvas_configure(canvas,widget,window,event):
-        # Resize the frame to match the canvas.
-        # The window is the "canvas item" that displays the widget.
-        minw = widget.winfo_reqwidth()
-        minh = widget.winfo_reqheight()
-        if canvas.winfo_width() >= minw:
-            minw = canvas.winfo_width()
-        if canvas.winfo_height() >= minh:
-            minh = canvas.winfo_height()
-        canvas.itemconfigure(window,width=minw,height=minh)
-        canvas.config(scrollregion=canvas.bbox(tkinter.ALL))
-
     def _cleanup(self):
         # remove references to all gui objects, widgets, etc. 
         #self._reset_control_widgets() 
         self.fit_gui.quit()
         self.fit_gui.destroy()
+
+    def _build_gui(self):
+        self.fit_gui.title('xrsd profile fitter')
+        # a horizontal scrollbar and a main canvas belong to the main gui:
+        scrollbar = tkinter.Scrollbar(self.fit_gui,orient='horizontal')
+        main_canvas = tkinter.Canvas(self.fit_gui)
+        scrollbar.pack(side=tkinter.BOTTOM,fill=tkinter.X)
+        main_canvas.pack(fill=tkinter.BOTH,expand=tkinter.YES)
+        scrollbar.config(command=main_canvas.xview)
+        main_canvas.config(xscrollcommand=scrollbar.set)
+        # the main widget will be a frame,
+        # displayed as a window item on the main canvas:
+        self.main_frame = tkinter.Frame(main_canvas,bd=4,relief=tkinter.SUNKEN)
+        main_frame_window = main_canvas.create_window(0,0,window=self.main_frame,anchor='nw')
+        # _canvas_configure() ensures that the window item and scrollbar
+        # remain the correct size for the underlying widget
+        self.main_canvas_configure = partial(self._canvas_configure,main_canvas,self.main_frame,main_frame_window)  
+        main_canvas.bind("<Configure>",self.main_canvas_configure)
+
+    @staticmethod
+    def _canvas_configure(canvas,widget,window,event=None):
+        # Resize the frame to match the canvas.
+        # The window is the "canvas item" that displays the widget.
+        minw = widget.winfo_reqwidth()
+        minh = widget.winfo_reqheight()
+        if canvas.winfo_width() > minw:
+            minw = canvas.winfo_width()
+        if canvas.winfo_height() > minh:
+            minh = canvas.winfo_height()
+        canvas.itemconfigure(window,width=minw,height=minh)
+        canvas.config(scrollregion=canvas.bbox(tkinter.ALL))
 
     def _build_plot_widgets(self):
         # the main frame contains a plot frame on the left,
@@ -146,8 +144,9 @@ class XRSDFitGUI(object):
         self.mpl_canvas = FigureCanvasTkAgg(self.fig,plot_frame_canvas)
         self.plot_canvas = self.mpl_canvas.get_tk_widget()
         plot_canvas_window = plot_frame_canvas.create_window(0,0,window=self.plot_canvas,anchor='nw')
-        plot_frame_canvas.bind("<Configure>",partial(
-            self._canvas_configure,plot_frame_canvas,self.plot_canvas,plot_canvas_window))
+        self.plot_canvas_configure = partial(self._canvas_configure,
+            plot_frame_canvas,self.plot_canvas,plot_canvas_window)
+        plot_frame_canvas.bind("<Configure>",self.plot_canvas_configure)
         self.mpl_canvas.draw()
 
     def _build_control_widgets(self):
@@ -166,11 +165,13 @@ class XRSDFitGUI(object):
         control_frame_canvas.pack(fill='both',expand=True)
         control_frame_canvas.config(yscrollcommand=yscr.set)
         yscr.config(command=control_frame_canvas.yview)
-        # TODO: figure out a way to set or control the width of the control widget
+        # TODO (low): figure out a way to set or control the width of the control widget
+        # NOTE: currently it takes on the net width of the entry widgets
         self.control_widget = tkinter.Frame(control_frame_canvas)
         control_canvas_window = control_frame_canvas.create_window((0,0),window=self.control_widget,anchor='nw')
-        control_frame_canvas.bind("<Configure>",partial(
-            self._canvas_configure,control_frame_canvas,self.control_widget,control_canvas_window))
+        self.control_canvas_configure = partial(self._canvas_configure,
+            control_frame_canvas,self.control_widget,control_canvas_window)
+        control_frame_canvas.bind("<Configure>",self.control_canvas_configure)
         # set empty data structures to keep references to widgets and variables    
         self._reset_control_widgets()
         # create widgets and variables
@@ -223,9 +224,6 @@ class XRSDFitGUI(object):
         self._frames['new_population'].grid(row=2+n_pop_frames,pady=2,padx=2,sticky='ew')
 
     def _repack_pop_frames(self):
-        # 
-        # TODO: remove refs to vars belonging to obsolete frames
-        # 
         for pop_nm,frm in self._frames['populations'].items(): frm.pack_forget() 
         self._frames['new_population'].pack_forget()
         new_pop_frms = OrderedDict()
@@ -236,60 +234,111 @@ class XRSDFitGUI(object):
         for pop_nm in self.sys.populations.keys():
             if not pop_nm in self._frames['populations']:
                 new_pop_frms[pop_nm] = self._create_pop_frame(pop_nm)
-        # destroy any frames that didn't get saved 
-        for pop_nm,frm in self._frames['populations'].items():
-            if not pop_nm in self.sys.populations: frm.destroy()
+        # destroy any frames that didn't get saved
+        pop_frm_nms = list(self._frames['populations'].keys())
+        for pop_nm in pop_frm_nms:
+            if not pop_nm in self.sys.populations: 
+                frm = self._frames['populations'].pop(pop_nm)
+                frm.destroy()
+                # TODO (low): clean up refs to obsolete vars
+                # and widgets that were children of this frame 
         # place the new frames in the _frames dict 
         self._frames['populations'] = new_pop_frms
         self._pack_population_frames()
+        # update_idletasks() processes the frame changes, 
+        # so that they are accounted for in control_canvas_configure()
+        self.fit_gui.update_idletasks()
+        self.control_canvas_configure()
 
     def _create_fit_control_frame(self):
-        # TODO: callbacks for fit controls to update instance attributes
-        # TODO: wavelength entry
-        print('create fit control frame')
+        # TODO: file io q,I (dat/csv) and populations (YAML); output for DB records (JSON)
+
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
         self._frames['fit_control'] = cf
+        self._vars['fit_control']['wavelength'] = tkinter.DoubleVar(cf)
+        self._vars['fit_control']['wavelength'].set(self.src_wl)
         self._vars['fit_control']['objective'] = tkinter.StringVar(cf)
         self._vars['fit_control']['error_weighted'] = tkinter.BooleanVar(cf)
         self._vars['fit_control']['logI_weighted'] = tkinter.BooleanVar(cf)
+        self._vars['fit_control']['error_weighted'].set(self.error_weighted)
+        self._vars['fit_control']['logI_weighted'].set(self.logI_weighted)
         self._vars['fit_control']['q_range'] = [tkinter.DoubleVar(cf),tkinter.DoubleVar(cf)]
-        
-        objl = tkinter.Label(cf,text='objective:',anchor='e')
-        objl.grid(row=0,column=0,sticky='e')
-        rese = tkinter.Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
-        rese.grid(row=0,column=1,sticky='ew')
+        self._vars['fit_control']['q_range'][0].set(self.q_range[0])
+        self._vars['fit_control']['q_range'][1].set(self.q_range[1])
         self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
-        fitcb = tkinter.Checkbutton(cf,text='Good fit', variable=self._vars['fit_control']['good_fit'])
-        fitcb.grid(row=0,column=2,sticky='ew')
         self._vars['fit_control']['good_fit'].set(self.good_fit)
+        
+        wll = tkinter.Label(cf,text='wavelength:',anchor='e')
+        wle = self.connected_entry(cf,self._vars['fit_control']['wavelength'],self._set_wavelength,10)
+        wll.grid(row=0,column=0,sticky='e')
+        wle.grid(row=0,column=1,sticky='ew')
 
         q_range_lbl = tkinter.Label(cf,text='q-range:',anchor='e')
         q_range_lbl.grid(row=1,column=0,sticky='e')
-        q_lo_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][0])
-        q_hi_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][1])
+        #q_lo_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][0])
+        #q_hi_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][1])
+        q_lo_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][0],
+            partial(self._set_q_range,0),8) 
+        q_hi_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][1],
+            partial(self._set_q_range,1),8) 
         q_lo_ent.grid(row=1,column=1,sticky='ew')
         q_hi_ent.grid(row=1,column=2,sticky='ew')
-        self._vars['fit_control']['q_range'][0].set(self.q_range[0])
-        self._vars['fit_control']['q_range'][1].set(self.q_range[1])
 
-        ewtcb = tkinter.Checkbutton(cf,text='error weighted',variable=self._vars['fit_control']['error_weighted'])
-        ewtcb.select()
+        ewtcb = self.connected_checkbutton(cf,self._vars['fit_control']['error_weighted'],
+            self._set_error_weighted,'error weighted')
         ewtcb.grid(row=2,column=0,sticky='w')
-        logwtbox = tkinter.Checkbutton(cf,text='log(I) weighted',variable=self._vars['fit_control']['logI_weighted'])
-        logwtbox.select()
-        logwtbox.grid(row=3,column=0,sticky='w')
+        logwtcb = self.connected_checkbutton(cf,self._vars['fit_control']['logI_weighted'],
+            self._set_logI_weighted,'log(I) weighted')
+        logwtcb.grid(row=3,column=0,sticky='w')
 
         estbtn = tkinter.Button(cf,text='Estimate',width=8,command=self._estimate)
         estbtn.grid(row=2,column=1,rowspan=2,sticky='nesw')
         fitbtn = tkinter.Button(cf,text='Fit',width=8,command=self._fit)
         fitbtn.grid(row=2,column=2,rowspan=2,sticky='nesw')
-        #cf.pack(pady=2,padx=2,fill='both',expand=True)
+
+        objl = tkinter.Label(cf,text='objective:',anchor='e')
+        objl.grid(row=4,column=0,sticky='e')
+        rese = tkinter.Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
+        rese.grid(row=4,column=1,sticky='ew')
+        fitcb = self.connected_checkbutton(cf,self._vars['fit_control']['good_fit'],
+            self._set_good_fit,'Good fit')
+        fitcb.grid(row=4,column=2,sticky='ew')
+
         cf.grid(row=0,pady=2,padx=2,sticky='ew')
 
+    def _set_wavelength(self,event=None):
+        try:
+            new_val = self._vars['fit_control']['wavelength'].get()
+        except:
+            self._vars['fit_control']['wavelength'].set(self.src_wl)
+        self.src_wl = new_val
+        self._draw_plots()
+
+    def _set_q_range(self,q_idx,event=None):
+        try:
+            new_val = self._vars['fit_control']['q_range'][q_idx].get()
+        except:
+            self._vars['fit_control']['q_range'][q_idx].set(self.q_range[q_idx])
+        self.q_range[q_idx] = new_val
+        self._update_fit_objective()
+
+    def _set_error_weighted(self):
+        new_val = self._vars['fit_control']['error_weighted'].get()
+        self.error_weighted = new_val
+        self._update_fit_objective()
+
+    def _set_logI_weighted(self):
+        new_val = self._vars['fit_control']['logI_weighted'].get()
+        self.logI_weighted = new_val
+        self._update_fit_objective()
+
+    def _set_good_fit(self):
+        new_val = self._vars['fit_control']['good_fit'].get()
+        self.good_fit = new_val
+
     def _create_noise_frame(self):
-        print('create noise frame')
         nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         self._frames['noise_model'] = nf
         nmf = tkinter.Frame(nf,bd=0) 
@@ -313,10 +362,6 @@ class XRSDFitGUI(object):
         nf.grid(row=1,pady=2,padx=2,sticky='ew')
 
     def _repack_noise_frame(self):
-        print('repack noise frame')
-        # 
-        # TODO: remove refs to vars belonging to obsolete frames
-        # 
         nmdl = self.sys.noise_model.model
         for par_nm,frm in self._frames['parameters']['noise'].items(): frm.pack_forget() 
         new_par_frms = OrderedDict()
@@ -327,18 +372,25 @@ class XRSDFitGUI(object):
             else:
                 new_par_frms[par_nm] = self._create_param_frame('noise',None,par_nm)
         # destroy any frames that didn't get repacked
-        for par_nm,frm in self._frames['parameters']['noise'].items():
-            if not par_nm in noise_model_params[nmdl]: frm.destroy()
+        par_frm_nms = list(self._frames['parameters']['noise'].keys())
+        for par_nm in par_frm_nms: 
+            if not par_nm in noise_model_params[nmdl]: 
+                frm = self._frames['parameters']['noise'].pop(par_nm)
+                frm.destroy()
+                self._vars['parameters']['noise'].pop(par_nm)
         # place the new frames in the _frames dict 
         self._frames['parameters']['noise'] = new_par_frms
         self._pack_noise_params()
+        # update_idletasks() processes the frame changes, 
+        # so that they are accounted for in control_canvas_configure()
+        self.fit_gui.update_idletasks()
+        self.control_canvas_configure()
 
     def _pack_noise_params(self):
         for param_idx, paramf in enumerate(self._frames['parameters']['noise'].values()):
             paramf.grid(row=1+param_idx,sticky='ew')
 
     def _create_pop_frame(self,pop_nm):
-        print('create pop frame: {}'.format(pop_nm))
         pop = self.sys.populations[pop_nm]
         pf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         self._frames['populations'][pop_nm] = pf
@@ -404,10 +456,6 @@ class XRSDFitGUI(object):
         return pf
 
     def _repack_pop_frame(self,pop_nm):
-        print('repack pop frame: {}'.format(pop_nm))
-        # 
-        # TODO: remove refs to vars belonging to obsolete frames
-        # 
         pop_struct = self.sys.populations[pop_nm].structure
         #
         # SETTINGS: 
@@ -420,8 +468,12 @@ class XRSDFitGUI(object):
             else:
                 new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,None,stg_nm)
         # destroy any frames that didn't get repacked
-        for stg_nm,frm in self._frames['settings'][pop_nm].items():
-            if not stg_nm in structure_settings[pop_struct]: frm.destroy()
+        stg_frm_nms = list(self._frames['settings'][pop_nm].keys())
+        for stg_nm in stg_frm_nms: 
+            if not stg_nm in structure_settings[pop_struct]: 
+                frm = self._frames['settings'][pop_nm].pop(stg_nm)
+                frm.destroy()
+                self._vars['settings'][pop_nm].pop(stg_nm)
         # place the new frames in the _frames dict 
         self._frames['settings'][pop_nm] = new_stg_frms
         #
@@ -442,8 +494,12 @@ class XRSDFitGUI(object):
             else:
                 new_par_frms[par_nm] = self._create_param_frame(pop_nm,None,par_nm)
         # destroy any frames that didn't get repacked
-        for par_nm,frm in self._frames['parameters'][pop_nm].items():
-            if not par_nm in param_nms: frm.destroy()
+        par_frm_nms = list(self._frames['parameters'][pop_nm].keys())
+        for par_nm in par_frm_nms: 
+            if not par_nm in param_nms: 
+                frm = self._frames['parameters'][pop_nm].pop(par_nm)
+                frm.destroy()
+                self._vars['parameters'][pop_nm].pop(par_nm)
         # place the new frames in the _frames dict 
         self._frames['parameters'][pop_nm] = new_par_frms
         #
@@ -451,12 +507,16 @@ class XRSDFitGUI(object):
         for spc_nm,frm in self._frames['species'][pop_nm].items(): frm.pack_forget() 
         self._frames['new_species'][pop_nm].pack_forget()
         new_spc_frms = OrderedDict()
-        # save the relevant frames, destroy any that are obsolete  
-        for spc_nm in self._frames['species'][pop_nm].keys():
+        # save the relevant frames, destroy any that are obsolete
+        spc_frm_nms = list(self._frames['species'][pop_nm].keys())
+        for spc_nm in spc_frm_nms: 
             if spc_nm in self.sys.populations[pop_nm].basis:
                 new_spc_frms[spc_nm] = self._frames['species'][pop_nm][spc_nm]
             else:
-                self._frames['species'][pop_nm][spc_nm].destroy()
+                frm = self._frames['species'][pop_nm].pop(spc_nm)
+                frm.destroy()
+                # TODO: remove refs to obsolete vars and widgets
+                # that were children of this frame
         # check for new species, add frames as needed
         for spc_nm in self.sys.populations[pop_nm].basis.keys():
             if not spc_nm in new_spc_frms:
@@ -467,6 +527,10 @@ class XRSDFitGUI(object):
         self._pack_setting_frames(pop_nm)
         self._pack_parameter_frames(pop_nm)
         self._pack_specie_frames(pop_nm)
+        # update_idletasks() processes the frame changes, 
+        # so that they are accounted for in control_canvas_configure()
+        self.fit_gui.update_idletasks()
+        self.control_canvas_configure()
 
     def _pack_setting_frames(self,pop_nm):
         for stg_idx, stg_frm in enumerate(self._frames['settings'][pop_nm].values()):
@@ -482,12 +546,11 @@ class XRSDFitGUI(object):
         n_param_frms = len(self._frames['parameters'][pop_nm])
         n_specie_frms = len(self._frames['species'][pop_nm])
         for spc_idx, specief in enumerate(self._frames['species'][pop_nm].values()):
-            specief.grid(row=1+n_stg_frms+n_param_frms,sticky='ew')
+            specief.grid(row=1+n_stg_frms+n_param_frms+spc_idx,sticky='ew')
         bottom_row = 1+n_stg_frms+n_param_frms+n_specie_frms
         self._frames['new_species'][pop_nm].grid(row=bottom_row,sticky='ew')
 
     def _create_setting_frame(self,pop_nm,specie_nm,stg_nm):
-        print('create setting frame: {}.{}.{}'.format(pop_nm,specie_nm,stg_nm))
         stg_vars = self._vars['settings'][pop_nm]
         stg_frames = self._frames['settings'][pop_nm]
         parent_obj = self.sys.populations[pop_nm]
@@ -522,7 +585,6 @@ class XRSDFitGUI(object):
         return stgf
 
     def _create_param_frame(self,pop_nm,specie_nm,param_nm):
-        print('create param frame: {}.{}.{}'.format(pop_nm,specie_nm,param_nm))
         param_vars = self._vars['parameters'][pop_nm]
         param_frames = self._frames['parameters'][pop_nm]
         param_var_nm = pop_nm+'__'+param_nm
@@ -612,7 +674,6 @@ class XRSDFitGUI(object):
         return paramf
 
     def _create_specie_frame(self,pop_nm,specie_nm):
-        print('create specie frame: {}.{}'.format(pop_nm,specie_nm))
         parent_frame = self._frames['populations'][pop_nm]
         specie = self.sys.populations[pop_nm].basis[specie_nm]
         specief = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
@@ -634,7 +695,7 @@ class XRSDFitGUI(object):
         ff_option_dict = OrderedDict.fromkeys(form_factor_names)
         ffcb = tkinter.OptionMenu(speclf,ffvar,*ff_option_dict)
         ffvar.set(specie.form)
-        ffvar.trace('w',partial(self._update_form_factor))
+        ffvar.trace('w',partial(self._update_form_factor,pop_nm,specie_nm))
         ffcb.grid(row=1,column=1,sticky='ew') 
         self._vars['form_factors'][pop_nm][specie_nm] = ffvar
         speclf.grid(row=0,sticky='ew')
@@ -664,10 +725,6 @@ class XRSDFitGUI(object):
         return specief
 
     def _repack_specie_frame(self,pop_nm,specie_nm):
-        print('repack specie frame: {}.{}'.format(pop_nm,specie_nm))
-        # 
-        # TODO: remove refs to vars belonging to obsolete frames
-        # 
         spc_form = self.sys.populations[pop_nm].basis[specie_nm].form
         #
         # SETTINGS: 
@@ -680,8 +737,12 @@ class XRSDFitGUI(object):
             else:
                 new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,specie_nm,stg_nm)
         # destroy any frames that didn't get repacked
-        for stg_nm,frm in self._frames['specie_settings'][pop_nm][specie_nm].items():
-            if not stg_nm in form_factor_settings[spc_form]: frm.destroy()
+        stg_frm_nms = list(self._frames['specie_settings'][pop_nm][specie_nm].keys())
+        for stg_nm in stg_frm_nms: 
+            if not stg_nm in form_factor_settings[spc_form]: 
+                frm = self._frames['specie_settings'][pop_nm][specie_nm].pop(stg_nm)
+                frm.destroy()
+                self._vars['specie_settings'][pop_nm][specie_nm].pop(stg_nm)
         # place the new frames in the _frames dict 
         self._frames['specie_settings'][pop_nm][specie_nm] = new_stg_frms
         #
@@ -695,13 +756,21 @@ class XRSDFitGUI(object):
             else:
                 new_par_frms[par_nm] = self._create_param_frame(pop_nm,specie_nm,par_nm)
         # destroy any frames that didn't get repacked
-        for par_nm,frm in self._frames['specie_parameters'][pop_nm][specie_nm].items():
-            if not par_nm in form_factor_params[spc_form]: frm.destroy()
+        par_frm_nms = list(self._frames['specie_parameters'][pop_nm][specie_nm].keys())
+        for par_nm in par_frm_nms: 
+            if not par_nm in form_factor_params[spc_form]: 
+                frm = self._frames['specie_parameters'][pop_nm][specie_nm].pop(par_nm)
+                frm.destroy()
+                self._vars['specie_parameters'][pop_nm][specie_nm].pop(par_nm)
         # place the new frames in the _frames dict 
         self._frames['specie_parameters'][pop_nm][specie_nm] = new_par_frms
         # PACKING 
         self._pack_specie_setting_frames(pop_nm,specie_nm)
         self._pack_specie_parameter_frames(pop_nm,specie_nm)
+        # update_idletasks() processes the frame changes, 
+        # so that they are accounted for in control_canvas_configure()
+        self.fit_gui.update_idletasks()
+        self.control_canvas_configure()
 
     def _pack_specie_setting_frames(self,pop_nm,specie_nm):
         for stg_idx, stg_frm in enumerate(self._frames['specie_settings'][pop_nm][specie_nm].values()):
@@ -713,7 +782,6 @@ class XRSDFitGUI(object):
             paramf.grid(row=1+n_stg_frms+param_idx,sticky='ew')
 
     def _create_new_pop_frame(self):
-        print('create new pop frame')
         npf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         npf.grid_columnconfigure(1,weight=1)
         self._frames['new_population'] = npf
@@ -725,12 +793,10 @@ class XRSDFitGUI(object):
         nme.bind('<Return>',self._new_population)
         addb = tkinter.Button(npf,text='+',command=self._new_population)
         addb.grid(row=0,column=2,sticky='e')
-        #npf.pack(pady=2,padx=2,fill='x',expand=True)
         npops = len(self._frames['populations'])
         return npf
 
     def _create_new_specie_frame(self,pop_nm):
-        print('create new specie frame: {}'.format(pop_nm))
         pf = self._frames['populations'][pop_nm]
         nsf = tkinter.Frame(pf,bd=2,pady=10,padx=10,relief=tkinter.GROOVE)
         nsf.grid_columnconfigure(1,weight=1)
@@ -746,25 +812,22 @@ class XRSDFitGUI(object):
         return nsf
 
     def _draw_plots(self):
-        print('draw_plots')
         draw_xrsd_fit(self.fig,self.sys_opt,self.q,self.I,self.src_wl,self.dI,False)
         self.mpl_canvas.draw()
         self._update_fit_objective()
 
     def _update_fit_objective(self):
-        errwtd = self._vars['fit_control']['error_weighted'].get()
-        logwtd = self._vars['fit_control']['logI_weighted'].get()
-        qrng = [self._vars['fit_control']['q_range'][0].get(),\
-            self._vars['fit_control']['q_range'][1].get()]
-        obj_val = self.sys.evaluate_residual(self.q,self.I,self.src_wl,self.dI,errwtd,logwtd,qrng)
+        #qrng = [self._vars['fit_control']['q_range'][0].get(),\
+        #    self._vars['fit_control']['q_range'][1].get()]
+        obj_val = self.sys.evaluate_residual(
+            self.q,self.I,self.src_wl,self.dI,
+            self.error_weighted,self.logI_weighted,self.q_range)
         self._vars['fit_control']['objective'].set(str(obj_val))
 
     def _update_param(self,pop_nm,specie_nm,param_nm,param_key,param_idx=None,event=None):
         # param_key should be 'value', 'fixed', 'bounds', or 'constraint_expr'
         # if param_key == 'bounds', param_idx must be 0 or 1
         vflag = self._validate_param(pop_nm,specie_nm,param_nm,param_key,param_idx)
-        print('update_param {}.{}.{}.{}.{}: {}'.format(pop_nm,specie_nm,param_nm,param_key,param_idx,vflag))
-        print('trigger event: {}'.format(event))
         if vflag:
             if pop_nm == 'noise':
                 x = self.sys.noise_model
@@ -795,7 +858,6 @@ class XRSDFitGUI(object):
             else:
                 new_val = tkv[param_key].get()
                 if param_key == 'constraint_expr':
-                    # TODO: further validate constraint expr.?
                     if new_val in ['None','none','']:
                         new_val = None
                 new_param[param_key] = new_val 
@@ -814,11 +876,9 @@ class XRSDFitGUI(object):
 
     def _update_setting(self,pop_nm,specie_nm,stg_nm,event=None):
         vflag = self._validate_setting(pop_nm,specie_nm,stg_nm) 
-        print('update_setting {}.{}.{}: {}'.format(pop_nm,specie_nm,stg_nm,vflag))
-        print('trigger event: {}'.format(event))
         if vflag:
             x = self.sys.populations[pop_nm]
-            tkv = self._vars['settings'][pop_nm]
+            tkv = self._vars['settings'][pop_nm][stg_nm]
             if specie_nm: 
                 x = x.basis[specie_nm] 
                 tkv = self._vars['specie_settings'][pop_nm][specie_nm][stg_nm]
@@ -890,7 +950,6 @@ class XRSDFitGUI(object):
             old_val = x[param_key]
             try:
                 new_val = tkvs[param_key].get()
-                # TODO: if param_key == 'constraint_expr', validate the expression
             except:
                 is_valid = False
                 tkvs[param_key].set(old_val)
@@ -905,6 +964,10 @@ class XRSDFitGUI(object):
             npops = len(self._frames['populations'])
             self._frames['populations'][new_nm].grid(row=1+npops,padx=2,pady=2,sticky='ew') 
             self._frames['new_population'].grid(row=2+npops,padx=2,pady=2,sticky='ew') 
+            # update_idletasks() processes the new frame,
+            # so that it is accounted for in control_canvas_configure()
+            self.fit_gui.update_idletasks()
+            self.control_canvas_configure()
 
     def _new_specie(self,pop_nm,event=None):
         specie_nm = self._vars['new_specie_names'][pop_nm].get()
@@ -917,46 +980,69 @@ class XRSDFitGUI(object):
             n_specie_frms = len(self._frames['species'][pop_nm])
             self._frames['species'][pop_nm][specie_nm].grid(row=1+n_stg_frms+n_param_frms+n_specie_frms,sticky='ew')  
             self._frames['new_species'][pop_nm].grid(row=2+n_stg_frms+n_param_frms+n_specie_frms,sticky='ew')
+            # update_idletasks() processes the new frame,
+            # so that it is accounted for in control_canvas_configure()
+            self.fit_gui.update_idletasks()
+            self.control_canvas_configure()
 
-    def _update_structure(self,pop_nm,event=None):
-        print('update structure: {}'.format(pop_nm))
-        print('trigger event: {}'.format(event))
+    def _update_structure(self,pop_nm,*event_args):
         s = self._vars['structures'][pop_nm].get()
         if not s == self.sys.populations[pop_nm].structure:
-            self.sys.populations[pop_nm].set_structure(s)
+            try:
+                self.sys.populations[pop_nm].set_structure(s)
+            except StructureFormException:
+                self._vars['structures'][pop_nm].set(self.sys.populations[pop_nm].structure)
+            except:
+                raise
             self._repack_pop_frame(pop_nm)
+            self._draw_plots()
 
-    def _update_form_factor(self,pop_nm,specie_nm,event=None):
-        print('update form factor: {}.{}'.format(pop_nm,specie_nm))
-        print('trigger event: {}'.format(event))
+    def _update_form_factor(self,pop_nm,specie_nm,*event_args):
         f = self._vars['form_factors'][pop_nm][specie_nm].get()
         if not f == self.sys.populations[pop_nm].basis[specie_nm].form:
-            self.sys.populations[pop_nm].basis[specie_nm].set_form(f)
+            try:
+                self.sys.populations[pop_nm].set_form(specie_nm,f)
+            except StructureFormException:
+                self._vars['form_factors'][pop_nm][specie_nm].set(
+                self.sys.populations[pop_nm].basis[specie_nm].form)
+            except:
+                raise
             self._repack_specie_frame(pop_nm,specie_nm)
+            self._draw_plots()
 
     def _remove_population(self,pop_nm):
-        # remove the population from self.sys
         self.sys.remove_population(pop_nm)
         self._repack_pop_frames()
         self._draw_plots()
 
     def _remove_specie(self,pop_nm,specie_nm):
-        # remove the specie from the population
         self.sys.populations[pop_nm].remove_specie(specie_nm)
-        # TODO: repack only the specie frames?
         self._repack_pop_frame(pop_nm)
         self._draw_plots()
 
     def _fit(self):
         sys_opt = xrsdsys.fit(
             self.sys,
-            self.q,self.I,self.src_wl,
-            self.error_weighted,self.logI_weighted,self.q_range,self.dI 
+            self.q,self.I,self.src_wl,self.dI,
+            self.error_weighted,self.logI_weighted,self.q_range
             )
         self.sys.update_from_dict(sys_opt.to_dict())
-        # TODO: update all parameter vars
-        #self._update_control_frame() 
+        self._update_parameters() 
         self._draw_plots()
+
+    def _update_parameters(self):
+        for pop_nm,pop in self.sys.populations.items():        
+            for param_nm in pop.parameters.keys():
+                self._vars['parameters'][pop_nm][param_nm]['value'].set(
+                pop.parameters[param_nm]['value'])
+            for specie_nm in pop.basis.keys():
+                for param_nm in pop.basis[specie_nm].parameters.keys():
+                    self._vars['specie_parameters'][pop_nm][specie_nm][param_nm]['value'].set(
+                        pop.basis[specie_nm].parameters[param_nm]['value'])
+                    if pop.structure == 'crystalline':
+                        for ic, coord_tag in enumerate(['coordx','coordy','coordz']):
+                            self._vars['specie_parameters'][pop_nm][specie_nm][coord_tag]['value'].set(
+                                pop.basis[specie_nm].coordinates[ic]['value'])
 
     def _estimate(self):
         # TODO
