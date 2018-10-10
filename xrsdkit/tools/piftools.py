@@ -1,11 +1,12 @@
 from collections import OrderedDict
 import re
+import copy
 
 import numpy as np
 from pypif.obj import ChemicalSystem, Property, Classification, Id, Value, Scalar
 
 from . import profiler
-from .. import * 
+from ..definitions import * 
 from ..scattering.form_factors import atomic_params
 from ..system import System
 

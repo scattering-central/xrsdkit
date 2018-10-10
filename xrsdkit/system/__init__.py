@@ -4,6 +4,7 @@ to compute its scattering/diffraction pattern.
 """
 from collections import OrderedDict
 import re
+import copy
 
 import numpy as np
 import lmfit
@@ -11,7 +12,7 @@ import yaml
 
 from .population import Population
 from .specie import Specie
-from .. import * 
+from ..definitions import * 
 from ..tools import primitives, compute_chi2
 
 # TODO: when params, settings, etc are changed,

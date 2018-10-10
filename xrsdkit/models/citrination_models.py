@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from citrination_client import CitrinationClient
 
-from .. import structure_names
+from ..definitions import structure_names
         
 class CitrinationSystemClassifier(object):
     """Citrination-backed model for system classification"""

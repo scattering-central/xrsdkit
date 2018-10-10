@@ -2,7 +2,7 @@ import copy
 from collections import OrderedDict
 
 from .specie import Specie
-from .. import * 
+from ..definitions import * 
 
 from ..scattering import diffuse_intensity, disordered_intensity, crystalline_intensity
 

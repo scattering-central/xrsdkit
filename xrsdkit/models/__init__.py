@@ -6,7 +6,7 @@ import yaml
 import pandas as pd
 from citrination_client import CitrinationClient
 
-from .. import * 
+from ..definitions import * 
 from .regressor import Regressor
 from .classifier import Classifier
 from ..tools import primitives
