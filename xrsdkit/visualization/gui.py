@@ -2,6 +2,7 @@ from collections import OrderedDict
 from functools import partial
 import copy
 import sys
+
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
@@ -10,9 +11,9 @@ mplvmaj = int(mplv.split('.')[0])
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 if mplvmaj > 2:
-    from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+    from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk as mplnavtb
 else:
-    from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
+    from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg as mplnavtb
 
 from ..definitions import *
 from . import plot_xrsd_fit, draw_xrsd_fit
@@ -143,6 +144,8 @@ class XRSDFitGUI(object):
         yscr.config(command=plot_frame_canvas.yview)
         self.mpl_canvas = FigureCanvasTkAgg(self.fig,plot_frame_canvas)
         self.plot_canvas = self.mpl_canvas.get_tk_widget()
+        plot_toolbar = mplnavtb(self.mpl_canvas,plot_frame)
+        plot_toolbar.update()
         plot_canvas_window = plot_frame_canvas.create_window(0,0,window=self.plot_canvas,anchor='nw')
         self.plot_canvas_configure = partial(self._canvas_configure,
             plot_frame_canvas,self.plot_canvas,plot_canvas_window)
@@ -832,18 +835,20 @@ class XRSDFitGUI(object):
             if pop_nm == 'noise':
                 x = self.sys.noise_model
                 tkv = self._vars['parameters']['noise'][param_nm]
+                xp = x.parameters[param_nm]
             elif specie_nm:
                 x = self.sys.populations[pop_nm].basis[specie_nm] 
                 tkv = self._vars['specie_parameters'][pop_nm][specie_nm][param_nm]
+                if param_nm in ['coordx','coordy','coordz']:
+                    if param_nm == 'coordx': cidx = 0
+                    if param_nm == 'coordy': cidx = 1
+                    if param_nm == 'coordz': cidx = 2
+                    xp = x.coordinates[cidx]
+                else:
+                    xp = x.parameters[param_nm]
             else: 
                 x = self.sys.populations[pop_nm]
                 tkv = self._vars['parameters'][pop_nm][param_nm]
-            if param_nm in ['coordx','coordy','coordz']:
-                if param_nm == 'coordx': cidx = 0
-                if param_nm == 'coordy': cidx = 1
-                if param_nm == 'coordz': cidx = 2
-                xp = parent_obj.coordinates[cidx]
-            else:
                 xp = x.parameters[param_nm]
             new_param = copy.deepcopy(xp)
             param_changed = False
@@ -877,11 +882,12 @@ class XRSDFitGUI(object):
     def _update_setting(self,pop_nm,specie_nm,stg_nm,event=None):
         vflag = self._validate_setting(pop_nm,specie_nm,stg_nm) 
         if vflag:
-            x = self.sys.populations[pop_nm]
-            tkv = self._vars['settings'][pop_nm][stg_nm]
             if specie_nm: 
-                x = x.basis[specie_nm] 
+                x = self.sys.populations[pop_nm].basis[specie_nm] 
                 tkv = self._vars['specie_settings'][pop_nm][specie_nm][stg_nm]
+            else:
+                x = self.sys.populations[pop_nm]
+                tkv = self._vars['settings'][pop_nm][stg_nm]
             new_val = tkv.get()
             if not new_val == x.settings[stg_nm]:
                 x.update_setting(stg_nm,new_val)
@@ -931,7 +937,14 @@ class XRSDFitGUI(object):
             x = self.sys.noise_model.parameters[param_nm]
             tkvs = self._vars['parameters'][pop_nm][param_nm]
         elif specie_nm:
-            x = self.sys.populations[pop_nm].basis[specie_nm].parameters[param_nm]
+            if param_nm == 'coordx': 
+                x = self.sys.populations[pop_nm].basis[specie_nm].coordinates[0]
+            elif param_nm == 'coordy': 
+                x = self.sys.populations[pop_nm].basis[specie_nm].coordinates[1]
+            elif param_nm == 'coordz': 
+                x = self.sys.populations[pop_nm].basis[specie_nm].coordinates[2]
+            else:
+                x = self.sys.populations[pop_nm].basis[specie_nm].parameters[param_nm]
             tkvs = self._vars['specie_parameters'][pop_nm][specie_nm][param_nm]
         else:
             x = self.sys.populations[pop_nm].parameters[param_nm]
@@ -1031,6 +1044,8 @@ class XRSDFitGUI(object):
         self._draw_plots()
 
     def _update_parameters(self):
+        for param_nm,par in self.sys.noise_model.parameters.items():
+            self._vars['parameters']['noise'][param_nm]['value'].set(par['value'])
         for pop_nm,pop in self.sys.populations.items():        
             for param_nm in pop.parameters.keys():
                 self._vars['parameters'][pop_nm][param_nm]['value'].set(
