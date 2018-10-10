@@ -56,14 +56,12 @@ class Classifier(XRSDModel):
 
     def run_cross_validation(self,model,data,features,n_groups_out):
         """
-        Good "scoring" is our main goal;
         'f1_macro' used for classifiers as scoring function;
-        it is unweighted f1 calculated by classes.
-        Training reports includes mean unweighted accuracy by classes since it is
+        f1_macro is averaged unweighted f1 calculated by labels.
+        Training reports also include mean unweighted accuracies by labels since it is
         more intuitive.
-        Unfortunately, sklearn does not provide mean unweighted accuracy by classes
+        Unfortunately, sklearn does not provide mean unweighted accuracy by labels
         as a scoring option and it cannot be used for hyperparameters search.
-
         """
         if n_groups_out:
             cross_val_results = self.cross_validate_by_experiments(model,data,features)
@@ -88,10 +86,14 @@ class Classifier(XRSDModel):
         Returns
         -------
         test_scores_by_ex : dict
-            includes list of all system classes, confusion matrix,
-            F1 score by classes, averaged F1 score,
-            mean not weighted accuracies by system classes and experiments,
-            mean not weighted accuracy.
+            includes list of all labels,
+            number of experiments,list of all experiments, confusion matrix,
+            list of labels for which the models were not tested,
+            list of labels for which the models were tested,
+            F1 score by classes, averaged F1 score weighted and unweighted,
+            mean accuracies by classes,
+            mean unweighted and weighted by classes accuracy,
+            test training split.
         """
         experiments = df.experiment_id.unique()# we have at least 3 experiments
         all_classes = df[self.target].unique().tolist()
@@ -122,75 +124,69 @@ class Classifier(XRSDModel):
             labels_from_test = test[self.target].value_counts().keys().tolist()
 
             cmat = confusion_matrix(test[self.target], y_pred, labels_from_test)
-            #print(cmat)
 
             # for each class we devided the number of right predictions
             # by the total number of samples for this class at test set:
             accuracies_by_classes = cmat.diagonal()/test[self.target].value_counts().tolist()
             acc_weighted_by_classes.append(sum(cmat.diagonal())/test.shape[0])
-            #print(test[self.target].value_counts())
-            #print(test[self.target].value_counts().tolist())
-            #print(accuracies_by_classes)
 
             average_acc_for_this_exp = sum(accuracies_by_classes)/len(accuracies_by_classes)
             scores.append(average_acc_for_this_exp)
 
-            test_scores_by_ex[experiments[i]] = {}
-            test_scores_by_ex[experiments[i]]['average for exp'] = average_acc_for_this_exp
-            test_scores_by_ex[experiments[i]]['by classes'] = {}
             for k in range(len(labels_from_test)):
-                test_scores_by_ex[experiments[i]]['by classes'][labels_from_test[k]] = accuracies_by_classes[k]
                 test_scores_by_classes[labels_from_test[k]].append(accuracies_by_classes[k])
-
-
-        result = OrderedDict()
-        result["all system classes"] = all_classes
 
         # we may not be able to test for all classes
         # (if samples of a class are included into only one experiment)
-        not_tested_sys_classes = []
+        not_tested_classes = []
         tested_sys_classes = []
         score_by_cl = []
         for k, v in test_scores_by_classes.items():
             if test_scores_by_classes[k] == []:
-                not_tested_sys_classes.append(k)
+                not_tested_classes.append(k)
             else:
                 tested_sys_classes.append(k)
                 av = sum(test_scores_by_classes[k])/len(test_scores_by_classes[k])
                 test_scores_by_classes[k] = av
                 score_by_cl.append(av)
 
-        result['number of experiments'] = len(experiments)
-        result['confusion matrix'] = str(confusion_matrix(true_labels, pred_labels, tested_sys_classes))
-
-        result["model was NOT tested for"] = not_tested_sys_classes
-        result["model was tested for"] = tested_sys_classes
-        result["F1 score by classes"] = f1_score(true_labels, pred_labels,
-                                                     labels=tested_sys_classes, average=None).tolist()
-        result["F1 score averaged not weighted"] = f1_score(true_labels,
-                                        pred_labels, labels=tested_sys_classes, average='macro')
-        result["F1 score averaged weighted"] = f1_score(true_labels,
-                                        pred_labels, labels=tested_sys_classes, average='weighted')
-        result["mean not weighted accuracies by classes"] = test_scores_by_classes
-        result["mean not weighted accuracies by exp"] = test_scores_by_ex
-        result["mean not weighted accuracy"]= sum(score_by_cl)/len(score_by_cl)
-        result["mean weighted by classes accuracy"] = sum(acc_weighted_by_classes)/len(acc_weighted_by_classes)
-
+        result = dict(all_classes = all_classes,
+                      number_of_experiments = len(experiments),
+                      experiments = str(df.experiment_id.unique()),
+                      confusion_matrix = str(confusion_matrix(true_labels, pred_labels, all_classes)),
+                      model_was_NOT_tested_for = not_tested_classes,
+                      model_was_tested_for = tested_sys_classes,
+                      F1_score_by_classes = f1_score(true_labels, pred_labels,
+                                    labels=tested_sys_classes, average=None).tolist(),
+                      F1_score_averaged_not_weighted = f1_score(true_labels,
+                                        pred_labels, labels=tested_sys_classes, average='macro'),
+                      F1_score_averaged_weighted = f1_score(true_labels,
+                                        pred_labels, labels=tested_sys_classes, average='weighted'),
+                      mean_accuracies_by_classes = test_scores_by_classes,
+                      mean_not_weighted_accuracy = sum(score_by_cl)/len(score_by_cl),
+                      mean_weighted_by_classes_accuracy = sum(acc_weighted_by_classes)/len(acc_weighted_by_classes),
+                      test_training_split = "by experiments")
         return result
 
 
     def cross_validate(self,model,df,features):
-
-        scores = np.absolute(model_selection.cross_val_score(
-                model,df[features], df[self.target],
-                cv=5))
-
-        results = dict(normalized_mean_abs_error_by_splits = scores,
+        # some of metrics have None since they cannot be calculated using cross_val_score from sklearn
+        results = dict(all_classes = df[self.target].unique().tolist(),
                        number_of_experiments = len(df.experiment_id.unique()),
-                       experiments = df.experiment_id.unique(),
+                       experiments = str(df.experiment_id.unique()),
+                       confusion_matrix = None,
+                       model_was_NOT_tested_for = None,
+                       model_was_tested_for = df[self.target].unique().tolist(), #same as all_classes
+                       F1_score_by_classes = [],
+                       F1_score_averaged_not_weighted = model_selection.cross_val_score(model,df[features],
+                                                        df[self.target],cv=5, scoring='f1_macro'),
+                       F1_score_averaged_weighted = model_selection.cross_val_score(model,df[features],
+                                                        df[self.target],cv=5, scoring='f1_weighted'),
+                       mean_accuracies_by_classes = None,
+                       mean_not_weighted_accuracy= None,
+                       mean_weighted_by_classes_accuracy = model_selection.cross_val_score(model,df[features],
+                                                        df[self.target],cv=5, scoring='accuracy'),
                        test_training_split = "random 5 folders crossvalidation split")
-        results["all system classes"] = df[self.target].unique().tolist()
-
         return results
 
     def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring='f1_macro'):
@@ -207,51 +203,65 @@ class Classifier(XRSDModel):
         return  params
 
     def print_number_of_exp(self):
-        return str(self.cross_valid_results['number of experiments'])
+        return str(self.cross_valid_results['number_of_experiments'])
 
     def print_labels(self, all=True):
         if all:
-            labels = self.cross_valid_results['all system classes']
+            labels = self.cross_valid_results['all_classes']
         else:
-            labels = self.cross_valid_results['model was NOT tested for']
-        result = ''
-        for l in labels:
-            result += l
-            result += '\n'
-        return result
+            labels = self.cross_valid_results['model_was_NOT_tested_for']
+        if labels:
+            result = ''
+            for l in labels:
+                result += l
+                result += '\n'
+            return result
+        else:
+            return "The model was tested for all labels"
 
     def print_confusion_matrix(self):
-        matrix = self.cross_valid_results['confusion matrix'].split('\n')
-        result = ''
-        for i in range(len(self.cross_valid_results['model was tested for'])):
-            result += (matrix[i] + "  " +
-                       self.cross_valid_results['model was tested for'][i] + '\n')
-        return result
+        if self.cross_valid_results['confusion_matrix']:
+            result = ''
+            matrix = self.cross_valid_results['confusion_matrix'].split('\n')
+            #for i in range(len(self.cross_valid_results['model_was_tested_for'])):
+            for i in range(len(self.cross_valid_results['all_classes'])):
+                result += (matrix[i] + "  " +
+                        #self.cross_valid_results['model_was_tested_for'][i] + '\n')
+                        self.cross_valid_results['all_classes'][i] + '\n')
+            return result
+        else:
+            return "Comfusion matrix was not created"
 
     def print_F1_scores(self):
         result = ''
-        for i in range(len(self.cross_valid_results['F1 score by classes'])):
-            result += (self.cross_valid_results['model was tested for'][i] +
-                       " : " + str(self.cross_valid_results['F1 score by classes'][i]) + '\n')
+        for i in range(len(self.cross_valid_results['F1_score_by_classes'])):
+            result += (self.cross_valid_results['model_was_tested_for'][i] +
+                       " : " + str(self.cross_valid_results['F1_score_by_classes'][i]) + '\n')
         return result
 
     def print_accuracies(self):
-        result = ''
-        for k,v in self.cross_valid_results['mean not weighted accuracies by classes'].items():
-            result += (k + " : " + str(v) + '\n')
-        return result
+        if self.cross_valid_results['mean_accuracies_by_classes']:
+            result = ''
+            for k,v in self.cross_valid_results['mean_accuracies_by_classes'].items():
+                result += (k + " : " + str(v) + '\n')
+            return result
+        else:
+            return "Mean accuracies by classes were not calculated"
 
     def average_F1(self,weighted=False):
         if weighted:
-            return str(self.cross_valid_results['F1 score averaged weighted'])
+            return str(self.cross_valid_results['F1_score_averaged_weighted'])
         else:
-            return str(self.cross_valid_results['F1 score averaged not weighted'])
+            return str(self.cross_valid_results['F1_score_averaged_not_weighted'])
 
     def average_accuracy(self,weighted=False):
         if weighted:
-            return str(self.cross_valid_results['mean weighted by classes accuracy'])
+            return str(self.cross_valid_results['mean_weighted_by_classes_accuracy'])
         else:
-            return str(self.cross_valid_results['mean not weighted accuracy'])
+            if self.cross_valid_results['mean_not_weighted_accuracy']:
+                return str(self.cross_valid_results['mean_not_weighted_accuracy'])
+            else:
+                return "Mean not weighted accuracy was not calculated"
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
@@ -266,6 +276,7 @@ class Classifier(XRSDModel):
             'All labels : \n' + self.print_labels()+'\n\n'+ \
             'model was NOT tested for :' '\n'+ self.print_labels(False) +'\n\n'+ \
             'Confusion matrix:\n' + \
+            'if the model was not tested for some labels, the corresponding rows will have all zeros\n' + \
             self.print_confusion_matrix()+'\n\n' + \
             'F1 scores by label:\n' + \
             self.print_F1_scores() + '\n'\
@@ -274,7 +285,7 @@ class Classifier(XRSDModel):
             'Accuracies by label:\n' + \
             self.print_accuracies() + '\n'+\
             'Label-averaged unweighted accuracy: {}\n\n'.format(self.average_accuracy(False)) + \
-            'Label-averaged weighted accuracy: {}\n'.format(self.average_accuracy(True))# + \
-            #'\n\nNOTE: Weighted metrics are weighted by test set size'
+            'Label-averaged weighted accuracy: {}\n'.format(self.average_accuracy(True))+ '\n\n'+\
+            'NOTE: Weighted metrics are weighted by class size'
         return CV_report
 

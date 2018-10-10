@@ -454,8 +454,6 @@ def save_model_data(model,yml_path,txt_path):
             model_data['scaler']['mean_'] = model.scaler.__dict__['mean_'].tolist()
             model_data['scaler']['scale_'] = model.scaler.__dict__['scale_'].tolist()
         yaml.dump(model_data,yml_file)
-
-
     with open(txt_path,'w') as txt_file:
         if model.trained:
             res_str = model.print_CV_report()

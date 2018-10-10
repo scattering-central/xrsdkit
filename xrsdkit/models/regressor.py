@@ -56,9 +56,8 @@ class Regressor(XRSDModel):
 
     def run_cross_validation(self,model,data,features, group_cv):
         """
-        Good "scoring" is our main goal.
-        We used 'r2' scoring (coef of determination) since it takes variation into account.
-        Training report includes normalized mean_abs_error that is more intuitive.
+        'r2' scoring (coef of determination) is used since it takes variance into account.
+        Training reports include normalized mean_abs_error that is more intuitive.
         Unfortunately, sklearn does not provide normalized mean_abs_error scoring option
         and it cannot be used for hyperparameters search.
         """
@@ -87,28 +86,27 @@ class Regressor(XRSDModel):
         Returns
         -------
         results : dict
-            includes normilezed mean abs error,
-            normilezed mean abs error by splits,
+            includes normilezed mean abs error by splits,
+            normilezed average mean abs error (unweighted),
+            weighted average mean abs error,
             labels std,
             number of experiments that were used for training/testing
             (can be 1 or 2 since if we have data from 3 or more
             experiments, cross_validate_by_experiments() will be used),
             IDs of experiments,
             how the split was done.
-
-
         """
         scores = np.absolute(model_selection.cross_val_score(
-                model,df[profiler.profile_keys], df[self.target],
+                model,df[features], df[self.target],
                 cv=5, scoring='neg_mean_absolute_error')/ label_std)
 
-        results = dict(normalized_mean_abs_error_by_splits = scores,
+        results = dict(normalized_mean_abs_error_by_splits = str(scores),
                        normalized_mean_abs_error = sum(scores)/len(scores),
                        #weighted_av_mean_abs_error is the same us unweighted since the splits have the same sizes:
                        weighted_av_mean_abs_error = sum(scores)/len(scores),
                        labels_std = label_std,
                        number_of_experiments = len(df.experiment_id.unique()),
-                       experiments = df.experiment_id.unique(),
+                       experiments = str(df.experiment_id.unique()),
                        test_training_split = "random 5 folders crossvalidation split")
 
         return results
@@ -130,8 +128,9 @@ class Regressor(XRSDModel):
         Returns
         -------
         results : dict
-            includes normilezed mean abs error,
-            normilezed mean abs error by experiments,
+            includes normilezed mean abs error by splits,
+            normilezed average mean abs error (unweighted),
+            weighted average mean abs error,
             labels std,
             number of experiments that were used for training/testing
             (can be 3 or more  - if we have data from 1 or 2 experiments
@@ -151,12 +150,12 @@ class Regressor(XRSDModel):
             test_scores_by_ex.append(test_score/label_std)
             test_scores_by_ex_weighted.append((test_score/label_std)*(test.shape[0]/df.shape[0]))
 
-        results = dict(normalized_mean_abs_error_by_splits = test_scores_by_ex,
+        results = dict(normalized_mean_abs_error_by_splits = str(test_scores_by_ex),
                        normalized_mean_abs_error = sum(test_scores_by_ex)/len(test_scores_by_ex),
                        weighted_av_mean_abs_error = sum(test_scores_by_ex_weighted),
                        labels_std = label_std,
                        number_of_experiments = len(test_scores_by_ex),
-                       experiments = df.experiment_id.unique(),
+                       experiments = str(df.experiment_id.unique()),
                        test_training_split = "by experiments")
         return results
 
@@ -165,8 +164,8 @@ class Regressor(XRSDModel):
 
     def print_mean_abs_errors(self):
         result = ''
-        for r in self.cross_valid_results['normalized_mean_abs_error_by_splits']:
-            result +=(str(r) + '\n')
+        for r in self.cross_valid_results['normalized_mean_abs_error_by_splits'].split():
+            result += (r + '\n')
         return result
 
     def average_mean_abs_error(self,weighted=False):
