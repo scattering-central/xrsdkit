@@ -14,7 +14,7 @@ if mplvmaj > 2:
 else:
     from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 
-from .. import *
+from ..definitions import *
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
 from ..system.population import StructureFormException 

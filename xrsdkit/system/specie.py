@@ -1,6 +1,6 @@
 import copy
 
-from .. import *
+from ..definitions import *
 
 class Specie(object):
 
