@@ -134,7 +134,8 @@ class XRSDModel(object):
         """Test whether or not `dataframe` has legal values for all labels.
  
         Returns "True" if the dataframe has enough rows, 
-        over which the labels exhibit at least two unique values 
+        over which the labels exhibit at least two unique values
+        and there are at least three samples for each label.
 
         Parameters
         ----------

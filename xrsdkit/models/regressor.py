@@ -98,7 +98,7 @@ class Regressor(XRSDModel):
         """
         scores = np.absolute(model_selection.cross_val_score(
                 model,df[features], df[self.target],
-                cv=5, scoring='neg_mean_absolute_error')/ label_std)
+                cv=3, scoring='neg_mean_absolute_error')/ label_std)
 
         results = dict(normalized_mean_abs_error_by_splits = str(scores),
                        normalized_mean_abs_error = sum(scores)/len(scores),
@@ -107,7 +107,7 @@ class Regressor(XRSDModel):
                        labels_std = label_std,
                        number_of_experiments = len(df.experiment_id.unique()),
                        experiments = str(df.experiment_id.unique()),
-                       test_training_split = "random 5 folders crossvalidation split")
+                       test_training_split = "random 3 folders crossvalidation split")
 
         return results
 

@@ -1,7 +1,7 @@
 import numpy as np
 from collections import OrderedDict
 
-from sklearn import linear_model
+from sklearn import linear_model, model_selection
 from sklearn.metrics import f1_score, confusion_matrix
 
 from .xrsd_model import XRSDModel
@@ -178,15 +178,26 @@ class Classifier(XRSDModel):
                        model_was_NOT_tested_for = None,
                        model_was_tested_for = df[self.target].unique().tolist(), #same as all_classes
                        F1_score_by_classes = [],
-                       F1_score_averaged_not_weighted = model_selection.cross_val_score(model,df[features],
-                                                        df[self.target],cv=5, scoring='f1_macro'),
-                       F1_score_averaged_weighted = model_selection.cross_val_score(model,df[features],
-                                                        df[self.target],cv=5, scoring='f1_weighted'),
                        mean_accuracies_by_classes = None,
-                       mean_not_weighted_accuracy= None,
-                       mean_weighted_by_classes_accuracy = model_selection.cross_val_score(model,df[features],
-                                                        df[self.target],cv=5, scoring='accuracy'),
-                       test_training_split = "random 5 folders crossvalidation split")
+                       mean_not_weighted_accuracy= None)
+
+        if min(df[self.target].value_counts()) > 2:
+            results['mean_weighted_by_classes_accuracy'] = model_selection.cross_val_score(model,df[features],
+                                                        df[self.target],cv=3, scoring='accuracy'),
+            results['F1_score_averaged_not_weighted'] = model_selection.cross_val_score(model,df[features],
+                                                        df[self.target],cv=3, scoring='f1_macro')
+            results['F1_score_averaged_weighted'] = model_selection.cross_val_score(model,df[features],
+                                                        df[self.target],cv=3, scoring='f1_weighted')
+            results['mean_weighted_by_classes_accuracy'] = model_selection.cross_val_score(model,df[features],
+                                                        df[self.target],cv=3, scoring='accuracy')
+            results['test_training_split'] = "random 3 folders crossvalidation split"
+        else:
+            results['mean_weighted_by_classes_accuracy'] = None
+            results['F1_score_averaged_not_weighted'] = None
+            results['F1_score_averaged_weighted'] = None
+            results['mean_weighted_by_classes_accuracy'] = None
+            results['test_training_split'] = "The model was not crossvalidated since we have" \
+                                             " less than 3 samples for some labels "
         return results
 
     def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring='f1_macro'):
