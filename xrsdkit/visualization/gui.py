@@ -67,7 +67,6 @@ class XRSDFitGUI(object):
         self.dI = dI
         self.src_wl = source_wavelength
         self.sys = system
-        self.sys_opt = system
         self.error_weighted = error_weighted
         self.logI_weighted = logI_weighted
         self.q_range = q_range
@@ -89,7 +88,7 @@ class XRSDFitGUI(object):
         # start the tk loop
         self.fit_gui.mainloop()
         # after the loop, return the (optimized) system
-        return self.sys_opt, self.good_fit
+        return self.sys, self.good_fit
 
     def _cleanup(self):
         # remove references to all gui objects, widgets, etc. 
@@ -815,7 +814,7 @@ class XRSDFitGUI(object):
         return nsf
 
     def _draw_plots(self):
-        draw_xrsd_fit(self.fig,self.sys_opt,self.q,self.I,self.src_wl,self.dI,False)
+        draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.src_wl,self.dI,False)
         self.mpl_canvas.draw()
         self._update_fit_objective()
 
