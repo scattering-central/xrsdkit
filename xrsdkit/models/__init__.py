@@ -458,7 +458,7 @@ def save_model_data(model,yml_path,txt_path):
         if model.trained:
             res_str = model.print_CV_report()
         else:
-            res_str = 'The models was not trained'
+            res_str = 'The model was not trained'
         txt_file.write(res_str)
 
 def save_regression_models(models=regression_models, test=False):

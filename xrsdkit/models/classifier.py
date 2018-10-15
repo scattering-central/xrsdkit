@@ -55,13 +55,14 @@ class Classifier(XRSDModel):
         return sys_cls, cert
 
     def run_cross_validation(self,model,data,features,n_groups_out):
-        """
-        'f1_macro' used for classifiers as scoring function;
-        f1_macro is averaged unweighted f1 calculated by labels.
-        Training reports also include mean unweighted accuracies by labels since it is
-        more intuitive.
-        Unfortunately, sklearn does not provide mean unweighted accuracy by labels
-        as a scoring option and it cannot be used for hyperparameters search.
+        """Run a cross-validation test and return a report of the results.
+
+        Classifiers are validated by the f1_macro scoring function;
+        f1_macro is the average, unweighted f1 score across all labels.
+        The reports also include mean unweighted accuracies for all labels.
+        Scikit-learn does not expose the mean unweighted accuracy by labels
+        as a scoring option, so it cannot currently be used 
+        for hyperparameter optimization.
         """
         if n_groups_out:
             cross_val_results = self.cross_validate_by_experiments(model,data,features)
@@ -73,13 +74,16 @@ class Classifier(XRSDModel):
     def cross_validate_by_experiments(self, model, df, features):
         """Test a model by LeaveOneGroupOut cross-validation.
 
+        In this case, the groupings are defined by the experiment_id labels.
+
         Parameters
         ----------
         df : pandas.DataFrame
-            pandas dataframe of features and labels
-            must include the data from at least 3 experiments
-        model : sk-learn
-            with specific parameters
+            pandas dataframe of features and labels,
+            including at least three distinct experiment_id labels 
+        model : sklearn.linear_model.SGDClassifier
+            an sklearn classifier instance trained on some dataset
+            with some choice of hyperparameters
         features : list of str
             list of features that were used for training.
 
@@ -87,9 +91,8 @@ class Classifier(XRSDModel):
         -------
         test_scores_by_ex : dict
             includes list of all labels,
-            number of experiments,list of all experiments, confusion matrix,
-            list of labels for which the models were not tested,
-            list of labels for which the models were tested,
+            list of all experiments, confusion matrix,
+            list of labels for which the models were and were not tested,
             F1 score by classes, averaged F1 score weighted and unweighted,
             mean accuracies by classes,
             mean unweighted and weighted by classes accuracy,
@@ -188,14 +191,11 @@ class Classifier(XRSDModel):
                                                         df[self.target],cv=3, scoring='f1_macro')
             results['F1_score_averaged_weighted'] = model_selection.cross_val_score(model,df[features],
                                                         df[self.target],cv=3, scoring='f1_weighted')
-            results['mean_weighted_by_classes_accuracy'] = model_selection.cross_val_score(model,df[features],
-                                                        df[self.target],cv=3, scoring='accuracy')
             results['test_training_split'] = "random 3 folders crossvalidation split"
         else:
             results['mean_weighted_by_classes_accuracy'] = None
             results['F1_score_averaged_not_weighted'] = None
             results['F1_score_averaged_weighted'] = None
-            results['mean_weighted_by_classes_accuracy'] = None
             results['test_training_split'] = "The model was not crossvalidated since we have" \
                                              " less than 3 samples for some labels "
         return results
@@ -241,7 +241,7 @@ class Classifier(XRSDModel):
                         self.cross_valid_results['all_classes'][i] + '\n')
             return result
         else:
-            return "Comfusion matrix was not created"
+            return "Confusion matrix was not created"
 
     def print_F1_scores(self):
         result = ''
