@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 import yaml
 from sklearn import model_selection, preprocessing
@@ -56,7 +54,7 @@ class XRSDModel(object):
         shuffled_rows = np.random.permutation(all_data.index)
         all_data = all_data.loc[shuffled_rows]
         d = all_data[all_data[self.target].isnull() == False]
-        training_possible = self.check_label(d)
+        training_possible, n_groups_out, d = self.check_label(d)
         if not training_possible:
             # all samples have identical labels or we have <5 samples
             self.default_val = d[self.target].unique()[0] # use a value as the default value
@@ -67,13 +65,6 @@ class XRSDModel(object):
         # NOTE: the profiler should always return scalar values,
         # but this remains here as a defensive measure.
         data = d.dropna(subset=profiler.profile_keys)
-
-        # using leaveGroupOut makes sense when we have at least 3 groups
-        if len(data.experiment_id.unique()) > 2:
-            n_groups_out = 1
-        else:
-            # use 5-fold cross validation
-            n_groups_out = None
 
         new_scaler = preprocessing.StandardScaler()
         new_scaler.fit(data[profiler.profile_keys])
@@ -118,9 +109,8 @@ class XRSDModel(object):
         if n_leave_out:
             cv=model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
                 transformed_data, np.ravel(data_labels), groups=group_by)
-
         else:
-            cv = 5 # five-fold cross validation
+            cv = 3 # five-fold cross validation
         test_model = self.build_model()
 
         clf = model_selection.GridSearchCV(test_model,
@@ -144,17 +134,25 @@ class XRSDModel(object):
 
         Returns
         -------
-        bool
+        result: bool
             indicates whether or not training is possible.
+        n_groups_out: int or None
+            using leaveGroupOut makes sense when we have at least 3 groups.
         """
+        if len(dataframe.experiment_id.unique()) > 2:
+            n_groups_out = 1
+        else:
+            # use 3-fold cross validation
+            n_groups_out = None
+
         if len(dataframe[self.target].unique()) > 1:
             if dataframe.shape[0] >= 5:
-                return True
+                return True, n_groups_out
             else:
                 print('model {}: insufficient training data ({} samples)'.format(
                 self.target,dataframe.shape[0]))
-                return False
+                return False, n_groups_out
         else:
             print('model {}: all training data have identical outputs ({})'.format(
             self.target,dataframe[self.target].iloc[0]))
-            return False
+            return False, n_groups_out

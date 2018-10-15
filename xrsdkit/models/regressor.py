@@ -166,6 +166,32 @@ class Regressor(XRSDModel):
             result += (r + '\n')
         return result
 
+    def check_label(self, dataframe):
+        """Test whether or not `dataframe` has legal values for all labels.
+
+        Returns "True" if the dataframe has enough rows,
+        over which the labels exhibit at least two unique values
+
+        Parameters
+        ----------
+        dataframe : pandas.DataFrame
+            dataframe of sample features and corresponding labels
+
+        Returns
+        -------
+        result: bool
+            indicates whether or not training is possible
+        n_groups_out: int or None
+            using leaveGroupOut makes sense when we have at least 3 groups.
+        dataframe : pandas.DataFrame
+        """
+        result, n_groups_out = super(Regressor,self).check_label(dataframe)
+        return result, n_groups_out, dataframe
+
+    # TODO
+    def print_accuracies(self):
+        return ''
+
     def average_mean_abs_error(self,weighted=False):
         if weighted:
             return str(self.cross_valid_results['weighted_av_mean_abs_error'])
