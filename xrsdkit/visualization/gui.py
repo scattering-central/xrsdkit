@@ -47,11 +47,6 @@ def run_fit_gui(system,q,I,source_wavelength,
 # TODO (low): when a param is fixed or has a constraint set,
 #   make the entry widget read-only
 
-# TODO (low): make plot frame zoom-able (add matplotlib toolbar?)
-
-# TODO: ensure coordinate params are handled correctly 
-#   when structures are changed to/from crystalline
-
 class XRSDFitGUI(object):
 
     def __init__(self,system,
@@ -514,6 +509,11 @@ class XRSDFitGUI(object):
         for spc_nm in spc_frm_nms: 
             if spc_nm in self.sys.populations[pop_nm].basis:
                 new_spc_frms[spc_nm] = self._frames['species'][pop_nm][spc_nm]
+                # if the structure was changed to/from crystalline,
+                # repack the specie frames 
+                if (pop_struct == 'crystalline' and not 'coordx' in self._frames['specie_parameters'][pop_nm][spc_nm]) \
+                or (not pop_struct == 'crystalline' and 'coordx' in self._frames['specie_parameters'][pop_nm][spc_nm]):
+                    self._repack_specie_frame(pop_nm,spc_nm)
             else:
                 frm = self._frames['species'][pop_nm].pop(spc_nm)
                 frm.destroy()
@@ -727,6 +727,7 @@ class XRSDFitGUI(object):
         return specief
 
     def _repack_specie_frame(self,pop_nm,specie_nm):
+        pop_struct = self.sys.populations[pop_nm].structure
         spc_form = self.sys.populations[pop_nm].basis[specie_nm].form
         #
         # SETTINGS: 
@@ -752,7 +753,9 @@ class XRSDFitGUI(object):
         for par_nm,frm in self._frames['specie_parameters'][pop_nm][specie_nm].items(): frm.pack_forget() 
         new_par_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        for par_nm in form_factor_params[spc_form]: 
+        param_nms = copy.deepcopy(form_factor_params[spc_form])
+        if pop_struct == 'crystalline': param_nms.extend(['coordx','coordy','coordz'])
+        for par_nm in param_nms: 
             if par_nm in self._frames['specie_parameters'][pop_nm][specie_nm]:
                 new_par_frms[par_nm] = self._frames['specie_parameters'][pop_nm][specie_nm][par_nm]
             else:
@@ -760,7 +763,7 @@ class XRSDFitGUI(object):
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['specie_parameters'][pop_nm][specie_nm].keys())
         for par_nm in par_frm_nms: 
-            if not par_nm in form_factor_params[spc_form]: 
+            if not par_nm in param_nms: 
                 frm = self._frames['specie_parameters'][pop_nm][specie_nm].pop(par_nm)
                 frm.destroy()
                 self._vars['specie_parameters'][pop_nm][specie_nm].pop(par_nm)
