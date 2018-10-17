@@ -71,12 +71,12 @@ class XRSDFitGUI(object):
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
         # setup the main gui objects
         self._build_gui()
-        # create the plots
-        self._build_plot_widgets()
         # create the widgets for control 
         self._build_control_widgets()
+        # create the plots
+        self._build_plot_widgets()
         # draw the plots...
-        self._draw_plots()
+        #self._draw_plots()
         self.fit_gui.geometry('1100x700')
 
     def start(self):
@@ -129,7 +129,7 @@ class XRSDFitGUI(object):
         # built from FigureCanvasTkAgg.get_tk_widget()
         plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
         plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
-        self.fig = plot_xrsd_fit(self.sys,self.q,self.I,self.src_wl,self.dI,False)
+        self.fig,I_comp = plot_xrsd_fit(self.sys,self.q,self.I,self.src_wl,self.dI,False)
         plot_frame_canvas = tkinter.Canvas(plot_frame)
         yscr = tkinter.Scrollbar(plot_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
@@ -145,6 +145,7 @@ class XRSDFitGUI(object):
             plot_frame_canvas,self.plot_canvas,plot_canvas_window)
         plot_frame_canvas.bind("<Configure>",self.plot_canvas_configure)
         self.mpl_canvas.draw()
+        self._update_fit_objective(I_comp)
 
     def _build_control_widgets(self):
         # the main frame contains a control frame on the right,
@@ -310,26 +311,32 @@ class XRSDFitGUI(object):
             new_val = self._vars['fit_control']['wavelength'].get()
         except:
             self._vars['fit_control']['wavelength'].set(self.src_wl)
-        self.src_wl = new_val
-        self._draw_plots()
+            new_val = self.src_wl
+        if not new_val == self.src_wl:
+            self.src_wl = new_val
+            self._draw_plots()
 
     def _set_q_range(self,q_idx,event=None):
         try:
             new_val = self._vars['fit_control']['q_range'][q_idx].get()
         except:
             self._vars['fit_control']['q_range'][q_idx].set(self.q_range[q_idx])
-        self.q_range[q_idx] = new_val
-        self._update_fit_objective()
+            new_val = self.q_range[q_idx]
+        if not new_val == self.q_range[q_idx]:
+            self.q_range[q_idx] = new_val
+            self._update_fit_objective()
 
     def _set_error_weighted(self):
         new_val = self._vars['fit_control']['error_weighted'].get()
-        self.error_weighted = new_val
-        self._update_fit_objective()
+        if not new_val == self.error_weighted:
+            self.error_weighted = new_val
+            self._update_fit_objective()
 
     def _set_logI_weighted(self):
         new_val = self._vars['fit_control']['logI_weighted'].get()
-        self.logI_weighted = new_val
-        self._update_fit_objective()
+        if not new_val == self.logI_weighted:
+            self.logI_weighted = new_val
+            self._update_fit_objective()
 
     def _set_good_fit(self):
         new_val = self._vars['fit_control']['good_fit'].get()
@@ -817,16 +824,14 @@ class XRSDFitGUI(object):
         return nsf
 
     def _draw_plots(self):
-        draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.src_wl,self.dI,False)
+        I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.src_wl,self.dI,False)
         self.mpl_canvas.draw()
-        self._update_fit_objective()
+        self._update_fit_objective(I_comp)
 
-    def _update_fit_objective(self):
-        #qrng = [self._vars['fit_control']['q_range'][0].get(),\
-        #    self._vars['fit_control']['q_range'][1].get()]
+    def _update_fit_objective(self,I_comp=None):
         obj_val = self.sys.evaluate_residual(
             self.q,self.I,self.src_wl,self.dI,
-            self.error_weighted,self.logI_weighted,self.q_range)
+            self.error_weighted,self.logI_weighted,self.q_range,I_comp)
         self._vars['fit_control']['objective'].set(str(obj_val))
 
     def _update_param(self,pop_nm,specie_nm,param_nm,param_key,param_idx=None,event=None):

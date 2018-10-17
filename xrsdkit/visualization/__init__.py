@@ -13,15 +13,15 @@ default_targets=['system_classification','experiment_id']
 def plot_xrsd_fit(sys,q,I,source_wavelength,dI=None,show_plot=False):
     mpl_fig = plt.figure() 
     ax_plot = mpl_fig.add_subplot(111)
-    draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI,show_plot)
-    return mpl_fig
+    I_comp = draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI,show_plot)
+    return mpl_fig, I_comp
 
 def draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI=None,show_plot=False):
     ax_plot = mpl_fig.gca()
     ax_plot.clear()
     ax_plot.semilogy(q,I,lw=2,color='black')
-    I_est = sys.compute_intensity(q,source_wavelength)
-    ax_plot.semilogy(q,I_est,lw=2,color='red')
+    I_comp = sys.compute_intensity(q,source_wavelength)
+    ax_plot.semilogy(q,I_comp,lw=2,color='red')
     I_noise = sys.compute_noise_intensity(q)
     ax_plot.semilogy(q,I_noise,lw=1) 
     for popnm,pop in sys.populations.items():
@@ -32,6 +32,7 @@ def draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI=None,show_plot=False):
     ax_plot.legend(['measured','computed','noise']+list(sys.populations.keys()))
     if show_plot:
         mpl_fig.show()
+    return I_comp
 
 def download_and_visualize(
     source_dataset_ids = src_dsid_list,

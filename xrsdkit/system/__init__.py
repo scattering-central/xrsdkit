@@ -166,7 +166,7 @@ class System(object):
         return I
 
     def evaluate_residual(self,q,I,source_wavelength,dI=None,
-        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
+        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')],I_comp=None):
         """Evaluate the fit residual for a given populations dict.
     
         Parameters
@@ -186,13 +186,17 @@ class System(object):
         q_range : list
             Two floats indicating the lower and 
             upper q-limits for objective evaluation
-    
+        I_comp : array
+            Optional array of computed intensity (for efficiency)- 
+            if provided, intensity is not re-computed   
+ 
         Returns
         -------
         res : float
             Value of the residual 
         """
-        I_comp = self.compute_intensity(q,source_wavelength)
+        if I_comp is None:
+            I_comp = self.compute_intensity(q,source_wavelength)
         idx_nz = (I>0)
         idx_fit = (idx_nz) & (q>=q_range[0]) & (q<=q_range[1])
         wts = np.ones(len(q))
