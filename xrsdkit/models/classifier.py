@@ -203,22 +203,23 @@ class Classifier(XRSDModel):
 
     def hyperparameters_search(self,transformed_data, data_labels,
                                group_by=None, n_leave_out=None, scoring='accuracy'):
-
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
-        This invokess the method from the base class with a different scoring argument.
+
+        This invokes the method from the base class with a different scoring argument.
 
         Returns
         -------
         params : dict
             dictionary of the parameters to get the best f1 score.
         """
-        #TODO late try scoring "f1_macro" or implement castomized giridsearch:
-        # problem with any f1: for each split f1 is calculted for EACH
-        # class that presents in testing or training set
-        # it gives us a lot of zeros.
-        # for eache split we want to calculate F1 only for the classes
-        # that present in training set
-
+        # TODO (later): try scoring "f1_macro"
+        # or implement customized grid search.
+        # problem with any f1: for each split,
+        # f1 is calculated for EACH class that is present
+        # in the testing or training set,
+        # which currently produces a lot of zeros.
+        # For each split, we want to calculate f1 only for the classes
+        # that are present in training set
         params = super(Classifier,self).hyperparameters_search(
                 transformed_data,data_labels,group_by,n_leave_out,scoring)
         return  params
@@ -238,11 +239,11 @@ class Classifier(XRSDModel):
             return "The model was tested for all labels"
 
     def check_label(self, dataframe):
-        """Test whether or not `dataframe` has legal values for all labels;
-        test whether or not each split of cross validation will include
-        at least two classes in for training (it is a requirement for using
-        hyperparameters search).
+        """Test whether or not `dataframe` has legal values for all labels.
 
+        This checks whether or not each cross-validation split will include
+        at least two classes for training
+        (as required for hyperparameters_search).
         Returns "True" if the dataframe has enough rows,
         over which the labels exhibit at least two unique values
 
@@ -253,16 +254,20 @@ class Classifier(XRSDModel):
 
         Returns
         -------
-        bool
+        result : bool
             indicates whether or not training is possible
             (the dataframe has enough rows,
             over which the labels exhibit at least two unique values)
-        n_groups_out: int or None
+        n_groups_out : int or None
             using leaveGroupOut makes sense when we have at least 3 groups
-            and each split by groups have has legal values for all labels
+            and each split by groups has legal values for all labels
         dataframe : pandas.DataFrame
-            updated, if needed, dataframe (if dataframe includes onle 1 or
-            2 samples for some classes, the saples are cloned two times).
+            updated dataframe, if required 
+            (if the input dataframe includes 
+            only 1 or 2 samples for some classes, 
+            these samples are cloned two times,
+            so that simple non-validated models
+            are still produced for those classes).
         """
         result, n_groups_out = super(Classifier,self).check_label(dataframe)
         if result:
@@ -281,7 +286,7 @@ class Classifier(XRSDModel):
             for i in range(len(experiments)):
                 tr = dataframe[(dataframe['experiment_id'] != experiments[i])]
                 if len(tr[self.target].unique()) < 2:
-                    n_groups_out = None # 3 folders cross validation will be used
+                    n_groups_out = None # 3-fold cross validation will be used
 
         return result, n_groups_out, dataframe
 

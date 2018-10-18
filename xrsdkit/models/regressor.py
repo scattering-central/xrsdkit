@@ -170,7 +170,7 @@ class Regressor(XRSDModel):
         """Test whether or not `dataframe` has legal values for all labels.
 
         Returns "True" if the dataframe has enough rows,
-        over which the labels exhibit at least two unique values
+        over which the labels exhibit at least two unique values.
 
         Parameters
         ----------
@@ -179,11 +179,12 @@ class Regressor(XRSDModel):
 
         Returns
         -------
-        result: bool
+        result : bool
             indicates whether or not training is possible
-        n_groups_out: int or None
+        n_groups_out : int or None
             using leaveGroupOut makes sense when we have at least 3 groups.
         dataframe : pandas.DataFrame
+            same as the input dataframe
         """
         result, n_groups_out = super(Regressor,self).check_label(dataframe)
         return result, n_groups_out, dataframe

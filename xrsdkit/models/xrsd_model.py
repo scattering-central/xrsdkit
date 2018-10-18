@@ -107,10 +107,10 @@ class XRSDModel(object):
             Dictionary of the best found hyperparameters.
         """
         if n_leave_out:
-            cv=model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
+            cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
                 transformed_data, np.ravel(data_labels), groups=group_by)
         else:
-            cv = 3 # five-fold cross validation
+            cv = 3 # number of folds for cross validation
         test_model = self.build_model()
 
         clf = model_selection.GridSearchCV(test_model,
@@ -134,9 +134,9 @@ class XRSDModel(object):
 
         Returns
         -------
-        result: bool
+        result : bool
             indicates whether or not training is possible.
-        n_groups_out: int or None
+        n_groups_out : int or None
             using leaveGroupOut makes sense when we have at least 3 groups.
         """
         if len(dataframe.experiment_id.unique()) > 2:
