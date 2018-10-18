@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from collections import OrderedDict
 
 from sklearn import linear_model, model_selection
@@ -200,17 +201,27 @@ class Classifier(XRSDModel):
                 'because some labels in the training set included less than 3 samples.'
         return results
 
-    def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring='f1_macro'):
+    def hyperparameters_search(self,transformed_data, data_labels,
+                               group_by=None, n_leave_out=None, scoring='accuracy'):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
-        This invokess the method from the base class with a different scoring argument.
+
+        This invokes the method from the base class with a different scoring argument.
 
         Returns
         -------
         params : dict
             dictionary of the parameters to get the best f1 score.
         """
+        # TODO (later): try scoring "f1_macro"
+        # or implement customized grid search.
+        # problem with any f1: for each split,
+        # f1 is calculated for EACH class that is present
+        # in the testing or training set,
+        # which currently produces a lot of zeros.
+        # For each split, we want to calculate f1 only for the classes
+        # that are present in training set
         params = super(Classifier,self).hyperparameters_search(
-        transformed_data,data_labels,group_by,n_leave_out,scoring)
+                transformed_data,data_labels,group_by,n_leave_out,scoring)
         return  params
 
     def print_labels(self, all=True):
@@ -226,6 +237,58 @@ class Classifier(XRSDModel):
             return result
         else:
             return "The model was tested for all labels"
+
+    def check_label(self, dataframe):
+        """Test whether or not `dataframe` has legal values for all labels.
+
+        This checks whether or not each cross-validation split will include
+        at least two classes for training
+        (as required for hyperparameters_search).
+        Returns "True" if the dataframe has enough rows,
+        over which the labels exhibit at least two unique values
+
+        Parameters
+        ----------
+        dataframe : pandas.DataFrame
+            dataframe of sample features and corresponding labels
+
+        Returns
+        -------
+        result : bool
+            indicates whether or not training is possible
+            (the dataframe has enough rows,
+            over which the labels exhibit at least two unique values)
+        n_groups_out : int or None
+            using leaveGroupOut makes sense when we have at least 3 groups
+            and each split by groups has legal values for all labels
+        dataframe : pandas.DataFrame
+            updated dataframe, if required 
+            (if the input dataframe includes 
+            only 1 or 2 samples for some classes, 
+            these samples are cloned two times,
+            so that simple non-validated models
+            are still produced for those classes).
+        """
+        result, n_groups_out = super(Classifier,self).check_label(dataframe)
+        if result:
+            # check if there are skewed classes and fix them:
+            if min(dataframe[self.target].value_counts().tolist()) < 3:
+                # find samples of skewed classes and add two clones of them
+                all_classes = dataframe[self.target].value_counts().keys()
+                number_of_samles_by_cl = dataframe[self.target].value_counts().tolist()
+                for i in range(len(number_of_samles_by_cl)):
+                    if number_of_samles_by_cl[i] < 3:
+                        sampls = dataframe.loc[dataframe[self.target] == all_classes[i]].copy()
+                        dataframe = pd.concat([dataframe,sampls,sampls])
+
+            # check if threre are splits when all testing data have identical labels
+            experiments = dataframe.experiment_id.unique()
+            for i in range(len(experiments)):
+                tr = dataframe[(dataframe['experiment_id'] != experiments[i])]
+                if len(tr[self.target].unique()) < 2:
+                    n_groups_out = None # 3-fold cross validation will be used
+
+        return result, n_groups_out, dataframe
 
     def print_confusion_matrix(self):
         if self.cross_valid_results['confusion_matrix']:
