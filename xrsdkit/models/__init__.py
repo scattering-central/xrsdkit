@@ -455,7 +455,10 @@ def save_model_data(model,yml_path,txt_path):
             model_data['scaler']['scale_'] = model.scaler.__dict__['scale_'].tolist()
         yaml.dump(model_data,yml_file)
     with open(txt_path,'w') as txt_file:
-        res_str = model.print_CV_report()
+        if model.trained:
+            res_str = model.print_CV_report()
+        else:
+            res_str = 'The model was not trained'
         txt_file.write(res_str)
 
 def save_regression_models(models=regression_models, test=False):
@@ -618,14 +621,6 @@ def group_by_labels(df):
         if re.compile('pop._interaction').match(col): grp_cols.append(col)
     all_groups = df.groupby(grp_cols)
     return grp_cols, all_groups
-
-# helper function - to set parameters for scalers and models
-def set_param(m_s, param):
-    for k, v in param.items():
-        if isinstance(v, list):
-            setattr(m_s, k, np.array(v))
-        else:
-            setattr(m_s, k, v)
 
 
 def predict(features,test=False):

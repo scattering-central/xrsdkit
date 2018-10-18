@@ -89,8 +89,9 @@ class XRSDModel(object):
 
         # NOTE: after cross-validation for parameter selection,
         # the entire dataset is used for final training
+        self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
         new_model.fit(data[profiler.profile_keys], data[self.target])
-        #self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
+
         self.scaler = new_scaler
         self.model = new_model
         self.trained = True
@@ -133,7 +134,8 @@ class XRSDModel(object):
         """Test whether or not `dataframe` has legal values for all labels.
  
         Returns "True" if the dataframe has enough rows, 
-        over which the labels exhibit at least two unique values 
+        over which the labels exhibit at least two unique values
+        and there are at least three samples for each label.
 
         Parameters
         ----------

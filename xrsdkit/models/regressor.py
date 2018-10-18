@@ -54,22 +54,29 @@ class Regressor(XRSDModel):
         return float(self.model.predict(x)[0])
 
 
-    def run_cross_validation(self,model,data,features, group_cv):
+    def run_cross_validation(self,model,data,features,group_cv):
+        """Run a cross-validation test and return a report of the results.
+
+        Regression models are scored by the coefficient of determination (R^2 or 'r2'),
+        in order to normalize by the variance of the dataset.
+        Training reports also include the more intuitive normalized mean_abs_error.
+        Scikit-learn does not currently provide API for scoring by mean_abs_error,
+        so mean_abs_error is not currently supported for hyperparameter training.
+        """
         label_std = pd.to_numeric(data[self.target]).std()
         if group_cv:
-            new_accuracy = self.cross_validate_by_experiments(model,data,features,label_std)
+            cross_val_results = self.cross_validate_by_experiments(model,data,features,label_std)
         else:
-            new_accuracy = self.cross_validate(model,data,features,label_std)
-        return new_accuracy
+            cross_val_results = self.cross_validate(model,data,features,label_std)
+        return cross_val_results
 
-
-    def cross_validate(self,model,df,features, label_std):
-        """Test a model using scikit-learn 5-fold crossvalidation
+    def cross_validate(self,model,df,features,label_std):
+        """Test a model using scikit-learn 3-fold crossvalidation
 
         Parameters
         ----------
-        model : sklearn model
-            model to be cross-validated 
+        model : sklearn.linear_model.SGDRegressor
+            scikit-learn regression model to be cross-validated 
         df : pandas.DataFrame
             pandas dataframe of features and labels
         features : list of str
@@ -80,29 +87,28 @@ class Regressor(XRSDModel):
         Returns
         -------
         results : dict
-            includes normilezed mean abs error,
-            normilezed mean abs error by splits,
-            labels std,
+            includes normalized mean abs error by splits,
+            normalized average mean abs error (unweighted),
+            weighted average mean abs error,
+            standard deviation of labels,
             number of experiments that were used for training/testing
-            (can be 1 or 2 since if we have data from 3 or more
+            (can only be 1 or 2, since if we have data from 3 or more
             experiments, cross_validate_by_experiments() will be used),
-            IDs of experiments,
-            how the split was done.
-
-
+            IDs of experiments, and a description 
+            of the train-test split technique.
         """
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(df[profiler.profile_keys])
         scores = np.absolute(model_selection.cross_val_score(
-                model,scaler.transform(df[features]), df[self.target],
-                cv=5, scoring='neg_mean_absolute_error')/ label_std)
+                model,df[features],df[self.target],
+                cv=3,scoring='neg_mean_absolute_error')/label_std)
 
-        results = dict(normalized_mean_abs_error_by_splits = scores,
+        results = dict(normalized_mean_abs_error_by_splits = str(scores),
                        normalized_mean_abs_error = sum(scores)/len(scores),
+                       #weighted_av_mean_abs_error is the same us unweighted since the splits have the same sizes:
+                       weighted_av_mean_abs_error = sum(scores)/len(scores),
                        labels_std = label_std,
                        number_of_experiments = len(df.experiment_id.unique()),
-                       experiments = df.experiment_id.unique(),
-                       test_training_split = "random 5 folders crossvalidation split")
+                       experiments = str(df.experiment_id.unique()),
+                       test_training_split = 'random shuffle-split 3-fold cross-validation')
 
         return results
 
@@ -123,8 +129,9 @@ class Regressor(XRSDModel):
         Returns
         -------
         results : dict
-            includes normilezed mean abs error,
-            normilezed mean abs error by experiments,
+            includes normilezed mean abs error by splits,
+            normilezed average mean abs error (unweighted),
+            weighted average mean abs error,
             labels std,
             number of experiments that were used for training/testing
             (can be 3 or more  - if we have data from 1 or 2 experiments
@@ -134,35 +141,37 @@ class Regressor(XRSDModel):
         """
         experiments = df.experiment_id.unique()
         test_scores_by_ex = []
+        test_scores_by_ex_weighted = []
         for i in range(len(experiments)):
             tr = df[(df['experiment_id']!= experiments[i])]
             test = df[(df['experiment_id']== experiments[i])]
-
-            scaler = preprocessing.StandardScaler()
-            scaler.fit(tr[features])
-            model.fit(scaler.transform(tr[features]), tr[self.target])
-            transformed_data = scaler.transform(test[features])
-            pr = model.predict(transformed_data)
+            model.fit(tr[features], tr[self.target])
+            pr = model.predict(test[features])
             test_score = mean_absolute_error(pr, test[self.target])
             test_scores_by_ex.append(test_score/label_std)
+            test_scores_by_ex_weighted.append((test_score/label_std)*(test.shape[0]/df.shape[0]))
 
-        results = dict(normalized_mean_abs_error_by_experiments = test_scores_by_ex,
+        results = dict(normalized_mean_abs_error_by_splits = str(test_scores_by_ex),
                        normalized_mean_abs_error = sum(test_scores_by_ex)/len(test_scores_by_ex),
+                       weighted_av_mean_abs_error = sum(test_scores_by_ex_weighted),
                        labels_std = label_std,
                        number_of_experiments = len(test_scores_by_ex),
-                       experiments = df.experiment_id.unique(),
+                       experiments = str(df.experiment_id.unique()),
                        test_training_split = "by experiments")
         return results
 
-    # TODO
-    def print_accuracies(self):
-        return ''
+    def print_mean_abs_errors(self):
+        result = ''
+        for r in self.cross_valid_results['normalized_mean_abs_error_by_splits'].split():
+            result += (r + '\n')
+        return result
 
-    # TODO
-    def average_accuracy(self,weighted=False):
-        return -1.
+    def average_mean_abs_error(self,weighted=False):
+        if weighted:
+            return str(self.cross_valid_results['weighted_av_mean_abs_error'])
+        else:
+            return str(self.cross_valid_results['normalized_mean_abs_error'])
 
-    # TODO
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
 
@@ -172,10 +181,12 @@ class Regressor(XRSDModel):
             string with formated results of cross validatin.
         """
         CV_report = 'Cross validation results for {} Regressor\n'.format(self.target) + \
-            'Accuracies by train/test split:\n' + \
-            self.print_accuracies() + \
-            'Weighted-average accuracy: {}\n'.format(self.average_accuracy(False)) + \
-            'Unweighted-average accuracy: {}\n'.format(self.average_accuracy(True)) + \
+            'Data from {} experiments was used\n\n'.format(
+            str(self.cross_valid_results['number_of_experiments'])) + \
+            'Normalized mean abs error by train/test split:\n' + \
+            self.print_mean_abs_errors() + '\n' + \
+            'Weighted-average mean abs error by train/test split: {}\n'.format(self.average_mean_abs_error(True)) + \
+            'Unweighted-average accuracy: {}\n'.format(self.average_mean_abs_error(False)) + \
             '\n\nNOTE: Weighted metrics are weighted by test set size' 
         return CV_report
 
