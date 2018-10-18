@@ -2,6 +2,7 @@ from collections import OrderedDict
 from functools import partial
 import copy
 import sys
+
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
@@ -10,9 +11,9 @@ mplvmaj = int(mplv.split('.')[0])
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 if mplvmaj > 2:
-    from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+    from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk as mplnavtb
 else:
-    from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
+    from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg as mplnavtb
 
 from ..definitions import *
 from . import plot_xrsd_fit, draw_xrsd_fit
@@ -46,11 +47,6 @@ def run_fit_gui(system,q,I,source_wavelength,
 # TODO (low): when a param is fixed or has a constraint set,
 #   make the entry widget read-only
 
-# TODO (low): make plot frame zoom-able (add matplotlib toolbar?)
-
-# TODO: ensure coordinate params are handled correctly 
-#   when structures are changed to/from crystalline
-
 class XRSDFitGUI(object):
 
     def __init__(self,system,
@@ -66,7 +62,6 @@ class XRSDFitGUI(object):
         self.dI = dI
         self.src_wl = source_wavelength
         self.sys = system
-        self.sys_opt = system
         self.error_weighted = error_weighted
         self.logI_weighted = logI_weighted
         self.q_range = q_range
@@ -76,19 +71,19 @@ class XRSDFitGUI(object):
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
         # setup the main gui objects
         self._build_gui()
-        # create the plots
-        self._build_plot_widgets()
         # create the widgets for control 
         self._build_control_widgets()
+        # create the plots
+        self._build_plot_widgets()
         # draw the plots...
-        self._draw_plots()
+        #self._draw_plots()
         self.fit_gui.geometry('1100x700')
 
     def start(self):
         # start the tk loop
         self.fit_gui.mainloop()
         # after the loop, return the (optimized) system
-        return self.sys_opt, self.good_fit
+        return self.sys, self.good_fit
 
     def _cleanup(self):
         # remove references to all gui objects, widgets, etc. 
@@ -134,7 +129,7 @@ class XRSDFitGUI(object):
         # built from FigureCanvasTkAgg.get_tk_widget()
         plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
         plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
-        self.fig = plot_xrsd_fit(self.sys,self.q,self.I,self.src_wl,self.dI,False)
+        self.fig,I_comp = plot_xrsd_fit(self.sys,self.q,self.I,self.src_wl,self.dI,False)
         plot_frame_canvas = tkinter.Canvas(plot_frame)
         yscr = tkinter.Scrollbar(plot_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
@@ -143,11 +138,14 @@ class XRSDFitGUI(object):
         yscr.config(command=plot_frame_canvas.yview)
         self.mpl_canvas = FigureCanvasTkAgg(self.fig,plot_frame_canvas)
         self.plot_canvas = self.mpl_canvas.get_tk_widget()
+        plot_toolbar = mplnavtb(self.mpl_canvas,plot_frame)
+        plot_toolbar.update()
         plot_canvas_window = plot_frame_canvas.create_window(0,0,window=self.plot_canvas,anchor='nw')
         self.plot_canvas_configure = partial(self._canvas_configure,
             plot_frame_canvas,self.plot_canvas,plot_canvas_window)
         plot_frame_canvas.bind("<Configure>",self.plot_canvas_configure)
         self.mpl_canvas.draw()
+        self._update_fit_objective(I_comp)
 
     def _build_control_widgets(self):
         # the main frame contains a control frame on the right,
@@ -313,26 +311,32 @@ class XRSDFitGUI(object):
             new_val = self._vars['fit_control']['wavelength'].get()
         except:
             self._vars['fit_control']['wavelength'].set(self.src_wl)
-        self.src_wl = new_val
-        self._draw_plots()
+            new_val = self.src_wl
+        if not new_val == self.src_wl:
+            self.src_wl = new_val
+            self._draw_plots()
 
     def _set_q_range(self,q_idx,event=None):
         try:
             new_val = self._vars['fit_control']['q_range'][q_idx].get()
         except:
             self._vars['fit_control']['q_range'][q_idx].set(self.q_range[q_idx])
-        self.q_range[q_idx] = new_val
-        self._update_fit_objective()
+            new_val = self.q_range[q_idx]
+        if not new_val == self.q_range[q_idx]:
+            self.q_range[q_idx] = new_val
+            self._update_fit_objective()
 
     def _set_error_weighted(self):
         new_val = self._vars['fit_control']['error_weighted'].get()
-        self.error_weighted = new_val
-        self._update_fit_objective()
+        if not new_val == self.error_weighted:
+            self.error_weighted = new_val
+            self._update_fit_objective()
 
     def _set_logI_weighted(self):
         new_val = self._vars['fit_control']['logI_weighted'].get()
-        self.logI_weighted = new_val
-        self._update_fit_objective()
+        if not new_val == self.logI_weighted:
+            self.logI_weighted = new_val
+            self._update_fit_objective()
 
     def _set_good_fit(self):
         new_val = self._vars['fit_control']['good_fit'].get()
@@ -512,6 +516,11 @@ class XRSDFitGUI(object):
         for spc_nm in spc_frm_nms: 
             if spc_nm in self.sys.populations[pop_nm].basis:
                 new_spc_frms[spc_nm] = self._frames['species'][pop_nm][spc_nm]
+                # if the structure was changed to/from crystalline,
+                # repack the specie frames 
+                if (pop_struct == 'crystalline' and not 'coordx' in self._frames['specie_parameters'][pop_nm][spc_nm]) \
+                or (not pop_struct == 'crystalline' and 'coordx' in self._frames['specie_parameters'][pop_nm][spc_nm]):
+                    self._repack_specie_frame(pop_nm,spc_nm)
             else:
                 frm = self._frames['species'][pop_nm].pop(spc_nm)
                 frm.destroy()
@@ -725,6 +734,7 @@ class XRSDFitGUI(object):
         return specief
 
     def _repack_specie_frame(self,pop_nm,specie_nm):
+        pop_struct = self.sys.populations[pop_nm].structure
         spc_form = self.sys.populations[pop_nm].basis[specie_nm].form
         #
         # SETTINGS: 
@@ -750,7 +760,9 @@ class XRSDFitGUI(object):
         for par_nm,frm in self._frames['specie_parameters'][pop_nm][specie_nm].items(): frm.pack_forget() 
         new_par_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        for par_nm in form_factor_params[spc_form]: 
+        param_nms = copy.deepcopy(form_factor_params[spc_form])
+        if pop_struct == 'crystalline': param_nms.extend(['coordx','coordy','coordz'])
+        for par_nm in param_nms: 
             if par_nm in self._frames['specie_parameters'][pop_nm][specie_nm]:
                 new_par_frms[par_nm] = self._frames['specie_parameters'][pop_nm][specie_nm][par_nm]
             else:
@@ -758,7 +770,7 @@ class XRSDFitGUI(object):
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['specie_parameters'][pop_nm][specie_nm].keys())
         for par_nm in par_frm_nms: 
-            if not par_nm in form_factor_params[spc_form]: 
+            if not par_nm in param_nms: 
                 frm = self._frames['specie_parameters'][pop_nm][specie_nm].pop(par_nm)
                 frm.destroy()
                 self._vars['specie_parameters'][pop_nm][specie_nm].pop(par_nm)
@@ -812,16 +824,14 @@ class XRSDFitGUI(object):
         return nsf
 
     def _draw_plots(self):
-        draw_xrsd_fit(self.fig,self.sys_opt,self.q,self.I,self.src_wl,self.dI,False)
+        I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.src_wl,self.dI,False)
         self.mpl_canvas.draw()
-        self._update_fit_objective()
+        self._update_fit_objective(I_comp)
 
-    def _update_fit_objective(self):
-        #qrng = [self._vars['fit_control']['q_range'][0].get(),\
-        #    self._vars['fit_control']['q_range'][1].get()]
+    def _update_fit_objective(self,I_comp=None):
         obj_val = self.sys.evaluate_residual(
             self.q,self.I,self.src_wl,self.dI,
-            self.error_weighted,self.logI_weighted,self.q_range)
+            self.error_weighted,self.logI_weighted,self.q_range,I_comp)
         self._vars['fit_control']['objective'].set(str(obj_val))
 
     def _update_param(self,pop_nm,specie_nm,param_nm,param_key,param_idx=None,event=None):
@@ -832,18 +842,20 @@ class XRSDFitGUI(object):
             if pop_nm == 'noise':
                 x = self.sys.noise_model
                 tkv = self._vars['parameters']['noise'][param_nm]
+                xp = x.parameters[param_nm]
             elif specie_nm:
                 x = self.sys.populations[pop_nm].basis[specie_nm] 
                 tkv = self._vars['specie_parameters'][pop_nm][specie_nm][param_nm]
+                if param_nm in ['coordx','coordy','coordz']:
+                    if param_nm == 'coordx': cidx = 0
+                    if param_nm == 'coordy': cidx = 1
+                    if param_nm == 'coordz': cidx = 2
+                    xp = x.coordinates[cidx]
+                else:
+                    xp = x.parameters[param_nm]
             else: 
                 x = self.sys.populations[pop_nm]
                 tkv = self._vars['parameters'][pop_nm][param_nm]
-            if param_nm in ['coordx','coordy','coordz']:
-                if param_nm == 'coordx': cidx = 0
-                if param_nm == 'coordy': cidx = 1
-                if param_nm == 'coordz': cidx = 2
-                xp = parent_obj.coordinates[cidx]
-            else:
                 xp = x.parameters[param_nm]
             new_param = copy.deepcopy(xp)
             param_changed = False
@@ -877,11 +889,12 @@ class XRSDFitGUI(object):
     def _update_setting(self,pop_nm,specie_nm,stg_nm,event=None):
         vflag = self._validate_setting(pop_nm,specie_nm,stg_nm) 
         if vflag:
-            x = self.sys.populations[pop_nm]
-            tkv = self._vars['settings'][pop_nm][stg_nm]
             if specie_nm: 
-                x = x.basis[specie_nm] 
+                x = self.sys.populations[pop_nm].basis[specie_nm] 
                 tkv = self._vars['specie_settings'][pop_nm][specie_nm][stg_nm]
+            else:
+                x = self.sys.populations[pop_nm]
+                tkv = self._vars['settings'][pop_nm][stg_nm]
             new_val = tkv.get()
             if not new_val == x.settings[stg_nm]:
                 x.update_setting(stg_nm,new_val)
@@ -931,7 +944,14 @@ class XRSDFitGUI(object):
             x = self.sys.noise_model.parameters[param_nm]
             tkvs = self._vars['parameters'][pop_nm][param_nm]
         elif specie_nm:
-            x = self.sys.populations[pop_nm].basis[specie_nm].parameters[param_nm]
+            if param_nm == 'coordx': 
+                x = self.sys.populations[pop_nm].basis[specie_nm].coordinates[0]
+            elif param_nm == 'coordy': 
+                x = self.sys.populations[pop_nm].basis[specie_nm].coordinates[1]
+            elif param_nm == 'coordz': 
+                x = self.sys.populations[pop_nm].basis[specie_nm].coordinates[2]
+            else:
+                x = self.sys.populations[pop_nm].basis[specie_nm].parameters[param_nm]
             tkvs = self._vars['specie_parameters'][pop_nm][specie_nm][param_nm]
         else:
             x = self.sys.populations[pop_nm].parameters[param_nm]
@@ -1031,6 +1051,8 @@ class XRSDFitGUI(object):
         self._draw_plots()
 
     def _update_parameters(self):
+        for param_nm,par in self.sys.noise_model.parameters.items():
+            self._vars['parameters']['noise'][param_nm]['value'].set(par['value'])
         for pop_nm,pop in self.sys.populations.items():        
             for param_nm in pop.parameters.keys():
                 self._vars['parameters'][pop_nm][param_nm]['value'].set(
