@@ -95,8 +95,8 @@ class Classifier(XRSDModel):
             list of labels for which the models were and were not tested,
             F1 score by classes, averaged F1 score weighted and unweighted,
             mean accuracies by classes,
-            mean unweighted and weighted by classes accuracy,
-            test training split.
+            mean unweighted and class-size-weighted accuracy,
+            and testing-training splits.
         """
         experiments = df.experiment_id.unique()# we have at least 3 experiments
         all_classes = df[self.target].unique().tolist()
@@ -142,13 +142,13 @@ class Classifier(XRSDModel):
         # we may not be able to test for all classes
         # (if samples of a class are included into only one experiment)
         not_tested_classes = []
-        tested_sys_classes = []
+        tested_classes = []
         score_by_cl = []
         for k, v in test_scores_by_classes.items():
             if test_scores_by_classes[k] == []:
                 not_tested_classes.append(k)
             else:
-                tested_sys_classes.append(k)
+                tested_classes.append(k)
                 av = sum(test_scores_by_classes[k])/len(test_scores_by_classes[k])
                 test_scores_by_classes[k] = av
                 score_by_cl.append(av)
@@ -158,13 +158,13 @@ class Classifier(XRSDModel):
                       experiments = str(df.experiment_id.unique()),
                       confusion_matrix = str(confusion_matrix(true_labels, pred_labels, all_classes)),
                       model_was_NOT_tested_for = not_tested_classes,
-                      model_was_tested_for = tested_sys_classes,
+                      model_was_tested_for = tested_classes,
                       F1_score_by_classes = f1_score(true_labels, pred_labels,
-                                    labels=tested_sys_classes, average=None).tolist(),
+                                    labels=tested_classes, average=None).tolist(),
                       F1_score_averaged_not_weighted = f1_score(true_labels,
-                                        pred_labels, labels=tested_sys_classes, average='macro'),
+                                        pred_labels, labels=tested_classes, average='macro'),
                       F1_score_averaged_weighted = f1_score(true_labels,
-                                        pred_labels, labels=tested_sys_classes, average='weighted'),
+                                        pred_labels, labels=tested_classes, average='weighted'),
                       mean_accuracies_by_classes = test_scores_by_classes,
                       mean_not_weighted_accuracy = sum(score_by_cl)/len(score_by_cl),
                       mean_weighted_by_classes_accuracy = sum(acc_weighted_by_classes)/len(acc_weighted_by_classes),
@@ -191,13 +191,13 @@ class Classifier(XRSDModel):
                                                         df[self.target],cv=3, scoring='f1_macro')
             results['F1_score_averaged_weighted'] = model_selection.cross_val_score(model,df[features],
                                                         df[self.target],cv=3, scoring='f1_weighted')
-            results['test_training_split'] = "random 3 folders crossvalidation split"
+            results['test_training_split'] = 'random shuffle-split 3-fold cross-validation'
         else:
             results['mean_weighted_by_classes_accuracy'] = None
             results['F1_score_averaged_not_weighted'] = None
             results['F1_score_averaged_weighted'] = None
-            results['test_training_split'] = "The model was not crossvalidated since we have" \
-                                             " less than 3 samples for some labels "
+            results['test_training_split'] = 'The model was not cross-validated, '\
+                'because some labels in the training set included less than 3 samples.'
         return results
 
     def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring='f1_macro'):
@@ -212,9 +212,6 @@ class Classifier(XRSDModel):
         params = super(Classifier,self).hyperparameters_search(
         transformed_data,data_labels,group_by,n_leave_out,scoring)
         return  params
-
-    def print_number_of_exp(self):
-        return str(self.cross_valid_results['number_of_experiments'])
 
     def print_labels(self, all=True):
         if all:
@@ -283,7 +280,8 @@ class Classifier(XRSDModel):
             string with formated results of cross validatin.
         """
         CV_report = 'Cross validation results for {} Classifier\n\n'.format(self.target) + \
-            'Data from {} experiments was used\n\n'.format(self.print_number_of_exp()) + \
+            'Data from {} experiments was used\n\n'.format(
+            str(self.cross_valid_results['number_of_experiments'])) + \
             'All labels : \n' + self.print_labels()+'\n\n'+ \
             'model was NOT tested for :' '\n'+ self.print_labels(False) +'\n\n'+ \
             'Confusion matrix:\n' + \
