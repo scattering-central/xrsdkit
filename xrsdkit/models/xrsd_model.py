@@ -1,6 +1,7 @@
 import numpy as np
 import yaml
 from sklearn import model_selection, preprocessing
+from dask_ml.model_selection import GridSearchCV
 
 from ..tools import profiler
 
@@ -113,7 +114,9 @@ class XRSDModel(object):
             cv = 3 # number of folds for cross validation
         test_model = self.build_model()
 
-        clf = model_selection.GridSearchCV(test_model,
+        # threaded scheduler with optimal number of threads
+        # will be used by default for dask GridSearchCV
+        clf = GridSearchCV(test_model,
                         self.grid_search_hyperparameters, cv=cv, scoring=scoring)
         clf.fit(transformed_data, np.ravel(data_labels))
 
