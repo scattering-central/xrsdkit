@@ -13,21 +13,20 @@ class Classifier(XRSDModel):
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
         self.grid_search_hyperparameters = dict(
-            penalty = ['none', 'l2', 'l1', 'elasticnet'], # default: l2
             alpha = [0.00001, 0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
-            l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15, only valid for elasticnet penalty
+            l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
             )
 
     def build_model(self,model_hyperparams={}):
-        if all([p in model_hyperparams for p in ['alpha','penalty','l1_ratio']]):
+        if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
             new_model = linear_model.SGDClassifier(
                     alpha=model_hyperparams['alpha'], 
                     loss='log',
-                    penalty=model_hyperparams['penalty'], 
+                    penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
                     max_iter=10)
         else:
-            new_model = linear_model.SGDClassifier(loss='log', max_iter=10)
+            new_model = linear_model.SGDClassifier(loss='log', penalty='elasticnet', max_iter=10)
         return new_model
 
     def classify(self, sample_features):

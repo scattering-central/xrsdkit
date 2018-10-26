@@ -144,10 +144,8 @@ def downsample(df, min_distance):
         features = profiler.profile_keys
         scaler = preprocessing.StandardScaler()
         scaler.fit(df[features])
-        tr_df = pd.DataFrame(columns=df.columns, data=df[df.columns])
 
         features_matr = scaler.transform(df[features]) # features_matr is a np arraly
-        tr_df[features] = features_matr
         # define the distance between two samples in feature space
 
         dist_func = lambda i,j: np.sum(
