@@ -130,7 +130,7 @@ def load_classification_models(model_root_dir=classification_models_dir):
                         model_dict[sys_cls][pop_id][model_type] = Classifier(model_label,yml_path)
     return model_dict
 classification_models = load_classification_models(classification_models_dir) 
-test_classification_models = load_classification_models(test_classification_models_dir)  
+test_classification_models = load_classification_models(test_classification_models_dir)
 
 def downsample_and_train(
     source_dataset_ids=src_dsid_list,
@@ -241,6 +241,13 @@ def train_regression_models(data, hyper_parameters_search=False):
                     # train reg_models[sys_cls][pop_id][k]
                     target = pop_id+'_'+k
                     reg_model = Regressor(target, None)
+
+                    try: # check if we alredy have a trained model for this label
+                        old_pars = regression_models[sys_cls][pop_id][k].model.get_params()
+                        reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
+                                                   epsilon=old_pars['epsilon'])
+                    except:
+                        pass
                     reg_model.train(sys_cls_data, hyper_parameters_search)
                     pop_models[k] = reg_model 
                 elif k in crystalline_structures:
@@ -252,8 +259,14 @@ def train_regression_models(data, hyper_parameters_search=False):
                         sub_cls_data = sys_cls_data[(sys_cls_data[lattice_label]==k)]
                         target = pop_id+'_'+param_nm
                         reg_model = Regressor(target, None)
+                        try:
+                            old_pars = regression_models[sys_cls][pop_id][k][param_nm].model.get_params()
+                            reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
+                                                       epsilon=old_pars['epsilon'])
+                        except:
+                            pass
                         reg_model.train(sub_cls_data, hyper_parameters_search)
-                        pop_models[k][param_nm] = reg_model 
+                        pop_models[k][param_nm] = reg_model
                 elif k in disordered_structures:
                     print('    interaction: {}'.format(k))
                     for param_nm in disordered_structure_params[k]:
@@ -263,6 +276,12 @@ def train_regression_models(data, hyper_parameters_search=False):
                         sub_cls_data = sys_cls_data[(sys_cls_data[interxn_label]==k)]
                         target = pop_id+'_'+param_nm
                         reg_model = Regressor(target, None)
+                        try:
+                            old_pars = regression_models[sys_cls][pop_id][k][param_nm].model.get_params()
+                            reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
+                                                       epsilon=old_pars['epsilon'])
+                        except:
+                            pass
                         reg_model.train(sub_cls_data, hyper_parameters_search)
                         pop_models[k][param_nm] = reg_model 
                 else:
@@ -278,6 +297,12 @@ def train_regression_models(data, hyper_parameters_search=False):
                             print('            parameter: {}'.format(param_nm))
                             target = pop_id+'_'+specie_id+'_'+param_nm
                             reg_model = Regressor(target, None)
+                            try:
+                                old_pars = regression_models[sys_cls][pop_id][k][specie_id][param_nm].model.get_params()
+                                reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
+                                                           epsilon=old_pars['epsilon'])
+                            except:
+                                pass
                             reg_model.train(bas_cls_data, hyper_parameters_search)
                             specie_models[param_nm] = reg_model 
     return reg_models
@@ -385,6 +410,11 @@ def train_classification_models(data, hyper_parameters_search=False):
     for sys_cls_lbl, sys_models in cls_models.items():
         if sys_cls_lbl == 'system_classification':
             model = Classifier('system_classification',None)
+
+            if 'system_classification'in classification_models.keys(): # we have a trained model
+                old_pars = classification_models['system_classification'].model.get_params()
+                model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+
             model.train(data, hyper_parameters_search=hyper_parameters_search)
             cls_models['system_classification'] = model
         else:
@@ -393,6 +423,11 @@ def train_classification_models(data, hyper_parameters_search=False):
                     model_label = pop_id+'_'+cls_label
                     data_subset = data[data['system_classification']==sys_cls_lbl]
                     m = Classifier(model_label,None)
+                    try: # check if we alredy have a trained model for this label
+                        old_pars = classification_models[sys_cls_lbl][pop_id][cls_label].model.get_params()
+                        m.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+                    except:
+                        pass
                     m.train(data_subset, hyper_parameters_search=hyper_parameters_search)
                     pop_models[cls_label] = m 
     return cls_models
@@ -437,7 +472,7 @@ def save_model_data(model,yml_path,txt_path):
             default_val = model.default_val
             )
         if model.trained:
-            hyper_par = ['loss', 'epsilon',  'penalty', 'alpha', 'l1_ratio']
+            hyper_par = list(model.grid_search_hyperparameters.keys())
             for p in hyper_par:
                 if p in model.model.__dict__:
                     model_data['model']['hyper_parameters'][p] = model.model.__dict__[p]

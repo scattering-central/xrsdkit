@@ -186,11 +186,11 @@ class Classifier(XRSDModel):
 
         if min(df[self.target].value_counts()) > 2:
             results['mean_weighted_by_classes_accuracy'] = model_selection.cross_val_score(model,df[features],
-                                                        df[self.target],cv=3, scoring='accuracy'),
+                                                        df[self.target],cv=3, scoring='accuracy').tolist()
             results['F1_score_averaged_not_weighted'] = model_selection.cross_val_score(model,df[features],
-                                                        df[self.target],cv=3, scoring='f1_macro')
+                                                        df[self.target],cv=3, scoring='f1_macro').tolist()
             results['F1_score_averaged_weighted'] = model_selection.cross_val_score(model,df[features],
-                                                        df[self.target],cv=3, scoring='f1_weighted')
+                                                        df[self.target],cv=3, scoring='f1_weighted').tolist()
             results['test_training_split'] = 'random shuffle-split 3-fold cross-validation'
         else:
             results['mean_weighted_by_classes_accuracy'] = None
