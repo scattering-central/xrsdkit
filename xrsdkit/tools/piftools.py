@@ -304,8 +304,6 @@ def fit_report_property(fit_report):
     prop.tags = [rpt_key+': '+str(rpt_val) for rpt_key,rpt_val in fit_report.items()]
     return prop
 
-# TODO: consider basis content when sorting populations?
-# currently only sorts on structure params
 def _sort_populations(struct_nm,pops_dict):
     """Sort a set of populations (all with the same structure)"""
     if struct_nm == 'unidentified' or len(pops_dict) < 2: 
@@ -321,7 +319,7 @@ def _sort_populations(struct_nm,pops_dict):
     param_labels = []
     dtypes = {}
     if struct_nm == 'crystalline': 
-        # order crystalline structures primarily according to the list xrsdkit.crystalline_structures
+        # order crystalline structures primarily according to their lattice
         for l in pop_labels: param_vals[l].append(crystalline_structures.index(pops_dict[l].settings['lattice']))
         param_labels.append('lattice')
         dtypes['lattice']='int'
@@ -338,6 +336,14 @@ def _sort_populations(struct_nm,pops_dict):
             for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
             param_labels.append(param_nm)
             dtypes[param_nm]='float'
+
+    # for diffuse structures, order primarily by the first specie in the basis
+    if struct_nm == 'diffuse':
+        for l in pop_labels: 
+            bk0 = list(pops_dict[l].basis.keys())[0]
+            param_vals[l].append(form_factor_names.index(pops_dict[l].basis[bk0].form))
+        param_labels.append('form')
+        dtypes['form']='int'
     # for all structures, order by their structure_params,
     # from highest to lowest priority
     for param_nm in structure_params[struct_nm]:
@@ -349,7 +355,7 @@ def _sort_populations(struct_nm,pops_dict):
         dtype = [('pop_name','U32')]+[(pl,dtypes[pl]) for pl in param_labels]
         )
 
-    # TODO: make tests that ensure the sort results are correct
+    # TODO: ensure the sort results are correct
     param_ar.sort(axis=0,order=param_labels)
     for ip,p in enumerate(param_ar): new_pops[p[0]] = pops_dict[p[0]]
 
@@ -467,20 +473,4 @@ def pif_property_from_param(param_nm,paramd):
     pp.tags.append('bounds: [{},{}]'.format(paramd['bounds'][0],paramd['bounds'][1]))
     pp.tags.append('constraint_expr: {}'.format(paramd['constraint_expr']))
     return pp
-
-#def scalar_property(fname,fval,desc=None,data_type=None,funits=None):
-#    pf = Property()
-#    pf.name = fname
-#    if isinstance(fval,list):
-#        pf.scalars = [Scalar(v) for v in fval]
-#    else:
-#        pf.scalars = [Scalar(fval)]
-#    if desc:
-#        pf.tags = [desc]
-#    if data_type:
-#        pf.dataType = data_type 
-#    if funits:
-#        pf.units = funits
-#    return pf
-
 

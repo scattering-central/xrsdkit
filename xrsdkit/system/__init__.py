@@ -69,6 +69,10 @@ class NoiseModel(object):
 
 class System(object):
 
+    # TODO: implement caching of settings, parameters, intensities,
+    # so that redundant calls to compute_intensity
+    # are handled instantly 
+
     def __init__(self,populations={}):
         # TODO: consider polymorphic constructor inputs 
         self.populations = {}
@@ -321,6 +325,7 @@ def fit(sys,q,I,source_wavelength,dI=None,
     sys_opt.fit_report['logI_weighted'] = logI_weighted 
     sys_opt.fit_report['q_range'] = q_range 
     sys_opt.fit_report['fit_snr'] = snr
+    sys_opt.fit_report['source_wavelength'] = source_wavelength
 
     return sys_opt
 
