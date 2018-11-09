@@ -2,14 +2,16 @@ from __future__ import print_function
 
 import numpy as np
 
-from xrsdkit.scattering import structure_factors as xrsf
+from xrsdkit import scattering as xrs
 from xrsdkit.tools import peak_math
 from xrsdkit.system import System, Population, Specie
    
 Al_atom_dict = dict(form='atomic',settings={'symbol':'Al'})
+sphere_dict = dict(form='spherical',parameters={'r':{'value':40.}})
 
 fcc_Al = Population('crystalline',
-    settings={'lattice':'fcc','q_max':5.},
+    settings={'lattice':'fcc','q_max':5.,\
+        'structure_factor_mode':'local'},
     parameters=dict(
         a={'value':4.046},
         hwhm_g={'value':0.002},
@@ -17,8 +19,19 @@ fcc_Al = Population('crystalline',
         ),
     basis={'Al':Al_atom_dict}
     )
+hcp_spheres = Population('crystalline',
+    settings={'lattice':'hcp', 'q_max':0.6,
+        'structure_factor_mode':'radial'},
+    parameters=dict(
+        a={'value':120.},
+        hwhm_g={'value':0.002},
+        hwhm_l={'value':0.002},
+        ),
+    basis={'spheres':sphere_dict}
+    )
 
 fcc_Al_system = System({'fcc_Al':fcc_Al.to_dict()})
+hcp_sphere_system = System({'hcp_spheres':hcp_spheres.to_dict()})
 
 glassy_Al = Population('disordered',
     settings={'interaction':'hard_spheres'},
@@ -34,11 +47,11 @@ glassy_Al_system = System({'glassy_Al':glassy_Al.to_dict()})
 
 mixed_Al_system = System({'glassy_Al':glassy_Al.to_dict(),'fcc_Al':fcc_Al.to_dict()})
 
-def test_Al_scattering():
-    qvals = np.arange(1.,5.,0.001)
-    I_fcc = fcc_Al_system.compute_intensity(qvals,0.8265616)
-    I_gls = glassy_Al_system.compute_intensity(qvals,0.8265616)
-    I_mxd = mixed_Al_system.compute_intensity(qvals,0.8265616)
+#def test_Al_scattering():
+#    qvals = np.arange(1.,5.,0.001)
+#    I_fcc = fcc_Al_system.compute_intensity(qvals,0.8265616)
+#    I_gls = glassy_Al_system.compute_intensity(qvals,0.8265616)
+#    I_mxd = mixed_Al_system.compute_intensity(qvals,0.8265616)
 
     #from matplotlib import pyplot as plt
     #plt.figure(4)
@@ -47,6 +60,10 @@ def test_Al_scattering():
     #plt.plot(qvals,I_mxd)
     #plt.legend(['fcc','glassy','mixed'])
     #plt.show()
+
+def test_sphere_scattering():
+    qvals = np.arange(0.02,0.6,0.001)
+    I_sl = hcp_sphere_system.compute_intensity(qvals,0.8265616) 
     
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
@@ -76,9 +93,10 @@ def test_voigt():
 
 def test_fcc_sf():
     # take the q value of the (111) sphere
-    q_111 = np.sqrt(3)
+    q_111 = 2*np.pi*np.sqrt(3)
 
-    sf_func = lambda qi,ph,th: xrsf.fcc_sf(qi,
+    sf_func = lambda qi,ph,th: xrs.local_structure_factor(
+        'fcc',qi,
         np.array([
             qi*np.sin(th)*np.cos(ph),
             qi*np.sin(th)*np.sin(ph),
