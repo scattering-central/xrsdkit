@@ -1,4 +1,10 @@
-"""This module contains definitions of the systems and parameters handled by xrsdkit."""
+"""This module defines the systems and parameters handled by xrsdkit.
+
+When a new definition is added,
+it must also be handled appropriately throughout the package,
+and added to the database on which the models are built.
+TODO: include instructions on how to support new definitions.
+"""
 
 # TODO: add instructions for extending to new structures/form factors
 
@@ -36,7 +42,7 @@ structure_settings = dict(
     unidentified = [],
     diffuse = [],
     disordered = ['interaction'],
-    crystalline = ['lattice','profile','q_min','q_max'],
+    crystalline = ['lattice','profile','q_min','q_max','structure_factor_mode'],
     )
 
 # supported parameters for each form factor 
@@ -71,18 +77,21 @@ form_factor_settings = dict(
 # form factors not supported for crystalline structures 
 noncrystalline_form_factors = ['spherical_normal','guinier_porod']
 
-# supported disordered structures 
+# supported disordered structures
+# TODO: deprecate in favor of setting_selections 
 disordered_structures = ['hard_spheres']
 
 # supported crystal structures 
-crystalline_structures = ['fcc']
+# TODO: deprecate in favor of setting_selections 
+crystalline_structures = ['fcc','hcp']
 
 # supported disordered and crystalline structure params
 disordered_structure_params = dict(
     hard_spheres = ['r_hard','v_fraction']
     )
 crystalline_structure_params = dict(
-    fcc = ['a']
+    fcc = ['a'],
+    hcp = ['a']
     )
 
 # all param names
@@ -96,7 +105,7 @@ all_params = [\
 ]
 
 # params to model with regression:
-# intensity-scaling parameters are excluded
+# TODO: deprecate this, add explicit handling of 'I0' vs. 'I0_fraction'
 regression_params = [
 'I0_fraction',\
 'a','hwhm_g','hwhm_l',\
@@ -132,7 +141,8 @@ setting_defaults = dict(
     symbol = 'H',
     q_min = 0.,
     q_max = 1.,
-    profile = 'voigt'
+    profile = 'voigt',
+    structure_factor_mode = 'local'
     )
 
 setting_datatypes = dict(
@@ -141,8 +151,19 @@ setting_datatypes = dict(
     symbol = str,
     q_min = float,
     q_max = float,
-    profile = str
+    profile = str,
+    structure_factor_mode = str
     )
+
+setting_selections = dict(
+    lattice = ['fcc'],
+    interaction = ['hard_spheres'],
+    symbol = [],
+    profile = ['gaussian','lorentzian','voigt'],
+    structure_factor_mode = ['local','radial']
+    )
+
+# TODO: setting_descriptions
 
 param_descriptions = dict(
     I0 = 'Intensity prefactor',
