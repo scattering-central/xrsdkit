@@ -11,26 +11,25 @@ class Regressor(XRSDModel):
 
     def __init__(self,label,yml_file):
         super(Regressor,self).__init__(label, yml_file)
-        self.grid_search_hyperparameters = dict( 
-            loss = ['huber', 'squared_loss'], # huber with epsilon = 0 yields mean abs error (MAE)
-            epsilon = [1, 0.1, 0.01, 0.001, 0],  
-            penalty = ['none', 'l2', 'l1', 'elasticnet'], # default: l2  
-            alpha = [0.0001, 0.001, 0.01], # regularisation coef, default 0.0001 
-            l1_ratio = [0, 0.15, 0.5, 0.95] # default 0.15, only valid for elasticnet penalty 
+        self.grid_search_hyperparameters = dict(
+            epsilon = [10, 1, 0.1, 0.01, 0.001, 0],
+            alpha = [0.00001, 0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
+            l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
             )
 
     def build_model(self, model_hyperparams={}):
-        if all([p in model_hyperparams for p in ['alpha','loss','penalty','l1_ratio','epsilon']]):
+        if all([p in model_hyperparams for p in ['alpha','l1_ratio','epsilon']]):
             new_model = linear_model.SGDRegressor(
-                    alpha=model_hyperparams['alpha'], 
-                    loss=model_hyperparams['loss'],
-                    penalty=model_hyperparams['penalty'],
+                    alpha=model_hyperparams['alpha'],
                     l1_ratio=model_hyperparams['l1_ratio'],
                     epsilon=model_hyperparams['epsilon'],
+                    loss= 'huber',
+                    penalty='elasticnet',
                     max_iter=1000)
         else:
             # NOTE: max_iter is about 10^6 / number of tr samples 
-            new_model = linear_model.SGDRegressor(max_iter=1000) 
+            new_model = linear_model.SGDRegressor(loss= 'huber',
+                    penalty='elasticnet',max_iter=1000)
         return new_model
 
     def predict(self, sample_features):
