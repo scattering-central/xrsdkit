@@ -6,11 +6,11 @@ import numpy as np
 from pypif.obj import ChemicalSystem, Property, Classification, Id, Value, Scalar
 
 from . import profiler
-from ..definitions import * 
+from .. import definitions as xrsdefs 
 from ..scattering.form_factors import atomic_params
 from ..system import System
 
-_reg_params = list(param_defaults.keys())
+_reg_params = list(xrsdefs.param_defaults.keys())
 _reg_params[_reg_params.index('I0')] = 'I0_fraction'
 
 def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=None):
@@ -103,7 +103,7 @@ def unpack_pif(pp):
     if 'noise_classification' in cls_dict:
         noise_cls = cls_dict.pop('noise_classification')
         noise_model['model'] = noise_cls.value
-        for param_nm in noise_params[noise_cls.value]:
+        for param_nm in xrsdefs.noise_params[noise_cls.value]:
             noise_param_name = 'noise_'+param_nm
             noise_model['parameters'][param_nm] = param_from_pif_property(param_nm,props_dict.pop(noise_param_name)) 
 
@@ -139,12 +139,12 @@ def unpack_pif(pp):
         # moving forward, we assume the structure has been assigned,
         # all species in the basis have been identified,
         # and all settings and params exist in props_dict
-        for param_nm in structure_params[sysd[popnm]['structure']]:
+        for param_nm in xrsdefs.structure_params[sysd[popnm]['structure']]:
             pl = 'pop{}_{}'.format(ip,param_nm) 
             sysd[popnm]['parameters'][param_nm] = \
             param_from_pif_property(param_nm,props_dict[pl])
-        for stg_nm in structure_settings[sysd[popnm]['structure']]:  
-            tp = setting_datatypes[stg_nm]
+        for stg_nm in xrsdefs.structure_settings[sysd[popnm]['structure']]:  
+            tp = xrsdefs.setting_datatypes[stg_nm]
             stg_label = 'pop{}_{}'.format(ip,stg_nm) 
             stg_val = tp(props_dict[stg_label].tags[0])
             sysd[popnm]['settings'][stg_nm] = stg_val
@@ -154,12 +154,12 @@ def unpack_pif(pp):
         for isp, specie_nm in enumerate(sysd[popnm]['basis'].keys()):
             # TODO (later): unpack classification label for atom symbol, if atomic
             specie_form = sysd[popnm]['basis'][specie_nm]['form']
-            for param_nm in form_factor_params[specie_form]:
+            for param_nm in xrsdefs.form_factor_params[specie_form]:
                 pl = 'pop{}_specie{}_{}'.format(ip,isp,param_nm) 
                 sysd[popnm]['basis'][specie_nm]['parameters'][param_nm] = \
                 param_from_pif_property(param_nm,props_dict[pl])
-            for stg_nm in form_factor_settings[specie_form]:  
-                tp = setting_datatypes[stg_nm]
+            for stg_nm in xrsdefs.form_factor_settings[specie_form]:  
+                tp = xrsdefs.setting_datatypes[stg_nm]
                 sysd[popnm]['basis'][specie_nm]['settings'][stg_nm] = \
                 tp(props_dict['pop{}_specie{}_{}'.format(ip,isp,stg_nm)].tags[0])
             for ic,coord_id in enumerate(['x','y','z']):
@@ -262,7 +262,7 @@ def pack_system_objects(sys,src_wl):
         all_clss.append(Classification('noise_classification',sys.noise_model.model,None))
         for param_nm,pd in sys.noise_model.parameters.items():
             all_props.append(pif_property_from_param('noise_'+param_nm,pd))
-        for struct_nm in structure_names: # use structure_names to impose order 
+        for struct_nm in xrsdefs.structure_names: # use structure_names to impose order 
             struct_pops = OrderedDict() 
             for pop_nm,pop in sys.populations.items():
                 if pop.structure == struct_nm:
@@ -282,7 +282,7 @@ def pack_system_objects(sys,src_wl):
                 all_clss.append(Classification('pop{}_structure'.format(ipop),pop.structure,[pop_nm]))
                 bas_cls = ''
                 ispec = 0
-                for ff_nm in form_factor_names: # use form_factor_names to impose order
+                for ff_nm in xrsdefs.form_factor_names: # use form_factor_names to impose order
                     ff_species = OrderedDict() 
                     for specie_nm,specie in pop.basis.items():
                         if specie.form == ff_nm:
@@ -323,18 +323,20 @@ def _sort_populations(struct_nm,pops_dict):
     dtypes = {}
     if struct_nm == 'crystalline': 
         # order crystalline structures primarily according to their lattice
-        for l in pop_labels: param_vals[l].append(setting_selections['lattice'].index(pops_dict[l].settings['lattice']))
+        for l in pop_labels: param_vals[l].append(
+        xrsdefs.setting_selections['lattice'].index(pops_dict[l].settings['lattice']))
         param_labels.append('lattice')
         dtypes['lattice']='int'
-        for param_nm in setting_params['lattice'][pops_dict[l].settings['lattice']]:
+        for param_nm in xrsdefs.setting_params['lattice'][pops_dict[l].settings['lattice']]:
             for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
             param_labels.append(param_nm)
             dtypes[param_nm]='float'
     if struct_nm == 'disordered': 
-        for l in pop_labels: param_vals[l].append(setting_selections['interaction'].index(pops_dict[l].settings['interaction']))
+        for l in pop_labels: param_vals[l].append(
+        xrsdefs.setting_selections['interaction'].index(pops_dict[l].settings['interaction']))
         param_labels.append('interaction')
         dtypes['interaction']='int'
-        for param_nm in setting_params['interaction'][pops_dict[l].settings['interaction']]:
+        for param_nm in xrsdefs.setting_params['interaction'][pops_dict[l].settings['interaction']]:
             for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
             param_labels.append(param_nm)
             dtypes[param_nm]='float'
@@ -343,12 +345,12 @@ def _sort_populations(struct_nm,pops_dict):
     if struct_nm == 'diffuse':
         for l in pop_labels: 
             bk0 = list(pops_dict[l].basis.keys())[0]
-            param_vals[l].append(form_factor_names.index(pops_dict[l].basis[bk0].form))
+            param_vals[l].append(xrsdefs.form_factor_names.index(pops_dict[l].basis[bk0].form))
         param_labels.append('form')
         dtypes['form']='int'
     # for all structures, order by their structure_params,
     # from highest to lowest priority
-    for param_nm in structure_params[struct_nm]:
+    for param_nm in xrsdefs.structure_params[struct_nm]:
         for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
         param_labels.append(param_nm)
         dtypes[param_nm]='float'
@@ -381,7 +383,7 @@ def _sort_species(ff_nm,species_dict):
         for l in specie_labels: param_vals[l].append(atomic_params[specie.settings['symbol']]['Z'])
         param_labels.append('Z') 
         dtypes['Z'] = 'float'
-    for param_nm in form_factor_params[ff_nm]:
+    for param_nm in xrsdefs.form_factor_params[ff_nm]:
         for l in specie_labels: param_vals[l].append(species_dict[l].parameters[param_nm]['value'])
         param_labels.append(param_nm)
         dtypes[param_nm]='float'
@@ -399,8 +401,8 @@ def _sort_species(ff_nm,species_dict):
 
 def setting_properties(ip,pop):
     pps = []
-    for stgnm in structure_settings[pop.structure]:
-        stgval = default_setting(stgnm,pop.settings)
+    for stgnm in xrsdefs.structure_settings[pop.structure]:
+        stgval = xrsdefs.default_setting(stgnm,pop.settings)
         if stgnm in pop.settings:
             stgval = pop.settings[stgnm]
         pp = Property('pop{}_{}'.format(ip,stgnm))
@@ -410,13 +412,13 @@ def setting_properties(ip,pop):
 
 def param_properties(ip,pop):
     pps = []
-    param_nms = copy.deepcopy(structure_params[pop.structure])
+    param_nms = copy.deepcopy(xrsdefs.structure_params[pop.structure])
     if pop.structure == 'crystalline':
-        param_nms.extend(setting_params['lattice'][pop.settings['lattice']])
+        param_nms.extend(xrsdefs.setting_params['lattice'][pop.settings['lattice']])
     if pop.structure == 'disordered':
-        param_nms.extend(setting_params['interaction'][pop.settings['interaction']])
+        param_nms.extend(xrsdefs.setting_params['interaction'][pop.settings['interaction']])
     for param_nm in param_nms:
-        pd = copy.deepcopy(param_defaults[param_nm])
+        pd = copy.deepcopy(xrsdefs.param_defaults[param_nm])
         if param_nm in pop.parameters:
             pd = pop.parameters[param_nm]
         pnm = 'pop{}_{}'.format(ip,param_nm)
@@ -445,7 +447,7 @@ def specie_param_properties(ip,isp,specie):
     return pps
 
 def param_from_pif_property(param_nm,prop):
-    pdict = copy.deepcopy(param_defaults[param_nm])
+    pdict = copy.deepcopy(xrsdefs.param_defaults[param_nm])
     pdict['value'] = float(prop.scalars[0].value)
     if prop.tags is not None:
         for tg in prop.tags:

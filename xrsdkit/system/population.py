@@ -2,7 +2,7 @@ import copy
 from collections import OrderedDict
 
 from .specie import Specie
-from ..definitions import * 
+from .. import definitions as xrsdefs 
 from ..scattering import diffuse_intensity, disordered_intensity, crystalline_intensity
 from ..scattering import space_groups as sgs
 
@@ -32,7 +32,7 @@ class Population(object):
         self.update_parameters()
 
     def set_form(self,specie_nm,form):
-        if self.structure == 'crystalline' and form in noncrystalline_form_factors:
+        if self.structure == 'crystalline' and form in xrsdefs.noncrystalline_form_factors:
             msg = 'structure {} does not support {} form factors'\
             .format(self.structure,form)
             raise StructureFormException(msg)
@@ -43,14 +43,14 @@ class Population(object):
         current_stg_nms = list(self.settings.keys())
         # remove any non-valid settings
         for stg_nm in current_stg_nms:
-            if not stg_nm in structure_settings[self.structure]:
+            if not stg_nm in xrsdefs.structure_settings[self.structure]:
                 self.settings.pop(stg_nm)
         # update settings, add any that are missing
-        for stg_nm in structure_settings[self.structure]:
+        for stg_nm in xrsdefs.structure_settings[self.structure]:
             if stg_nm in new_settings:
                 self.update_setting(stg_nm,new_settings[stg_nm])
             elif not stg_nm in self.settings:
-                self.update_setting(stg_nm,default_setting(stg_nm,self.settings))
+                self.update_setting(stg_nm,xrsdefs.default_setting(stg_nm,self.settings))
 
     def update_setting(self,stgnm,new_val):
         # TODO: check if the new_val violates any other settings:
@@ -63,13 +63,13 @@ class Population(object):
 
     def update_parameters(self,new_params={}):
         current_param_nms = list(self.parameters.keys())
-        valid_param_nms = copy.deepcopy(structure_params[self.structure])
+        valid_param_nms = copy.deepcopy(xrsdefs.structure_params[self.structure])
         if self.structure == 'crystalline': 
-            valid_param_nms.extend(
-            copy.deepcopy(setting_params['lattice'][self.settings['lattice']]))
+            valid_param_nms.extend(copy.deepcopy(
+            xrsdefs.setting_params['lattice'][self.settings['lattice']]))
         if self.structure == 'disordered': 
-            valid_param_nms.extend(
-            copy.deepcopy(setting_params['interaction'][self.settings['interaction']]))
+            valid_param_nms.extend(copy.deepcopy(
+            xrsdefs.setting_params['interaction'][self.settings['interaction']]))
         # remove any non-valid params
         for param_nm in current_param_nms:
             if not param_nm in valid_param_nms:
@@ -77,7 +77,7 @@ class Population(object):
         # add any missing params, taking from new_params if available 
         for param_nm in valid_param_nms:
             if not param_nm in self.parameters:
-                self.parameters[param_nm] = copy.deepcopy(param_defaults[param_nm]) 
+                self.parameters[param_nm] = copy.deepcopy(xrsdefs.param_defaults[param_nm]) 
             if param_nm in new_params:
                 self.update_parameter(param_nm,new_params[param_nm])
            
@@ -114,10 +114,10 @@ class Population(object):
         opd = OrderedDict()
         opd['structure'] = self.structure
         opd['settings'] = OrderedDict() 
-        for stg_nm in structure_settings[self.structure]:
+        for stg_nm in xrsdefs.structure_settings[self.structure]:
             opd['settings'][stg_nm] = self.settings[stg_nm] 
         opd['parameters'] = OrderedDict() 
-        for param_nm in structure_parameters[self.structure]:
+        for param_nm in xrsdefs.structure_parameters[self.structure]:
             opd['parameters'][param_nm] = self.parameters[param_nm].to_dict()
         opd['basis'] = self.basis_to_ordered_dict()
         return opd
@@ -130,7 +130,7 @@ class Population(object):
 
     def basis_to_ordered_dict(self):
         obd = OrderedDict()
-        for ffnm in form_factor_names:
+        for ffnm in xrsdefs.form_factor_names:
             for specie_nm,specd in popdef['basis'].items(): 
                 # TODO: how should two species of the same form be ordered?
                 if specd['form'] == ffnm:
@@ -165,7 +165,7 @@ class Population(object):
     def check_structure(structure,basis):
         if structure == 'crystalline':
             for site_nm,specie_def in basis.items():
-                if specie_def['form'] in noncrystalline_form_factors:
+                if specie_def['form'] in xrsdefs.noncrystalline_form_factors:
                     msg = 'structure {} does not support {} form factors'\
                     .format(structure,specie_def['form'])
                     raise StructureFormException(msg)
