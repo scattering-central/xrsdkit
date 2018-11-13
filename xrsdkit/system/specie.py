@@ -29,7 +29,7 @@ class Specie(object):
             if stg_nm in new_settings:
                 self.update_setting(stg_nm,new_settings[stg_nm])
             elif not stg_nm in self.settings: 
-                self.update_setting(stg_nm,copy.deepcopy(setting_defaults[stg_nm]))
+                self.update_setting(stg_nm,default_setting(stg_nm,self.settings))
 
     def update_setting(self,stg_nm,new_val):
         self.settings[stg_nm] = new_val

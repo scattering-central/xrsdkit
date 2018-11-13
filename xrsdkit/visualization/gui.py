@@ -564,7 +564,6 @@ class XRSDFitGUI(object):
         stg_frames = self._frames['settings'][pop_nm]
         parent_obj = self.sys.populations[pop_nm]
         parent_frame = self._frames['populations'][pop_nm]
-        stg_default = setting_defaults[stg_nm]
         if specie_nm:
             stg_vars = self._vars['specie_settings'][pop_nm][specie_nm]
             stg_frames = self._frames['specie_settings'][pop_nm][specie_nm]
@@ -584,7 +583,7 @@ class XRSDFitGUI(object):
 
         stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
         stgl.grid(row=0,column=0,sticky='e')
-        s = setting_defaults[stg_nm]
+        s = default_setting(stg_nm,parent_obj.settings)
         if stg_nm in parent_obj.settings:
             s = parent_obj.settings[stg_nm]
         stgv.set(str(s))

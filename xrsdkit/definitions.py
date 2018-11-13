@@ -5,11 +5,10 @@ it must also be handled appropriately throughout the package,
 and added to the database on which the models are built.
 TODO: include instructions on how to support new definitions.
 """
+import copy
 
 from .scattering import space_groups as sgs
 from .scattering import form_factors as xrff 
-
-# TODO: add instructions for extending to new structures/form factors
 
 # supported structure specifications, form factors, and noise models
 structure_names = [\
@@ -21,9 +20,9 @@ form_factor_names = [\
 'guinier_porod',\
 'spherical',\
 'spherical_normal']
-# tag any form factors that do not support crystalline arrangements 
-noncrystalline_form_factors = ['spherical_normal','guinier_porod']
 noise_model_names = ['flat']
+# list of form factors that do not support crystalline arrangements 
+noncrystalline_form_factors = ['spherical_normal','guinier_porod']
 
 # supported settings for each structure, form factor
 structure_settings = dict(
@@ -40,7 +39,7 @@ form_factor_settings = dict(
     )
 
 # default values for all settings- set to None if no default
-setting_defaults = dict(
+_setting_defaults = dict(
     lattice = 'cubic',
     centering = 'P',
     space_group = None,
@@ -53,6 +52,15 @@ setting_defaults = dict(
     interaction = 'hard_spheres',
     symbol = 'H'
     )
+def default_setting(stg_nm,stg_dict={}):
+    if not stg_nm in ['space_group']:
+        return copy.copy(_setting_defaults[stg_nm])
+    elif stg_nm == 'space_group':
+        lat = stg_dict['lattice']
+        cent = stg_dict['centering']
+        sgidx = sgs.default_space_groups[lat][cent][0]
+        return sgs.lattice_space_groups[lat][cent][sgidx]
+
 # datatypes and descriptions for all settings (gui tooling)
 setting_datatypes = dict(
     lattice = str,

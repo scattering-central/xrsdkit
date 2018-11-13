@@ -50,15 +50,12 @@ class Population(object):
             if stg_nm in new_settings:
                 self.update_setting(stg_nm,new_settings[stg_nm])
             elif not stg_nm in self.settings:
-                if stg_nm == 'space_group':
-                    lat = self.settings['lattice']
-                    cent = self.settings['centering']
-                    defspg = copy.copy(sgs.lattice_space_groups[lat][cent][sgs.default_space_groups[lat][cent][0]])
-                    self.update_setting(stg_nm,defspg)
-                else:
-                    self.update_setting(stg_nm,copy.deepcopy(setting_defaults[stg_nm]))
+                self.update_setting(stg_nm,default_setting(stg_nm,self.settings))
 
     def update_setting(self,stgnm,new_val):
+        # TODO: check if the new_val violates any other settings:
+        # if so, substitute a sensible default
+        # TODO: if the space group is changed, check/update basis coordinates
         self.settings[stgnm] = new_val
         # if it is a lattice or interaction setting, update parameters 
         if stgnm in ['lattice','interaction']:

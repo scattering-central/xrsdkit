@@ -400,7 +400,7 @@ def _sort_species(ff_nm,species_dict):
 def setting_properties(ip,pop):
     pps = []
     for stgnm in structure_settings[pop.structure]:
-        stgval = setting_defaults[stgnm]
+        stgval = default_setting(stgnm,pop.settings)
         if stgnm in pop.settings:
             stgval = pop.settings[stgnm]
         pp = Property('pop{}_{}'.format(ip,stgnm))
