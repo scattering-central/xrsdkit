@@ -3,8 +3,8 @@ from collections import OrderedDict
 
 from .specie import Specie
 from ..definitions import * 
-
 from ..scattering import diffuse_intensity, disordered_intensity, crystalline_intensity
+from ..scattering import space_groups as sgs
 
 class StructureFormException(Exception):
     pass
@@ -50,7 +50,13 @@ class Population(object):
             if stg_nm in new_settings:
                 self.update_setting(stg_nm,new_settings[stg_nm])
             elif not stg_nm in self.settings:
-                self.update_setting(stg_nm,copy.deepcopy(setting_defaults[stg_nm]))
+                if stg_nm == 'space_group':
+                    lat = self.settings['lattice']
+                    cent = self.settings['centering']
+                    defspg = copy.copy(sgs.lattice_space_groups[lat][cent][sgs.default_space_groups[lat][cent][0]])
+                    self.update_setting(stg_nm,defspg)
+                else:
+                    self.update_setting(stg_nm,copy.deepcopy(setting_defaults[stg_nm]))
 
     def update_setting(self,stgnm,new_val):
         self.settings[stgnm] = new_val
@@ -63,10 +69,10 @@ class Population(object):
         valid_param_nms = copy.deepcopy(structure_params[self.structure])
         if self.structure == 'crystalline': 
             valid_param_nms.extend(
-            copy.deepcopy(crystalline_structure_params[self.settings['lattice']]))
+            copy.deepcopy(setting_params['lattice'][self.settings['lattice']]))
         if self.structure == 'disordered': 
             valid_param_nms.extend(
-            copy.deepcopy(disordered_structure_params[self.settings['interaction']]))
+            copy.deepcopy(setting_params['interaction'][self.settings['interaction']]))
         # remove any non-valid params
         for param_nm in current_param_nms:
             if not param_nm in valid_param_nms:

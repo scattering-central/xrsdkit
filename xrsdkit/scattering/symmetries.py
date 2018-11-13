@@ -23,7 +23,7 @@ mirror_nz_x = np.array([[0,0,1],[0,1,0],[1,0,0]])
 # note that the symmetrization algorithm retains points
 # with higher h values, and then (for equal h), higher k values,
 # and then (for equal h and k), higher l values.
-symmetry_operations = OrderedDict.fromkeys(sgs.crystal_point_groups)
+symmetry_operations = OrderedDict.fromkeys(sgs.all_point_groups)
 
 symmetry_operations['1'] = [] 
 symmetry_operations['-1'] = [inversion] 

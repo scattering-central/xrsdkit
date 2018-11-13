@@ -1,6 +1,9 @@
 from collections import OrderedDict
 import copy
 
+crystal_systems = ['triclinic','monoclinic','orthorhombic','tetragonal','trigonal','hexagonal','cubic']
+lattice_systems = ['triclinic','monoclinic','orthorhombic','tetragonal','rhombohedral','hexagonal','cubic']  
+
 # enumerate all the space groups for each crystal system
 crystal_space_groups = dict(
     triclinic = {
@@ -64,39 +67,73 @@ crystal_space_groups = dict(
         }
     )
 
-# enumerate the space groups for each lattice system:
-# split the space groups for the trigonal crystal system
-# into 7 rhombohedral lattices and 18 hexagonal lattices
-# TODO: separate these according to centering selection
-lattice_space_groups = copy.deepcopy(crystal_space_groups)
-trig_xtal_sgs = lattice_space_groups.pop('trigonal')
-lattice_space_groups['rhombohedral'] = {}
-for isg in range(143,168):
-    if isg in [146,148,155,160,161,166,167]:
-        lattice_space_groups['rhombohedral'][isg] = trig_xtal_sgs[isg]
-    else:
-        lattice_space_groups['hexagonal'][isg] = trig_xtal_sgs[isg]
+all_space_groups = []
+for xsys in crystal_systems:
+    all_space_groups.extend(crystal_space_groups[xsys])
 
-# list the point groups for each crystal class
-#crystal_point_groups = dict(
-#    triclinic = ['1','-1'],
-#    monoclinic = ['2','2/m','222','m','mm2','mmm'],
-#    orthorhombic = ['2','2/m','222','m','mm2','mmm'],
-#    tetragonal = ['4','-4','4/m','422','4mm','-42m','4/mmm'],
-#    trigonal = ['3','-3','32','3m','-3m'],
-#    hexagonal = ['6','-6','6/m','622','6mm','-6m2','6/mmm'],
-#    cubic = ['23','m-3','432','-43m','m-3m']  
-#    )
-# list of all 32 crystalline point groups
-crystal_point_groups = list([
-    '1','-1',
-    '2','m','2/m',
-    '222','mm2','mmm',
-    '4','-4','4/m','422','4mm','-42m','4/mmm',
-    '3','-3','32','3m','-3m',
-    '6','-6','6/m','622','6mm','-6m2','6/mmm',
-    '23','m-3','432','-43m','m-3m'
-    ])
+# enumerate the space groups for each lattice and centering:
+lattice_space_groups = dict.fromkeys(lattice_systems) 
+lattice_space_groups['triclinic'] = dict(P = crystal_space_groups['triclinic'])
+lattice_space_groups['monoclinic'] = dict(
+    P = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['monoclinic'].items() if sgv[0]=='P']),
+    C = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['monoclinic'].items() if sgv[0]=='C'])
+    )
+lattice_space_groups['orthorhombic'] = dict(
+    P = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['orthorhombic'].items() if sgv[0]=='P']),
+    C = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['orthorhombic'].items() if sgv[0]=='C']),
+    I = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['orthorhombic'].items() if sgv[0]=='I']),
+    F = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['orthorhombic'].items() if sgv[0]=='F'])
+    )
+lattice_space_groups['tetragonal'] = dict(
+    P = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['tetragonal'].items() if sgv[0]=='P']),
+    I = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['tetragonal'].items() if sgv[0]=='I'])
+    )
+lattice_space_groups['rhombohedral'] = dict(
+    P = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['trigonal'].items() if sgv[0]=='R']),
+    )
+lattice_space_groups['hexagonal'] = dict(
+    P = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['trigonal'].items() if sgv[0]=='P']),
+    HCP = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['trigonal'].items() if sgv[0]=='P'])
+    )
+lattice_space_groups['hexagonal']['P'].update(crystal_space_groups['hexagonal'])
+lattice_space_groups['hexagonal']['HCP'].update(crystal_space_groups['hexagonal'])
+lattice_space_groups['cubic'] = dict(
+    P = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['cubic'].items() if sgv[0]=='P']),
+    I = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['cubic'].items() if sgv[0]=='I']),
+    F = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['cubic'].items() if sgv[0]=='F'])
+    )
+
+# default space group indices: for each lattice, for each centering, 
+# one of low symmetry (to use for basis of more than one atom),
+# one of high symmetry (to use for single-atom basis)
+default_space_groups = dict(
+    cubic = {'P':[195,221],'I':[197,229],'F':[196,225]},
+    hexagonal = {'P':[168,194],'HCP':[168,194]},
+    rhombohedral = {'P':[146,166]},
+    tetragonal = {'P':[75,123],'I':[79,139]},
+    orthorhombic = {'P':[16,47],'I':[23,71],'F':[22,69],'C':[21,65]},
+    monoclinic = {'P':[3,10],'C':[5,12]},
+    triclinic = {'P':[1,2]}
+    )
+
+# point groups for each crystal class
+crystal_point_groups = dict(
+    triclinic = ['1','-1'],
+    monoclinic = ['2','2/m','222','m','mm2','mmm'],
+    orthorhombic = ['2','2/m','222','m','mm2','mmm'],
+    tetragonal = ['4','-4','4/m','422','4mm','-42m','4/mmm'],
+    trigonal = ['3','-3','32','3m','-3m'],
+    hexagonal = ['6','-6','6/m','622','6mm','-6m2','6/mmm'],
+    cubic = ['23','m-3','432','-43m','m-3m']  
+    )
+all_point_groups = []
+all_point_groups.extend(crystal_point_groups['triclinic'])
+all_point_groups.extend(crystal_point_groups['monoclinic'])
+all_point_groups.extend(crystal_point_groups['orthorhombic'])
+all_point_groups.extend(crystal_point_groups['tetragonal'])
+all_point_groups.extend(crystal_point_groups['trigonal'])
+all_point_groups.extend(crystal_point_groups['hexagonal'])
+all_point_groups.extend(crystal_point_groups['cubic'])
 
 # map each space group to its underlying point group
 sg_point_groups = OrderedDict()

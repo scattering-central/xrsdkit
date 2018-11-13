@@ -10,6 +10,9 @@ from ..definitions import *
 from ..scattering.form_factors import atomic_params
 from ..system import System
 
+_reg_params = list(param_defaults.keys())
+_reg_params[_reg_params.index('I0')] = 'I0_fraction'
+
 def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=None):
     """Make a pypif.obj.ChemicalSystem object describing XRSD data.
 
@@ -185,7 +188,7 @@ def unpack_pif(pp):
             q_I = np.vstack([q,I]).T
         elif prop_nm in profiler.profile_keys:
             features[prop_nm] = float(prop.scalars[0].value)
-        elif any([rp == prop_nm[-1*len(rp):] for rp in regression_params]):
+        elif any([rp == prop_nm[-1*len(rp):] for rp in _reg_params]):
             regression_outputs[prop_nm] = prop.scalars[0].value
 
     # unpack the experiment_id
@@ -320,19 +323,18 @@ def _sort_populations(struct_nm,pops_dict):
     dtypes = {}
     if struct_nm == 'crystalline': 
         # order crystalline structures primarily according to their lattice
-        for l in pop_labels: param_vals[l].append(crystalline_structures.index(pops_dict[l].settings['lattice']))
+        for l in pop_labels: param_vals[l].append(setting_selections['lattice'].index(pops_dict[l].settings['lattice']))
         param_labels.append('lattice')
         dtypes['lattice']='int'
-        for param_nm in crystalline_structure_params[pops_dict[l].settings['lattice']]:
+        for param_nm in setting_params['lattice'][pops_dict[l].settings['lattice']]:
             for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
             param_labels.append(param_nm)
             dtypes[param_nm]='float'
-    # likewise for xrsdkit.disordered_structures 
     if struct_nm == 'disordered': 
-        for l in pop_labels: param_vals[l].append(disordered_structures.index(pops_dict[l].settings['interaction']))
+        for l in pop_labels: param_vals[l].append(setting_selections['interaction'].index(pops_dict[l].settings['interaction']))
         param_labels.append('interaction')
         dtypes['interaction']='int'
-        for param_nm in disordered_structure_params[pops_dict[l].settings['interaction']]:
+        for param_nm in setting_params['interaction'][pops_dict[l].settings['interaction']]:
             for l in pop_labels: param_vals[l].append(pops_dict[l].parameters[param_nm]['value'])
             param_labels.append(param_nm)
             dtypes[param_nm]='float'
@@ -410,9 +412,9 @@ def param_properties(ip,pop):
     pps = []
     param_nms = copy.deepcopy(structure_params[pop.structure])
     if pop.structure == 'crystalline':
-        param_nms.extend(crystalline_structure_params[pop.settings['lattice']])
+        param_nms.extend(setting_params['lattice'][pop.settings['lattice']])
     if pop.structure == 'disordered':
-        param_nms.extend(disordered_structure_params[pop.settings['interaction']])
+        param_nms.extend(setting_params['interaction'][pop.settings['interaction']])
     for param_nm in param_nms:
         pd = copy.deepcopy(param_defaults[param_nm])
         if param_nm in pop.parameters:

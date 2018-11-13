@@ -433,10 +433,10 @@ class XRSDFitGUI(object):
         param_nms = copy.deepcopy(structure_params[pop_struct])
         if pop_struct == 'crystalline':
             pop_lat = self.sys.populations[pop_nm].settings['lattice'] 
-            param_nms.extend(copy.deepcopy(crystalline_structure_params[pop_lat]))
+            param_nms.extend(copy.deepcopy(setting_params['lattice'][pop_lat]))
         if pop_struct == 'disordered':
             pop_interxn = self.sys.populations[pop_nm].settings['interaction'] 
-            param_nms.extend(copy.deepcopy(disordered_structure_params[pop_interxn]))
+            param_nms.extend(copy.deepcopy(setting_params['interaction'][pop_interxn]))
         for param_nm in param_nms:
             self._frames['parameters'][pop_nm][param_nm] = \
             self._create_param_frame(pop_nm,None,param_nm)
@@ -488,10 +488,10 @@ class XRSDFitGUI(object):
         param_nms = copy.deepcopy(structure_params[pop_struct])
         if pop_struct == 'crystalline':
             pop_lat = self.sys.populations[pop_nm].settings['lattice'] 
-            param_nms.extend(copy.deepcopy(crystalline_structure_params[pop_lat]))
+            param_nms.extend(copy.deepcopy(setting_params['lattice'][pop_lat]))
         if pop_struct == 'disordered':
             pop_interxn = self.sys.populations[pop_nm].settings['interaction'] 
-            param_nms.extend(copy.deepcopy(disordered_structure_params[pop_interxn]))
+            param_nms.extend(copy.deepcopy(setting_params['interaction'][pop_interxn]))
         for par_nm in param_nms: 
             if par_nm in self._frames['parameters'][pop_nm]:
                 new_par_frms[par_nm] = self._frames['parameters'][pop_nm][par_nm]

@@ -42,9 +42,15 @@ def crystalline_intensity(q,popd,source_wavelength):
     profile_name = popd['settings']['profile']
     q_min = popd['settings']['q_min']
     q_max = popd['settings']['q_max']
-    I0 = popd['parameters']['I0']['value']
     sf_mode = popd['settings']['structure_factor_mode']
     lattice_id = popd['settings']['lattice']
+    centering = popd['settings']['centering']
+    spg = popd['settings']['space_group']
+    I0 = popd['parameters']['I0']['value']
+    # TODO: implement support for textures
+    # and non-spherical reciprocal space integrations
+    #txr = popd['settings']['texture']
+    #integ_mode = popd['settings']['integration_mode']
 
     latparams = dict.fromkeys(['a','b','c','alpha','beta','gamma'])
     for k in latparams.keys(): 
@@ -55,13 +61,8 @@ def crystalline_intensity(q,popd,source_wavelength):
     absa2 = np.linalg.norm(a2)
     absa3 = np.linalg.norm(a3)
 
-    # NOTE: the following assumes full spherical integration of reciprocal space.
-    # TODO: implement settings to select the reciprocal space regions to integrate.
     # Get d-spacings corresponding to the q-range limits,
-    # and get the corresponding G_hkl lengths (G=1/d).
-    # NB: for the crystallographic reciprocal lattice,
-    # G_hkl-vectors are h*b1+k*b2+l*b3,
-    # and the corresponding q-vectors are 2*pi*G_hkl
+    # and get the corresponding G_hkl lengths (G=1/d, q=2pi*G).
     d_min = 2*np.pi/q_max
     G_max = 1./d_min
     if q_min > 0.:
@@ -98,14 +99,15 @@ def crystalline_intensity(q,popd,source_wavelength):
     # NOTE: this should be done when the space group is set...
     # and maybe also here if it's fast
 
+    def_sg_ids = sgs.default_space_groups[lattice_id][centering] 
     if not space_group:
         # select a space group, given lattice_id
         if len(popd['basis']) <= 1:
-            # take the highest symmetry space group
-            space_group = lattices.default_high_sym_space_groups[lattice_id]
+            # take a high symmetry space group
+            space_group = sgs.lattice_space_groups[lattice_id][centering][def_sg_ids[1]] 
         else:
-            # take the lowest symmetry space group
-            space_group = lattices.default_low_sym_space_groups[lattice_id]
+            # take a low symmetry space group
+            space_group = sgs.lattice_space_groups[lattice_id][centering][def_sg_ids[0]]   
 
     point_group = sgs.sg_point_groups[space_group]
     reduced_hkl,hkl_mults = lattices.symmetrize_points(all_hkl,np.array([b1,b2,b3]),point_group)  
@@ -157,7 +159,7 @@ def crystalline_intensity(q,popd,source_wavelength):
     # structure factors for all hkl
     # TODO: can this be vectorized? 
     sf_hkl = np.zeros((reduced_hkl.shape[0],n_q),dtype=complex) 
-    latcoords = lattices.centering_coords[lattices.centering_map[lattice_id]]
+    latcoords = lattices.centering_coords[popd['settings']['centering']]
     for ihkl,absq in zip(range(reduced_hkl.shape[0]),absq_hkl):
         for lc in latcoords:
             for specie_nm,ff in ffs.items():
@@ -173,33 +175,6 @@ def crystalline_intensity(q,popd,source_wavelength):
         I += mult*ltz*(sf_hkl[ihkl,:]*sf_hkl[ihkl,:].conjugate()).real*pks[absq] 
     return I0*pz*I
             
-def local_structure_factor(lattice_id,q_hkl,hkl,basis):
-    F_hkl = 0
-    try: 
-        float(q_hkl)
-    except:
-        raise TypeError('input q_hkl(={}) should be a single float'.format(q_hkl))
-    coords = lattices.centering_coords[lattices.centering_map[lattice_id]]
-    for coord in coords:
-        for site_name, site_def in basis.items():
-            c = [site_def['coordinates'][ic]['value'] for ic in range(3)]
-            g_dot_r = np.dot(coord+c,hkl)
-            F_hkl += xrff.site_ff(np.array([q_hkl]),site_def) \
-            * np.exp(2j*np.pi*g_dot_r)#[0] 
-    return F_hkl
-
-def radial_structure_factor(lattice_id,q,hkl,basis):
-    hkl_range = np.outer(q,np.array(hkl)/np.linalg.norm(hkl)).T
-    F_hkl = np.zeros(hkl_range.shape[1],dtype=complex) 
-    coords = lattices.centering_coords[lattices.centering_map[lattice_id]]
-    for coord in coords:
-        for site_name, site_def in basis.items():
-            c = [site_def['coordinates'][ic]['value'] for ic in range(3)]
-            g_dot_r = np.dot(coord+c,hkl)
-            F_hkl += xrff.site_ff(q,site_def) \
-            * np.exp(2j*np.pi*g_dot_r) 
-    return F_hkl
-
 def hard_sphere_sf(q,r_sphere,volume_fraction):
     """Computes the Percus-Yevick hard-sphere structure factor. 
 
@@ -242,20 +217,4 @@ def hard_sphere_sf(q,r_sphere,volume_fraction):
             )
     F = 1/(1-nc)
     return F
-
-#def fcc_sf_spherical_average(q,popd):
-#    n_q = len(q)
-#    sf_func = lambda qi,ph,th: fcc_sf(qi,
-#            np.array([
-#            qi*np.sin(th)*np.cos(ph),
-#            qi*np.sin(th)*np.sin(ph),
-#            qi*np.cos(th)]),
-#            popd)
-#    import quadpy
-#    sf_integral_func = lambda qi: quadpy.sphere.integrate_spherical(
-#        partial(sf_func,qi),rule=quadpy.sphere.Lebedev(35))
-#    sf = 1./(2*np.pi**2)*np.array(
-#        [sf_integral_func(qq) for qq in q],
-#        dtype=complex)
-#    return sf
 

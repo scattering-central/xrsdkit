@@ -7,14 +7,14 @@ from . import space_groups as sgs
 
 def get_lattice_vectors(lattice_id,a=None,b=None,c=None,alpha=None,beta=None,gamma=None):
     # TODO: expand to support all lattices 
-    if lattice_id in ['fcc']:
+    if lattice_id in ['cubic']:
         a1 = [a, 0., 0.]
         a2 = [0., a, 0.]
         a3 = [0., 0., a]
-    elif lattice_id in ['hcp']:
+    elif lattice_id in ['hexagonal']:
         a1 = [a, 0., 0.]
         a2 = [0.5*a, np.sqrt(3.)/2*a, 0.]
-        a3 = [0., 0., np.sqrt(8.)/3.*a]
+        a3 = [0., 0., c]
     else:
         raise ValueError('unsupported lattice: {}'.format(lattice_id))
     return a1,a2,a3
@@ -78,105 +78,6 @@ def symmetrize_points(all_hkl,rlat,point_group,symprec=1.E-6):
             hkl_rank = hkl_rank[idx_to_keep] 
 
     return reduced_hkl,hkl_mults
-
-# map common lattice names to their Bravais lattice systems
-lattice_map = {\
-    'fcc':'cubic',\
-    'bcc':'cubic',\
-    'sc':'cubic',\
-    'hcp':'hexagonal',\
-    'hexagonal':'hexagonal',\
-    'rhombohedral':'rhombohedral',\
-    'tetragonal':'tetragonal',\
-    'tetragonal-I':'tetragonal',\
-    'orthorhombic':'orthorhombic',\
-    'orthorhombic-I':'orthorhombic',\
-    'orthorhombic-F':'orthorhombic',\
-    'orthorhombic-C':'orthorhombic',\
-    'monoclinic':'monoclinic',\
-    'monoclinic-C':'monoclinic',\
-    'triclinic':'triclinic'\
-    }
-    #'hexagonal-R':'hexagonal',\
-    #'rhombohedral-D':'rhombohedral',\
-    #'orthorhombic-A':'orthorhombic',\
-    #'orthorhombic-B':'orthorhombic',\
-    #'monoclinic-A':'monoclinic',\
-    #'monoclinic-B':'monoclinic',\
-
-# map common lattice names to centering specifiers
-centering_map = {\
-    'fcc':'F',\
-    'bcc':'I',\
-    'sc':'P',\
-    'hcp':'HCP',\
-    'hexagonal':'P',\
-    'rhombohedral':'P',\
-    'tetragonal':'P',\
-    'tetragonal-I':'I',\
-    'orthorhombic':'P',\
-    'orthorhombic-I':'I',\
-    'orthorhombic-F':'F',\
-    'orthorhombic-C':'C',\
-    'monoclinic':'P',\
-    'monoclinic-C':'C',\
-    'triclinic':'P'\
-    }
-    #'hexagonal-R':'R',\
-    #'rhombohedral-D':'D',\
-    #'orthorhombic-A':'A',\
-    #'orthorhombic-B':'B',\
-    #'monoclinic-A':'A',\
-    #'monoclinic-B':'B',\
-
-default_high_sym_space_groups = {\
-    'fcc':sgs.lattice_space_groups['cubic'][225],\
-    'bcc':sgs.lattice_space_groups['cubic'][229],\
-    'sc':sgs.lattice_space_groups['cubic'][221],\
-    'hcp':sgs.lattice_space_groups['hexagonal'][194],\
-    'hexagonal':sgs.lattice_space_groups['hexagonal'][194],\
-    'rhombohedral':sgs.lattice_space_groups['rhombohedral'][166],\
-    'tetragonal':sgs.lattice_space_groups['tetragonal'][123],\
-    'tetragonal-I':sgs.lattice_space_groups['tetragonal'][139],\
-    'orthorhombic':sgs.lattice_space_groups['orthorhombic'][47],\
-    'orthorhombic-C':sgs.lattice_space_groups['orthorhombic'][65],\
-    'orthorhombic-I':sgs.lattice_space_groups['orthorhombic'][71],\
-    'orthorhombic-F':sgs.lattice_space_groups['orthorhombic'][69],\
-    'monoclinic':sgs.lattice_space_groups['monoclinic'][10],\
-    'monoclinic-C':sgs.lattice_space_groups['monoclinic'][12],\
-    'triclinic':sgs.lattice_space_groups['triclinic'][2]\
-    }
-    #'hexagonal-R':,\
-    #'rhombohedral-D':,\
-    #'orthorhombic-A':,\
-    #'orthorhombic-B':,\
-    #'monoclinic-A':,\
-    #'monoclinic-B':,\
-
-default_low_sym_space_groups = {\
-    'fcc':sgs.lattice_space_groups['cubic'][196],\
-    'bcc':sgs.lattice_space_groups['cubic'][197],\
-    'sc':sgs.lattice_space_groups['cubic'][195],\
-    'hcp':sgs.lattice_space_groups['hexagonal'][168],\
-    'hexagonal':sgs.lattice_space_groups['hexagonal'][168],\
-    'rhombohedral':sgs.lattice_space_groups['rhombohedral'][146],\
-    'tetragonal':sgs.lattice_space_groups['tetragonal'][75],\
-    'tetragonal-I':sgs.lattice_space_groups['tetragonal'][79],\
-    'orthorhombic':sgs.lattice_space_groups['orthorhombic'][16],\
-    'orthorhombic-C':sgs.lattice_space_groups['orthorhombic'][21],\
-    'orthorhombic-I':sgs.lattice_space_groups['orthorhombic'][23],\
-    'orthorhombic-F':sgs.lattice_space_groups['orthorhombic'][22],\
-    'monoclinic':sgs.lattice_space_groups['monoclinic'][3],\
-    'monoclinic-C':sgs.lattice_space_groups['monoclinic'][5],\
-    'triclinic':sgs.lattice_space_groups['triclinic'][1]\
-    }
-    #'hexagonal-R':,\
-    #'rhombohedral-D':,\
-    #'orthorhombic-A':,\
-    #'orthorhombic-B':,\
-    #'monoclinic-A':,\
-    #'monoclinic-B':,\
-
 
 # define coordinates for the extra sites
 # that are added to centered lattices
