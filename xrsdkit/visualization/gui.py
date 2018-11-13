@@ -2,10 +2,12 @@ from collections import OrderedDict
 from functools import partial
 import copy
 import sys
+import os
 
 import numpy as np
 import matplotlib
-matplotlib.use("TkAgg")
+if 'DISPLAY' in os.environ:
+    matplotlib.use("TkAgg")
 mplv = matplotlib.__version__
 mplvmaj = int(mplv.split('.')[0])
 from matplotlib.figure import Figure
