@@ -10,8 +10,8 @@ Al_atom_dict = dict(form='atomic',settings={'symbol':'Al'})
 sphere_dict = dict(form='spherical',parameters={'r':{'value':40.}})
 
 fcc_Al = Population('crystalline',
-    settings={'lattice':'cubic','centering':'F','q_max':5.,\
-        'structure_factor_mode':'local'},
+    settings={'lattice':'cubic','centering':'F','space_group':'Fm-3m',
+        'q_max':5.,'structure_factor_mode':'local'},
     parameters=dict(
         a={'value':4.046},
         hwhm_g={'value':0.002},
@@ -20,11 +20,12 @@ fcc_Al = Population('crystalline',
     basis={'Al':Al_atom_dict}
     )
 hcp_spheres = Population('crystalline',
-    settings={'lattice':'hexagonal','centering':'HCP','q_max':0.6,
+    settings={'lattice':'hexagonal','centering':'HCP',
+        'space_group':'P6(3)/mmc','q_max':0.6,
         'structure_factor_mode':'radial'},
     parameters=dict(
         a={'value':120.},
-        c={'value':np.sqrt(8.)/3.*120.,'fixed':True},
+        c={'value':np.sqrt(8./3.)*120.,'constraint_expr':'hcp_spheres__a*sqrt(8./3.)'},
         hwhm_g={'value':0.002},
         hwhm_l={'value':0.002},
         ),

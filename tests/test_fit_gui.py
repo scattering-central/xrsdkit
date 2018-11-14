@@ -23,7 +23,7 @@ nps = dict(
     )
 np_sl = dict(
     structure='crystalline',
-    settings={'q_min':0.,'q_max':0.2,'lattice':'cubic','centering':'F'},
+    settings={'q_min':0.,'q_max':0.2,'lattice':'cubic','centering':'F','space_group':'Fm-3m'},
     parameters={'I0':{'value':1.E-5},'a':{'value':130.}},
     basis={'spheres':mono_spheres}
     )

@@ -402,7 +402,7 @@ def _sort_species(ff_nm,species_dict):
 def setting_properties(ip,pop):
     pps = []
     for stgnm in xrsdefs.structure_settings[pop.structure]:
-        stgval = xrsdefs.default_setting(stgnm,pop.settings)
+        stgval = xrsdefs.setting_defaults[stgnm]
         if stgnm in pop.settings:
             stgval = pop.settings[stgnm]
         pp = Property('pop{}_{}'.format(ip,stgnm))

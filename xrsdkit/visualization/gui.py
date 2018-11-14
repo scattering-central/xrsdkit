@@ -585,7 +585,7 @@ class XRSDFitGUI(object):
 
         stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
         stgl.grid(row=0,column=0,sticky='e')
-        s = xrsdefs.default_setting(stg_nm,parent_obj.settings)
+        s = xrsdefs.setting_defaults[stg_nm]
         if stg_nm in parent_obj.settings:
             s = parent_obj.settings[stg_nm]
         stgv.set(str(s))

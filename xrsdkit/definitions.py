@@ -39,10 +39,10 @@ form_factor_settings = dict(
     )
 
 # default values for all settings- set to None if no default
-_setting_defaults = dict(
+setting_defaults = dict(
     lattice = 'cubic',
     centering = 'P',
-    space_group = None,
+    space_group = '',
     texture = 'random',
     profile = 'voigt',
     structure_factor_mode = 'local',
@@ -52,14 +52,6 @@ _setting_defaults = dict(
     interaction = 'hard_spheres',
     symbol = 'H'
     )
-def default_setting(stg_nm,stg_dict={}):
-    if not stg_nm in ['space_group']:
-        return copy.copy(_setting_defaults[stg_nm])
-    elif stg_nm == 'space_group':
-        lat = stg_dict['lattice']
-        cent = stg_dict['centering']
-        sgidx = sgs.default_space_groups[lat][cent][0]
-        return sgs.lattice_space_groups[lat][cent][sgidx]
 
 # datatypes and descriptions for all settings (gui tooling)
 setting_datatypes = dict(
@@ -94,7 +86,7 @@ setting_descriptions = dict(
 setting_selections = dict(
     lattice = ['cubic','hexagonal','rhombohedral','tetragonal','orthorhombic','monoclinic','triclinic'],
     centering = ['P','F','I','C','HCP'],
-    space_group = sgs.all_space_groups,
+    space_group = ['']+sgs.all_space_groups,
     texture = ['random'],               # TODO: implement 'textured', 'single_crystal'
     integration_mode = ['spherical'],   # TODO: non-spherical integration modes for sections of q-space 
     interaction = ['hard_spheres'],     # TODO: coulombic sphere sf, any others that are analytical

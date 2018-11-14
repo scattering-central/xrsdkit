@@ -38,7 +38,9 @@ def reciprocal_lattice_vectors(lat1, lat2, lat3, crystallographic=True):
         rlat3 *= 2*np.pi
     return rlat1, rlat2, rlat3
 
-def symmetrize_points(all_hkl,rlat,point_group,symprec=1.E-6):
+def symmetrize_points(all_hkl,rlat,space_group=None,symprec=1.E-6):
+    # TODO: investigate whether or not the symmetrization
+    # can just make use of the point group symmetries...
     reduced_hkl = copy.deepcopy(all_hkl)
     n_pts = all_hkl.shape[0]
     hkl_mults = np.ones(n_pts,dtype=int)
@@ -46,7 +48,11 @@ def symmetrize_points(all_hkl,rlat,point_group,symprec=1.E-6):
     # rank the hkl points uniquely: higher rank means more likely to keep the point
     hkl_range = np.max(all_hkl,axis=0)-np.min(all_hkl,axis=0)
     hkl_rank = all_hkl[:,0]*(hkl_range[1]+1)*(hkl_range[2]+1) + all_hkl[:,1]*(hkl_range[2]+1) + all_hkl[:,2]
-    for op in symmetries.symmetry_operations[point_group]:
+    sym_ops = []
+    if space_group:
+        if space_group in symmetries.symmetry_operations:
+            sym_ops = symmetries.symmetry_operations[space_group]
+    for op in sym_ops:
         sym_pts = np.dot(op,lat_pts.T).T 
         # get difference matrix between lat_pts and sym_pts.
         # lat_pts and sym_pts each have shape (N_points,3).

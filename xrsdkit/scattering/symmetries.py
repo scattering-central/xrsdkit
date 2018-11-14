@@ -25,17 +25,21 @@ mirror_nz_x = np.array([[0,0,1],[0,1,0],[1,0,0]])
 # and then (for equal h and k), higher l values.
 symmetry_operations = OrderedDict.fromkeys(sgs.all_point_groups)
 
-symmetry_operations['1'] = [] 
-symmetry_operations['-1'] = [inversion] 
-symmetry_operations['m-3m'] = [\
+# TODO: tabulate all symmetry operations
+# that can be used to reduce the reciprocal space summation
+# for a given space group.
+# TODO: determine whether or not this can be done based solely on the point group
+# associated with the space group.
+symmetry_operations['P1'] = [] 
+symmetry_operations['P-1'] = [inversion] 
+symmetry_operations['Fm-3m'] = [\
     mirror_x,mirror_y,mirror_z,\
     mirror_x_y,mirror_y_z,mirror_z_x,\
     mirror_nx_y,mirror_ny_z,mirror_nz_x\
     # TODO: add the 3-fold x+y+z-rotoinversion
     ]
-symmetry_operations['6/mmm'] = [\
-    mirror_z, mirror_x_y, mirror_nx_y,\
-    # TODO: add the 6-fold z-rotation
+symmetry_operations['P6(3)/mmc'] = [\
+    #mirror_z, mirror_x_y, mirror_nx_y
     ]
 
 

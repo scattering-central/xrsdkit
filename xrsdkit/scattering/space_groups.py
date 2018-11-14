@@ -67,9 +67,9 @@ crystal_space_groups = dict(
         }
     )
 
-all_space_groups = []
+all_space_groups = [] 
 for xsys in crystal_systems:
-    all_space_groups.extend(crystal_space_groups[xsys])
+    all_space_groups.extend(crystal_space_groups[xsys].values())
 
 # enumerate the space groups for each lattice and centering:
 lattice_space_groups = dict.fromkeys(lattice_systems) 
@@ -103,17 +103,15 @@ lattice_space_groups['cubic'] = dict(
     F = dict([(sgk,sgv) for sgk,sgv in crystal_space_groups['cubic'].items() if sgv[0]=='F'])
     )
 
-# default space group indices: for each lattice, for each centering, 
-# one of low symmetry (to use for basis of more than one atom),
-# one of high symmetry (to use for single-atom basis)
+# default space groups for each bravais lattice 
 default_space_groups = dict(
-    cubic = {'P':[195,221],'I':[197,229],'F':[196,225]},
-    hexagonal = {'P':[168,194],'HCP':[168,194]},
-    rhombohedral = {'P':[146,166]},
-    tetragonal = {'P':[75,123],'I':[79,139]},
-    orthorhombic = {'P':[16,47],'I':[23,71],'F':[22,69],'C':[21,65]},
-    monoclinic = {'P':[3,10],'C':[5,12]},
-    triclinic = {'P':[1,2]}
+    cubic = {'P':'Pm-3m','I':'Im-3m','F':'Fm-3m'},
+    hexagonal = {'P':'P6/mmm','HCP':'P6(3)/mmc'},
+    rhombohedral = {'P':'R-3m'},
+    tetragonal = {'P':'P4/mmm','I':'I4/mmm'},
+    orthorhombic = {'P':'Pmmm','I':'Immm','F':'Fmmm','C':'Cmmm'},
+    monoclinic = {'P':'P2/m','C':'C2/m'},
+    triclinic = {'P':'P-1'}
     )
 
 # point groups for each crystal class

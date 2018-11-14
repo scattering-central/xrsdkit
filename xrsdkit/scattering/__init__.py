@@ -91,26 +91,11 @@ def crystalline_intensity(q,popd,source_wavelength):
     all_hkl = np.array([(h,k,l) for l in l_range for k in k_range for h in h_range \
             if (G_min < np.linalg.norm(np.dot((h,k,l),(b1,b2,b3))) <= G_max)])
     
+    space_group = popd['settings']['space_group']
     # symmetrize the hkl sampling, save the multiplicities 
-    # TODO: implement 'space_group' as a setting
-    space_group = None
-    #space_group = popd['settings']['space_group']
-    # TODO: make sure the specie coordinates agree with the space group selection
-    # NOTE: this should be done when the space group is set...
-    # and maybe also here if it's fast
-
-    def_sg_ids = sgs.default_space_groups[lattice_id][centering] 
-    if not space_group:
-        # select a space group, given lattice_id
-        if len(popd['basis']) <= 1:
-            # take a high symmetry space group
-            space_group = sgs.lattice_space_groups[lattice_id][centering][def_sg_ids[1]] 
-        else:
-            # take a low symmetry space group
-            space_group = sgs.lattice_space_groups[lattice_id][centering][def_sg_ids[0]]   
-
-    point_group = sgs.sg_point_groups[space_group]
-    reduced_hkl,hkl_mults = lattices.symmetrize_points(all_hkl,np.array([b1,b2,b3]),point_group)  
+    # TODO: determine whether or not this can be done solely based on the point group
+    #point_group = sgs.sg_point_groups[space_group]
+    reduced_hkl,hkl_mults = lattices.symmetrize_points(all_hkl,np.array([b1,b2,b3]),space_group)  
 
     # g-vector magnitude for all hkl
     absg_hkl = np.linalg.norm(np.dot(reduced_hkl,[b1,b2,b3]),axis=1)

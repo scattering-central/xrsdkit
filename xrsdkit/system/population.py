@@ -50,12 +50,24 @@ class Population(object):
             if stg_nm in new_settings:
                 self.update_setting(stg_nm,new_settings[stg_nm])
             elif not stg_nm in self.settings:
-                self.update_setting(stg_nm,xrsdefs.default_setting(stg_nm,self.settings))
+                self.update_setting(stg_nm,xrsdefs.setting_defaults[stg_nm])
 
     def update_setting(self,stgnm,new_val):
-        # TODO: check if the new_val violates any other settings:
-        # if so, substitute a sensible default
-        # TODO: if the space group is changed, check/update basis coordinates
+        if stgnm == 'lattice':
+            # ensure centering remains valid
+            if ('centering' in self.settings) \
+            and (not self.settings['centering'] in sgs.lattice_space_groups[new_val]):
+                self.update_setting('centering','P')
+        elif stgnm == 'centering':
+            lat = self.settings['lattice']
+            if not new_val in sgs.lattice_space_groups[lat]:
+                raise ValueError('invalid centering {} for lattice {}'.format(new_val,lat))
+        elif stgnm == 'space_group':
+            lat = self.settings['lattice']
+            cent = self.settings['centering']
+            if new_val and not new_val in sgs.lattice_space_groups[lat][cent].values():
+                raise ValueError('invalid space group {} for lattice {} and centering {}'.format(new_val,lat,cent))
+            # TODO: if the space group is changed, check/update basis coordinates
         self.settings[stgnm] = new_val
         # if it is a lattice or interaction setting, update parameters 
         if stgnm in ['lattice','interaction']:
