@@ -167,7 +167,7 @@ def downsample_and_train(
         if True, the downsampling statistics and models will be
         saved in modeling_data/testing_data dir
     """
-    df, pifs_list = get_data_from_Citrination(citrination_client,source_dataset_ids)
+    df = get_data_from_Citrination(citrination_client,source_dataset_ids)
     df_sample = downsample_by_group(df)
     train_from_dataframe(df_sample,train_hyperparameters,save_models,test)
 

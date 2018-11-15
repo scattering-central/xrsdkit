@@ -28,8 +28,6 @@ def get_data_from_Citrination(client, dataset_id_list):
         dataframe containing features and labels
         obtained through `client` from the Citrination datasets
         listed in `dataset_id_list`
-    pifs : list
-        list of pif objects. Each of them contains data about one sample.
     """
     data = []
     # reg_labels and cls_labels are lists of dicts,
@@ -81,9 +79,12 @@ def get_data_from_Citrination(client, dataset_id_list):
             cls_labels_list
 
     d = pd.DataFrame(data=data, columns=colnames)
+    d['system_classification'] = \
+        d['system_classification'].where((pd.notnull(d['system_classification'])),
+                                         'unidentified')
     df_work = d.where((pd.notnull(d)), None) # replace all NaN by None
 
-    return df_work, pifs
+    return df_work
 
 def get_pifs_from_Citrination(client, dataset_id_list):
     all_hits = []
