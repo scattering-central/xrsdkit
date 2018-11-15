@@ -18,22 +18,26 @@ def download_pifs():
         a_key = open(api_key_file, 'r').readline().strip()
         cl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
         #df, _ = get_data_from_Citrination(cl,[model_dsids['system_classifier']]) 
-        df, _ = get_data_from_Citrination(cl,[21,22,23,24,25]) 
+        df = get_data_from_Citrination(cl,[21]) 
     return df
 
 df = download_pifs()
-
-def test_training():
-    if df is not None:
-        train_from_dataframe(df,train_hyperparameters=False,save_models=True,test=True)
 
 def test_visualization():
     if df is not None:
         visualize_dataframe(df)
 
-def test_downsampling():
+def downsample_df():
+    df_ds = None
     if df is not None:
-        downsample_by_group(df) 
+        df_ds = downsample_by_group(df) 
+    return df_ds
+
+df_ds = downsample_df()
+
+def test_training():
+    if df_ds is not None:
+        train_from_dataframe(df_ds,train_hyperparameters=False,save_models=True,test=True)
 
 def test_predict_spheres():
     datapath = os.path.join(os.path.dirname(__file__),
