@@ -59,34 +59,34 @@ class XRSDModel(object):
         if not training_possible:
             # all samples have identical labels or we have <5 samples
             self.default_val = d[self.target].unique()[0] # use a value as the default value
-            return 
-
-        # drop the rows with NaN in profile_keys (features):
-        # the scaler will crash if data includes rows with NaN.
-        # NOTE: the profiler should always return scalar values,
-        # but this remains here as a defensive measure.
-        data = d.dropna(subset=profiler.profile_keys)
-
-        new_scaler = preprocessing.StandardScaler()
-        new_scaler.fit(data[profiler.profile_keys])
-        data[profiler.profile_keys] = new_scaler.transform(data[profiler.profile_keys])
-
-        if hyper_parameters_search:
-            new_parameters = self.hyperparameters_search(
-                        data[profiler.profile_keys], data[self.target],
-                        data['experiment_id'], n_groups_out)
-            new_model = self.build_model(new_parameters)
+            self.trained = False
+            return
         else:
-            new_model = self.model
+            # drop the rows with NaN in profile_keys (features):
+            # the scaler will crash if data includes rows with NaN.
+            # NOTE: the profiler should always return scalar values
+            # data = d.dropna(subset=profiler.profile_keys)
+            data = d
 
-        # NOTE: after cross-validation for parameter selection,
-        # the entire dataset is used for final training
-        self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
-        new_model.fit(data[profiler.profile_keys], data[self.target])
+            new_scaler = preprocessing.StandardScaler()
+            new_scaler.fit(data[profiler.profile_keys])
+            data[profiler.profile_keys] = new_scaler.transform(data[profiler.profile_keys])
 
-        self.scaler = new_scaler
-        self.model = new_model
-        self.trained = True
+            if hyper_parameters_search:
+                new_parameters = self.hyperparameters_search(
+                    data[profiler.profile_keys], data[self.target],
+                    data['experiment_id'], n_groups_out)
+                new_model = self.build_model(new_parameters)
+            else:
+                new_model = self.model
+    
+            # NOTE: after cross-validation for parameter selection,
+            # the entire dataset is used for final training
+            self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
+            new_model.fit(data[profiler.profile_keys], data[self.target])
+            self.scaler = new_scaler
+            self.model = new_model
+            self.trained = True
 
     def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring=None):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
@@ -152,10 +152,10 @@ class XRSDModel(object):
             if dataframe.shape[0] >= 5:
                 return True, n_groups_out
             else:
-                print('model {}: insufficient training data ({} samples)'.format(
-                self.target,dataframe.shape[0]))
+                #print('model {}: insufficient training data ({} samples)'.format(
+                #self.target,dataframe.shape[0]))
                 return False, n_groups_out
         else:
-            print('model {}: all training data have identical outputs ({})'.format(
-            self.target,dataframe[self.target].iloc[0]))
+            #print('model {}: all training data have identical outputs ({})'.format(
+            #self.target,dataframe[self.target].iloc[0]))
             return False, n_groups_out
