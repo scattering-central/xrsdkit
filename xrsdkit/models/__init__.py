@@ -329,7 +329,7 @@ def train_regression_models(data, hyper_parameters_search=False):
                         pass
                     reg_model.train(sys_cls_data, hyper_parameters_search)
                     if not reg_model.trained: 
-                        print('    training failed: insufficient data or zero variance')
+                        print('    insufficient data or zero variance: using default value')
                     pop_models[k] = reg_model 
                 elif k in xrsdefs.setting_selections['lattice']:
                     print('    structure: {}'.format(k))
@@ -348,7 +348,7 @@ def train_regression_models(data, hyper_parameters_search=False):
                             pass
                         reg_model.train(sub_cls_data, hyper_parameters_search)
                         if not reg_model.trained: 
-                            print('        training failed: insufficient data or zero variance')
+                            print('        insufficient data or zero variance: using default value')
                         pop_models[k][param_nm] = reg_model 
                 elif k in xrsdefs.setting_selections['interaction']:
                     print('    interaction: {}'.format(k))
@@ -367,7 +367,7 @@ def train_regression_models(data, hyper_parameters_search=False):
                             pass
                         reg_model.train(sub_cls_data, hyper_parameters_search)
                         if not reg_model.trained: 
-                            print('        training failed: insufficient data or zero variance')
+                            print('        insufficient data or zero variance: using default value')
                         pop_models[k][param_nm] = reg_model 
                 else:
                     # k is a basis classification
@@ -390,7 +390,7 @@ def train_regression_models(data, hyper_parameters_search=False):
                                 pass
                             reg_model.train(bas_cls_data, hyper_parameters_search)
                             if not reg_model.trained: 
-                                print('            training failed: insufficient data or zero variance')
+                                print('            insufficient data or zero variance: using default value')
                             specie_models[param_nm] = reg_model 
     return reg_models
 
