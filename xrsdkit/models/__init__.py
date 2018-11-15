@@ -753,8 +753,12 @@ def group_by_labels(df):
 
 
 def predict(features,test=False):
-    """Evaluate classifier and regression models to
-    estimate parameters for the sample
+    """Estimate physical parameters, given a feature vector.
+
+    Evaluates classifiers and regression models to
+    estimate physical parameters of a sample
+    that produced the input `features`,
+    from xrsdit.tools.profiler.profile_spectrum().
 
     Parameters
     ----------
@@ -765,7 +769,7 @@ def predict(features,test=False):
     Returns
     -------
     results : dict
-        dictionary with predicted system class and parameters
+        dictionary with predicted classifications and parameters
     """
 
     classifiers=classification_models
@@ -788,7 +792,9 @@ def predict(features,test=False):
     
     # extract the structures of each population from the system class
     for pop_struct in sys_cl.split('__'):
-        pop_structures[pop_struct[:4]] = pop_struct[5:]
+        pop_id = re.search('^pop.*_',pop_struct).group(0)[:-1] 
+        struct_id = re.sub('^pop.*_','',pop_struct)
+        pop_structures[pop_id] = struct_id
 
     for pop_id, pop_classifiers in cl_models_to_use.items():
         results[pop_id] = {}
@@ -819,7 +825,9 @@ def predict(features,test=False):
         # extract the form factors of each specie from the basis class
         specie_forms = {}
         for spec_ff in bas_cl.split('__'):
-            specie_forms[spec_ff[:7]] = spec_ff[8:]
+            specie_id = re.search('^specie.*_',spec_ff).group(0)[:-1] 
+            ff_id = re.sub('^specie.*_','',spec_ff)
+            specie_forms[specie_id] = ff_id
 
         # TODO (later): if the structure is crystalline or disordered,
         # evaluate the lattice classifier or interaction classifer,
@@ -840,16 +848,15 @@ def predict(features,test=False):
     return results
 
 
-def system_from_prediction(prediction, I):
-    """Create a System object from output of
-    predict() function.
+def system_from_prediction(prediction, q_I, source_wavelength):
+    """Create a System object from output of predict() function.
 
     Parameters
     ----------
     prediction : dict
-            dictionary with predicted system class and parameters
-    I : array
-        n-by-1 array of scattered intensity I
+         dictionary with predicted system class and parameters
+    q_I : array
+        n-by-2 array of q-values and scattered intensities
 
     Returns
     -------
@@ -858,48 +865,66 @@ def system_from_prediction(prediction, I):
     """
 
     new_sys = dict()
-    flat_noise=dict(model='flat',parameters={'I0':{'value':0.1}})
-    new_sys['noise']=flat_noise
 
     # find all pops and their structure:
     sys_class = prediction['system_classification']
 
-    if sys_class[0] == 'unidentified':
-        new_sys['pop0']=dict(structure= 'unidentified')
-        return System(new_sys), new_sys
+    # TODO: build noise parameter models, include them in the predict() output
+    # NOTE: we currently only use the 'flat' noise model
+    #new_sys['noise'] = {'model':prediction['noise_classification'],'parameters':{}}
+    #for param_nm in noise_params[prediction['noise_classification']]:
+    #    if param_nm in prediction['noise']:
+    #        new_sys['noise']['parameters']['param_nm'] = prediction['noise'][param_nm]
+    #new_sys['noise']['parameters']['I0'] = prediction['noise']['I0_fraction']
 
+    # if unidentified, return empty system
+    # (TODO: set noise parameters if provided) 
+    if sys_class[0] == 'unidentified':
+        return System(), new_sys
+
+    # else, build the populations 
     for p in sys_class[0].split("__"):
-        pop_name, pop_structure = p.split("_")
-        new_sys[pop_name]=dict(structure= pop_structure)
+        pop_id = re.search('^pop.*_',p).group(0)[:-1] 
+        struct_id = re.sub('^pop.*_','',p)
+        new_sys[pop_id]=dict(structure=struct_id)
 
         # add parameters of the population:
         new_sys[pop_name]['parameters'] = {}
-        for par in structure_params[pop_structure]+['I0_fraction']:
-            if par in prediction[pop_name].keys():
-                new_sys[pop_name]['parameters'][par] = {'value' : prediction[pop_name][par]}
-            #TODO we are using I0_fraction as I0 for now - change if late
-            new_sys[pop_name]['parameters']['I0'] = {'value' : I[0] * prediction[pop_name]['I0_fraction']}
+        for par in structure_params[struct_id]:
+            # prediction is not expected to include 'I0'
+            if par in prediction[pop_id].keys():
+                new_sys[pop_id]['parameters'][par] = {'value':prediction[pop_name][par]}
+        # substitute I0_fraction for I0
+        new_sys[pop_id]['parameters']['I0'] = {'value':prediction[pop_id]['I0_fraction']}
 
         # TODO (later - as for predict()): if the structure is crystalline or disordered,
         # evaluate the lattice classifier or interaction classifer, respectively
+        # TODO: fill in any reasonable guesses for the other Population settings
+        # (e.g. use min and max q-values for crystalline q_min and q_max).
 
         # add basis:
-        new_sys[pop_name]['basis'] = {}
-        for b in prediction[pop_name]['basis_classification'][0].split("__"): # we can have more than one specie
-            i = b.find('_')
-            specie_n = b[ :i]
-            specie_form = b[i+1 : ]
-            new_sys[pop_name]['basis'][specie_n] = {'form': specie_form, 'parameters': {}}
+        new_sys[pop_id]['basis'] = {}
+        for b in prediction[pop_id]['basis_classification'][0].split("__"): # we can have more than one specie
+            specie_id = re.search('^specie.*_',b).group(0)[:-1] 
+            ff_id = re.sub('^specie.*_','',b)
+            new_sys[pop_id]['basis'][specie_id] = {'form':ff_id, 'parameters': {}}
             # find all parameters for this specie:
-            par_dict = prediction[pop_name][specie_n]
+            par_dict = prediction[pop_id][specie_id]
             for k,v in par_dict.items():
-                new_sys[pop_name]['basis'][specie_n]['parameters'][k] = {'value':v}
+                new_sys[pop_id]['basis'][specie_id]['parameters'][k] = {'value':v}
 
             # TODO (later - as for predict()): if the specie is atomic, classify its atom symbol
 
 
     predicted_system = System(new_sys)
+    Isum = np.sum(q_I[:,1])
+    q_I_comp = predicted_system.compute_intensity(q_I[:,1],source_wavelength)
+    Isum_comp = np.sum(q_I_comp[:,1])
+    I_factor = Isum_comp/Isum
+    predicted_system.noise_model.parameters['I0']['value'] *= I_factor
+    for pop_nm,pop in predicted_system.populations.items():
+        pop.parameters['I0']['value'] *= I_factor
 
-    return predicted_system, new_sys
+    return predicted_system, predicted_system.to_dict() 
 
 
