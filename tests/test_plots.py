@@ -31,7 +31,7 @@ def test_plot():
     # it crashes even if show=False,
     # when matplotlib tries to create its figure().
     if 'DISPLAY' in os.environ:
-        mpl_fig = plot_xrsd_fit(np_sys,q,I,src_wl,True) 
+        mpl_fig,I_comp = plot_xrsd_fit(np_sys,q,I,src_wl,True) 
         opt_np_sys = fit(np_sys,q,I,src_wl)
         draw_xrsd_fit(mpl_fig,opt_np_sys,q,I,src_wl,True)
 

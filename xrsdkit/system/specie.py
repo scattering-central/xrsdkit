@@ -1,6 +1,6 @@
 import copy
 
-from ..definitions import *
+from .. import definitions as xrsdefs 
 
 class Specie(object):
 
@@ -8,8 +8,8 @@ class Specie(object):
         self.form = None
         self.settings = {}
         self.parameters = {}
-        self.coordinates = [copy.deepcopy(coord_default),\
-        copy.deepcopy(coord_default),copy.deepcopy(coord_default)]
+        self.coordinates = [copy.deepcopy(xrsdefs.coord_default),\
+        copy.deepcopy(xrsdefs.coord_default),copy.deepcopy(xrsdefs.coord_default)]
         self.set_form(form)
         self.update_settings(settings)
         self.update_parameters(parameters)
@@ -23,20 +23,20 @@ class Specie(object):
     def update_settings(self,new_settings={}):
         current_stg_nms = list(self.settings.keys())
         for stg_nm in current_stg_nms:
-            if not stg_nm in form_factor_settings[self.form]:
+            if not stg_nm in xrsdefs.form_factor_settings[self.form]:
                 self.settings.pop(stg_nm)
-        for stg_nm in form_factor_settings[self.form]:
+        for stg_nm in xrsdefs.form_factor_settings[self.form]:
             if stg_nm in new_settings:
                 self.update_setting(stg_nm,new_settings[stg_nm])
             elif not stg_nm in self.settings: 
-                self.update_setting(stg_nm,copy.deepcopy(setting_defaults[stg_nm]))
+                self.update_setting(stg_nm,xrsdefs.setting_defaults[stg_nm])
 
     def update_setting(self,stg_nm,new_val):
         self.settings[stg_nm] = new_val
 
     def update_parameters(self,new_params={}):
         current_param_nms = list(self.parameters.keys())
-        valid_param_nms = copy.deepcopy(form_factor_params[self.form])
+        valid_param_nms = copy.deepcopy(xrsdefs.form_factor_params[self.form])
         # remove any non-valid params
         for param_nm in current_param_nms:
             if not param_nm in valid_param_nms:
@@ -44,7 +44,7 @@ class Specie(object):
         # add any missing params, then update from new_params if available 
         for param_nm in valid_param_nms:
             if not param_nm in self.parameters:
-                self.parameters[param_nm] = copy.deepcopy(param_defaults[param_nm]) 
+                self.parameters[param_nm] = copy.deepcopy(xrsdefs.param_defaults[param_nm]) 
             if param_nm in new_params:
                 self.update_parameter(param_nm,new_params[param_nm])
 

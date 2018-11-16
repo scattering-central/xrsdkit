@@ -182,7 +182,8 @@ class Classifier(XRSDModel):
                        model_was_tested_for = df[self.target].unique().tolist(), #same as all_classes
                        F1_score_by_classes = [],
                        mean_accuracies_by_classes = None,
-                       mean_not_weighted_accuracy= None)
+                       mean_not_weighted_accuracy= None,
+                       test_training_split = "random 3 folders split")
 
         if min(df[self.target].value_counts()) > 2:
             results['mean_weighted_by_classes_accuracy'] = model_selection.cross_val_score(model,df[features],
@@ -357,6 +358,7 @@ class Classifier(XRSDModel):
             self.print_accuracies() + '\n'+\
             'Label-averaged unweighted accuracy: {}\n\n'.format(self.average_accuracy(False)) + \
             'Label-averaged weighted accuracy: {}\n'.format(self.average_accuracy(True))+ '\n\n'+\
-            'NOTE: Weighted metrics are weighted by class size'
+            'NOTE: Weighted metrics are weighted by class size' + '\n' + \
+            "Test/training split: " + self.cross_valid_results['test_training_split']
         return CV_report
 

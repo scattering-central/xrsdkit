@@ -1,13 +1,7 @@
 from collections import OrderedDict
-import os
 import copy
-import re
 
 import pandas as pd
-import numpy as np
-import yaml
-from sklearn import preprocessing
-from pypif import pif
 from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
 
 from . import profiler, piftools
@@ -28,8 +22,6 @@ def get_data_from_Citrination(client, dataset_id_list):
         dataframe containing features and labels
         obtained through `client` from the Citrination datasets
         listed in `dataset_id_list`
-    pifs : list
-        list of pif objects. Each of them contains data about one sample.
     """
     data = []
     # reg_labels and cls_labels are lists of dicts,
@@ -81,9 +73,12 @@ def get_data_from_Citrination(client, dataset_id_list):
             cls_labels_list
 
     d = pd.DataFrame(data=data, columns=colnames)
+    d['system_classification'] = \
+        d['system_classification'].where((pd.notnull(d['system_classification'])),
+                                         'unidentified')
     df_work = d.where((pd.notnull(d)), None) # replace all NaN by None
 
-    return df_work, pifs
+    return df_work
 
 def get_pifs_from_Citrination(client, dataset_id_list):
     all_hits = []
@@ -106,77 +101,4 @@ def get_pifs_from_Citrination(client, dataset_id_list):
     pifs = [x.system for x in all_hits]
     print('done - found {} records'.format(len(pifs)))
     return pifs
-
-def downsample(df, min_distance):
-    """Downsample records from one DataFrame.
-
-    Transforms the DataFrame feature arrays 
-    (scaling by the columns in profiler.profile_keys),
-    before collecting at least 10 samples.
-    If the size of `df` is <= 10, it is returned directly.
-    If it is larger than 10, the first point is chosen
-    based on greatest nearest-neighbor distance.
-    Subsequent points are chosen  
-    in order of decreasing nearest-neighbor distance
-    to the already-sampled points. 
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        dataframe containing xrsd samples 
-    min_distance : float
-        the minimum allowed nearest-neighbor distance 
-        for continuing to downsample after 10 or more samples
-        have been selected 
-
-    Returns
-    -------
-    sample : pandas.DataFrame
-        dataframe containing subset of rows
-        that was chosen using distance between the samples
-    """
-    df_size = len(df)
-    sample = pd.DataFrame(columns=df.columns)
-    print('total DataFrame size: {}'.format(df_size))
-    if df_size <= 10:
-        sample = sample.append(df)
-    else:
-        features = profiler.profile_keys
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(df[features])
-
-        features_matr = scaler.transform(df[features]) # features_matr is a np arraly
-        # define the distance between two samples in feature space
-
-        dist_func = lambda i,j: np.sum(
-            np.abs(features_matr[i]
-            - features_matr[j]))
-        dist_matrix = np.array([[dist_func(i,j) for i in range(df_size)] for j in range(df_size)])
-        # get the most isolated sample first:
-        # this should be the sample with the greatest 
-        # nearest-neighbor distance 
-        nn_distance_array = np.array([min(dist_matrix[i,:]) for i in range(df_size)])
-        best_idx = np.argmax(nn_distance_array)
-        sample = sample.append(df.iloc[best_idx])
-        sampled_idxs = [best_idx] 
-        continue_downsampling = True
-        while(continue_downsampling):
-            # find the next best index to sample:
-            # the sample with the greatest minimum distance
-            # between itself and the downsampled samples
-            sample_size = len(sample)
-            sample_dist_matrix = np.array([dist_matrix[i,:] for i in sampled_idxs])
-            nn_distance_array = np.array([min(sample_dist_matrix[:,j]) for j in range(df_size)])
-            best_idx = np.argmax(nn_distance_array)
-            best_nn_distance = nn_distance_array[best_idx]
-            # if we have at least 10 samples,
-            # and all remaining samples are close to the current sample,
-            # down-sampling can stop here.
-            if sample_size >= 10 and best_nn_distance < min_distance: 
-                continue_downsampling = False
-            else:
-                sampled_idxs.append(best_idx)
-                sample = sample.append(df.iloc[best_idx])
-        print('downsampled DataFrame size: {}/{}'.format(len(sampled_idxs),df_size))
-    return sample
 

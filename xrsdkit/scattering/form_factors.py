@@ -5,6 +5,8 @@ import numpy as np
 
 fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yml')
 atomic_params = yaml.load(open(fpath,'r'))
+
+# TODO: allow polymorphism for q to be float or array
     
 def compute_ff(q,basis):
     n_q = len(q)

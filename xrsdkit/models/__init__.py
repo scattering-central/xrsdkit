@@ -4,13 +4,14 @@ from collections import OrderedDict
 
 import yaml
 import pandas as pd
+import numpy as np
 from citrination_client import CitrinationClient
+from sklearn import preprocessing
 
-from ..definitions import * 
+from .. import definitions as xrsdefs 
 from .regressor import Regressor
 from .classifier import Classifier
-from ..tools import primitives
-from ..tools.citrination_tools import downsample, get_data_from_Citrination
+from ..tools import primitives, profiler, citrination_tools 
 
 file_path = os.path.abspath(__file__)
 src_dir = os.path.dirname(os.path.dirname(file_path))
@@ -49,6 +50,9 @@ model_dsids = yaml.load(open(model_dsid_file,'r'))
 # (either regression_models or classification_models).
 # For models not currently saved as yml files, 
 # the models must first be created by train_regression_models()
+    
+_reg_params = list(xrsdefs.param_defaults.keys())
+_reg_params[_reg_params.index('I0')] = 'I0_fraction'
 
 # --- LOAD REGRESSION MODELS --- #
 def load_regression_models(model_root_dir=regression_models_dir):
@@ -66,8 +70,8 @@ def load_regression_models(model_root_dir=regression_models_dir):
             # subdirectories for parameters of each modellable structure,
             # and subdirectories for each modellable basis class
             for pop_itm in os.listdir(pop_dir):
-                if pop_itm in crystalline_structures+disordered_structures:
-                    # subdirectory for lattice or disordered structure params
+                if pop_itm in xrsdefs.setting_selections['lattice']+xrsdefs.setting_selections['interaction']:
+                    # this is a subdirectory of models for lattice or disordered structure params
                     model_dict[sys_cls][pop_id][pop_itm] = {}
                     pop_subdir = os.path.join(pop_dir,pop_itm)
                     for pop_subitm in os.listdir(pop_subdir):
@@ -164,7 +168,7 @@ def downsample_and_train(
         if True, the downsampling statistics and models will be
         saved in modeling_data/testing_data dir
     """
-    df, pifs_list = get_data_from_Citrination(citrination_client,source_dataset_ids)
+    df = citrination_tools.get_data_from_Citrination(citrination_client,source_dataset_ids)
     df_sample = downsample_by_group(df)
     train_from_dataframe(df_sample,train_hyperparameters,save_models,test)
 
@@ -194,10 +198,85 @@ def downsample_by_group(df):
     #for exp_id in all_exp:
     # downsample each group independently
     for group_labels,grp in all_groups.groups.items():
+        group_df = df.iloc[grp].copy()
+        print('Downsampling data for group: {}'.format(group_labels))
         #lbl_df = _filter_by_labels(data,lbls)
         dsamp = downsample(df.iloc[grp].copy(), 1.0)
+        print('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
         data_sample = data_sample.append(dsamp)
     return data_sample
+
+def downsample(df, min_distance):
+    """Downsample records from one DataFrame.
+
+    Transforms the DataFrame feature arrays 
+    (scaling by the columns in profiler.profile_keys),
+    before collecting at least 10 samples.
+    If the size of `df` is <= 10, it is returned directly.
+    If it is larger than 10, the first point is chosen
+    based on greatest nearest-neighbor distance.
+    Subsequent points are chosen  
+    in order of decreasing nearest-neighbor distance
+    to the already-sampled points. 
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        dataframe containing xrsd samples 
+    min_distance : float
+        the minimum allowed nearest-neighbor distance 
+        for continuing to downsample after 10 or more samples
+        have been selected 
+
+    Returns
+    -------
+    sample : pandas.DataFrame
+        dataframe containing subset of rows
+        that was chosen using distance between the samples
+    """
+    df_size = len(df)
+    sample = pd.DataFrame(columns=df.columns)
+    if df_size <= 10:
+        sample = sample.append(df)
+    else:
+        features = profiler.profile_keys
+        scaler = preprocessing.StandardScaler()
+        scaler.fit(df[features])
+
+        features_matr = scaler.transform(df[features]) # features_matr is a np arraly
+        # define the distance between two samples in feature space
+
+        dist_func = lambda i,j: np.sum(
+            np.abs(features_matr[i]
+            - features_matr[j]))
+        dist_matrix = np.array([[dist_func(i,j) for i in range(df_size)] for j in range(df_size)])
+        # get the most isolated sample first:
+        # this should be the sample with the greatest 
+        # nearest-neighbor distance 
+        nn_distance_array = np.array([min(dist_matrix[i,:]) for i in range(df_size)])
+        best_idx = np.argmax(nn_distance_array)
+        sample = sample.append(df.iloc[best_idx])
+        sampled_idxs = [best_idx] 
+        continue_downsampling = True
+        while(continue_downsampling):
+            # find the next best index to sample:
+            # the sample with the greatest minimum distance
+            # between itself and the downsampled samples
+            sample_size = len(sample)
+            sample_dist_matrix = np.array([dist_matrix[i,:] for i in sampled_idxs])
+            nn_distance_array = np.array([min(sample_dist_matrix[:,j]) for j in range(df_size)])
+            best_idx = np.argmax(nn_distance_array)
+            best_nn_distance = nn_distance_array[best_idx]
+            # if we have at least 10 samples,
+            # and all remaining samples are close to the current sample,
+            # down-sampling can stop here.
+            if sample_size >= 10 and best_nn_distance < min_distance: 
+                continue_downsampling = False
+            else:
+                sampled_idxs.append(best_idx)
+                sample = sample.append(df.iloc[best_idx])
+    return sample
+
 
 def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
     # regression models:
@@ -236,7 +315,7 @@ def train_regression_models(data, hyper_parameters_search=False):
         for pop_id,pop_models in sys_models.items():
             print('population id: {}'.format(pop_id))
             for k in pop_models.keys():
-                if k in regression_params:
+                if k in _reg_params:
                     print('    parameter: {}'.format(k))
                     # train reg_models[sys_cls][pop_id][k]
                     target = pop_id+'_'+k
@@ -249,10 +328,12 @@ def train_regression_models(data, hyper_parameters_search=False):
                     except:
                         pass
                     reg_model.train(sys_cls_data, hyper_parameters_search)
+                    if not reg_model.trained: 
+                        print('    insufficient data or zero variance: using default value')
                     pop_models[k] = reg_model 
-                elif k in crystalline_structures:
+                elif k in xrsdefs.setting_selections['lattice']:
                     print('    structure: {}'.format(k))
-                    for param_nm in crystalline_structure_params[k]:
+                    for param_nm in xrsdefs.setting_params['lattice'][k]:
                         print('        parameter: {}'.format(param_nm))
                         # train reg_models[sys_cls][pop_id][k][param_nm]
                         lattice_label = pop_id+'_lattice'
@@ -266,10 +347,12 @@ def train_regression_models(data, hyper_parameters_search=False):
                         except:
                             pass
                         reg_model.train(sub_cls_data, hyper_parameters_search)
-                        pop_models[k][param_nm] = reg_model
-                elif k in disordered_structures:
+                        if not reg_model.trained: 
+                            print('        insufficient data or zero variance: using default value')
+                        pop_models[k][param_nm] = reg_model 
+                elif k in xrsdefs.setting_selections['interaction']:
                     print('    interaction: {}'.format(k))
-                    for param_nm in disordered_structure_params[k]:
+                    for param_nm in xrsdefs.setting_params['interaction'][k]:
                         print('        parameter: {}'.format(param_nm))
                         # train reg_models[sys_cls][pop_id][k][param_nm]
                         interxn_label = pop_id+'_interaction'
@@ -283,6 +366,8 @@ def train_regression_models(data, hyper_parameters_search=False):
                         except:
                             pass
                         reg_model.train(sub_cls_data, hyper_parameters_search)
+                        if not reg_model.trained: 
+                            print('        insufficient data or zero variance: using default value')
                         pop_models[k][param_nm] = reg_model 
                 else:
                     # k is a basis classification
@@ -304,6 +389,8 @@ def train_regression_models(data, hyper_parameters_search=False):
                             except:
                                 pass
                             reg_model.train(bas_cls_data, hyper_parameters_search)
+                            if not reg_model.trained: 
+                                print('            insufficient data or zero variance: using default value')
                             specie_models[param_nm] = reg_model 
     return reg_models
 
@@ -341,9 +428,9 @@ def trainable_regression_models(data):
             pop_id = pop_struct[:re.compile('pop._').match(pop_struct).end()-1]
             structure_id = pop_struct[re.compile('pop._').match(pop_struct).end():]
             reg_models[sys_cls][pop_id] = {}
-            for param_nm in structure_params[structure_id]+['I0_fraction']:
+            for param_nm in xrsdefs.structure_params[structure_id]+['I0_fraction']:
                 reg_label = pop_id+'_'+param_nm
-                if reg_label in sys_cls_data.columns and param_nm in regression_params:
+                if reg_label in sys_cls_data.columns and param_nm in _reg_params:
                     reg_models[sys_cls][pop_id][param_nm] = None
             # if the structure is crystalline or disordered, add sub-dicts
             # for the parameters of the relevant lattices or interactions
@@ -352,18 +439,18 @@ def trainable_regression_models(data):
                 lattice_labels = sys_cls_data[lattice_header].unique()
                 for ll in lattice_labels:
                     reg_models[sys_cls][pop_id][ll] = {} 
-                    for param_nm in crystalline_structure_params[ll]:
+                    for param_nm in xrsdefs.setting_params['lattice'][ll]:
                         reg_label = pop_id+'_'+param_nm
-                        if reg_label in sys_cls_data.columns and param_nm in regression_params: 
+                        if reg_label in sys_cls_data.columns and param_nm in _reg_params: 
                             reg_models[sys_cls][pop_id][ll][param_nm] = None
             elif structure_id == 'disordered':
                 interxn_header = pop_id+'_interaction'
                 interxn_labels = sys_cls_data[interxn_header].unique() 
                 for il in interxn_labels:
                     reg_models[sys_cls][pop_id][il] = {} 
-                    for param_nm in disordered_structure_params[il]:
+                    for param_nm in xrsdefs.setting_params['interaction'][il]:
                         reg_label = pop_id+'_'+param_nm
-                        if reg_label in sys_cls_data.columns and param_nm in regression_params:
+                        if reg_label in sys_cls_data.columns and param_nm in _reg_params:
                             reg_models[sys_cls][pop_id][il][param_nm] = None
             # add entries for modellable parameters of any species found in this class 
             bas_cls_header = pop_id+'_basis_classification'
@@ -382,9 +469,9 @@ def trainable_regression_models(data):
                     # add a dict of models for this specie 
                     reg_models[sys_cls][pop_id][bas_cls][specie_id] = {}
                     # determine all modellable params for this form
-                    for param_nm in form_factor_params[form_id]:
+                    for param_nm in xrsdefs.form_factor_params[form_id]:
                         reg_label = pop_id+'_'+specie_id+'_'+param_nm
-                        if reg_label in bas_cls_data.columns and param_nm in regression_params:
+                        if reg_label in bas_cls_data.columns and param_nm in _reg_params:
                             reg_models[sys_cls][pop_id][bas_cls][specie_id][param_nm] = None 
     return reg_models 
 
@@ -407,20 +494,27 @@ def train_classification_models(data, hyper_parameters_search=False):
         trained on the given dataset `data`.
     """
     cls_models = trainable_classification_models(data)
+    if 'system_classification' in cls_models:
+        print(os.linesep+'Training main system classifier')
+        model = Classifier('system_classification',None)
+
+        if 'system_classification'in classification_models.keys(): # we have a trained model
+            old_pars = classification_models['system_classification'].model.get_params()
+            model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+
+        model.train(data, hyper_parameters_search=hyper_parameters_search)
+        if not model.trained: 
+            print('insufficient or uniform training data: using default value')
+        cls_models['system_classification'] = model
     for sys_cls_lbl, sys_models in cls_models.items():
-        if sys_cls_lbl == 'system_classification':
-            model = Classifier('system_classification',None)
-
-            if 'system_classification'in classification_models.keys(): # we have a trained model
-                old_pars = classification_models['system_classification'].model.get_params()
-                model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-
-            model.train(data, hyper_parameters_search=hyper_parameters_search)
-            cls_models['system_classification'] = model
-        else:
+        if not sys_cls_lbl == 'system_classification':
+            print('Training classifiers for system: ')
+            print(sys_cls_lbl)
             for pop_id,pop_models in sys_models.items():
+                print('population id: {}'.format(pop_id))
                 for cls_label in pop_models.keys():
                     model_label = pop_id+'_'+cls_label
+                    print('    classifier: {}'.format(model_label))
                     data_subset = data[data['system_classification']==sys_cls_lbl]
                     m = Classifier(model_label,None)
                     try: # check if we alredy have a trained model for this label
@@ -429,6 +523,8 @@ def train_classification_models(data, hyper_parameters_search=False):
                     except:
                         pass
                     m.train(data_subset, hyper_parameters_search=hyper_parameters_search)
+                    if not m.trained: 
+                        print('    insufficient or uniform training data: using default value')
                     pop_models[cls_label] = m 
     return cls_models
 
@@ -523,7 +619,7 @@ def save_regression_models(models=regression_models, test=False):
             if not pop_id in model_dict[sys_cls]: model_dict[sys_cls][pop_id] = {}
             if not os.path.exists(pop_dir_path): os.mkdir(pop_dir_path)
             for k,v in pop_models.items():
-                if k in regression_params:
+                if k in _reg_params:
                     if v:
                         model_dict[sys_cls][pop_id][k] = v
                         yml_path = os.path.join(pop_dir_path,k+'.yml')
@@ -533,9 +629,9 @@ def save_regression_models(models=regression_models, test=False):
                     if not k in model_dict[sys_cls][pop_id]: model_dict[sys_cls][pop_id][k] = {}
                     pop_subdir_path = os.path.join(pop_dir_path,k)
                     if not os.path.exists(pop_subdir_path): os.mkdir(pop_subdir_path)
-                    if k in crystalline_structures+disordered_structures:
-                        if k in crystalline_structures: param_nms = crystalline_structure_params[k]
-                        if k in disordered_structures: param_nms = disordered_structure_params[k]
+                    if k in xrsdefs.setting_selections['lattice']+xrsdefs.setting_selections['interaction']:
+                        if k in xrsdefs.setting_selections['lattice']: param_nms = xrsdefs.setting_params['lattice'][k]
+                        if k in xrsdefs.setting_selections['interaction']: param_nms = xrsdefs.setting_params['disordered'][k]
                         for param_nm in param_nms:
                             if v[param_nm]:
                                 model_dict[sys_cls][pop_id][k][param_nm] = v[param_nm]
@@ -698,7 +794,7 @@ def predict(features,test=False):
         results[pop_id] = {}
 
         # evaluate parameters of this population
-        for param_nm in structure_params[pop_structures[pop_id]]+['I0_fraction']:
+        for param_nm in xrsdefs.structure_params[pop_structures[pop_id]]+['I0_fraction']:
             if param_nm in reg_models_to_use[pop_id] \
                     and reg_models_to_use[pop_id][param_nm].trained:
                 results[pop_id][param_nm] = \
@@ -710,7 +806,7 @@ def predict(features,test=False):
                     results[pop_id][param_nm] = reg_models_to_use[pop_id][param_nm].default_val
                 elif not param_nm == 'I0':
                     # we do not have a model: save the default value unless the param is I0
-                    results[pop_id][param_nm] = param_defaults[param_nm]['value']
+                    results[pop_id][param_nm] = xrsdefs.param_defaults[param_nm]['value']
 
         # classify the basis of this population
         bas_clsfr = pop_classifiers['basis_classification'] 
@@ -731,13 +827,13 @@ def predict(features,test=False):
 
         for specie_id, specie_ff in specie_forms.items():
             results[pop_id][specie_id] = {}
-            for param_nm in form_factor_params[specie_forms[specie_id]]:
+            for param_nm in xrsdefs.form_factor_params[specie_forms[specie_id]]:
                 if param_nm in reg_models_to_use[pop_id][bas_cl][specie_id] \
-                        and reg_models_to_use[pop_id][bas_cl][specie_id][param_nm].trained:
+                and reg_models_to_use[pop_id][bas_cl][specie_id][param_nm].trained:
                     results[pop_id][specie_id][param_nm] = \
                         reg_models_to_use[pop_id][bas_cl][specie_id][param_nm].predict(features)
                 else:
-                    results[pop_id][specie_id][param_nm] = param_defaults[param_nm]['value']
+                    results[pop_id][specie_id][param_nm] = xrsdefs.param_defaults[param_nm]['value']
                 
             # TODO (later): if the specie is atomic, classify its atom symbol
 

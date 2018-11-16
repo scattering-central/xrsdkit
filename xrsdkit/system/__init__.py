@@ -12,7 +12,7 @@ import yaml
 
 from .population import Population
 from .specie import Specie
-from ..definitions import * 
+from .. import definitions as xrsdefs 
 from ..tools import primitives, compute_chi2
 
 # TODO: when params, settings, etc are changed,
@@ -34,8 +34,8 @@ class NoiseModel(object):
     def __init__(self,model,params={}):
         self.model = model
         self.parameters = {}
-        for param_nm in noise_params[model]:
-            self.parameters[param_nm] = copy.deepcopy(noise_param_defaults[param_nm])  
+        for param_nm in xrsdefs.noise_params[model]:
+            self.parameters[param_nm] = copy.deepcopy(xrsdefs.noise_param_defaults[param_nm])  
         for param_nm in params:
             self.update_parameter(param_nm,params[param_nm])
 
@@ -48,11 +48,13 @@ class NoiseModel(object):
         return nd
 
     def set_model(self,new_model):
+        # NOTE: there is only one noise model.
+        # TODO: Update this if/when there are more.
         self.update_parameters()
 
     def update_parameters(self,new_params={}):
         current_param_nms = list(self.parameters.keys())
-        valid_param_nms = copy.deepcopy(noise_params[self.model])
+        valid_param_nms = copy.deepcopy(xrsdefs.noise_params[self.model])
         # remove any non-valid params
         for param_nm in current_param_nms:
             if not param_nm in valid_param_nms:
@@ -60,7 +62,7 @@ class NoiseModel(object):
         # add any missing params, taking from new_params if available 
         for param_nm in valid_param_nms:
             if not param_nm in self.parameters:
-                self.parameters[param_nm] = copy.deepcopy(noise_param_defaults[param_nm]) 
+                self.parameters[param_nm] = copy.deepcopy(xrsdefs.noise_param_defaults[param_nm]) 
             if param_nm in new_params:
                 self.update_parameter(param_nm,new_params[param_nm])
 
@@ -68,6 +70,10 @@ class NoiseModel(object):
         self.parameters[param_nm].update(new_param_dict)
 
 class System(object):
+
+    # TODO: implement caching of settings, parameters, intensities,
+    # so that redundant calls to compute_intensity
+    # are handled instantly 
 
     def __init__(self,populations={}):
         # TODO: consider polymorphic constructor inputs 
@@ -159,7 +165,7 @@ class System(object):
     def compute_noise_intensity(self,q):
         I = np.zeros(len(q))
         noise_modnm = self.noise_model.model
-        if not noise_modnm in noise_model_names:
+        if not noise_modnm in xrsdefs.noise_model_names:
             raise ValueError('unsupported noise specification: {}'.format(noise_modnm))
         if noise_modnm == 'flat':
             I += self.noise_model.parameters['I0']['value'] * np.ones(len(q))
@@ -237,9 +243,9 @@ class System(object):
             kdepth = len(ks)
             param_name = ks[-1]
             if re.match('coord.',param_name):
-                default = coord_default
+                default = xrsdefs.coord_default
             else:
-                default = param_defaults[param_name]
+                default = xrsdefs.param_defaults[param_name]
             vary_flag = bool(not default['fixed'])
             if 'fixed' in pd: vary_flag = not pd['fixed']
             p_bounds = copy.deepcopy(default['bounds'])
@@ -321,6 +327,7 @@ def fit(sys,q,I,source_wavelength,dI=None,
     sys_opt.fit_report['logI_weighted'] = logI_weighted 
     sys_opt.fit_report['q_range'] = q_range 
     sys_opt.fit_report['fit_snr'] = snr
+    sys_opt.fit_report['source_wavelength'] = source_wavelength
 
     return sys_opt
 

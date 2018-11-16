@@ -2,10 +2,12 @@ from collections import OrderedDict
 from functools import partial
 import copy
 import sys
+import os
 
 import numpy as np
 import matplotlib
-matplotlib.use("TkAgg")
+if 'DISPLAY' in os.environ:
+    matplotlib.use("TkAgg")
 mplv = matplotlib.__version__
 mplvmaj = int(mplv.split('.')[0])
 from matplotlib.figure import Figure
@@ -15,7 +17,7 @@ if mplvmaj > 2:
 else:
     from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg as mplnavtb
 
-from ..definitions import *
+from .. import definitions as xrsdefs 
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
 from ..system.population import StructureFormException 
@@ -349,7 +351,7 @@ class XRSDFitGUI(object):
         nl = tkinter.Label(nmf,text='noise model:',width=12,anchor='e',padx=10)
         nl.pack(side=tkinter.LEFT)
         ntpvar = tkinter.StringVar(nmf)
-        ntp_option_dict = list(noise_model_names)
+        ntp_option_dict = list(xrsdefs.noise_model_names)
         ntpcb = tkinter.OptionMenu(nmf,ntpvar,*ntp_option_dict)
         ntpvar.set(self.sys.noise_model.model)
         ntpvar.trace('w',self._repack_noise_frame)
@@ -359,7 +361,7 @@ class XRSDFitGUI(object):
 
         self._frames['parameters']['noise'] = OrderedDict()
         self._vars['parameters']['noise'] = OrderedDict()
-        for noise_param_nm in noise_params[self.sys.noise_model.model]:
+        for noise_param_nm in xrsdefs.noise_params[self.sys.noise_model.model]:
             self._frames['parameters']['noise'][noise_param_nm] = \
             self._create_param_frame('noise',None,noise_param_nm) 
         self._pack_noise_params()
@@ -370,7 +372,7 @@ class XRSDFitGUI(object):
         for par_nm,frm in self._frames['parameters']['noise'].items(): frm.pack_forget() 
         new_par_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        for par_nm in noise_model_params[nmdl]: 
+        for par_nm in xrsdefs.noise_model_params[nmdl]: 
             if par_nm in self._frames['parameters']['noise']:
                 new_par_frms[par_nm] = self._frames['parameters']['noise'][par_nm]
             else:
@@ -378,7 +380,7 @@ class XRSDFitGUI(object):
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['parameters']['noise'].keys())
         for par_nm in par_frm_nms: 
-            if not par_nm in noise_model_params[nmdl]: 
+            if not par_nm in xrsdefs.noise_model_params[nmdl]: 
                 frm = self._frames['parameters']['noise'].pop(par_nm)
                 frm.destroy()
                 self._vars['parameters']['noise'].pop(par_nm)
@@ -412,7 +414,7 @@ class XRSDFitGUI(object):
         strl = tkinter.Label(plf,text='structure:',width=12,anchor='e')
         strl.grid(row=1,column=0,sticky='e')
         strvar = tkinter.StringVar(plf)
-        str_option_dict = OrderedDict.fromkeys(structure_names)
+        str_option_dict = OrderedDict.fromkeys(xrsdefs.structure_names)
         strcb = tkinter.OptionMenu(plf,strvar,*str_option_dict)
         strvar.set(pop_struct)
         strvar.trace('w',partial(self._update_structure,pop_nm))
@@ -423,20 +425,20 @@ class XRSDFitGUI(object):
         # SETTINGS:
         self._frames['settings'][pop_nm] = OrderedDict()
         self._vars['settings'][pop_nm] = OrderedDict()
-        for stg_nm in structure_settings[pop_struct]:
+        for stg_nm in xrsdefs.structure_settings[pop_struct]:
             self._frames['settings'][pop_nm][stg_nm] = \
             self._create_setting_frame(pop_nm,None,stg_nm)
         #
         # PARAMETERS:
         self._frames['parameters'][pop_nm] = OrderedDict()
         self._vars['parameters'][pop_nm] = OrderedDict()
-        param_nms = copy.deepcopy(structure_params[pop_struct])
+        param_nms = copy.deepcopy(xrsdefs.structure_params[pop_struct])
         if pop_struct == 'crystalline':
             pop_lat = self.sys.populations[pop_nm].settings['lattice'] 
-            param_nms.extend(copy.deepcopy(crystalline_structure_params[pop_lat]))
+            param_nms.extend(copy.deepcopy(xrsdefs.setting_params['lattice'][pop_lat]))
         if pop_struct == 'disordered':
             pop_interxn = self.sys.populations[pop_nm].settings['interaction'] 
-            param_nms.extend(copy.deepcopy(disordered_structure_params[pop_interxn]))
+            param_nms.extend(copy.deepcopy(xrsdefs.setting_params['interaction'][pop_interxn]))
         for param_nm in param_nms:
             self._frames['parameters'][pop_nm][param_nm] = \
             self._create_param_frame(pop_nm,None,param_nm)
@@ -466,7 +468,7 @@ class XRSDFitGUI(object):
         for stg_nm,frm in self._frames['settings'][pop_nm].items(): frm.pack_forget() 
         new_stg_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        for stg_nm in structure_settings[pop_struct]:
+        for stg_nm in xrsdefs.structure_settings[pop_struct]:
             if stg_nm in self._frames['settings'][pop_nm]:
                 new_stg_frms[stg_nm] = self._frames['settings'][pop_nm][stg_nm]
             else:
@@ -474,7 +476,7 @@ class XRSDFitGUI(object):
         # destroy any frames that didn't get repacked
         stg_frm_nms = list(self._frames['settings'][pop_nm].keys())
         for stg_nm in stg_frm_nms: 
-            if not stg_nm in structure_settings[pop_struct]: 
+            if not stg_nm in xrsdefs.structure_settings[pop_struct]: 
                 frm = self._frames['settings'][pop_nm].pop(stg_nm)
                 frm.destroy()
                 self._vars['settings'][pop_nm].pop(stg_nm)
@@ -485,13 +487,13 @@ class XRSDFitGUI(object):
         for par_nm,frm in self._frames['parameters'][pop_nm].items(): frm.pack_forget() 
         new_par_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        param_nms = copy.deepcopy(structure_params[pop_struct])
+        param_nms = copy.deepcopy(xrsdefs.structure_params[pop_struct])
         if pop_struct == 'crystalline':
             pop_lat = self.sys.populations[pop_nm].settings['lattice'] 
-            param_nms.extend(copy.deepcopy(crystalline_structure_params[pop_lat]))
+            param_nms.extend(copy.deepcopy(xrsdefs.setting_params['lattice'][pop_lat]))
         if pop_struct == 'disordered':
             pop_interxn = self.sys.populations[pop_nm].settings['interaction'] 
-            param_nms.extend(copy.deepcopy(disordered_structure_params[pop_interxn]))
+            param_nms.extend(copy.deepcopy(xrsdefs.setting_params['interaction'][pop_interxn]))
         for par_nm in param_nms: 
             if par_nm in self._frames['parameters'][pop_nm]:
                 new_par_frms[par_nm] = self._frames['parameters'][pop_nm][par_nm]
@@ -564,7 +566,6 @@ class XRSDFitGUI(object):
         stg_frames = self._frames['settings'][pop_nm]
         parent_obj = self.sys.populations[pop_nm]
         parent_frame = self._frames['populations'][pop_nm]
-        stg_default = setting_defaults[stg_nm]
         if specie_nm:
             stg_vars = self._vars['specie_settings'][pop_nm][specie_nm]
             stg_frames = self._frames['specie_settings'][pop_nm][specie_nm]
@@ -573,18 +574,18 @@ class XRSDFitGUI(object):
         stgf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
         stgf.grid_columnconfigure(1,weight=1)
 
-        if setting_datatypes[stg_nm] is str:
+        if xrsdefs.setting_datatypes[stg_nm] is str:
             stgv = tkinter.StringVar(parent_frame)
-        elif setting_datatypes[stg_nm] is int:
+        elif xrsdefs.setting_datatypes[stg_nm] is int:
             stgv = tkinter.IntVar(parent_frame)
-        elif setting_datatypes[stg_nm] is float:
+        elif xrsdefs.setting_datatypes[stg_nm] is float:
             stgv = tkinter.DoubleVar(parent_frame)
         stg_frames[stg_nm] = stgf
         stg_vars[stg_nm] = stgv
 
         stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
         stgl.grid(row=0,column=0,sticky='e')
-        s = setting_defaults[stg_nm]
+        s = xrsdefs.setting_defaults[stg_nm]
         if stg_nm in parent_obj.settings:
             s = parent_obj.settings[stg_nm]
         stgv.set(str(s))
@@ -600,7 +601,7 @@ class XRSDFitGUI(object):
         if pop_nm == 'noise': 
             parent_frame = self._frames['noise_model']
             parent_obj = self.sys.noise_model
-            param_default = noise_param_defaults[param_nm]
+            param_default = xrsdefs.noise_param_defaults[param_nm]
         elif specie_nm:
             param_vars = self._vars['specie_parameters'][pop_nm][specie_nm]
             param_frames = self._frames['specie_parameters'][pop_nm][specie_nm]
@@ -608,13 +609,13 @@ class XRSDFitGUI(object):
             parent_obj = self.sys.populations[pop_nm].basis[specie_nm]
             parent_frame = self._frames['species'][pop_nm][specie_nm]
             if param_nm in ['coordx','coordy','coordz']:
-                param_default = coord_default 
+                param_default = xrsdefs.coord_default 
             else:
-                param_default = param_defaults[param_nm]
+                param_default = xrsdefs.param_defaults[param_nm]
         else:
             parent_frame = self._frames['populations'][pop_nm]
             parent_obj = self.sys.populations[pop_nm]
-            param_default = param_defaults[param_nm]
+            param_default = xrsdefs.param_defaults[param_nm]
         param_idx = len(param_frames)
         if not param_nm in param_vars: param_vars[param_nm] = {}
 
@@ -701,7 +702,7 @@ class XRSDFitGUI(object):
         ffl = tkinter.Label(speclf,text='form factor:',width=12,anchor='e')
         ffl.grid(row=1,column=0,sticky='e')
         ffvar = tkinter.StringVar(speclf)
-        ff_option_dict = OrderedDict.fromkeys(form_factor_names)
+        ff_option_dict = OrderedDict.fromkeys(xrsdefs.form_factor_names)
         ffcb = tkinter.OptionMenu(speclf,ffvar,*ff_option_dict)
         ffvar.set(specie.form)
         ffvar.trace('w',partial(self._update_form_factor,pop_nm,specie_nm))
@@ -712,14 +713,14 @@ class XRSDFitGUI(object):
         # SETTINGS:
         self._frames['specie_settings'][pop_nm][specie_nm] = OrderedDict()
         self._vars['specie_settings'][pop_nm][specie_nm] = OrderedDict()
-        for istg,stg_nm in enumerate(form_factor_settings[specie.form]):
+        for istg,stg_nm in enumerate(xrsdefs.form_factor_settings[specie.form]):
             self._frames['specie_settings'][pop_nm][specie_nm][stg_nm] = \
             self._create_setting_frame(pop_nm,specie_nm,stg_nm)
         #
         # PARAMETERS:
         self._frames['specie_parameters'][pop_nm][specie_nm] = OrderedDict()
         self._vars['specie_parameters'][pop_nm][specie_nm] = OrderedDict()
-        for param_nm in form_factor_params[specie.form]:
+        for param_nm in xrsdefs.form_factor_params[specie.form]:
             self._frames['specie_parameters'][pop_nm][specie_nm][param_nm] = \
             self._create_param_frame(pop_nm,specie_nm,param_nm)
         if pop_struct == 'crystalline': 
@@ -741,7 +742,7 @@ class XRSDFitGUI(object):
         for stg_nm,frm in self._frames['specie_settings'][pop_nm][specie_nm].items(): frm.pack_forget() 
         new_stg_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        for stg_nm in form_factor_settings[spc_form]:
+        for stg_nm in xrsdefs.form_factor_settings[spc_form]:
             if stg_nm in self._frames['specie_settings'][pop_nm][specie_nm]:
                 new_stg_frms[stg_nm] = self._frames['specie_settings'][pop_nm][specie_nm][stg_nm]
             else:
@@ -749,7 +750,7 @@ class XRSDFitGUI(object):
         # destroy any frames that didn't get repacked
         stg_frm_nms = list(self._frames['specie_settings'][pop_nm][specie_nm].keys())
         for stg_nm in stg_frm_nms: 
-            if not stg_nm in form_factor_settings[spc_form]: 
+            if not stg_nm in xrsdefs.form_factor_settings[spc_form]: 
                 frm = self._frames['specie_settings'][pop_nm][specie_nm].pop(stg_nm)
                 frm.destroy()
                 self._vars['specie_settings'][pop_nm][specie_nm].pop(stg_nm)
@@ -760,7 +761,7 @@ class XRSDFitGUI(object):
         for par_nm,frm in self._frames['specie_parameters'][pop_nm][specie_nm].items(): frm.pack_forget() 
         new_par_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        param_nms = copy.deepcopy(form_factor_params[spc_form])
+        param_nms = copy.deepcopy(xrsdefs.form_factor_params[spc_form])
         if pop_struct == 'crystalline': param_nms.extend(['coordx','coordy','coordz'])
         for par_nm in param_nms: 
             if par_nm in self._frames['specie_parameters'][pop_nm][specie_nm]:
