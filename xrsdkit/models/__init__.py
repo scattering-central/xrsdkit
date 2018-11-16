@@ -494,8 +494,7 @@ def train_classification_models(data, hyper_parameters_search=False):
         trained on the given dataset `data`.
     """
     cls_models = trainable_classification_models(data)
-    sys_cls_model = cls_models.pop('system_classification')
-    if sys_cls_model:
+    if 'system_classification' in cls_models:
         print(os.linesep+'Training main system classifier')
         model = Classifier('system_classification',None)
 
@@ -508,24 +507,25 @@ def train_classification_models(data, hyper_parameters_search=False):
             print('insufficient or uniform training data: using default value')
         cls_models['system_classification'] = model
     for sys_cls_lbl, sys_models in cls_models.items():
-        print('Training classifiers for system: ')
-        print(sys_cls_lbl)
-        for pop_id,pop_models in sys_models.items():
-            print('population id: {}'.format(pop_id))
-            for cls_label in pop_models.keys():
-                model_label = pop_id+'_'+cls_label
-                print('    classifier: {}'.format(model_label))
-                data_subset = data[data['system_classification']==sys_cls_lbl]
-                m = Classifier(model_label,None)
-                try: # check if we alredy have a trained model for this label
-                    old_pars = classification_models[sys_cls_lbl][pop_id][cls_label].model.get_params()
-                    m.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-                except:
-                    pass
-                m.train(data_subset, hyper_parameters_search=hyper_parameters_search)
-                if not m.trained: 
-                    print('    insufficient or uniform training data: using default value')
-                pop_models[cls_label] = m 
+        if not sys_cls_lbl == 'system_classification':
+            print('Training classifiers for system: ')
+            print(sys_cls_lbl)
+            for pop_id,pop_models in sys_models.items():
+                print('population id: {}'.format(pop_id))
+                for cls_label in pop_models.keys():
+                    model_label = pop_id+'_'+cls_label
+                    print('    classifier: {}'.format(model_label))
+                    data_subset = data[data['system_classification']==sys_cls_lbl]
+                    m = Classifier(model_label,None)
+                    try: # check if we alredy have a trained model for this label
+                        old_pars = classification_models[sys_cls_lbl][pop_id][cls_label].model.get_params()
+                        m.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+                    except:
+                        pass
+                    m.train(data_subset, hyper_parameters_search=hyper_parameters_search)
+                    if not m.trained: 
+                        print('    insufficient or uniform training data: using default value')
+                    pop_models[cls_label] = m 
     return cls_models
 
 def trainable_classification_models(data):
