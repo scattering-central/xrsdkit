@@ -113,6 +113,9 @@ def load_classification_models(model_root_dir=classification_models_dir):
     yml_path = os.path.join(model_root_dir,'system_classification.yml')
     if os.path.exists(yml_path):
         model_dict['system_classification'] = Classifier('system_classification',yml_path)
+    yml_path_noise = os.path.join(model_root_dir,'noise_classification.yml')
+    if os.path.exists(yml_path_noise):
+        model_dict['noise_classification'] = Classifier('noise_classification',yml_path_noise)
     for sys_cls in os.listdir(model_root_dir):
         if not sys_cls.endswith('.yml') and not sys_cls.endswith('.txt'):
             model_dict[sys_cls] = {}
@@ -292,7 +295,6 @@ def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test
 
 def train_regression_models(data, hyper_parameters_search=False):
     """Train all trainable regression models from `data`.
-
     Parameters
     ----------
     data : pandas.DataFrame
@@ -300,7 +302,6 @@ def train_regression_models(data, hyper_parameters_search=False):
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation R^2 score.
-
     Returns
     -------
     models : dict
@@ -311,87 +312,108 @@ def train_regression_models(data, hyper_parameters_search=False):
     for sys_cls,sys_models in reg_models.items():
         print(os.linesep+'Training regressors for system class: ')
         print(sys_cls)
-        sys_cls_data = data[(data['system_classification']==sys_cls)]
-        for pop_id,pop_models in sys_models.items():
-            print('population id: {}'.format(pop_id))
-            for k in pop_models.keys():
-                if k in _reg_params:
-                    print('    parameter: {}'.format(k))
-                    # train reg_models[sys_cls][pop_id][k]
-                    target = pop_id+'_'+k
-                    reg_model = Regressor(target, None)
 
-                    try: # check if we alredy have a trained model for this label
-                        old_pars = regression_models[sys_cls][pop_id][k].model.get_params()
-                        reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
-                                                   epsilon=old_pars['epsilon'])
-                    except:
-                        pass
-                    reg_model.train(sys_cls_data, hyper_parameters_search)
-                    if not reg_model.trained: 
-                        print('    insufficient data or zero variance: using default value')
-                    pop_models[k] = reg_model 
-                elif k in xrsdefs.setting_selections['lattice']:
-                    print('    structure: {}'.format(k))
-                    for param_nm in xrsdefs.setting_params['lattice'][k]:
-                        print('        parameter: {}'.format(param_nm))
-                        # train reg_models[sys_cls][pop_id][k][param_nm]
-                        lattice_label = pop_id+'_lattice'
-                        sub_cls_data = sys_cls_data[(sys_cls_data[lattice_label]==k)]
-                        target = pop_id+'_'+param_nm
+        if sys_cls == 'noise':
+            target = 'noise_I0_fraction'
+            for noise_type, v in sys_models.items():
+                print('noise type: {}'.format(noise_type))
+                print('    parameter: noise_I0_fraction')
+                sys_cls_data = data[(data['noise_classification']==noise_type)]
+                reg_model = Regressor(target, None)
+                try: # check if we alredy have a trained model for this label
+                    #TODO test the next line!
+                    old_pars = regression_models[sys_cls][pop_id][k].model.get_params()
+                    reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
+                                                       epsilon=old_pars['epsilon'])
+                except:
+                    pass
+                reg_model.train(sys_cls_data, hyper_parameters_search)
+                if not reg_model.trained:
+                    print('    insufficient data or zero variance: using default value')
+                sys_models[noise_type]['I0_fraction']= reg_model
+
+        else:
+            sys_cls_data = data[(data['system_classification']==sys_cls)]
+            for pop_id,pop_models in sys_models.items():
+                print('population id: {}'.format(pop_id))
+                for k in pop_models.keys():
+                    if k in _reg_params:
+                        print('    parameter: {}'.format(k))
+                        # train reg_models[sys_cls][pop_id][k]
+                        target = pop_id+'_'+k
                         reg_model = Regressor(target, None)
-                        try:
-                            old_pars = regression_models[sys_cls][pop_id][k][param_nm].model.get_params()
+
+                        try: # check if we alredy have a trained model for this label
+                            old_pars = regression_models[sys_cls][pop_id][k].model.get_params()
                             reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
                                                        epsilon=old_pars['epsilon'])
                         except:
                             pass
-                        reg_model.train(sub_cls_data, hyper_parameters_search)
-                        if not reg_model.trained: 
-                            print('        insufficient data or zero variance: using default value')
-                        pop_models[k][param_nm] = reg_model 
-                elif k in xrsdefs.setting_selections['interaction']:
-                    print('    interaction: {}'.format(k))
-                    for param_nm in xrsdefs.setting_params['interaction'][k]:
-                        print('        parameter: {}'.format(param_nm))
-                        # train reg_models[sys_cls][pop_id][k][param_nm]
-                        interxn_label = pop_id+'_interaction'
-                        sub_cls_data = sys_cls_data[(sys_cls_data[interxn_label]==k)]
-                        target = pop_id+'_'+param_nm
-                        reg_model = Regressor(target, None)
-                        try:
-                            old_pars = regression_models[sys_cls][pop_id][k][param_nm].model.get_params()
-                            reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
-                                                       epsilon=old_pars['epsilon'])
-                        except:
-                            pass
-                        reg_model.train(sub_cls_data, hyper_parameters_search)
-                        if not reg_model.trained: 
-                            print('        insufficient data or zero variance: using default value')
-                        pop_models[k][param_nm] = reg_model 
-                else:
-                    # k is a basis classification
-                    print('    basis class: {}'.format(k))
-                    bas_cls = k
-                    bas_models = pop_models[k] 
-                    bas_cls_label = pop_id+'_basis_classification'
-                    bas_cls_data = sys_cls_data[(sys_cls_data[bas_cls_label]==bas_cls)]
-                    for specie_id,specie_models in bas_models.items():
-                        print('        specie id: {}'.format(specie_id))
-                        for param_nm in specie_models.keys():
-                            print('            parameter: {}'.format(param_nm))
-                            target = pop_id+'_'+specie_id+'_'+param_nm
+                        reg_model.train(sys_cls_data, hyper_parameters_search)
+                        if not reg_model.trained:
+                            print('    insufficient data or zero variance: using default value')
+                        pop_models[k] = reg_model
+                    elif k in xrsdefs.setting_selections['lattice']:
+                        print('    structure: {}'.format(k))
+                        for param_nm in xrsdefs.setting_params['lattice'][k]:
+                            print('        parameter: {}'.format(param_nm))
+                            # train reg_models[sys_cls][pop_id][k][param_nm]
+                            lattice_label = pop_id+'_lattice'
+                            sub_cls_data = sys_cls_data[(sys_cls_data[lattice_label]==k)]
+                            target = pop_id+'_'+param_nm
                             reg_model = Regressor(target, None)
                             try:
-                                old_pars = regression_models[sys_cls][pop_id][k][specie_id][param_nm].model.get_params()
+                                old_pars = regression_models[sys_cls][pop_id][k][param_nm].model.get_params()
                                 reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
                                                            epsilon=old_pars['epsilon'])
                             except:
                                 pass
-                            reg_model.train(bas_cls_data, hyper_parameters_search)
-                            if not reg_model.trained: 
-                                print('            insufficient data or zero variance: using default value')
-                            specie_models[param_nm] = reg_model 
+                            reg_model.train(sub_cls_data, hyper_parameters_search)
+                            if not reg_model.trained:
+                                print('        insufficient data or zero variance: using default value')
+                            pop_models[k][param_nm] = reg_model
+                    elif k in xrsdefs.setting_selections['interaction']:
+                        print('    interaction: {}'.format(k))
+                        for param_nm in xrsdefs.setting_params['interaction'][k]:
+                            print('        parameter: {}'.format(param_nm))
+                            # train reg_models[sys_cls][pop_id][k][param_nm]
+                            interxn_label = pop_id+'_interaction'
+                            sub_cls_data = sys_cls_data[(sys_cls_data[interxn_label]==k)]
+                            target = pop_id+'_'+param_nm
+                            reg_model = Regressor(target, None)
+                            try:
+                                old_pars = regression_models[sys_cls][pop_id][k][param_nm].model.get_params()
+                                reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
+                                                           epsilon=old_pars['epsilon'])
+                            except:
+                                pass
+                            reg_model.train(sub_cls_data, hyper_parameters_search)
+                            if not reg_model.trained:
+                                print('        insufficient data or zero variance: using default value')
+                            pop_models[k][param_nm] = reg_model
+                    else:
+                        # k is a basis classification
+                        print('    basis class: {}'.format(k))
+                        bas_cls = k
+                        bas_models = pop_models[k]
+                        bas_cls_label = pop_id+'_basis_classification'
+                        bas_cls_data = sys_cls_data[(sys_cls_data[bas_cls_label]==bas_cls)]
+                        for specie_id,specie_models in bas_models.items():
+                            print('        specie id: {}'.format(specie_id))
+                            for param_nm in specie_models.keys():
+                                print('            parameter: {}'.format(param_nm))
+                                target = pop_id+'_'+specie_id+'_'+param_nm
+                                reg_model = Regressor(target, None)
+                                try:
+                                    old_pars = regression_models[sys_cls][pop_id][k][specie_id][param_nm].model.get_params()
+                                    reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
+                                                               epsilon=old_pars['epsilon'])
+                                except:
+                                    pass
+                                reg_model.train(bas_cls_data, hyper_parameters_search)
+                                if not reg_model.trained:
+                                    print('            insufficient data or zero variance: using default value')
+                                specie_models[param_nm] = reg_model
     return reg_models
 
 def trainable_regression_models(data):
@@ -473,7 +495,13 @@ def trainable_regression_models(data):
                         reg_label = pop_id+'_'+specie_id+'_'+param_nm
                         if reg_label in bas_cls_data.columns and param_nm in _reg_params:
                             reg_models[sys_cls][pop_id][bas_cls][specie_id][param_nm] = None 
-    return reg_models 
+
+    reg_models['noise'] = {}
+    for k, v in xrsdefs.noise_params.items():
+        reg_models['noise'][k] = {}
+        reg_models['noise'][k]['I0_fraction'] = None
+
+    return reg_models
 
 def train_classification_models(data, hyper_parameters_search=False):
     """Train all trainable classification models from `data`. 
@@ -498,7 +526,8 @@ def train_classification_models(data, hyper_parameters_search=False):
         print(os.linesep+'Training main system classifier')
         model = Classifier('system_classification',None)
 
-        if 'system_classification'in classification_models.keys(): # we have a trained model
+        if 'system_classification'in classification_models.keys() and \
+                classification_models['system_classification'].trained: # we have a trained model
             old_pars = classification_models['system_classification'].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
 
@@ -506,8 +535,23 @@ def train_classification_models(data, hyper_parameters_search=False):
         if not model.trained: 
             print('insufficient or uniform training data: using default value')
         cls_models['system_classification'] = model
+
+    if 'noise_classification' in cls_models:
+        print(os.linesep+'Training noise classifier')
+        model = Classifier('noise_classification',None)
+
+        if 'noise_classification'in classification_models.keys() and \
+                classification_models['noise_classification'].trained: # we have a trained model
+            old_pars = classification_models['noise_classification'].model.get_params()
+            model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+
+        model.train(data, hyper_parameters_search=hyper_parameters_search)
+        if not model.trained:
+            print('insufficient or uniform training data: using default value')
+        cls_models['noise_classification'] = model
+
     for sys_cls_lbl, sys_models in cls_models.items():
-        if not sys_cls_lbl == 'system_classification':
+        if sys_cls_lbl not in ['system_classification','noise_classification']:
             print('Training classifiers for system: ')
             print(sys_cls_lbl)
             for pop_id,pop_models in sys_models.items():
@@ -532,7 +576,9 @@ def trainable_classification_models(data):
     sys_cls_labels = list(data['system_classification'].unique())
     if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
     cls_models = dict.fromkeys(sys_cls_labels)
-    if len(sys_cls_labels) > 0: cls_models['system_classification'] = None
+    if len(sys_cls_labels) > 0:
+        cls_models['system_classification'] = None
+        cls_models['noise_classification'] = None
     for sys_cls in sys_cls_labels:
         cls_models[sys_cls] = {}
         # get the slice of `data` that is relevant for this sys_cls
@@ -682,6 +728,12 @@ def save_classification_models(models=classification_models, test=False):
                 yml_path = os.path.join(cl_root_dir,'system_classification.yml')
                 txt_path = os.path.join(cl_root_dir,'system_classification.txt')
                 save_model_data(sys_mod,yml_path,txt_path)
+        elif sys_cls == 'noise_classification':
+            if sys_mod:
+                model_dict[sys_cls] = sys_mod
+                yml_path = os.path.join(cl_root_dir,'noise_classification.yml')
+                txt_path = os.path.join(cl_root_dir,'noise_classification.txt')
+                save_model_data(sys_mod,yml_path,txt_path)
         else:
             sys_dir_path = os.path.join(cl_root_dir,sys_cls)
             if not sys_cls in model_dict: model_dict[sys_cls] = {}
@@ -792,8 +844,8 @@ def predict(features,test=False):
     
     # extract the structures of each population from the system class
     for pop_struct in sys_cl.split('__'):
-        pop_id = re.search('^pop.*_',pop_struct).group(0)[:-1] 
-        struct_id = re.sub('^pop.*_','',pop_struct)
+        pop_id = re.search('^pop.*?_',pop_struct).group(0)[:-1]
+        struct_id = re.sub('^pop.*?_','',pop_struct)
         pop_structures[pop_id] = struct_id
 
     for pop_id, pop_classifiers in cl_models_to_use.items():
@@ -825,8 +877,8 @@ def predict(features,test=False):
         # extract the form factors of each specie from the basis class
         specie_forms = {}
         for spec_ff in bas_cl.split('__'):
-            specie_id = re.search('^specie.*_',spec_ff).group(0)[:-1] 
-            ff_id = re.sub('^specie.*_','',spec_ff)
+            specie_id = re.search('^specie.*?_',spec_ff).group(0)[:-1]
+            ff_id = re.sub('^specie.*?_','',spec_ff)
             specie_forms[specie_id] = ff_id
 
         # TODO (later): if the structure is crystalline or disordered,
