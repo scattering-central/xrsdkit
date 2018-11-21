@@ -63,6 +63,7 @@ class XRSDFitGUI(object):
         self.I = I
         self.dI = dI
         self.src_wl = source_wavelength
+        if not system: system = xrsdsys.System()
         self.sys = system
         self.error_weighted = error_weighted
         self.logI_weighted = logI_weighted
@@ -314,9 +315,11 @@ class XRSDFitGUI(object):
         except:
             self._vars['fit_control']['wavelength'].set(self.src_wl)
             new_val = self.src_wl
+            return False
         if not new_val == self.src_wl:
             self.src_wl = new_val
             self._draw_plots()
+        return True
 
     def _set_q_range(self,q_idx,event=None):
         try:
@@ -324,21 +327,25 @@ class XRSDFitGUI(object):
         except:
             self._vars['fit_control']['q_range'][q_idx].set(self.q_range[q_idx])
             new_val = self.q_range[q_idx]
+            return False
         if not new_val == self.q_range[q_idx]:
             self.q_range[q_idx] = new_val
             self._update_fit_objective()
+        return True
 
     def _set_error_weighted(self):
         new_val = self._vars['fit_control']['error_weighted'].get()
         if not new_val == self.error_weighted:
             self.error_weighted = new_val
             self._update_fit_objective()
+        return True
 
     def _set_logI_weighted(self):
         new_val = self._vars['fit_control']['logI_weighted'].get()
         if not new_val == self.logI_weighted:
             self.logI_weighted = new_val
             self._update_fit_objective()
+        return True
 
     def _set_good_fit(self):
         new_val = self._vars['fit_control']['good_fit'].get()
