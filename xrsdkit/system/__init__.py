@@ -214,8 +214,10 @@ class System(object):
             wts *= dI**2
         if logI_weighted:
             idx_fit = idx_fit & (I_comp>0)
-            if not any(idx_fit):
-                return float('inf')
+            # TODO: returning float('inf') raises a NaN exception within the minimization.
+            # Find a way to deal with I_comp = 0.
+            #if not any(idx_fit):
+            #    return float('inf')
             res = compute_chi2(
                 np.log(I_comp[idx_fit]),
                 np.log(I[idx_fit]),
