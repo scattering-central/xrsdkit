@@ -143,7 +143,7 @@ param_defaults = dict(
     )
 
 noise_param_defaults = dict(
-    I0 = {'value':1.E-6,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
+    I0 = {'value':1.E-6,'fixed':False,'bounds':[1.E-12,None],'constraint_expr':None},
     )
 
 coord_default = {'value':0.,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None}
