@@ -11,7 +11,8 @@ from sklearn import preprocessing
 from .. import definitions as xrsdefs 
 from .regressor import Regressor
 from .classifier import Classifier
-from ..tools import primitives, profiler, citrination_tools 
+from ..tools import primitives, profiler, citrination_tools
+from ..system import System
 
 file_path = os.path.abspath(__file__)
 src_dir = os.path.dirname(os.path.dirname(file_path))
@@ -838,6 +839,16 @@ def predict(features,test=False):
     if sys_cl == 'unidentified':
         return results
 
+    if classifiers['noise_classification'].trained:
+        results['noise_classification'] = classifiers['noise_classification'].classify(features)
+    else:
+        results['noise_classification'] = (classifiers['noise_classification'].default_val, 1.0)
+    noise_type = results['noise_classification'][0]
+
+    # evaluate I0_fraction parameter for noise population
+    results['noise'] = dict(I0 = None, I0_fraction =
+                               regressors['noise'][noise_type]['I0_fraction'].predict(features))
+
     cl_models_to_use = classifiers[sys_cl]
     reg_models_to_use = regressors[sys_cl]
     pop_structures = {}
@@ -861,7 +872,7 @@ def predict(features,test=False):
                 # the model was created but not trained:
                 # the default value for the model was saved
                 if param_nm in reg_models_to_use[pop_id]:
-                    results[pop_id][param_nm] = reg_models_to_use[pop_id][param_nm].default_val
+                    results[pop_id][param_nm] = float(reg_models_to_use[pop_id][param_nm].default_val)
                 elif not param_nm == 'I0':
                     # we do not have a model: save the default value unless the param is I0
                     results[pop_id][param_nm] = xrsdefs.param_defaults[param_nm]['value']
@@ -915,39 +926,41 @@ def system_from_prediction(prediction, q_I, source_wavelength):
     predicted_system : xrsdkit.system.System
         a System object built from the prediction dictionary
     """
-
     new_sys = dict()
 
     # find all pops and their structure:
     sys_class = prediction['system_classification']
 
-    # TODO: build noise parameter models, include them in the predict() output
-    # NOTE: we currently only use the 'flat' noise model
-    #new_sys['noise'] = {'model':prediction['noise_classification'],'parameters':{}}
-    #for param_nm in noise_params[prediction['noise_classification']]:
-    #    if param_nm in prediction['noise']:
-    #        new_sys['noise']['parameters']['param_nm'] = prediction['noise'][param_nm]
-    #new_sys['noise']['parameters']['I0'] = prediction['noise']['I0_fraction']
-
-    # if unidentified, return empty system
-    # (TODO: set noise parameters if provided) 
     if sys_class[0] == 'unidentified':
         return System(), new_sys
 
-    # else, build the populations 
+    # else, create the noise model and build the populations
+    new_sys['noise'] = {'model':prediction['noise_classification'],'parameters':{}}
+    for param_nm in xrsdefs.noise_params[prediction['noise_classification'][0]]:
+        if param_nm in prediction['noise']:
+            new_sys['noise']['parameters'][param_nm] = dict(value = prediction['noise'][param_nm])
+    if prediction['noise']['I0_fraction'] > 0:
+        new_sys['noise']['parameters']['I0']['value'] = prediction['noise']['I0_fraction']
+    else:
+        new_sys['noise']['parameters']['I0']['value'] = xrsdefs.param_defaults['I0']['bounds'][0]
+
     for p in sys_class[0].split("__"):
-        pop_id = re.search('^pop.*_',p).group(0)[:-1] 
-        struct_id = re.sub('^pop.*_','',p)
+        pop_id = re.search('^pop.*?_',p).group(0)[:-1]
+        struct_id = re.sub('^pop.*?_','',p)
         new_sys[pop_id]=dict(structure=struct_id)
 
         # add parameters of the population:
-        new_sys[pop_name]['parameters'] = {}
-        for par in structure_params[struct_id]:
+        new_sys[pop_id]['parameters'] = {}
+        for par in xrsdefs.structure_params[struct_id]:
             # prediction is not expected to include 'I0'
             if par in prediction[pop_id].keys():
-                new_sys[pop_id]['parameters'][par] = {'value':prediction[pop_name][par]}
+                new_sys[pop_id]['parameters'][par] = {'value':prediction[pop_id][par]}
         # substitute I0_fraction for I0
-        new_sys[pop_id]['parameters']['I0'] = {'value':prediction[pop_id]['I0_fraction']}
+        if prediction[pop_id]['I0_fraction'] > 0:
+            new_sys[pop_id]['parameters']['I0'] = {'value':prediction[pop_id]['I0_fraction']}
+        else:
+            new_sys[pop_id]['parameters']['I0'] = {'value': xrsdefs.param_defaults['I0']['bounds'][0]}
+
 
         # TODO (later - as for predict()): if the structure is crystalline or disordered,
         # evaluate the lattice classifier or interaction classifer, respectively
@@ -957,8 +970,8 @@ def system_from_prediction(prediction, q_I, source_wavelength):
         # add basis:
         new_sys[pop_id]['basis'] = {}
         for b in prediction[pop_id]['basis_classification'][0].split("__"): # we can have more than one specie
-            specie_id = re.search('^specie.*_',b).group(0)[:-1] 
-            ff_id = re.sub('^specie.*_','',b)
+            specie_id = re.search('^specie.*?_',b).group(0)[:-1]
+            ff_id = re.sub('^specie.*?_','',b)
             new_sys[pop_id]['basis'][specie_id] = {'form':ff_id, 'parameters': {}}
             # find all parameters for this specie:
             par_dict = prediction[pop_id][specie_id]
@@ -967,13 +980,12 @@ def system_from_prediction(prediction, q_I, source_wavelength):
 
             # TODO (later - as for predict()): if the specie is atomic, classify its atom symbol
 
-
     predicted_system = System(new_sys)
     Isum = np.sum(q_I[:,1])
-    q_I_comp = predicted_system.compute_intensity(q_I[:,1],source_wavelength)
-    Isum_comp = np.sum(q_I_comp[:,1])
+    I_comp = predicted_system.compute_intensity(q_I[:,0],source_wavelength)
+    Isum_comp = np.sum(I_comp)
     I_factor = Isum_comp/Isum
-    predicted_system.noise_model.parameters['I0']['value'] *= I_factor
+    predicted_system.noise_model.parameters['I0']['value'] *= I_factor # TODO review calculating of I_factor
     for pop_nm,pop in predicted_system.populations.items():
         pop.parameters['I0']['value'] *= I_factor
 
