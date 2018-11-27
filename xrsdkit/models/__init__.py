@@ -322,8 +322,7 @@ def train_regression_models(data, hyper_parameters_search=False):
                 sys_cls_data = data[(data['noise_classification']==noise_type)]
                 reg_model = Regressor(target, None)
                 try: # check if we alredy have a trained model for this label
-                    #TODO test the next line!
-                    old_pars = regression_models[sys_cls][pop_id][k].model.get_params()
+                    old_pars = regression_models[sys_cls][noise_type]['I0_fraction'].model.get_params()
                     reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
                                                        epsilon=old_pars['epsilon'])
                 except:
@@ -984,8 +983,9 @@ def system_from_prediction(prediction, q_I, source_wavelength):
     Isum = np.sum(q_I[:,1])
     I_comp = predicted_system.compute_intensity(q_I[:,0],source_wavelength)
     Isum_comp = np.sum(I_comp)
-    I_factor = Isum_comp/Isum
-    predicted_system.noise_model.parameters['I0']['value'] *= I_factor # TODO review calculating of I_factor
+    I_factor = Isum/Isum_comp
+    predicted_system.noise_model.parameters['I0']['value'] *= I_factor
+
     for pop_nm,pop in predicted_system.populations.items():
         pop.parameters['I0']['value'] *= I_factor
 
