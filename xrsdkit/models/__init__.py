@@ -71,8 +71,9 @@ def load_regression_models(model_root_dir=regression_models_dir):
             # subdirectories for parameters of each modellable structure,
             # and subdirectories for each modellable basis class
             for pop_itm in os.listdir(pop_dir):
-                if pop_itm in xrsdefs.setting_selections['lattice']+xrsdefs.setting_selections['interaction']:
-                    # this is a subdirectory of models for lattice or disordered structure params
+                if pop_itm in list(xrsdefs.noise_params.keys()) + \
+                        xrsdefs.setting_selections['lattice'] + xrsdefs.setting_selections['interaction']:
+                    # this is a subdirectory of models for noise, lattice or disordered structure params
                     model_dict[sys_cls][pop_id][pop_itm] = {}
                     pop_subdir = os.path.join(pop_dir,pop_itm)
                     for pop_subitm in os.listdir(pop_subdir):
@@ -119,25 +120,29 @@ def load_classification_models(model_root_dir=classification_models_dir):
         if not sys_cls.endswith('.yml') and not sys_cls.endswith('.txt'):
             model_dict[sys_cls] = {}
             sys_cls_dir = os.path.join(model_root_dir,sys_cls)
+            noise_yml_path = os.path.join(sys_cls_dir,'noise_classification.yml')
+            if os.path.exists(noise_yml_path):
+                model_dict[sys_cls]['noise_classification'] = Classifier('noise_classification',noise_yml_path)
             # the directory for the system class has subdirectories
             # for each population in the system
             for pop_id in os.listdir(sys_cls_dir):
-                model_dict[sys_cls][pop_id] = {}
-                pop_dir = os.path.join(sys_cls_dir,pop_id)
-                # the directory for the population class contains
-                # yml files with model parameters
-                # for the population's basis classifier
-                # and other structure-specific classifiers if applicable
-                for pop_itm in os.listdir(pop_dir):
-                    if pop_itm.endswith('.yml'):
-                        yml_path = os.path.join(pop_dir,pop_itm)
-                        model_type = os.path.splitext(pop_itm)[0]
-                        model_label = pop_id+'_'+model_type
-                        model_dict[sys_cls][pop_id][model_type] = Classifier(model_label,yml_path)
-                    # else (currently not implemented):
-                    # if not a yml file, then it would be a sub-directory
-                    # containing classifiers applicable to a specific basis class,
-                    # e.g. specie classifiers for atomic form factors 
+                if not pop_id.endswith('.yml') and not pop_id.endswith('.txt'):
+                    model_dict[sys_cls][pop_id] = {}
+                    pop_dir = os.path.join(sys_cls_dir,pop_id)
+                    # the directory for the population class contains
+                    # yml files with model parameters
+                    # for the population's basis classifier
+                    # and other structure-specific classifiers if applicable
+                    for pop_itm in os.listdir(pop_dir):
+                        if pop_itm.endswith('.yml'):
+                            yml_path = os.path.join(pop_dir,pop_itm)
+                            model_type = os.path.splitext(pop_itm)[0]
+                            model_label = pop_id+'_'+model_type
+                            model_dict[sys_cls][pop_id][model_type] = Classifier(model_label,yml_path)
+                        # else (currently not implemented):
+                        # if not a yml file, then it would be a sub-directory
+                        # containing classifiers applicable to a specific basis class,
+                        # e.g. specie classifiers for atomic form factors
     return model_dict
 classification_models = load_classification_models(classification_models_dir) 
 test_classification_models = load_classification_models(test_classification_models_dir)
@@ -373,6 +378,23 @@ def train_regression_models(data, hyper_parameters_search=False):
                         if not reg_model.trained:
                             print('        insufficient data or zero variance: using default value')
                         pop_models[k][param_nm] = reg_model
+                elif k in xrsdefs.noise_params:
+                    print('    noise class: {}'.format(k))
+                    noise_models = pop_models[k]
+                    for param_nm in noise_models.keys():
+                        print('            parameter: {}'.format(param_nm))
+                        target = pop_id+'_'+param_nm
+                        reg_model = Regressor(target, None)
+                        try:
+                            old_pars = regression_models[sys_cls][pop_id][k][param_nm].model.get_params()
+                            reg_model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'],
+                                                           epsilon=old_pars['epsilon'])
+                        except:
+                            pass
+                        reg_model.train(sys_cls_data, hyper_parameters_search)
+                        if not reg_model.trained:
+                            print('            insufficient data or zero variance: using default value')
+                        noise_models[param_nm] = reg_model
                 else:
                     # k is a basis classification
                     print('    basis class: {}'.format(k))
@@ -419,7 +441,7 @@ def trainable_regression_models(data):
     # extract all unique system classifications:
     # the system classification is the top level of the dict of labels
     sys_cls_labels = list(data['system_classification'].unique())
-    #if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
+    if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
     reg_models = dict.fromkeys(sys_cls_labels)
     for sys_cls in sys_cls_labels:
         reg_models[sys_cls] = {}
@@ -531,11 +553,13 @@ def train_classification_models(data, hyper_parameters_search=False):
 
                 if pop_id == 'noise':
                     print('    Training noise classifier for system class {}'.format(sys_cls_lbl))
-                    if 'noise' in classification_models[sys_cls_lbl].keys() and \
-                    classification_models[sys_cls_lbl]['noise'].trained: # we have a trained model
-                        old_pars = classification_models[sys_cls_lbl]['noise'].model.get_params()
-                        model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-                    model.train(data, hyper_parameters_search=hyper_parameters_search)
+                    model = Classifier('noise_classification',None)
+                    if sys_cls_lbl in classification_models.keys():
+                        if 'noise' in classification_models[sys_cls_lbl].keys() and \
+                        classification_models[sys_cls_lbl]['noise'].trained: # we have a trained model
+                            old_pars = classification_models[sys_cls_lbl]['noise'].model.get_params()
+                            model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+                    model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
                     if not model.trained:
                         print('insufficient or uniform training data: using default value')
                     sys_models[pop_id] = model
@@ -676,17 +700,26 @@ def save_regression_models(models=regression_models, test=False):
                         # v is a dict of dicts of models for each specie
                         bas_dir = os.path.join(pop_dir_path,k)
                         if not os.path.exists(bas_dir): os.mkdir(bas_dir)
-                        for specie_id, specie_models in v.items():
-                            if not specie_id in model_dict[sys_cls][pop_id][k]:
-                                model_dict[sys_cls][pop_id][k][specie_id] = {}
-                            specie_dir = os.path.join(bas_dir,specie_id)
-                            if not os.path.exists(specie_dir): os.mkdir(specie_dir)
-                            for param_nm, param_model in specie_models.items():
+
+                        if k in xrsdefs.noise_params:
+                            for param_nm, param_model in v.items():
                                 if param_model:
-                                    model_dict[sys_cls][pop_id][k][specie_id][param_nm] = param_model
-                                    yml_path = os.path.join(specie_dir,param_nm+'.yml')
-                                    txt_path = os.path.join(specie_dir,param_nm+'.txt')
+                                    model_dict[sys_cls][pop_id][k][param_nm] = param_model
+                                    yml_path = os.path.join(bas_dir,param_nm+'.yml')
+                                    txt_path = os.path.join(bas_dir,param_nm+'.txt')
                                     save_model_data(param_model,yml_path,txt_path)
+                        else:
+                            for specie_id, specie_models in v.items():
+                                if not specie_id in model_dict[sys_cls][pop_id][k]:
+                                    model_dict[sys_cls][pop_id][k][specie_id] = {}
+                                specie_dir = os.path.join(bas_dir,specie_id)
+                                if not os.path.exists(specie_dir): os.mkdir(specie_dir)
+                                for param_nm, param_model in specie_models.items():
+                                    if param_model:
+                                        model_dict[sys_cls][pop_id][k][specie_id][param_nm] = param_model
+                                        yml_path = os.path.join(specie_dir,param_nm+'.yml')
+                                        txt_path = os.path.join(specie_dir,param_nm+'.txt')
+                                        save_model_data(param_model,yml_path,txt_path)
 
 def save_classification_models(models=classification_models, test=False):
     """Serialize `models` to .yml files, and also save them as module attributes.
@@ -792,28 +825,38 @@ def predict(features,test=False):
         struct_id = re.sub('^pop.*?_','',pop_struct)
         pop_structures[pop_id] = struct_id
 
-    for pop_id, pop_mod in cl_models_to_use.items():
-        results[pop_id] = {}
-
-        if pop_id == 'noise':
-            if pop_mod.trained:
-                results['noise_classification'] = classifiers[sys_cl]['noise'].classify(features)
-            else:
-                results['noise_classification'] = (classifiers[sys_cl]['noise'].default_val, 1.0)
-            noise_type = results['noise_classification'][0]
-            # evaluate noise parameters 
-            for param_nm in xrsdefs.noise_params[noise_type]+['I0_fraction']:
-                if param_nm in reg_models_to_use[pop_id] and reg_models_to_use[pop_id][param_nm].trained:
-                    results[pop_id][param_nm] = reg_models_to_use[pop_id][param_nm].predict(features)
-                else:
-                    # the model was created but not trained:
-                    # the default value for the model was saved
-                    if param_nm in reg_models_to_use[pop_id]:
-                        results[pop_id][param_nm] = float(reg_models_to_use[pop_id][param_nm].default_val)
-                    elif not param_nm == 'I0':
-                        # we do not have a model: save the default value unless the param is I0
-                        results[pop_id][param_nm] = xrsdefs.noise_param_defaults[param_nm]['value']
+    results['noise'] = {}
+    if 'noise_classification' in cl_models_to_use and cl_models_to_use['noise_classification'].trained:
+        results['noise']['noise_classification'] = cl_models_to_use['noise_classification'].classify(features)
+    else:
+        # the model was created but not trained: the default value for the model was saved
+        if 'noise_classification' in cl_models_to_use:
+             results['noise']['noise_classification'] = (cl_models_to_use['noise_classification'].default_val, 1.0)
         else:
+            # we do not have a model: save the default value
+            results['noise']['noise_classification'] = ("flat", 1.0) # TODO add to difinitions?
+    pop_structures['noise'] = results['noise']['noise_classification'][0]
+
+    # evaluate noise parameters
+    for param_nm in xrsdefs.noise_params[pop_structures['noise']]+['I0_fraction']:
+        if param_nm in reg_models_to_use['noise'][pop_structures['noise']] \
+                and reg_models_to_use['noise'][pop_structures['noise']][param_nm].trained:
+            results['noise'][param_nm] = \
+                reg_models_to_use['noise'][pop_structures['noise']][param_nm].predict(features)
+        else:
+            # the model was created but not trained:
+            # the default value for the model was saved
+            if param_nm in reg_models_to_use['noise'][pop_structures['noise']]:
+                results['noise'][param_nm] = \
+                    float(reg_models_to_use['noise'][pop_structures['noise']][param_nm].default_val)
+            elif not param_nm == 'I0' and not param_nm == 'I0_fraction':
+                # TODO do we need to add a default val for I0_fraction?
+                # we do not have a model: save the default value unless the param is I0 or I0_fraction
+                results['noise'][param_nm] = xrsdefs.noise_param_defaults[param_nm]['value']
+
+    for pop_id, pop_mod in cl_models_to_use.items():
+        if pop_id != 'noise_classification':
+            results[pop_id] = {}
             # evaluate parameters of this population
             for param_nm in xrsdefs.structure_params[pop_structures[pop_id]]+['I0_fraction']:
                 if param_nm in reg_models_to_use[pop_id] and reg_models_to_use[pop_id][param_nm].trained:
