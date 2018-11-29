@@ -395,7 +395,7 @@ def train_regression_models(data, hyper_parameters_search=False):
                         reg_model.train(sys_cls_data, hyper_parameters_search)
                         if not reg_model.trained:
                             print('            insufficient data or zero variance: using default value')
-                        noise_models[param_nm] = reg_model
+                        noise_param_models[param_nm] = reg_model
                 else:
                     # k is a basis classification
                     print('    basis class: {}'.format(k))
@@ -856,7 +856,7 @@ def predict(features,test=False):
                 results['noise'][param_nm] = xrsdefs.noise_param_defaults[param_nm]['value']
 
     for pop_id, pop_mod in cl_models_to_use.items():
-        if pop_id != 'noise_classification':
+        if pop_id not in ['noise_classification', 'noise']:
             results[pop_id] = {}
             # evaluate parameters of this population
             for param_nm in xrsdefs.structure_params[pop_structures[pop_id]]+['I0_fraction']:
