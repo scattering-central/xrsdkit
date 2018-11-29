@@ -69,11 +69,12 @@ def load_regression_models(model_root_dir=regression_models_dir):
             pop_dir = os.path.join(sys_cls_dir,pop_id)
             # the directory for the population has model parameter files,
             # subdirectories for parameters of each modellable structure,
-            # and subdirectories for each modellable basis class
+            # and subdirectories for each modellable basis class...
+            # or, if pop_id == 'noise', there will be a subdirectory for the noise model
             for pop_itm in os.listdir(pop_dir):
-                if pop_itm in list(xrsdefs.noise_params.keys()) + \
-                        xrsdefs.setting_selections['lattice'] + xrsdefs.setting_selections['interaction']:
-                    # this is a subdirectory of models for noise, lattice or disordered structure params
+                if pop_itm in xrsdefs.noise_model_names + \
+                xrsdefs.setting_selections['lattice'] + xrsdefs.setting_selections['interaction']:
+                    # this is a subdirectory for parameters of noise, or of crystalline or disordered structures
                     model_dict[sys_cls][pop_id][pop_itm] = {}
                     pop_subdir = os.path.join(pop_dir,pop_itm)
                     for pop_subitm in os.listdir(pop_subdir):
@@ -378,10 +379,10 @@ def train_regression_models(data, hyper_parameters_search=False):
                         if not reg_model.trained:
                             print('        insufficient data or zero variance: using default value')
                         pop_models[k][param_nm] = reg_model
-                elif k in xrsdefs.noise_params:
-                    print('    noise class: {}'.format(k))
-                    noise_models = pop_models[k]
-                    for param_nm in noise_models.keys():
+                elif k in xrsdefs.noise_model_names:
+                    print('    noise model: {}'.format(k))
+                    noise_param_models = pop_models[k]
+                    for param_nm in noise_param_models.keys():
                         print('            parameter: {}'.format(param_nm))
                         target = pop_id+'_'+param_nm
                         reg_model = Regressor(target, None)
@@ -701,7 +702,7 @@ def save_regression_models(models=regression_models, test=False):
                         bas_dir = os.path.join(pop_dir_path,k)
                         if not os.path.exists(bas_dir): os.mkdir(bas_dir)
 
-                        if k in xrsdefs.noise_params:
+                        if k in xrsdefs.noise_model_names:
                             for param_nm, param_model in v.items():
                                 if param_model:
                                     model_dict[sys_cls][pop_id][k][param_nm] = param_model
@@ -834,7 +835,7 @@ def predict(features,test=False):
              results['noise']['noise_classification'] = (cl_models_to_use['noise_classification'].default_val, 1.0)
         else:
             # we do not have a model: save the default value
-            results['noise']['noise_classification'] = ("flat", 1.0) # TODO add to difinitions?
+            results['noise']['noise_classification'] = ('flat', 1.0) # TODO add to definitions?
     pop_structures['noise'] = results['noise']['noise_classification'][0]
 
     # evaluate noise parameters
