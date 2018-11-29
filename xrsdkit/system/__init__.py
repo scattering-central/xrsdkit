@@ -277,11 +277,13 @@ class System(object):
 
 def fit(sys,q,I,source_wavelength,dI=None,
     error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
-    """Fit the I(q) pattern and return a dict of optimized parameters. 
+    """Fit the I(q) pattern and return a System with optimized parameters. 
 
     Parameters
     ----------
     sys : xrsdkit.system.System
+        System object defining populations and species,
+        as well as settings and bounds/constraints for parameters.
     source_wavelength : float
     q : array of float
         1d array of scattering vector magnitudes (1/Angstrom)

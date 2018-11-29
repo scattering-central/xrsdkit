@@ -80,8 +80,9 @@ def unpack_pif(pp):
         for prop in pp.properties:
             props_dict[prop.name] = prop
 
-    # unpack system classification
+    # unpack system classification and noise classification
     classification_labels['system_classification'] = cls_dict.pop('system_classification').value
+    classification_labels['noise_classification'] = cls_dict.pop('noise_classification').value
 
     # unpack fit report
     fit_rpt = {}
@@ -188,6 +189,8 @@ def unpack_pif(pp):
             q_I = np.vstack([q,I]).T
         elif prop_nm in profiler.profile_keys:
             features[prop_nm] = float(prop.scalars[0].value)
+        elif prop_nm == 'noise_I0_fraction':
+            regression_outputs[prop_nm] = prop.scalars[0].value
         elif any([rp == prop_nm[-1*len(rp):] for rp in _reg_params]):
             regression_outputs[prop_nm] = prop.scalars[0].value
 

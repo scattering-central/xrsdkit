@@ -13,7 +13,7 @@ profile_keys = list([
     'logI_fluctuation',
     'logI_max_over_std',
     'r_fftIcentroid',
-    'r_fftImax',
+    #'r_fftImax',
     'q_Icentroid',
     'q_logIcentroid',
     'pearson_q',
@@ -223,7 +223,7 @@ def profile_spectrum(q_I):
     features['logI_fluctuation'] = logI_fluctuation
     features['logI_max_over_std'] = logI_max / logI_std
     features['r_fftIcentroid'] = r_fftIcentroid
-    features['r_fftImax'] = r_fftImax
+    #features['r_fftImax'] = r_fftImax
     features['q_Icentroid'] = q_Icentroid
     features['q_logIcentroid'] = q_logIcentroid
     features['pearson_q'] = pearson_q 
