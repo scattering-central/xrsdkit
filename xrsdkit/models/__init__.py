@@ -929,10 +929,11 @@ def system_from_prediction(prediction, q_I, source_wavelength):
         return System(), new_sys
 
     # else, create the noise model and build the populations
-    new_sys['noise'] = {'model':prediction['noise_classification'],'parameters':{}}
-    for param_nm in xrsdefs.noise_params[prediction['noise_classification'][0]]:
+    new_sys['noise'] = {'model':prediction['noise']['noise_classification'],'parameters':{}}
+    for param_nm in xrsdefs.noise_params[prediction['noise']['noise_classification'][0]]:
         if param_nm in prediction['noise']:
             new_sys['noise']['parameters'][param_nm] = dict(value = prediction['noise'][param_nm])
+    new_sys['noise']['parameters']['I0'] = {}
     if prediction['noise']['I0_fraction'] > 0:
         new_sys['noise']['parameters']['I0']['value'] = prediction['noise']['I0_fraction']
     else:
