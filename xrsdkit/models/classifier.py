@@ -54,23 +54,6 @@ class Classifier(XRSDModel):
         cert = max(self.model.predict_proba(x)[0])
         return sys_cls, cert
 
-    def run_cross_validation(self,model,data,features,n_groups_out):
-        """Run a cross-validation test and return a report of the results.
-
-        Classifiers are validated by the f1_macro scoring function;
-        f1_macro is the average, unweighted f1 score across all labels.
-        The reports also include mean unweighted accuracies for all labels.
-        Scikit-learn does not expose the mean unweighted accuracy by labels
-        as a scoring option, so it cannot currently be used 
-        for hyperparameter optimization.
-        """
-        if n_groups_out:
-            cross_val_results = self.cross_validate_by_experiments(model,data,features)
-        else:
-            cross_val_results = self.cross_validate(model,data,features)
-        return cross_val_results
-
-
     def cross_validate_by_experiments(self, model, df, features):
         """Test a model by LeaveOneGroupOut cross-validation.
 
