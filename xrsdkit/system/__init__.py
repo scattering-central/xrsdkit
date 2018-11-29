@@ -48,8 +48,7 @@ class NoiseModel(object):
         return nd
 
     def set_model(self,new_model):
-        # NOTE: there is only one noise model.
-        # TODO: Update this if/when there are more.
+        self.model = new_model 
         self.update_parameters()
 
     def update_parameters(self,new_params={}):
