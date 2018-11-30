@@ -80,8 +80,17 @@ def unpack_pif(pp):
         for prop in pp.properties:
             props_dict[prop.name] = prop
 
-    # unpack system classification and noise classification
+    # unpack system classification
     classification_labels['system_classification'] = cls_dict.pop('system_classification').value
+
+    # unpack noise classification 
+    #if 'noise_classification' in cls_dict:
+    noise_cls = cls_dict.pop('noise_classification')
+    classification_labels['noise_classification'] = noise_cls.value
+    noise_model = {'model':noise_cls.value,'parameters':{}} 
+    for param_nm in xrsdefs.noise_params[noise_cls.value]:
+        noise_param_name = 'noise_'+param_nm
+        noise_model['parameters'][param_nm] = param_from_pif_property(param_nm,props_dict.pop(noise_param_name)) 
 
     # unpack fit report
     fit_rpt = {}
@@ -97,15 +106,6 @@ def unpack_pif(pp):
                 bds = tg.strip('q_range: []').split(',')
                 fit_rpt['q_range'] = [float(bds[0]), float(bds[1])]
             if 'fit_snr: ' in tg: fit_rpt['fit_snr'] = float(tg.strip('fit_snr: '))
-
-    # unpack noise model
-    noise_model = {'model':None,'parameters':{}} 
-    if 'noise_classification' in cls_dict:
-        noise_cls = cls_dict.pop('noise_classification')
-        noise_model['model'] = noise_cls.value
-        for param_nm in xrsdefs.noise_params[noise_cls.value]:
-            noise_param_name = 'noise_'+param_nm
-            noise_model['parameters'][param_nm] = param_from_pif_property(param_nm,props_dict.pop(noise_param_name)) 
 
     # use the remaining cls_dict entries to rebuild the System  
     sysd = OrderedDict()
