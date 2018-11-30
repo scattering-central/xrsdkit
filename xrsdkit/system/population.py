@@ -1,6 +1,6 @@
 import copy
 from collections import OrderedDict
-
+import numpy as np
 from .specie import Specie
 from .. import definitions as xrsdefs 
 from ..scattering import diffuse_intensity, disordered_intensity, crystalline_intensity
