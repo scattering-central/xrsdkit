@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 #from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
 
-from ..tools.citrination_tools import get_data_from_Citrination
+from ..tools.piftools import get_data_from_Citrination
 from ..tools.visualization_tools import doPCA, plot_2d
 from ..models import citcl, src_dir, src_dsid_list, testing_data_dir
 from ..tools import profiler
@@ -46,7 +46,7 @@ def download_and_visualize(
     saving_dir = testing_data_dir):
     """Download data and plot it with respect two features or principal components.
 
-    This calls xrsdkit.tools.citrination_tools.get_data_from_Citrination()
+    This calls xrsdkit.tools.piftools.get_data_from_Citrination()
     to fetch a DataFrame full of xrsd records,
     then xrsdkit.visualization.visualize_dataframe() on that DataFrame.
 
@@ -69,12 +69,12 @@ def download_and_visualize(
     pca_comp_to_use : list of int 
         if `use_pca` is True, this is a list of two indices
         indicating which PCs to use as plot axes.
-        Each index must be less than the total number of `features`
+        Each index must be less than the total number of features 
     show_plots : bool
         whether or not to show the plots on the display
     save_plots : bool
         If True, plots for each label will be saved to
-        `saving_dir`/`label`_wrt_(feature_or_PC_0)_by_(feature_or_PC_1).png
+        `saving_dir` / `label` _wrt_(feature_or_PC_0)_by_(feature_or_PC_1).png
     saving_dir : str
         directory to save the plots
     """
@@ -95,7 +95,7 @@ def visualize_dataframe(data,
     If use_pca is True,
     PCA will be applied to the data[features], the pca components
     which are specified in pca_comp_to_use will be used for plotting.
-    If use_pca is False, the first two features from 'features' will
+    If use_pca is False, the first two features will
     be used for plotting.
 
     Parameters
@@ -115,12 +115,12 @@ def visualize_dataframe(data,
     pca_comp_to_use : list of int 
         if `use_pca` is True, this is a list of two indices
         indicating which PCs to use as plot axes.
-        Each index must be less than the total number of `features`
+        Each index must be less than the total number of features
     show_plots : bool
         whether or not to show the plots on the display
     save_plots : bool
         If True, plots for each label will be saved to
-        `saving_dir`/`label`_wrt_(feature_or_PC_0)_by_(feature_or_PC_1).png
+        `saving_dir` / `label` _wrt_(feature_or_PC_0)_by_(feature_or_PC_1).png
     saving_dir : str
         directory to save the plots
     """

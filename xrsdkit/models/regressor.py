@@ -61,7 +61,7 @@ class Regressor(XRSDModel):
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
-            similar to output of xrsdkit.tools.profiler.profile_spectrum()
+            similar to output of xrsdkit.tools.profiler.profile_pattern()
 
         Returns
         -------

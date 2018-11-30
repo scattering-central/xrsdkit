@@ -11,7 +11,7 @@ from sklearn import preprocessing
 from .. import definitions as xrsdefs 
 from .regressor import Regressor
 from .classifier import Classifier
-from ..tools import primitives, profiler, citrination_tools
+from ..tools import primitives, profiler, piftools
 from ..system import System
 
 file_path = os.path.abspath(__file__)
@@ -180,7 +180,7 @@ def downsample_and_train(
         if True, the downsampling statistics and models will be
         saved in modeling_data/testing_data dir
     """
-    df = citrination_tools.get_data_from_Citrination(citrination_client,source_dataset_ids)
+    df = piftools.get_data_from_Citrination(citrination_client,source_dataset_ids)
     df_sample = downsample_by_group(df)
     train_from_dataframe(df_sample,train_hyperparameters,save_models,test)
 
@@ -251,11 +251,10 @@ def downsample(df, min_distance):
     if df_size <= 10:
         sample = sample.append(df)
     else:
-        features = profiler.profile_keys
         scaler = preprocessing.StandardScaler()
-        scaler.fit(df[features])
+        scaler.fit(df[profiler.profile_keys])
 
-        features_matr = scaler.transform(df[features]) # features_matr is a np arraly
+        features_matr = scaler.transform(df[profiler.profile_keys]) 
         # define the distance between two samples in feature space
 
         dist_func = lambda i,j: np.sum(
@@ -304,6 +303,7 @@ def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test
 
 def train_regression_models(data, hyper_parameters_search=False):
     """Train all trainable regression models from `data`.
+
     Parameters
     ----------
     data : pandas.DataFrame
@@ -311,6 +311,7 @@ def train_regression_models(data, hyper_parameters_search=False):
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation R^2 score.
+
     Returns
     -------
     models : dict
@@ -793,13 +794,13 @@ def predict(features,test=False):
     Evaluates classifiers and regression models to
     estimate physical parameters of a sample
     that produced the input `features`,
-    from xrsdit.tools.profiler.profile_spectrum().
+    from xrsdit.tools.profiler.profile_pattern().
 
     Parameters
     ----------
     features : OrderedDict
-            OrderedDict of features with their values,
-            similar to output of xrsdkit.tools.profiler.profile_spectrum()
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
 
     Returns
     -------
@@ -909,16 +910,17 @@ def predict(features,test=False):
 
     return results
 
-
-def system_from_prediction(prediction, q_I, source_wavelength):
+def system_from_prediction(prediction,q,I,source_wavelength):
     """Create a System object from output of predict() function.
 
     Parameters
     ----------
     prediction : dict
          dictionary with predicted system class and parameters
-    q_I : array
-        n-by-2 array of q-values and scattered intensities
+    q : array
+        array of scattering vector magnitudes 
+    I : array
+        array of integrated scattering intensities corresponding to `q`
 
     Returns
     -------
@@ -980,8 +982,8 @@ def system_from_prediction(prediction, q_I, source_wavelength):
             # TODO (later - as for predict()): if the specie is atomic, classify its atom symbol
 
     predicted_system = System(new_sys)
-    Isum = np.sum(q_I[:,1])
-    I_comp = predicted_system.compute_intensity(q_I[:,0],source_wavelength)
+    Isum = np.sum(I)
+    I_comp = predicted_system.compute_intensity(q,source_wavelength)
     Isum_comp = np.sum(I_comp)
     I_factor = Isum/Isum_comp
     predicted_system.noise_model.parameters['I0']['value'] *= I_factor

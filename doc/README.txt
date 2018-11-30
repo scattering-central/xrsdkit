@@ -1,4 +1,4 @@
-How to build saxskit docs:
+How to build xrsdkit docs:
 ==========================
 
 - If modules have been removed or renamed, remove the corresponding lines from packagedoc.rst

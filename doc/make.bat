@@ -9,7 +9,7 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=.
 set BUILDDIR=_build
-set SPHINXPROJ=saxskit
+set SPHINXPROJ=xrsdkit
 
 if "%1" == "" goto help
 

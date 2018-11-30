@@ -1,8 +1,9 @@
-.. saxskit documentation master file, created by
+.. xrsdkit documentation master file, created by
    sphinx-quickstart on Wed Jan 31 14:55:38 2018.
-   You can adapt this file completely to your liking, but it should at least   contain the root `toctree` directive.
+   You can adapt this file completely to your liking, 
+   but it should at least contain the root `toctree` directive.
 
-saxskit: Python modules for small angle x-ray scattering data analysis
+xrsdkit: software for scattering and diffraction modeling and analysis 
 ======================================================================
 
 Contents:

@@ -2,37 +2,47 @@ from collections import OrderedDict
 
 import numpy as np 
 
-from . import standardize_array, pearson
+from . import pearson
 from . import peak_math
 
-profile_keys = list([
-    'Imax_over_Imean',
-    'Ilowq_over_Imean',
-    'Imax_sharpness',
-    'I_fluctuation',
-    'logI_fluctuation',
-    'logI_max_over_std',
-    'r_fftIcentroid',
-    #'r_fftImax',
-    'q_Icentroid',
-    'q_logIcentroid',
-    'pearson_q',
-    'pearson_q2',
-    'pearson_expq',
-    'pearson_invexpq',
-    'q_best_hump',
-    'q_best_trough',
-    'best_hump_qwidth',
-    'best_trough_qwidth',
-    'q_best_hump_log',
-    'q_best_trough_log',
-    'best_hump_qwidth_log',
-    'best_trough_qwidth_log'])
+profile_defs = OrderedDict(
+    Imax_over_Imean = 'maximum over mean intensity on the full q-range',
+    Ilowq_over_Imean = 'mean intensity on the lower 10% of the q-range, '\
+                    'divided by the mean intensity on the full q-range',
+    Imax_sharpness = 'maximum over mean intensity for q-values '\
+                    'from 0.9*q(Imax) to 1.1*q(Imax)',
+    I_fluctuation = 'sum of difference in I between adjacent points, '\
+                    'multiplied by q-width of each point, '\
+                    'divided by the intensity range (Imax minus Imin)',
+    logI_fluctuation = 'same as I_fluctuation but for log(I)',
+    logI_max_over_std = 'max(log(I)) divided by std(log(I))',
+    r_fftIcentroid = 'centroid (in length units) of the magnitude squared '\
+                    'of the fourier transform of the scattering spectrum',
+    #r_fftImax = 'location (in length units) of the maximum of the '\
+    #                'squared magnitude of the fourier transform of the pattern' 
+    q_Icentroid = 'q-space centroid of the scattering intensity',
+    q_logIcentroid = 'q-space centroid of log(I)',
+    pearson_q = 'Pearson correlation between q and I(q)',
+    pearson_q2 = 'Pearson correlation between q squared and I(q)',
+    pearson_expq = 'Pearson correlation between exp(q) and I(q)',
+    pearson_invexpq = 'Pearson correlation between exp(-q) and I(q)',
+    q_best_hump = 'q-vertex of parabola fit to intensity values near the best hump',
+    q_best_trough = 'q-vertex of parabola fit to intensity values near the best trough',
+    best_hump_qwidth = 'Focal width of same parabola used for q_best_hump',
+    best_trough_qwidth = 'Focal width of same parabola used for q_best_trough',
+    q_best_hump_log = 'like q_best_hump, but fit to standardized log(I)',
+    q_best_trough_log = 'like q_best_trough, but fit to standardized log(I)',
+    best_hump_qwidth_log = 'like best_hump_qwidth, but fit to standardized log(I)',
+    best_trough_qwidth_log = 'like best_trough_qwidth, but fit to standardized log(I)'
+    )
 
-def profile_spectrum(q_I):
-    """Numerical profiling of a SAXS spectrum.
+profile_keys = list(profile_defs.keys())
 
-    Profile a saxs spectrum (n-by-2 array `q_I`) 
+def profile_pattern(q,I):
+    """Numerical profiling of a scattering or diffraction pattern.
+
+    Profile a 1d scattering or diffraction pattern 
+    (consisting of scattering vectors `q` and intensities `I`) 
     by computing several relatively fast numerical metrics.
     The metrics should be invariant with respect to intensity scaling,
     and should not be strongly affected by minor details of the data
@@ -45,73 +55,16 @@ def profile_spectrum(q_I):
 
     Parameters
     ----------
-    q_I : array
-        n-by-2 array of scattering vector q and scattered intensity I
+    q : array
+        array of scattering vector magnitudes
+    I : array
+        array of integrated scattering intensities corresponding to `q`
     
     Returns
     -------
     features : dict
-        Dictionary of metrics computed from input spectrum `q_I`.
-        The features are:
-
-        - 'Imax_over_Imean': maximum over mean intensity on the full q-range
-
-        - 'Ilowq_over_Imean': mean intensity on the lower 10% of the q-range,
-            divided by the mean intensity on the full q-range
-
-        - 'Imax_sharpness': maximum over mean intensity for q-values 
-            from 0.9*q(Imax) to 1.1*q(Imax)
-
-        - 'I_fluctuation': sum of difference in I between adjacent points,
-            multiplied by q-width of each point,
-            divided by the intensity range (Imax minus Imin)
-
-        - 'logI_fluctuation': same as I_fluctuation,
-            but for log(I) and including only points where I>0
-
-        - 'logI_max_over_std': max(log(I)) divided by std(log(I)),
-            including only points with I>0
-
-        - 'r_fftIcentroid': real-space centroid of the magnitude squared
-            of the fourier transform of the scattering spectrum
-
-        - 'r_fftImax': real-space maximum of the magnitude squared
-            of the fourier transform of the scattering spectrum
- 
-        - 'q_Icentroid': q-space centroid of the scattering intensity
-
-        - 'q_logIcentroid': q-space centroid of log(I)
-
-        - 'pearson_q': Pearson correlation between q and I(q)
-
-        - 'pearson_q2': Pearson correlation between q squared and I(q)
-
-        - 'pearson_expq': Pearson correlation between exp(q) and I(q)
- 
-        - 'pearson_invexpq': Pearson correlation between exp(-q) and I(q) 
-
-        - 'q_best_hump' : q-vertex of parabola fit to 
-            intensity values near the most hump-like feature 
-            (see xrsdkit.tools.peak_math.humpness())
-
-        - 'q_best_trough' : q-vertex of parabola fit to
-            intensity values near the most trough-like feature 
-            (see xrsdkit.tools.peak_math.humpness())
-
-        - 'best_hump_qwidth' : Focal width of same parabola used for q_best_hump
-
-        - 'best_trough_qwidth' : Focal width of same parabola used for q_best_trough
-
-        - 'q_best_hump_log' : like q_best_hump, but fit to standardized log(I) 
-
-        - 'q_best_trough_log' : like q_best_trough, but fit to standardized log(I) 
-
-        - 'best_hump_qwidth_log' : like best_hump_qwidth, but fit to standardized log(I) 
-
-        - 'best_trough_qwidth_log' : like best_trough_qwidth, but fit to standardized log(I) 
+        Dictionary of numerical features extracted from input pattern.
     """ 
-    q = q_I[:,0]
-    I = q_I[:,1]
     # q, I metrics
     idxmax = np.argmax(I)
     idxmin = np.argmin(I)
