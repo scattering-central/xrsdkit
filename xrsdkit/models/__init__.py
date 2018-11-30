@@ -641,9 +641,10 @@ def save_model_data(model,yml_path,txt_path):
             model_data['scaler']['mean_'] = model.scaler.__dict__['mean_'].tolist()
             model_data['scaler']['scale_'] = model.scaler.__dict__['scale_'].tolist()
             if hasattr(model, 'scaler_y'): # only regression models have it
-                model_data['scaler_y'] = dict()
-                model_data['scaler_y']['mean_'] = model.scaler_y.__dict__['mean_'].tolist()
-                model_data['scaler_y']['scale_'] = model.scaler_y.__dict__['scale_'].tolist()
+                model_data['scaler_y'] = dict(
+                    mean_ = model.scaler_y.__dict__['mean_'].tolist(),
+                    scale_ = model.scaler_y.__dict__['scale_'].tolist()
+                    )
         yaml.dump(model_data,yml_file)
     with open(txt_path,'w') as txt_file:
         if model.trained:

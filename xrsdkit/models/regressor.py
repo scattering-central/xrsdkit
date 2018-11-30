@@ -16,6 +16,7 @@ class Regressor(XRSDModel):
             alpha = [0.00001, 0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
             l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
             )
+        self.scaler_y = None
 
     def load_model_data(self,model_data):
         super(Regressor,self).load_model_data(model_data)
@@ -39,58 +40,19 @@ class Regressor(XRSDModel):
                     penalty='elasticnet',max_iter=1000)
         return new_model
 
-    def train(self, all_data, hyper_parameters_search=False):
-        """Overriding of train() function from xrsd_model.py.
-        For the regression models we also need to scale target
-        column since we are using "epsilon" value to choose the best
-        cost function. We are comparing the difference between
-        predicted the true values with "epsilon".
-        Train the model, optionally searching for optimal hyperparameters.
+    def standardize(self,data):
+        """Standardize the columns of data that are used as model inputs
 
-        Parameters
-        ----------
-        all_data : pandas.DataFrame
-            dataframe containing features and labels
-        hyper_parameters_search : bool
-            If true, grid-search model hyperparameters
-            to seek high cross-validation accuracy.
+        Overriding of XRSDModel.standardize():
+        For the regression models we also need to scale the target,
+        since 'epsilon' and other hyperparameters will be affected
+        by the scale of the training data outputs. 
         """
-
-        shuffled_rows = np.random.permutation(all_data.index)
-        all_data = all_data.loc[shuffled_rows]
-        d = all_data[all_data[self.target].isnull() == False]
-        training_possible, n_groups_out, d = self.check_label(d)
-        if not training_possible:
-            # all samples have identical labels or we have <5 samples
-            self.default_val = d[self.target].unique()[0] # use a value as the default value
-            self.trained = False
-            return
-        else:
-            data = d
-            new_scaler = preprocessing.StandardScaler()
-            new_scaler.fit(data[profiler.profile_keys])
-            data[profiler.profile_keys] = new_scaler.transform(data[profiler.profile_keys])
-
-            new_scaler_y = preprocessing.StandardScaler()
-            new_scaler_y.fit(data[self.target].values.reshape(-1, 1))
-            data[self.target] = new_scaler_y.transform(data[self.target].values.reshape(-1, 1))
-
-            if hyper_parameters_search:
-                new_parameters = self.hyperparameters_search(
-                    data[profiler.profile_keys], data[self.target],
-                    data['experiment_id'], n_groups_out)
-                new_model = self.build_model(new_parameters)
-            else:
-                new_model = self.model
-
-            # NOTE: after cross-validation for parameter selection,
-            # the entire dataset is used for final training
-            self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
-            new_model.fit(data[profiler.profile_keys], data[self.target])
-            self.scaler = new_scaler
-            self.scaler_y = new_scaler_y
-            self.model = new_model
-            self.trained = True
+        data = super(Regressor,self).standardize(data)
+        self.scaler_y = preprocessing.StandardScaler() 
+        self.scaler_y.fit(data[self.target].values.reshape(-1, 1))
+        data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
+        return data
 
     def predict(self, sample_features):
         """Predict this model's scalar target for a given sample. 
