@@ -1,4 +1,4 @@
-saxskit authors:
+xrsdkit authors:
 Lenson A. Pellouchoud
 Ekaterina Tcareva
 Amanda Fournier
