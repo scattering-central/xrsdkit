@@ -45,7 +45,7 @@ def test_predict_spheres():
         'test_data','solution_saxs','spheres','spheres_0.csv')
     f = open(datapath,'r')
     q_I = np.loadtxt(f,dtype=float,delimiter=',')
-    feats = profiler.profile_spectrum(q_I)
+    feats = profiler.profile_pattern(q_I[:,0],q_I[:,1])
     # models will only be trained if a dataframe was downloaded
     if df_ds is not None:
         pred = predict(feats,test=True)
