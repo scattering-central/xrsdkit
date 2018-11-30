@@ -4,7 +4,7 @@ import numpy as np
 from citrination_client import CitrinationClient
 
 from xrsdkit.tools import profiler
-from xrsdkit.tools.citrination_tools import get_data_from_Citrination 
+from xrsdkit.tools.piftools import get_data_from_Citrination 
 from xrsdkit.models import root_dir, model_dsids, downsample_by_group, train_from_dataframe
 from xrsdkit.models import predict, system_from_prediction 
 from xrsdkit.visualization import visualize_dataframe
@@ -49,6 +49,6 @@ def test_predict_spheres():
     # models will only be trained if a dataframe was downloaded
     if df_ds is not None:
         pred = predict(feats,test=True)
-        sys = system_from_prediction(pred,q_I,0.8)
+        sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],0.8)
 
 

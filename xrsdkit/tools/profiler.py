@@ -65,8 +65,6 @@ def profile_pattern(q,I):
     features : dict
         Dictionary of numerical features extracted from input pattern.
     """ 
-    q = q_I[:,0]
-    I = q_I[:,1]
     # q, I metrics
     idxmax = np.argmax(I)
     idxmin = np.argmin(I)

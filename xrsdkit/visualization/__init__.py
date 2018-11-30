@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 #from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
 
-from ..tools.citrination_tools import get_data_from_Citrination
+from ..tools.piftools import get_data_from_Citrination
 from ..tools.visualization_tools import doPCA, plot_2d
 from ..models import citcl, src_dir, src_dsid_list, testing_data_dir
 from ..tools import profiler
@@ -46,7 +46,7 @@ def download_and_visualize(
     saving_dir = testing_data_dir):
     """Download data and plot it with respect two features or principal components.
 
-    This calls xrsdkit.tools.citrination_tools.get_data_from_Citrination()
+    This calls xrsdkit.tools.piftools.get_data_from_Citrination()
     to fetch a DataFrame full of xrsd records,
     then xrsdkit.visualization.visualize_dataframe() on that DataFrame.
 
