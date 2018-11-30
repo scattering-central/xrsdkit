@@ -67,7 +67,7 @@ def get_data_from_Citrination(client, dataset_id_list):
         datai.extend(list(ocl.values()))
 
     colnames = ['experiment_id'] + \
-            copy.deepcopy(profiler.profile_keys) + \
+            copy.deepcopy(profiler.profile_defs.keys()) + \
             ['local_id'] + \
             reg_labels_list + \
             cls_labels_list

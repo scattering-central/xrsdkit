@@ -222,7 +222,7 @@ def downsample(df, min_distance):
     """Downsample records from one DataFrame.
 
     Transforms the DataFrame feature arrays 
-    (scaling by the columns in profiler.profile_keys),
+    (scaling by the columns in profiler.profile_defs.keys()),
     before collecting at least 10 samples.
     If the size of `df` is <= 10, it is returned directly.
     If it is larger than 10, the first point is chosen
@@ -251,7 +251,7 @@ def downsample(df, min_distance):
     if df_size <= 10:
         sample = sample.append(df)
     else:
-        features = profiler.profile_keys
+        features = profiler.profile_defs.keys()
         scaler = preprocessing.StandardScaler()
         scaler.fit(df[features])
 
@@ -793,13 +793,13 @@ def predict(features,test=False):
     Evaluates classifiers and regression models to
     estimate physical parameters of a sample
     that produced the input `features`,
-    from xrsdit.tools.profiler.profile_spectrum().
+    from xrsdit.tools.profiler.profile_pattern().
 
     Parameters
     ----------
     features : OrderedDict
-            OrderedDict of features with their values,
-            similar to output of xrsdkit.tools.profiler.profile_spectrum()
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
 
     Returns
     -------
@@ -909,16 +909,17 @@ def predict(features,test=False):
 
     return results
 
-
-def system_from_prediction(prediction, q_I, source_wavelength):
+def system_from_prediction(prediction,q,I,source_wavelength):
     """Create a System object from output of predict() function.
 
     Parameters
     ----------
     prediction : dict
          dictionary with predicted system class and parameters
-    q_I : array
-        n-by-2 array of q-values and scattered intensities
+    q : array
+        array of scattering vector magnitudes 
+    I : array
+        array of integrated scattering intensities corresponding to `q`
 
     Returns
     -------
@@ -980,8 +981,8 @@ def system_from_prediction(prediction, q_I, source_wavelength):
             # TODO (later - as for predict()): if the specie is atomic, classify its atom symbol
 
     predicted_system = System(new_sys)
-    Isum = np.sum(q_I[:,1])
-    I_comp = predicted_system.compute_intensity(q_I[:,0],source_wavelength)
+    Isum = np.sum(I)
+    I_comp = predicted_system.compute_intensity(q,source_wavelength)
     Isum_comp = np.sum(I_comp)
     I_factor = Isum/Isum_comp
     predicted_system.noise_model.parameters['I0']['value'] *= I_factor

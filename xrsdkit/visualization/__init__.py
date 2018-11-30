@@ -38,7 +38,7 @@ def download_and_visualize(
     source_dataset_ids = src_dsid_list,
     citrination_client = citcl,
     labels = default_targets,
-    features = profiler.profile_keys,
+    features = profiler.profile_defs.keys(),
     use_pca = True,
     pca_comp_to_use = [0,1],
     show_plots = False,
@@ -84,7 +84,7 @@ def download_and_visualize(
 
 def visualize_dataframe(data,
     labels = default_targets,
-    features = profiler.profile_keys,
+    features = profiler.profile_defs.keys(),
     use_pca = True,
     pca_comp_to_use = [0,1],
     show_plots = False,

@@ -55,7 +55,7 @@ def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=No
         csys.classifications.extend(sys_clss)
         csys.properties.extend(sys_props)
     if q_I is not None:
-        csys.properties.extend(profile_properties(q_I))
+        csys.properties.extend(profile_properties(q_I[:,0],q_I[:,1]))
     return csys
 
 def unpack_pif(pp):
@@ -186,7 +186,7 @@ def unpack_pif(pp):
                 if val.name == 'source wavelength':
                     src_wl = float(val.scalars[0].value)
             q_I = np.vstack([q,I]).T
-        elif prop_nm in profiler.profile_keys:
+        elif prop_nm in profiler.profile_defs.keys():
             features[prop_nm] = float(prop.scalars[0].value)
         elif prop_nm == 'noise_I0_fraction':
             regression_outputs[prop_nm] = prop.scalars[0].value
@@ -236,8 +236,8 @@ def q_I_property(q_I,qunits='1/Angstrom',Iunits='arb',propname='Intensity'):
     pI.name = propname 
     return pI 
 
-def profile_properties(q_I):
-    prof = profiler.profile_spectrum(q_I)
+def profile_properties(q,I):
+    prof = profiler.profile_pattern(q,I)
     pp = []
     for fnm,fval in prof.items():
         if fval is not None:

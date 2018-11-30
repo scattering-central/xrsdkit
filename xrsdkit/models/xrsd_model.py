@@ -66,7 +66,7 @@ class XRSDModel(object):
 
             if hyper_parameters_search:
                 new_parameters = self.hyperparameters_search(
-                    data[profiler.profile_keys], data[self.target],
+                    data[profiler.profile_defs.keys()], data[self.target],
                     data['experiment_id'], n_groups_out)
                 new_model = self.build_model(new_parameters)
             else:
@@ -74,16 +74,16 @@ class XRSDModel(object):
 
             # NOTE: after cross-validation for parameter selection,
             # the entire dataset is used for final training
-            self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
-            new_model.fit(data[profiler.profile_keys], data[self.target])
+            self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_defs.keys(),n_groups_out)
+            new_model.fit(data[profiler.profile_defs.keys()], data[self.target])
             self.model = new_model
             self.trained = True
 
     def standardize(self,data):
         """Standardize the columns of data that are used as model inputs"""
         self.scaler = preprocessing.StandardScaler()
-        self.scaler.fit(data[profiler.profile_keys])
-        data[profiler.profile_keys] = self.scaler.transform(data[profiler.profile_keys])
+        self.scaler.fit(data[profiler.profile_defs.keys()])
+        data[profiler.profile_defs.keys()] = self.scaler.transform(data[profiler.profile_defs.keys()])
         return data
 
     def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring=None):
