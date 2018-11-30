@@ -82,7 +82,6 @@ def unpack_pif(pp):
 
     # unpack system classification and noise classification
     classification_labels['system_classification'] = cls_dict.pop('system_classification').value
-    classification_labels['noise_classification'] = cls_dict.pop('noise_classification').value
 
     # unpack fit report
     fit_rpt = {}

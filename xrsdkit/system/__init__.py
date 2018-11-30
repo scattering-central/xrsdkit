@@ -31,7 +31,9 @@ def load_from_yaml(file_path):
 
 class NoiseModel(object):
 
-    def __init__(self,model,params={}):
+    def __init__(self,model=None,params={}):
+        if not model:
+            model = 'flat' 
         self.model = model
         self.parameters = {}
         for param_nm in xrsdefs.noise_params[model]:
