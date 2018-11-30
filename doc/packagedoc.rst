@@ -4,67 +4,40 @@ Package Documentation
 =====================
 
 
-.. automodule:: saxskit
+.. automodule:: xrsdkit
     :members:
 
-The peak_finder module
-----------------------
+xrsdkit.system
+--------------
 
-.. automodule:: saxskit.peak_finder
-    :members:
-
-
-The peak_math module
---------------------
-
-.. automodule:: saxskit.peak_math
+.. automodule:: xrsdkit.system 
     :members:
 
 
-The saxs_citrination module
----------------------------
+xrsdkit.models
+--------------
 
-.. automodule:: saxskit.saxs_citrination
+.. automodule:: xrsdkit.models 
     :members:
 
 
-The saxs_classify module
-------------------------
+xrsdkit.tools
+-------------
 
-.. automodule:: saxskit.saxs_classify
+.. automodule:: xrsdkit.tools 
     :members:
 
 
-The saxs_fit module
--------------------
+xrsdkit.scattering
+------------------
 
-.. automodule:: saxskit.saxs_fit
+.. automodule:: xrsdkit.scattering 
     :members:
 
 
-The saxs_math module
---------------------
+xrsdkit.visualization
+---------------------
 
-.. automodule:: saxskit.saxs_math
+.. automodule:: xrsdkit.visualization 
     :members:
 
-
-The saxs_models module
-----------------------
-
-.. automodule:: saxskit.saxs_models
-    :members:
-
-
-The saxs_piftools module
-------------------------
-
-.. automodule:: saxskit.saxs_piftools
-    :members:
-
-
-The saxs_regression module
---------------------------
-
-.. automodule:: saxskit.saxs_regression
-    :members:
