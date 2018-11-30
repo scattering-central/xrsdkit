@@ -222,7 +222,7 @@ def downsample(df, min_distance):
     """Downsample records from one DataFrame.
 
     Transforms the DataFrame feature arrays 
-    (scaling by the columns in profiler.profile_defs.keys()),
+    (scaling by the columns in profiler.profile_keys),
     before collecting at least 10 samples.
     If the size of `df` is <= 10, it is returned directly.
     If it is larger than 10, the first point is chosen
@@ -251,11 +251,10 @@ def downsample(df, min_distance):
     if df_size <= 10:
         sample = sample.append(df)
     else:
-        features = profiler.profile_defs.keys()
         scaler = preprocessing.StandardScaler()
-        scaler.fit(df[features])
+        scaler.fit(df[profiler.profile_keys])
 
-        features_matr = scaler.transform(df[features]) # features_matr is a np arraly
+        features_matr = scaler.transform(df[profiler.profile_keys]) 
         # define the distance between two samples in feature space
 
         dist_func = lambda i,j: np.sum(

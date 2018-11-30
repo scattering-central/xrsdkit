@@ -186,7 +186,7 @@ def unpack_pif(pp):
                 if val.name == 'source wavelength':
                     src_wl = float(val.scalars[0].value)
             q_I = np.vstack([q,I]).T
-        elif prop_nm in profiler.profile_defs.keys():
+        elif prop_nm in profiler.profile_keys:
             features[prop_nm] = float(prop.scalars[0].value)
         elif prop_nm == 'noise_I0_fraction':
             regression_outputs[prop_nm] = prop.scalars[0].value

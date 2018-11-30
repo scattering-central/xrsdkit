@@ -2,10 +2,10 @@ from collections import OrderedDict
 
 import numpy as np 
 
-from . import standardize_array, pearson
+from . import pearson
 from . import peak_math
 
-profile_defs = dict(
+profile_defs = OrderedDict(
     Imax_over_Imean = 'maximum over mean intensity on the full q-range',
     Ilowq_over_Imean = 'mean intensity on the lower 10% of the q-range, '\
                     'divided by the mean intensity on the full q-range',
@@ -35,6 +35,8 @@ profile_defs = dict(
     best_hump_qwidth_log = 'like best_hump_qwidth, but fit to standardized log(I)',
     best_trough_qwidth_log = 'like best_trough_qwidth, but fit to standardized log(I)'
     )
+
+profile_keys = list(profile_defs.keys())
 
 def profile_pattern(q,I):
     """Numerical profiling of a scattering or diffraction pattern.
@@ -168,7 +170,7 @@ def profile_pattern(q,I):
     best_hump_qwidth_log = abs(1./p_logIs_hump[0])*q_std
     best_trough_qwidth_log = abs(1./p_logIs_trough[0])*q_std
 
-    features = OrderedDict.fromkeys(profile_defs.keys())
+    features = OrderedDict.fromkeys(profile_keys)
     features['Imax_over_Imean'] = I_max / I_mean   
     features['Ilowq_over_Imean'] = I_lowq / I_mean
     features['Imax_sharpness'] = I_max / Imean_around_Imax
