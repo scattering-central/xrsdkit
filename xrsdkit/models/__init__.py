@@ -123,7 +123,7 @@ def load_classification_models(model_root_dir=classification_models_dir):
             sys_cls_dir = os.path.join(model_root_dir,sys_cls)
             noise_yml_path = os.path.join(sys_cls_dir,'noise_classification.yml')
             if os.path.exists(noise_yml_path):
-                model_dict[sys_cls]['noise_classification'] = Classifier('noise_classification',noise_yml_path)
+                model_dict[sys_cls]['noise'] = Classifier('noise_classification',noise_yml_path)
             # the directory for the system class has subdirectories
             # for each population in the system
             for pop_id in os.listdir(sys_cls_dir):
@@ -534,8 +534,8 @@ def train_classification_models(data, hyper_parameters_search=False):
         print(os.linesep+'Training main system classifier')
         model = Classifier('system_classification',None)
 
-        if 'system_classification'in classification_models.keys() and \
-                classification_models['system_classification'].trained: # we have a trained model
+        if 'system_classification'in classification_models.keys() \
+        and classification_models['system_classification'].trained: 
             old_pars = classification_models['system_classification'].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
 
@@ -562,7 +562,7 @@ def train_classification_models(data, hyper_parameters_search=False):
                             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
                     model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
                     if not model.trained:
-                        print('insufficient or uniform training data: using default value')
+                        print('    insufficient or uniform training data: using default value')
                     sys_models[pop_id] = model
 
                 else:
@@ -827,12 +827,12 @@ def predict(features,test=False):
         pop_structures[pop_id] = struct_id
 
     results['noise'] = {}
-    if 'noise_classification' in cl_models_to_use and cl_models_to_use['noise_classification'].trained:
-        results['noise']['noise_classification'] = cl_models_to_use['noise_classification'].classify(features)
+    if 'noise' in cl_models_to_use and cl_models_to_use['noise'].trained:
+        results['noise']['noise_classification'] = cl_models_to_use['noise'].classify(features)
     else:
         # the model was created but not trained: the default value for the model was saved
-        if 'noise_classification' in cl_models_to_use:
-             results['noise']['noise_classification'] = (cl_models_to_use['noise_classification'].default_val, 1.0)
+        if 'noise' in cl_models_to_use:
+             results['noise']['noise_classification'] = (cl_models_to_use['noise'].default_val, 1.0)
         else:
             # we do not have a model: save the default value
             results['noise']['noise_classification'] = ('flat', 1.0) # TODO add to definitions?
@@ -856,7 +856,7 @@ def predict(features,test=False):
                 results['noise'][param_nm] = xrsdefs.noise_param_defaults[param_nm]['value']
 
     for pop_id, pop_mod in cl_models_to_use.items():
-        if pop_id not in ['noise_classification', 'noise']:
+        if not pop_id == 'noise':
             results[pop_id] = {}
             # evaluate parameters of this population
             for param_nm in xrsdefs.structure_params[pop_structures[pop_id]]+['I0_fraction']:
@@ -929,7 +929,7 @@ def system_from_prediction(prediction, q_I, source_wavelength):
         return System(), new_sys
 
     # else, create the noise model and build the populations
-    new_sys['noise'] = {'model':prediction['noise']['noise_classification'],'parameters':{}}
+    new_sys['noise'] = {'model':prediction['noise']['noise_classification'][0],'parameters':{}}
     for param_nm in xrsdefs.noise_params[prediction['noise']['noise_classification'][0]]:
         if param_nm in prediction['noise']:
             new_sys['noise']['parameters'][param_nm] = dict(value = prediction['noise'][param_nm])
