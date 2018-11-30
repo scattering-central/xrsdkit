@@ -303,6 +303,7 @@ def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test
 
 def train_regression_models(data, hyper_parameters_search=False):
     """Train all trainable regression models from `data`.
+
     Parameters
     ----------
     data : pandas.DataFrame
@@ -310,6 +311,7 @@ def train_regression_models(data, hyper_parameters_search=False):
     hyper_parameters_search : bool
         If true, grid-search model hyperparameters
         to seek high cross-validation R^2 score.
+
     Returns
     -------
     models : dict
