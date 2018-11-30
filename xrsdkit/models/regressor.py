@@ -51,8 +51,8 @@ class Regressor(XRSDModel):
         data = super(Regressor,self).standardize(data)
         self.scaler_y = preprocessing.StandardScaler() 
         self.scaler_y.fit(data[self.target].values.reshape(-1, 1))
-        data[self.target] = new_scaler_y.transform(data[self.target].values.reshape(-1, 1))
-        return self.data
+        data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
+        return data
 
     def predict(self, sample_features):
         """Predict this model's scalar target for a given sample. 
