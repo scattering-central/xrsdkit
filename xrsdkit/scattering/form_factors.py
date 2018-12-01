@@ -5,6 +5,8 @@ import numpy as np
 
 fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yml')
 atomic_params = yaml.load(open(fpath,'r'))
+
+# TODO: allow polymorphism for q to be float or array
     
 def compute_ff(q,basis):
     n_q = len(q)
@@ -23,41 +25,35 @@ def compute_ff_squared(q,basis):
 def site_ff(q,site_def):
     ff = site_def['form']
     if ff == 'flat':
-        nq = len(q)
-        return np.ones(nq)
+        return np.ones(len(q))
     elif ff == 'atomic':
-        if 'symbol' in site_def['settings']:
-            ff_atom = standard_atomic_ff(q,site_def['settings']['symbol'])
-        else:
-            ff_atom = atomic_ff(q,site_def['settings']['Z'],site_def['parameters'])
-        return ff_atom
+        return atomic_ff(q,site_def['settings']['symbol'])
     elif ff == 'spherical':
-        return spherical_ff(q,site_def['parameters']['r'])
+        return spherical_ff(q,site_def['parameters']['r']['value'])
+    else:
+        raise ValueError('Form factor {} is not supported'.format(site_def['form']))
 
 def site_ff_squared(q,site_def):
     ff = site_def['form'] 
     if ff == 'guinier_porod':
         p = site_def['parameters']
-        ff2_gp = guinier_porod_intensity(q,p['G'],p['rg'],p['D'])
+        ff2_gp = guinier_porod_intensity(q,p['rg']['value'],p['D']['value'])
         return ff2_gp 
     elif ff == 'spherical_normal':
         p = site_def['parameters']
-        ff2_sph = spherical_normal_intensity(q,p['r0'],p['sigma']) 
+        ff2_sph = spherical_normal_intensity(q,p['r0']['value'],p['sigma']['value']) 
         return ff2_sph
     else:
         return site_ff(q,site_def)**2
 
-def standard_atomic_ff(q,atom_symbol):
+def atomic_ff(q,atom_symbol):
     pars = atomic_params[atom_symbol]
-    return atomic_ff(q,pars)
+    return compute_atomic_ff(q,pars['Z'],pars['a'],pars['b'])
 
-def atomic_ff(q,params):
+def compute_atomic_ff(q,Z,a,b):
     g = q*1./(2*np.pi)
     s = g*1./2
     s2 = s**2
-    Z = params['Z']
-    a = params['a']
-    b = params['b']
     ff = Z - 41.78214 * s2 * np.sum([aa*np.exp(-1*bb*s2) for aa,bb in zip(a,b)],axis=0)
     return ff
 
@@ -71,7 +67,7 @@ def spherical_ff(q,r):
     else:
         return 3.*(np.sin(x)-x*np.cos(x))*x**-3
 
-def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):  
+def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.05):  
     """Compute the form factor for a normally-distributed sphere population.
 
     The returned form factor is normalized 
@@ -122,15 +118,15 @@ def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.1):
     I = I/I_0 
     return I 
 
-def guinier_porod_intensity(q,guinier_factor,rg,porod_exponent):
+def guinier_porod_intensity(q,rg,porod_exponent):
     """Compute a Guinier-Porod scattering intensity.
-    
+
+    Returned array of intensities is normalized such that I(0)=1.    
+
     Parameters
     ----------
     q : array
         array of q values
-    guinier_factor : float
-        low-q Guinier prefactor (equal to intensity at q=0)
     rg : float
         radius of gyration
     porod_exponent : float
@@ -145,6 +141,7 @@ def guinier_porod_intensity(q,guinier_factor,rg,porod_exponent):
     ---------
     B. Hammouda, J. Appl. Cryst. (2010). 43, 716-719.
     """
+    guinier_factor = 1.
     # q-domain boundary q_splice:
     q_splice = 1./rg * np.sqrt(3./2*porod_exponent)
     idx_guinier = (q <= q_splice)

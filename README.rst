@@ -5,16 +5,16 @@ xrsdkit: Python modules for x-ray scattering and diffraction data analysis
 Description
 -----------
 
-This package uses data-driven models to analyze 
-X-ray scattering and diffraction patterns.
-The models are trained from a set of patterns 
-that have been analyzed and curated on the Citrination platform.
-Two flavors of model are available: 
-one that is evaluated locally (based on scikit-learn),
-and another that is built and evaluated on Citrination,
-for users with access to the Citrination platform.
+This package supports a data ecosystem for 
+X-ray scattering and diffraction patterns,
+notably including tools to curate datasets 
+and build statistical models for automated analysis.
+The package includes a set of models
+trained on data curated by the developers
+at Stanford Synchrotron Radiaton Lightsource (SSRL),
+a directorate of the Stanford Linear Accelerator (SLAC) laboratory.
 
-Scattering patterns employed in this package 
+Data employed for the packaged models 
 are attributed to the following sources:
 
  - Wu, Liheng, et al. Nature 548, 197–201 (2017). doi: 10.1038/nature23308
@@ -34,43 +34,34 @@ This example profiles, parameterizes,
 and optimizes the fit of a scattering equation
 to a measured saxs spectrum.
 
-**Read n-by-2 array of scattering vectors and intensities (`q_I`) from a csv file:** ::
+**Import numpy and some xrsdkit tools** ::
 
     import numpy as np
-    q_I = np.genfromtxt ('my_data/sample_0.csv', delimiter=",")
+    from xrsdkit.tools import profiler as xrsdprof
+    from xrsdkit import models as xrsdmods
+    from xrsdkit import system as xrsdsys
+    from xrsdkit import visualization as xrsdvis 
 
-**Import xrsdkit:** ::
+**Read and profile a scattering pattern** ::
 
-    import xrsdkit
+    q_I = np.loadtxt('my_data/sample_0.dat')
+    q = q_I[:,0]
+    I = q_I[:,1]
+    p = xrsdprof.profile_pattern(q,I)    
 
-**Numerically profile the data:** ::
+**Use statistical models to identify and parameterize the material system** ::
 
-    (TODO: update this example to new API) 
+    pred = xrsdmods.predict(p)
+    source_wavelength = 0.8
+    sys = xrsdmods.system_from_prediction(pred,q,I,source_wavelength)
 
-To predict scatters populations we can use local scikit-learn models or remote Citrination models.
+**Fit the real-valued parameters objectively and plot the result** ::
 
-**Using xrsdkit (scikit-learn) models:** ::
+    sys_opt = xrsdsys.fit(sys,q,I,source_wavelength)
+    mpl_fig, I_comp = xrsdvis.plot_xrsd_fit(sys,q,I,source_wavelength)
+    mpl_fig.show()
 
-    (TODO: update this example to new API) 
-
-**Using Citrination models:** ::
-
-    (TODO: update this example to new API) 
-
-**Fit the remaining parameters:** ::
-
-    (TODO: update this example to new API) 
-
-The full script for this example can be found here:
-https://github.com/scattering-central/saxskit/blob/dev/examples/predict.py
-
-The output should look like this:
-https://github.com/scattering-central/saxskit/blob/dev/examples/output.png
-
-There are some more detailed examples of predictions, 
-training and updating of models,
-and least-squares fitting, 
-in the "examples" directory.
+More specific and detailed examples can be found in the "examples" directory.
 
 
 Installation

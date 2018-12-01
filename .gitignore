@@ -11,6 +11,7 @@ share
 local
 pip-selfcheck.json
 .idea
+.pytest_cache
 *.cache
 *.pyc
 *.swp
@@ -18,4 +19,5 @@ pip-selfcheck.json
 *.egg-info
 *.ipynb-checkpoints
 *api_key.txt
-examples/.ipynb_checkpoints/*.ipynb
+xrsdkit/models/modeling_data/test/*
+examples/.ipynb_checkpoints
