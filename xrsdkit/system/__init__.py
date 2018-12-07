@@ -79,7 +79,12 @@ class System(object):
     def __init__(self,populations={}):
         # TODO: consider polymorphic constructor inputs 
         self.populations = {}
-        self.fit_report = {} # this dict gets populated after self.fit() 
+        self.fit_report = {}
+        # dict of metadata for the sample:
+        # experiment_id: for grouping
+        # id: for identification
+        # data_file: path to file containing scattering data 
+        self.sample_metadata = {'experiment_id':None,'sample_id':None,'data_file':None}
         self.noise_model = NoiseModel('flat')
         self.update_from_dict(populations)
 
@@ -89,6 +94,7 @@ class System(object):
             sd[pop_nm] = pop.to_dict()
         sd['noise'] = self.noise_model.to_dict()
         sd['fit_report'] = copy.deepcopy(self.fit_report)
+        sd['sample_metadata'] = self.sample_metadata
         return sd
 
     def update_from_dict(self,d):
@@ -97,6 +103,8 @@ class System(object):
                 self.update_noise_model(pd)
             elif pop_name == 'fit_report':
                 self.fit_report.update(pd)
+            elif pop_name == 'sample_metadata':
+                self.sample_metadata.update(pd)
             elif not pop_name in self.populations:
                 self.populations[pop_name] = Population.from_dict(pd) 
             else:

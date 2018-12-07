@@ -99,7 +99,7 @@ class Population(object):
         self.parameters[param_nm].update(new_param_dict)
 
     def add_specie(self,specie_name,ff_name,settings={},parameters={},coordinates=[]):
-        if self.structure == 'crystalline' and ff_name in noncrystalline_form_factors:
+        if self.structure == 'crystalline' and ff_name in xrsdefs.noncrystalline_form_factors:
             msg = 'structure {} does not support {} form factors'\
             .format(self.structure,ff_name)
             raise StructureFormException(msg) 
