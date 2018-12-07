@@ -252,12 +252,16 @@ class XRSDFitGUI(object):
         self.control_canvas_configure()
 
     def _create_fit_control_frame(self):
-        # TODO: file io q,I (dat/csv) and populations (YAML); output for DB records (JSON)
+        # TODO: file io q,I (dat/csv) and system data (YAML)
 
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
         self._frames['fit_control'] = cf
+        self._vars['fit_control']['experiment_id'] = tkinter.StringVar(cf)
+        self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
+        self._vars['fit_control']['sample_id'] = tkinter.StringVar(cf)
+        self._vars['fit_control']['sample_id'].set(self.sys.sample_metadata['sample_id'])
         self._vars['fit_control']['wavelength'] = tkinter.DoubleVar(cf)
         self._vars['fit_control']['wavelength'].set(self.src_wl)
         self._vars['fit_control']['objective'] = tkinter.StringVar(cf)
@@ -270,44 +274,73 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['q_range'][1].set(self.q_range[1])
         self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
         self._vars['fit_control']['good_fit'].set(self.good_fit)
-        
+
+        exptidl = tkinter.Label(cf,text='experiment id:',anchor='e')
+        exptide = self.connected_entry(cf,self._vars['fit_control']['experiment_id'],self._set_experiment_id,10)
+        sampidl = tkinter.Label(cf,text='sample id:',anchor='e')
+        sampide = self.connected_entry(cf,self._vars['fit_control']['sample_id'],self._set_sample_id,10)
+        exptidl.grid(row=0,column=0,sticky='e')
+        exptide.grid(row=0,column=1,columnspan=2,sticky='ew')
+        sampidl.grid(row=1,column=0,sticky='e')
+        sampide.grid(row=1,column=1,columnspan=2,sticky='ew')
+
         wll = tkinter.Label(cf,text='wavelength:',anchor='e')
         wle = self.connected_entry(cf,self._vars['fit_control']['wavelength'],self._set_wavelength,10)
-        wll.grid(row=0,column=0,sticky='e')
-        wle.grid(row=0,column=1,sticky='ew')
+        wll.grid(row=2,column=0,sticky='e')
+        wle.grid(row=2,column=1,columnspan=2,sticky='ew')
 
         q_range_lbl = tkinter.Label(cf,text='q-range:',anchor='e')
-        q_range_lbl.grid(row=1,column=0,sticky='e')
+        q_range_lbl.grid(row=3,column=0,sticky='e')
         #q_lo_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][0])
         #q_hi_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][1])
         q_lo_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][0],
             partial(self._set_q_range,0),8) 
         q_hi_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][1],
             partial(self._set_q_range,1),8) 
-        q_lo_ent.grid(row=1,column=1,sticky='ew')
-        q_hi_ent.grid(row=1,column=2,sticky='ew')
+        q_lo_ent.grid(row=3,column=1,sticky='ew')
+        q_hi_ent.grid(row=3,column=2,sticky='ew')
 
         ewtcb = self.connected_checkbutton(cf,self._vars['fit_control']['error_weighted'],
             self._set_error_weighted,'error weighted')
-        ewtcb.grid(row=2,column=0,sticky='w')
+        ewtcb.grid(row=4,column=0,sticky='w')
         logwtcb = self.connected_checkbutton(cf,self._vars['fit_control']['logI_weighted'],
             self._set_logI_weighted,'log(I) weighted')
-        logwtcb.grid(row=3,column=0,sticky='w')
+        logwtcb.grid(row=5,column=0,sticky='w')
 
         estbtn = tkinter.Button(cf,text='Estimate',width=8,command=self._estimate)
-        estbtn.grid(row=2,column=1,rowspan=2,sticky='nesw')
+        estbtn.grid(row=4,column=1,rowspan=2,sticky='nesw')
         fitbtn = tkinter.Button(cf,text='Fit',width=8,command=self._fit)
-        fitbtn.grid(row=2,column=2,rowspan=2,sticky='nesw')
+        fitbtn.grid(row=4,column=2,rowspan=2,sticky='nesw')
 
         objl = tkinter.Label(cf,text='objective:',anchor='e')
-        objl.grid(row=4,column=0,sticky='e')
+        objl.grid(row=6,column=0,sticky='e')
         rese = tkinter.Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
-        rese.grid(row=4,column=1,sticky='ew')
+        rese.grid(row=6,column=1,sticky='ew')
         fitcb = self.connected_checkbutton(cf,self._vars['fit_control']['good_fit'],
             self._set_good_fit,'Good fit')
-        fitcb.grid(row=4,column=2,sticky='ew')
+        fitcb.grid(row=6,column=2,sticky='ew')
 
         cf.grid(row=0,pady=2,padx=2,sticky='ew')
+
+    def _set_experiment_id(self,event=None):
+        try:
+            new_val = self._vars['fit_control']['experiment_id'].get()
+        except:
+            self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
+            new_val = self.sys.sample_metadata['experiment_id']
+        if not new_val == self.sys.sample_metadata['experiment_id']:
+            self.sys.sample_metadata['experiment_id'] = new_val
+        return True
+
+    def _set_sample_id(self,event=None):
+        try:
+            new_val = self._vars['fit_control']['sample_id'].get()
+        except:
+            self._vars['fit_control']['sample_id'].set(self.sys.sample_metadata['sample_id'])
+            new_val = self.sys.sample_metadata['sample_id']
+        if not new_val == self.sys.sample_metadata['sample_id']:
+            self.sys.sample_metadata['sample_id'] = new_val
+        return True
 
     def _set_wavelength(self,event=None):
         try:
@@ -315,7 +348,6 @@ class XRSDFitGUI(object):
         except:
             self._vars['fit_control']['wavelength'].set(self.src_wl)
             new_val = self.src_wl
-            return False
         if not new_val == self.src_wl:
             self.src_wl = new_val
             self._draw_plots()
@@ -327,7 +359,6 @@ class XRSDFitGUI(object):
         except:
             self._vars['fit_control']['q_range'][q_idx].set(self.q_range[q_idx])
             new_val = self.q_range[q_idx]
-            return False
         if not new_val == self.q_range[q_idx]:
             self.q_range[q_idx] = new_val
             self._update_fit_objective()
