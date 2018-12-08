@@ -4,7 +4,7 @@ import copy
 
 import pandas as pd
 import numpy as np
-from pypif.obj import ChemicalSystem, Property, Classification, Id, Value, Scalar
+from pypif.obj import ChemicalSystem, Property, Classification, Id, Value, FileReference, Scalar
 from citrination_client import PifSystemReturningQuery, DatasetQuery, DataQuery, Filter
 
 from . import profiler
@@ -15,7 +15,7 @@ from ..system import System
 _reg_params = list(xrsdefs.param_defaults.keys())
 _reg_params[_reg_params.index('I0')] = 'I0_fraction'
 
-def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=None):
+def make_pif(uid,sys=None,q_I_file=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=None):
     """Make a pypif.obj.ChemicalSystem object describing XRSD data.
 
     Parameters
@@ -24,10 +24,12 @@ def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=No
         record id, should be unique across the dataset
     sys : xrsdkit.system.System 
         System object describing populations and parameters
+    q_I_file : str 
+        Path to q_I data file (within the Citrination dataset) 
     q_I : array
         n-by-2 array of q (1/Angstrom) and intensity (arb)
     expt_id : str
-        experiment id for the system, used for dataset grouping
+        experiment id for dataset grouping
     t_utc : int
         UTC time in seconds
     temp_C : float
@@ -50,12 +52,14 @@ def make_pif(uid,sys=None,q_I=None,expt_id=None,t_utc=None,temp_C=None,src_wl=No
         csys.ids.append(id_tag('EXPERIMENT_ID',expt_id))
     if t_utc is not None:
         csys.tags.append('time (utc): '+str(int(t_utc)))
-    if q_I is not None:
-        csys.properties.extend(q_I_properties(q_I,temp_C,src_wl))
+    #if q_I is not None:
+    #    csys.properties.extend(q_I_properties(q_I,temp_C,src_wl))
     if sys is not None and src_wl is not None:
-        sys_clss, sys_props = pack_system_objects(sys,src_wl)
+        sys_clss, sys_props = pack_system_objects(sys,src_wl,temp_C)
         csys.classifications.extend(sys_clss)
         csys.properties.extend(sys_props)
+    if q_I_file is not None:
+        csys.properties.append(Property('q_I_file',files=[FileReference(q_I_file)]))
     if q_I is not None:
         csys.properties.extend(profile_properties(q_I[:,0],q_I[:,1]))
     return csys
@@ -246,7 +250,7 @@ def profile_properties(q,I):
             pp.append(Property(fnm,fval))
     return pp
 
-def pack_system_objects(sys,src_wl):
+def pack_system_objects(sys,src_wl,temp_C=None):
     """Return pypif.obj objects describing System attributes"""
     all_props = []
     all_clss = [] 
@@ -254,6 +258,10 @@ def pack_system_objects(sys,src_wl):
     ipop = 0
     if sys.fit_report:
         all_props.append(fit_report_property(sys.fit_report))
+    if src_wl is not None:
+        all_props.append(Property('source_wavelength',src_wl))
+    if temp_C is not None:
+        all_props.append(Property('temperature',temp_C,units='degrees C'))
     if any([p.structure=='unidentified' for pnm,p in sys.populations.items()]):
         sys_cls = 'unidentified'
     else:
