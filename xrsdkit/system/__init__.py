@@ -66,9 +66,9 @@ class NoiseModel(object):
         I = np.zeros(n_q)
         if not self.model in xrsdefs.noise_model_names:
             raise ValueError('unsupported noise specification: {}'.format(self.model))
-        if noise_modnm == 'flat':
+        if self.model == 'flat':
             I += self.parameters['I0']['value'] * np.ones(n_q)
-        elif noise_modnm == 'flat_plus_beam':
+        elif self.model == 'flat_plus_beam':
             theta = np.arcsin(source_wavelength*q/(4.*np.pi))
             I += self.parameters['I0_beam']['value'] * 1./theta
             I += self.parameters['I0_flat']['value'] * np.ones(n_q)
