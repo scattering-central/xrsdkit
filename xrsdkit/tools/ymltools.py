@@ -3,7 +3,7 @@ import re
 import copy
 import pandas as pd
 
-from . import profiler
+from . import profiler, primitives
 from ..system import System
 
 import yaml
@@ -13,6 +13,15 @@ from xrsdkit.tools.profiler import profile_pattern
 from .. import definitions as xrsdefs
 from .piftools import _sort_populations, _sort_species
 
+def save_sys_to_yaml(file_path,sys):
+    sd = sys.to_dict()
+    with open(file_path, 'w') as yaml_file:
+        yaml.dump(primitives(sd),yaml_file)
+
+def load_sys_from_yaml(file_path):
+    with open(file_path, 'r') as yaml_file:
+        sd = yaml.load(yaml_file)
+    return System(sd), sd
 
 def setting_properties(ip,pop):
     """Create a dictionary of all settings with
@@ -126,13 +135,17 @@ def specie_param_properties(ip,isp,specie):
 
 
 def get_data_from_local_dir(path_to_dir):
-    # TODO describe how we created yml files. Where is the functions to create them?
     """Get data from a local directory.
+
+    The data directory should contain one or more subdirectories,
+    where each subdirectory contains .yml files,
+    where each .yml file describes one sample,
+    as saved by save_sys_to_yaml().
 
     Parameters
     ----------
     path_to_dir : str
-        abs path to the folder with the training set
+        absolute path to the folder with the training set
         Precondition: dataset directory includes directories named
         by the name of the experiments; each experiment directory
         holds data from this experiment. For each sample there is one yml file
@@ -149,10 +162,12 @@ def get_data_from_local_dir(path_to_dir):
     data = []
     reg_labels = []
     cls_labels = []
-    all_reg_labels = set()# all_reg_labels and all_cls_labels are sets of all
-    all_cls_labels = set()# unique labels over the provided datasets
+    all_reg_labels = set()  # all_reg_labels and all_cls_labels are sets of all
+    all_cls_labels = set()  # unique labels over the provided datasets
 
+    print('reading dataset from {}'.format(path_to_dir))
     samples = read_data(path_to_dir)
+    print('done - found {} records'.format(len(samples)))
 
     for pp in samples:
         expt_id, sample_id, features, classification_labels, regression_outputs = \
@@ -184,16 +199,15 @@ def get_data_from_local_dir(path_to_dir):
         datai.extend(list(ocl.values()))
 
     colnames = ['experiment_id'] + ['sample_id'] +\
-            copy.deepcopy(profiler.profile_keys) + \
+            copy.copy(profiler.profile_keys) + \
             reg_labels_list + \
             cls_labels_list
 
     df_work = pd.DataFrame(data=data, columns=colnames)
     return df_work
 
-
 def read_data(path_to_dir):
-    """Load content of yml files from all files in provided directory.
+    """Load content of yml files from provided directory.
 
     Parameters
     ----------
@@ -206,36 +220,26 @@ def read_data(path_to_dir):
         list of dictionaries loaded from yml files that include
         fit_report, description of all populations, and sample_metadata.
     """
-    try:
-        samples = []
-        exp_folders = []
-        for experiment in os.listdir(path_to_dir):
-            #the name of the folder must start wiht a capital letter:
-            if re.match(r'^[A-Z]', experiment):
-                exp_folders.append(experiment)
-
-        print('fetching records from datasets: {}...'.format(exp_folders))
-        for experiment in exp_folders:
-            exp_data_dir = os.path.join(path_to_dir,experiment)
-            for s_data_file in os.listdir(exp_data_dir):
-                if s_data_file.endswith('.yml'):
-                    file_path = os.path.join(exp_data_dir, s_data_file)
-                    s_data = yaml.load(open(file_path,'rb'))
-                    samples.append(s_data)
-        print('done - found {} records'.format(len(samples)))
-        return samples
-    except IOError:
-        print("Error: can\'t find file or read data")
-        sys.exit()
+    
+    samples = []
+    for experiment in os.listdir(path_to_dir):
+        exp_data_dir = os.path.join(path_to_dir,experiment)
+        for s_data_file in os.listdir(exp_data_dir):
+            if s_data_file.endswith('.yml'):
+                file_path = os.path.join(exp_data_dir, s_data_file)
+                sys, sys_data = load_sys_from_yaml(file_path)
+                samples.append(sys_data)
+    return samples
 
 def unpack_sample(pp, path_to_dir):
-    """Exctract classification and regression labels from the sample;
-    calculate all features.
+    """Extract features and labels from the dict describing the sample.
 
     Parameters
     ----------
-    pp  : dict
-        includes fit_report, description of all populations, and sample_metadata.
+    pp : dict
+        dict containing description of xrsdkit.system.System.
+        Includes fit_report, sample_metadata, features,
+        noise_model, and one dict for each of the populations.
     path_to_dir : str
         abs path to the folder with the training set
 
@@ -255,11 +259,12 @@ def unpack_sample(pp, path_to_dir):
     """
     expt_id = pp['sample_metadata']['experiment_id']
     sample_id = pp['sample_metadata']['sample_id']
-    file_path = os.path.join(path_to_dir,expt_id,pp['sample_metadata']['data_file'])
-    q_I = np.loadtxt(file_path)
-    q = q_I[:,0]
-    I = q_I[:,1]
-    features = profile_pattern(q, I)
+    features = pp['features']
+    #file_path = os.path.join(path_to_dir,expt_id,pp['sample_metadata']['data_file'])
+    #q_I = np.loadtxt(file_path)
+    #q = q_I[:,0]
+    #I = q_I[:,1]
+    #features = profile_pattern(q, I)
     sys = System(pp)
 
     regression_labels = {}
