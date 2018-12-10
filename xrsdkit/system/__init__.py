@@ -94,7 +94,7 @@ class System(object):
         for pop_name,pd in d.items():
             if pop_name == 'noise':
                 self.update_noise_model(pd)
-            if pop_name == 'features':
+            elif pop_name == 'features':
                 self.features.update(pd)
             elif pop_name == 'fit_report':
                 self.fit_report.update(pd)
