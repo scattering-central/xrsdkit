@@ -81,7 +81,7 @@ def load_regression_models(model_root_dir=regression_models_dir):
                         if pop_subitm.endswith('.yml'):
                             param_nm = pop_subitm.split('.')[0]
                             yml_path = os.path.join(pop_subdir,pop_subitm)
-                            model_dict[sys_cls][pop_id][pop_itm][param_nm] = Regressor(param_nm,yml_path) 
+                            model_dict[sys_cls][pop_id][pop_itm][param_nm] = Regressor(param_nm,yml_path)
                 elif pop_itm.endswith('.yml'):
                     # model parameters
                     param_nm = pop_itm.split('.')[0]
@@ -695,7 +695,8 @@ def save_regression_models(models=regression_models, test=False):
                     if not os.path.exists(pop_subdir_path): os.mkdir(pop_subdir_path)
                     if k in xrsdefs.setting_selections['lattice']+xrsdefs.setting_selections['interaction']:
                         if k in xrsdefs.setting_selections['lattice']: param_nms = xrsdefs.setting_params['lattice'][k]
-                        if k in xrsdefs.setting_selections['interaction']: param_nms = xrsdefs.setting_params['disordered'][k]
+                        if k in xrsdefs.setting_selections['interaction']:
+                            param_nms = xrsdefs.setting_params['interaction'][k] 
                         for param_nm in param_nms:
                             if v[param_nm]:
                                 model_dict[sys_cls][pop_id][k][param_nm] = v[param_nm]
