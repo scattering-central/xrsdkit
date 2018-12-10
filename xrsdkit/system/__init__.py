@@ -13,21 +13,12 @@ import yaml
 from .population import Population
 from .specie import Specie
 from .. import definitions as xrsdefs 
-from ..tools import primitives, compute_chi2
+from ..tools import compute_chi2
+from ..tools.profiler import profile_pattern
 
 # TODO: when params, settings, etc are changed,
 #   ensure all attributes remain valid,
 #   wrt constraints as well as wrt supported options.
-
-def save_to_yaml(file_path,sys):
-    sd = sys.to_dict()
-    with open(file_path, 'w') as yaml_file:
-        yaml.dump(primitives(sd),yaml_file)
-
-def load_from_yaml(file_path):
-    with open(file_path, 'r') as yaml_file:
-        sd = yaml.load(yaml_file)
-    return System(sd)
 
 class NoiseModel(object):
 
@@ -80,6 +71,7 @@ class System(object):
         # TODO: consider polymorphic constructor inputs 
         self.populations = {}
         self.fit_report = {}
+        self.features = {}
         # dict of metadata for the sample:
         # experiment_id: for grouping
         # id: for identification
@@ -95,12 +87,15 @@ class System(object):
         sd['noise'] = self.noise_model.to_dict()
         sd['fit_report'] = copy.deepcopy(self.fit_report)
         sd['sample_metadata'] = self.sample_metadata
+        sd['features'] = self.features
         return sd
 
     def update_from_dict(self,d):
         for pop_name,pd in d.items():
             if pop_name == 'noise':
                 self.update_noise_model(pd)
+            if pop_name == 'features':
+                self.features.update(pd)
             elif pop_name == 'fit_report':
                 self.fit_report.update(pd)
             elif pop_name == 'sample_metadata':
@@ -341,6 +336,7 @@ def fit(sys,q,I,source_wavelength,dI=None,
     sys_opt.fit_report['q_range'] = q_range 
     sys_opt.fit_report['fit_snr'] = snr
     sys_opt.fit_report['source_wavelength'] = source_wavelength
+    sys_opt.features = profile_pattern(q,I)
 
     return sys_opt
 
