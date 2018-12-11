@@ -10,13 +10,13 @@ class Regressor(XRSDModel):
     """Class for generating models to predict real-valued parameters."""
 
     def __init__(self,label,yml_file):
+        self.scaler_y = None
         super(Regressor,self).__init__(label, yml_file)
         self.grid_search_hyperparameters = dict(
             epsilon = [10, 1, 0.1, 0.01, 0.001, 0],
             alpha = [0.00001, 0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
             l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
             )
-        self.scaler_y = None
 
     def load_model_data(self,model_data):
         super(Regressor,self).load_model_data(model_data)
