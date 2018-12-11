@@ -228,11 +228,12 @@ def read_data(path_to_dir):
     samples = []
     for experiment in os.listdir(path_to_dir):
         exp_data_dir = os.path.join(path_to_dir,experiment)
-        for s_data_file in os.listdir(exp_data_dir):
-            if s_data_file.endswith('.yml'):
-                file_path = os.path.join(exp_data_dir, s_data_file)
-                sys, sys_data = load_sys_from_yaml(file_path)
-                samples.append(sys_data)
+        if os.path.isdir(exp_data_dir):
+            for s_data_file in os.listdir(exp_data_dir):
+                if s_data_file.endswith('.yml'):
+                    file_path = os.path.join(exp_data_dir, s_data_file)
+                    sys, sys_data = load_sys_from_yaml(file_path)
+                    samples.append(sys_data)
     return samples
 
 def unpack_sample(pp, path_to_dir):
