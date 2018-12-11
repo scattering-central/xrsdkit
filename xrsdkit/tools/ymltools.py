@@ -134,13 +134,15 @@ def specie_param_properties(ip,isp,specie):
     return pps
 
 
-def get_data_from_local_dir(path_to_dir):
+def get_data_from_local_dir(path_to_dir,output_csv=False):
     """Get data from a local directory.
 
     The data directory should contain one or more subdirectories,
     where each subdirectory contains .yml files,
     where each .yml file describes one sample,
     as saved by save_sys_to_yaml().
+    If `output_csv` is True,
+    the dataset is saved to dataset.csv in `path_to_dir`.
 
     Parameters
     ----------
@@ -204,6 +206,8 @@ def get_data_from_local_dir(path_to_dir):
             cls_labels_list
 
     df_work = pd.DataFrame(data=data, columns=colnames)
+    if output_csv:
+        df_work.to_csv(os.path.join(path_to_dir,'dataset.csv'))
     return df_work
 
 def read_data(path_to_dir):
