@@ -19,7 +19,7 @@ if os.path.exists(datapath):
     df = pd.read_csv(datapath)
 
 def test_visualization():
-    if df is not None:
+    if df is not None and 'DISPLAY' in os.environ:
         visualize_dataframe(df)
 
 def downsample_df():
