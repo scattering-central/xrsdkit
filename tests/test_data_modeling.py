@@ -45,7 +45,8 @@ def test_predict_spheres():
     if df_ds is not None:
         pred = predict(feats,test=True)
         sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],0.8)
-        fit_sys, good_fit_flag = run_fit_gui(sys,q_I[:,0],q_I[:,1],0.8265616)
+        if 'DISPLAY' in os.environ:
+            fit_sys, good_fit_flag = run_fit_gui(sys,q_I[:,0],q_I[:,1],0.8265616)
 
 
 
