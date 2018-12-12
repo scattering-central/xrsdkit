@@ -991,7 +991,7 @@ def system_from_prediction(prediction,q,I,source_wavelength):
     for pop_nm,pop in predicted_system.populations.items():
         pop.parameters['I0']['value'] *= I_factor
 
-    return predicted_system, predicted_system.to_dict() 
+    return predicted_system
 
 # TODO refactor the modeling dataset index: it can no longer be divided simply by system class
 #def save_modeling_datasets(df,grp_cols,all_groups,all_samples,test=True):
