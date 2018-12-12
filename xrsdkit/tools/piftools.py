@@ -266,7 +266,7 @@ def pack_system_objects(sys,src_wl,temp_C=None):
         sys_cls = 'unidentified'
     else:
         I0 = sys.compute_intensity(np.array([0.]),src_wl)[0]
-        I0_noise = sys.compute_noise_intensity(np.array([0.]))[0]
+        I0_noise = sys.noise_model.compute_intensity(np.array([0.]))[0]
         if I0 == 0.: 
             all_props.append(Property('noise_I0_fraction',0.))
         else:

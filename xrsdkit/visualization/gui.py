@@ -392,7 +392,7 @@ class XRSDFitGUI(object):
         ntp_option_dict = list(xrsdefs.noise_model_names)
         ntpcb = tkinter.OptionMenu(nmf,ntpvar,*ntp_option_dict)
         ntpvar.set(self.sys.noise_model.model)
-        ntpvar.trace('w',self._repack_noise_frame)
+        ntpvar.trace('w',self._update_noise)
         ntpcb.pack(side=tkinter.LEFT,fill='x')
         self._vars['noise_model'] = ntpvar
         nmf.grid(row=0,sticky='ew')
@@ -410,7 +410,7 @@ class XRSDFitGUI(object):
         for par_nm,frm in self._frames['parameters']['noise'].items(): frm.pack_forget() 
         new_par_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        for par_nm in xrsdefs.noise_model_params[nmdl]: 
+        for par_nm in xrsdefs.noise_params[nmdl]: 
             if par_nm in self._frames['parameters']['noise']:
                 new_par_frms[par_nm] = self._frames['parameters']['noise'][par_nm]
             else:
@@ -418,7 +418,7 @@ class XRSDFitGUI(object):
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['parameters']['noise'].keys())
         for par_nm in par_frm_nms: 
-            if not par_nm in xrsdefs.noise_model_params[nmdl]: 
+            if not par_nm in xrsdefs.noise_params[nmdl]: 
                 frm = self._frames['parameters']['noise'].pop(par_nm)
                 frm.destroy()
                 self._vars['parameters']['noise'].pop(par_nm)
@@ -1043,6 +1043,16 @@ class XRSDFitGUI(object):
             # so that it is accounted for in control_canvas_configure()
             self.fit_gui.update_idletasks()
             self.control_canvas_configure()
+
+    def _update_noise(self,*event_args):
+        s = self._vars['noise_model'].get()
+        if not s == self.sys.noise_model.model:
+            try:
+                self.sys.noise_model.set_model(s)
+            except:
+                raise
+            self._repack_noise_frame()
+            self._draw_plots()
 
     def _update_structure(self,pop_nm,*event_args):
         s = self._vars['structures'][pop_nm].get()

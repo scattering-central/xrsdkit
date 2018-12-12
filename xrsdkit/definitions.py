@@ -20,7 +20,7 @@ form_factor_names = [\
 'guinier_porod',\
 'spherical',\
 'spherical_normal']
-noise_model_names = ['flat']
+noise_model_names = ['flat','flat_plus_beam']
 # list of form factors that do not support crystalline arrangements 
 noncrystalline_form_factors = ['spherical_normal','guinier_porod']
 
@@ -107,7 +107,6 @@ form_factor_params = dict(
     spherical = ['r'],
     spherical_normal = ['r0','sigma']
     )
-noise_params = dict(flat = ['I0'])
 
 # params whose existence depends on a setting selection
 setting_params = dict(
@@ -142,8 +141,14 @@ param_defaults = dict(
     gamma = {'value':90.,'fixed':False,'bounds':[0.,180.],'constraint_expr':None}
     )
 
+noise_params = dict(
+    flat = ['I0'],
+    flat_plus_beam = ['I0','I0_flat_fraction','hwhm_beam']
+    )
 noise_param_defaults = dict(
-    I0 = {'value':1.E-6,'fixed':False,'bounds':[1.E-12,None],'constraint_expr':None},
+    I0 = {'value':1.E-3,'fixed':False,'bounds':[1.E-12,None],'constraint_expr':None},
+    I0_flat_fraction = {'value':1.E-2,'fixed':False,'bounds':[0.,1.],'constraint_expr':None},
+    hwhm_beam = {'value':1.E-2,'fixed':False,'bounds':[1.E-12,None],'constraint_expr':None},
     )
 
 coord_default = {'value':0.,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None}

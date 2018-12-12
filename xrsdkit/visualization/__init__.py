@@ -22,7 +22,7 @@ def draw_xrsd_fit(mpl_fig,sys,q,I,source_wavelength,dI=None,show_plot=False):
     ax_plot.semilogy(q,I,lw=2,color='black')
     I_comp = sys.compute_intensity(q,source_wavelength)
     ax_plot.semilogy(q,I_comp,lw=2,color='red')
-    I_noise = sys.compute_noise_intensity(q)
+    I_noise = sys.noise_model.compute_intensity(q)
     ax_plot.semilogy(q,I_noise,lw=1) 
     for popnm,pop in sys.populations.items():
         I_p = pop.compute_intensity(q,source_wavelength)

@@ -13,7 +13,7 @@ import yaml
 from .population import Population
 from .specie import Specie
 from .. import definitions as xrsdefs 
-from ..tools import compute_chi2
+from ..tools import peak_math, compute_chi2
 from ..tools.profiler import profile_pattern
 
 # TODO: when params, settings, etc are changed,
@@ -60,6 +60,21 @@ class NoiseModel(object):
 
     def update_parameter(self,param_nm,new_param_dict): 
         self.parameters[param_nm].update(new_param_dict)
+
+    def compute_intensity(self,q):
+        n_q = len(q)
+        I = np.zeros(n_q)
+        if not self.model in xrsdefs.noise_model_names:
+            raise ValueError('unsupported noise specification: {}'.format(self.model))
+        if self.model == 'flat':
+            I += self.parameters['I0']['value'] * np.ones(n_q)
+        elif self.model == 'flat_plus_beam':
+            #theta = np.arcsin(source_wavelength*q/(4.*np.pi))
+            g0 = peak_math.gaussian_profile(0.,0.,self.parameters['hwhm_beam']['value'])
+            I0_beam = self.parameters['I0']['value'] * (1.-self.parameters['I0_flat_fraction']['value'])
+            I += I0_beam * (1./g0) * peak_math.gaussian_profile(q,0.,self.parameters['hwhm_beam']['value'])
+            I += self.parameters['I0']['value'] * self.parameters['I0_flat_fraction']['value'] * np.ones(n_q)
+        return I
 
 class System(object):
 
@@ -161,18 +176,9 @@ class System(object):
         I : array
             Array of scattering intensities for each of the input q values
         """
-        I = self.compute_noise_intensity(q)
+        I = self.noise_model.compute_intensity(q)
         for pop_name,pop in self.populations.items():
             I += pop.compute_intensity(q,source_wavelength)
-        return I
-
-    def compute_noise_intensity(self,q):
-        I = np.zeros(len(q))
-        noise_modnm = self.noise_model.model
-        if not noise_modnm in xrsdefs.noise_model_names:
-            raise ValueError('unsupported noise specification: {}'.format(noise_modnm))
-        if noise_modnm == 'flat':
-            I += self.noise_model.parameters['I0']['value'] * np.ones(len(q))
         return I
 
     def evaluate_residual(self,q,I,source_wavelength,dI=None,

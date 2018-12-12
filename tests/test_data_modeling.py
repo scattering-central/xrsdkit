@@ -10,6 +10,7 @@ from xrsdkit.tools.ymltools import get_data_from_local_dir
 from xrsdkit.models import root_dir, model_dsids, downsample_by_group, train_from_dataframe
 from xrsdkit.models import predict, system_from_prediction 
 from xrsdkit.visualization import visualize_dataframe
+from xrsdkit.visualization.gui import run_fit_gui 
 
 datapath = os.path.join(os.path.dirname(__file__),
         'test_data','training_data','test_dataset.csv')
@@ -44,5 +45,8 @@ def test_predict_spheres():
     if df_ds is not None:
         pred = predict(feats,test=True)
         sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],0.8)
+        if 'DISPLAY' in os.environ:
+            fit_sys, good_fit_flag = run_fit_gui(sys,q_I[:,0],q_I[:,1],0.8265616)
+
 
 
