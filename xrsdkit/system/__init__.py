@@ -91,7 +91,7 @@ class System(object):
         # experiment_id: for grouping
         # id: for identification
         # data_file: path to file containing scattering data 
-        self.sample_metadata = {'experiment_id':None,'sample_id':None,'data_file':None}
+        self.sample_metadata = {'experiment_id':None,'sample_id':None,'data_file':None,'good_fit':False}
         self.noise_model = NoiseModel('flat')
         self.update_from_dict(populations)
 
