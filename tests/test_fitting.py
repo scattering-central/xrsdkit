@@ -2,19 +2,21 @@ import os
 
 import numpy as np
 
-from xrsdkit.system import System, fit 
+from xrsdkit.system import System, Population, NoiseModel, fit 
 from xrsdkit.visualization.gui import run_fit_gui
 
 src_wl = 0.8265616
 
-np_dict =  dict(
+nps = Population(
     structure='diffuse',
-    parameters={'I0':{'value':1000}},
-    basis=dict(
-        spherical_nanoparticles=dict(
-            form='spherical',
-            parameters={'r':{'value':40.}},
-            )   
+    form='spherical',
+    parameters={'I0':{'value':1000},'r':{'value':40.}}
+    )
+np_sys = System(
+    nanoparticles=nps,
+    noise=NoiseModel(
+        model='flat',
+        parameters={'I0':{'value':0.1}}
         )
     )
 np_sys = System(
@@ -24,13 +26,10 @@ np_sys = System(
 
 datapath = os.path.join(os.path.dirname(__file__),
     'test_data','solution_saxs','spheres','spheres_0.csv')
-f = open(datapath,'r')
-q_I = np.loadtxt(f,dtype=float,delimiter=',')
-q = q_I[:,0]
-I = q_I[:,1]
+q_I = np.loadtxt(open(datapath,'r'),dtype=float,delimiter=',')
 
 def test_fit():
-    fit_sys = fit(np_sys,q,I,src_wl)
+    fit_sys = fit(np_sys,q_I[:,0],q_I[:,1],src_wl)
     #I_guess = np_sys.compute_intensity(q,src_wl)
     #I_fit = fit_sys.compute_intensity(q,src_wl)
 
