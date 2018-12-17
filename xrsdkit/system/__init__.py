@@ -15,6 +15,7 @@ from .specie import Specie
 from .. import definitions as xrsdefs 
 from ..tools import peak_math, compute_chi2
 from ..tools.profiler import profile_pattern
+from ..scattering.form_factors import guinier_porod_intensity
 
 # TODO: when params, settings, etc are changed,
 #   ensure all attributes remain valid,
@@ -68,11 +69,12 @@ class NoiseModel(object):
             raise ValueError('unsupported noise specification: {}'.format(self.model))
         if self.model == 'flat':
             I += self.parameters['I0']['value'] * np.ones(n_q)
-        elif self.model == 'flat_plus_beam':
+        elif self.model == 'low_q_scatter':
             #theta = np.arcsin(source_wavelength*q/(4.*np.pi))
-            g0 = peak_math.gaussian_profile(0.,0.,self.parameters['hwhm_beam']['value'])
             I0_beam = self.parameters['I0']['value'] * (1.-self.parameters['I0_flat_fraction']['value'])
-            I += I0_beam * (1./g0) * peak_math.gaussian_profile(q,0.,self.parameters['hwhm_beam']['value'])
+            rg_eff = self.parameters['effective_rg']['value']
+            D_eff = self.parameters['effective_D']['value']
+            I += I0_beam * guinier_porod_intensity(q,rg_eff,D_eff)
             I += self.parameters['I0']['value'] * self.parameters['I0_flat_fraction']['value'] * np.ones(n_q)
         return I
 
@@ -91,7 +93,7 @@ class System(object):
         # experiment_id: for grouping
         # id: for identification
         # data_file: path to file containing scattering data 
-        self.sample_metadata = {'experiment_id':None,'sample_id':None,'data_file':None,'good_fit':False}
+        self.sample_metadata = {'experiment_id':None,'sample_id':None,'data_file':None,'good_fit':False,'notes':''}
         self.noise_model = NoiseModel('flat')
         self.update_from_dict(populations)
 
@@ -256,6 +258,8 @@ class System(object):
             param_name = ks[-1]
             if re.match('coord.',param_name):
                 default = xrsdefs.coord_default
+            elif ks[0] == 'noise':
+                default = xrsdefs.noise_param_defaults[param_name]
             else:
                 default = xrsdefs.param_defaults[param_name]
             vary_flag = bool(not default['fixed'])
