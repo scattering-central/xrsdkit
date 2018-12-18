@@ -147,9 +147,9 @@ noise_params = dict(
     )
 noise_param_defaults = dict(
     I0 = {'value':1.E-3,'fixed':False,'bounds':[1.E-12,None],'constraint_expr':None},
-    flat_fraction = {'value':1.E-2,'fixed':False,'bounds':[0.,1.],'constraint_expr':None},
+    I0_flat_fraction = {'value':1.E-2,'fixed':False,'bounds':[0.,1.],'constraint_expr':None},
     effective_rg = {'value':100.,'fixed':False,'bounds':[1.,None],'constraint_expr':None},
-    effective_D = {'value':1.,'fixed':True,'bounds':[0.,4.],'constraint_expr':None},
+    effective_D = {'value':1.,'fixed':False,'bounds':[0.,4.],'constraint_expr':None},
     )
 
 coord_default = {'value':0.,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None}
