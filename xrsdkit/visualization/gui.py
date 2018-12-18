@@ -27,15 +27,12 @@ if sys.version_info[0] < 3:
 else:
     import tkinter
 
-def run_fit_gui(system,q,I,source_wavelength,
-    dI=None,error_weighted=True,
-    logI_weighted=True,
-    q_range=[0.,float('inf')],
-    good_fit_prior=False):
-    gui = XRSDFitGUI(system,q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range,good_fit_prior)
-    sys_opt, good_fit = gui.start()
+def run_fit_gui(system,q,I,source_wavelength,dI=None,error_weighted=True,
+    logI_weighted=True,q_range=[0.,float('inf')]):
+    gui = XRSDFitGUI(system,q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
+    sys_opt = gui.start()
     # collect results and return
-    return sys_opt, good_fit
+    return sys_opt
 
 # TODO (low): when a structure or form selection is rejected,
 #   get the associated combobox re-painted-
@@ -55,8 +52,7 @@ class XRSDFitGUI(object):
         q,I,source_wavelength,
         dI=None,error_weighted=True,
         logI_weighted=True,
-        q_range=[0.,float('inf')],
-        good_fit_prior=False):
+        q_range=[0.,float('inf')]):
 
         super(XRSDFitGUI, self).__init__()
         self.q = q
@@ -68,7 +64,6 @@ class XRSDFitGUI(object):
         self.error_weighted = error_weighted
         self.logI_weighted = logI_weighted
         self.q_range = q_range
-        self.good_fit = good_fit_prior
 
         self.fit_gui = tkinter.Tk()
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
@@ -86,7 +81,7 @@ class XRSDFitGUI(object):
         # start the tk loop
         self.fit_gui.mainloop()
         # after the loop, return the (optimized) system
-        return self.sys, self.good_fit
+        return self.sys
 
     def _cleanup(self):
         # remove references to all gui objects, widgets, etc. 
@@ -273,7 +268,7 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['q_range'][0].set(self.q_range[0])
         self._vars['fit_control']['q_range'][1].set(self.q_range[1])
         self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
-        self._vars['fit_control']['good_fit'].set(self.good_fit)
+        self._vars['fit_control']['good_fit'].set(self.sys.sample_metadata['good_fit'])
 
         exptidl = tkinter.Label(cf,text='experiment id:',anchor='e')
         exptide = self.connected_entry(cf,self._vars['fit_control']['experiment_id'],self._set_experiment_id,10)
@@ -380,7 +375,7 @@ class XRSDFitGUI(object):
 
     def _set_good_fit(self):
         new_val = self._vars['fit_control']['good_fit'].get()
-        self.good_fit = new_val
+        self.sys.sample_metadata['good_fit'] = new_val
 
     def _create_noise_frame(self):
         nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
