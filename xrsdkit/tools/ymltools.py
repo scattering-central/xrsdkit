@@ -233,7 +233,8 @@ def read_data(path_to_dir):
                 if s_data_file.endswith('.yml'):
                     file_path = os.path.join(exp_data_dir, s_data_file)
                     sys, sys_data = load_sys_from_yaml(file_path)
-                    samples.append(sys_data)
+                    if bool(int(sys_data['sample_metadata']['good_fit'])):
+                        samples.append(sys_data)
     return samples
 
 def unpack_sample(pp, path_to_dir):
