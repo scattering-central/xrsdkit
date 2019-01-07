@@ -1,6 +1,6 @@
 import numpy as np
 import yaml
-from sklearn import model_selection, preprocessing
+from sklearn import model_selection, preprocessing, utils
 from dask_ml.model_selection import GridSearchCV
 
 from ..tools import profiler
@@ -59,9 +59,8 @@ class XRSDModel(object):
             return
         else:
             # NOTE: SGD models train more efficiently on shuffled data
-            shuffled_rows = np.random.permutation(all_data.index)
-            all_data = all_data.loc[shuffled_rows]
-            data = all_data[all_data[self.target].isnull() == False]
+            d = utils.shuffle(d)
+            data = d[d[self.target].isnull() == False]
             data = self.standardize(data)
 
             if hyper_parameters_search:
