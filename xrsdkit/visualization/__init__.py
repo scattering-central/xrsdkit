@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from matplotlib import pyplot as plt
 
 from ..tools.visualization_tools import doPCA, plot_2d
-from ..models import citcl, src_dir, src_dsid_list, testing_data_dir
+from ..models import src_dir, testing_data_dir
 from ..tools import profiler
 
 default_targets=['system_classification','experiment_id']
