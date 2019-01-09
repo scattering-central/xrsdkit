@@ -83,7 +83,7 @@ class System(object):
     # so that redundant calls to compute_intensity
     # are handled instantly 
 
-    def __init__(self,populations={}):
+    def __init__(self,**kwargs):
         # TODO: consider polymorphic constructor inputs 
         self.populations = {}
         self.fit_report = {'good_fit':False}
@@ -101,7 +101,7 @@ class System(object):
             notes=''
             )
         self.noise_model = NoiseModel('flat')
-        self.update_from_dict(populations)
+        self.update_from_dict(kwargs)
 
     def to_dict(self):
         sd = {} 

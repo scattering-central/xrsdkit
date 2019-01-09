@@ -934,7 +934,7 @@ def system_from_prediction(prediction,q,I,source_wavelength):
     sys_class = prediction['system_classification']
 
     if sys_class[0] == 'unidentified':
-        return System(), new_sys
+        return System()
 
     # else, create the noise model and build the populations
     new_sys['noise'] = {'model':prediction['noise']['noise_classification'][0],'parameters':{}}
@@ -982,8 +982,8 @@ def system_from_prediction(prediction,q,I,source_wavelength):
 
             # TODO (later - as for predict()): if the specie is atomic, classify its atom symbol
 
-    predicted_system = System(new_sys)
-    predicted_system.sample_metadata['source_wavelength'] = source_wavelength
+    new_sys['sample_metadata'] = {'source_wavelength':source_wavelength}
+    predicted_system = System(**new_sys)
     Isum = np.sum(I)
     I_comp = predicted_system.compute_intensity(q)
     Isum_comp = np.sum(I_comp)

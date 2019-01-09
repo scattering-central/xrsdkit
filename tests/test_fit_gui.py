@@ -27,8 +27,15 @@ np_sl = dict(
     parameters={'I0':{'value':1.E-5},'a':{'value':130.}},
     basis={'spheres':mono_spheres}
     )
-np_sys = System({'nanoparticles':nps,'noise':flat_noise})
-np_sl_sys = System({'superlattice':np_sl,'nanoparticles':nps,'noise':flat_noise})
+np_sys = System(
+    nanoparticles=nps,
+    noise=flat_noise
+    )
+np_sl_sys = System(
+    superlattice=np_sl,
+    nanoparticles=nps,
+    noise=flat_noise
+    )
 
 datapath = os.path.join(os.path.dirname(__file__),
     'test_data','solution_saxs','spheres','spheres_0.csv')
