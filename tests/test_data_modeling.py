@@ -5,8 +5,6 @@ import pandas as pd
 from citrination_client import CitrinationClient
 
 from xrsdkit.tools import profiler
-from xrsdkit.tools.piftools import get_data_from_Citrination
-from xrsdkit.tools.ymltools import get_data_from_local_dir
 from xrsdkit.models import root_dir, model_dsids, downsample_by_group, train_from_dataframe
 from xrsdkit.models import predict, system_from_prediction 
 from xrsdkit.visualization import visualize_dataframe
@@ -46,7 +44,7 @@ def test_predict_spheres():
         pred = predict(feats,test=True)
         sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],0.8)
         if 'DISPLAY' in os.environ:
-            fit_sys, good_fit_flag = run_fit_gui(sys,q_I[:,0],q_I[:,1],0.8265616)
+            fit_sys = run_fit_gui(sys,q_I[:,0],q_I[:,1],0.8265616)
 
 
 

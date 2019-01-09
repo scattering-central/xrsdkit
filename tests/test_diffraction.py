@@ -33,7 +33,9 @@ hcp_spheres = Population('crystalline',
     )
 
 fcc_Al_system = System({'fcc_Al':fcc_Al.to_dict()})
+fcc_Al_system.sample_metadata['source_wavelength'] = 0.8265617
 hcp_sphere_system = System({'hcp_spheres':hcp_spheres.to_dict()})
+hcp_sphere_system.sample_metadata['source_wavelength'] = 0.8265617
 
 glassy_Al = Population('disordered',
     settings={'interaction':'hard_spheres'},
@@ -65,7 +67,7 @@ mixed_Al_system = System({'glassy_Al':glassy_Al.to_dict(),'fcc_Al':fcc_Al.to_dic
 
 def test_sphere_scattering():
     qvals = np.arange(0.02,0.6,0.001)
-    I_sl = hcp_sphere_system.compute_intensity(qvals,0.8265616) 
+    I_sl = hcp_sphere_system.compute_intensity(qvals) 
     
 def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
