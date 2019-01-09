@@ -27,9 +27,9 @@ if sys.version_info[0] < 3:
 else:
     import tkinter
 
-def run_fit_gui(system,q,I,source_wavelength,dI=None,error_weighted=True,
+def run_fit_gui(system,q,I,dI=None,error_weighted=True,
     logI_weighted=True,q_range=[0.,float('inf')]):
-    gui = XRSDFitGUI(system,q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
+    gui = XRSDFitGUI(system,q,I,dI,error_weighted,logI_weighted,q_range)
     sys_opt = gui.start()
     # collect results and return
     return sys_opt
@@ -48,17 +48,13 @@ def run_fit_gui(system,q,I,source_wavelength,dI=None,error_weighted=True,
 
 class XRSDFitGUI(object):
 
-    def __init__(self,system,
-        q,I,source_wavelength,
-        dI=None,error_weighted=True,
-        logI_weighted=True,
-        q_range=[0.,float('inf')]):
+    def __init__(self,system,q,I,dI=None,
+        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
 
         super(XRSDFitGUI, self).__init__()
         self.q = q
         self.I = I
         self.dI = dI
-        self.src_wl = source_wavelength
         if not system: system = xrsdsys.System()
         self.sys = system
         self.error_weighted = error_weighted
@@ -127,7 +123,7 @@ class XRSDFitGUI(object):
         # built from FigureCanvasTkAgg.get_tk_widget()
         plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
         plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
-        self.fig,I_comp = plot_xrsd_fit(self.sys,self.q,self.I,self.src_wl,self.dI,False)
+        self.fig,I_comp = plot_xrsd_fit(self.sys,self.q,self.I,self.dI,False)
         plot_frame_canvas = tkinter.Canvas(plot_frame)
         yscr = tkinter.Scrollbar(plot_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
@@ -258,7 +254,7 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['sample_id'] = tkinter.StringVar(cf)
         self._vars['fit_control']['sample_id'].set(self.sys.sample_metadata['sample_id'])
         self._vars['fit_control']['wavelength'] = tkinter.DoubleVar(cf)
-        self._vars['fit_control']['wavelength'].set(self.src_wl)
+        self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
         self._vars['fit_control']['objective'] = tkinter.StringVar(cf)
         self._vars['fit_control']['error_weighted'] = tkinter.BooleanVar(cf)
         self._vars['fit_control']['logI_weighted'] = tkinter.BooleanVar(cf)
@@ -268,7 +264,7 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['q_range'][0].set(self.q_range[0])
         self._vars['fit_control']['q_range'][1].set(self.q_range[1])
         self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
-        self._vars['fit_control']['good_fit'].set(self.sys.sample_metadata['good_fit'])
+        self._vars['fit_control']['good_fit'].set(self.sys.fit_report['good_fit'])
 
         exptidl = tkinter.Label(cf,text='experiment id:',anchor='e')
         exptide = self.connected_entry(cf,self._vars['fit_control']['experiment_id'],self._set_experiment_id,10)
@@ -341,10 +337,10 @@ class XRSDFitGUI(object):
         try:
             new_val = self._vars['fit_control']['wavelength'].get()
         except:
-            self._vars['fit_control']['wavelength'].set(self.src_wl)
-            new_val = self.src_wl
-        if not new_val == self.src_wl:
-            self.src_wl = new_val
+            self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
+            new_val = self.sys.sample_metadata['source_wavelength']
+        if not new_val == self.sys.sample_metadata['source_wavelength']:
+            self.sys.sample_metadata['source_wavelength'] = new_val
             self._draw_plots()
         return True
 
@@ -375,7 +371,7 @@ class XRSDFitGUI(object):
 
     def _set_good_fit(self):
         new_val = self._vars['fit_control']['good_fit'].get()
-        self.sys.sample_metadata['good_fit'] = new_val
+        self.sys.fit_report['good_fit'] = new_val
 
     def _create_noise_frame(self):
         nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
@@ -858,13 +854,13 @@ class XRSDFitGUI(object):
         return nsf
 
     def _draw_plots(self):
-        I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.src_wl,self.dI,False)
+        I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.dI,False)
         self.mpl_canvas.draw()
         self._update_fit_objective(I_comp)
 
     def _update_fit_objective(self,I_comp=None):
         obj_val = self.sys.evaluate_residual(
-            self.q,self.I,self.src_wl,self.dI,
+            self.q,self.I,self.dI,
             self.error_weighted,self.logI_weighted,self.q_range,I_comp)
         self._vars['fit_control']['objective'].set(str(obj_val))
 
@@ -1087,7 +1083,7 @@ class XRSDFitGUI(object):
     def _fit(self):
         sys_opt = xrsdsys.fit(
             self.sys,
-            self.q,self.I,self.src_wl,self.dI,
+            self.q,self.I,self.dI,
             self.error_weighted,self.logI_weighted,self.q_range
             )
         self.sys.update_from_dict(sys_opt.to_dict())

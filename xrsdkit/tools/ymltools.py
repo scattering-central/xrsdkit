@@ -21,7 +21,7 @@ def save_sys_to_yaml(file_path,sys):
 def load_sys_from_yaml(file_path):
     with open(file_path, 'r') as yaml_file:
         sd = yaml.load(yaml_file)
-    return System(sd), sd
+    return System(**sd)
 
 def setting_properties(ip,pop):
     """Create a dictionary of all settings with
@@ -232,9 +232,9 @@ def read_data(path_to_dir):
             for s_data_file in os.listdir(exp_data_dir):
                 if s_data_file.endswith('.yml'):
                     file_path = os.path.join(exp_data_dir, s_data_file)
-                    sys, sys_data = load_sys_from_yaml(file_path)
-                    if bool(int(sys_data['sample_metadata']['good_fit'])):
-                        samples.append(sys_data)
+                    sys = load_sys_from_yaml(file_path)
+                    if bool(int(sys.fit_report['good_fit'])):
+                        samples.append(sys.to_dict())
     return samples
 
 def unpack_sample(pp, path_to_dir):
@@ -271,7 +271,7 @@ def unpack_sample(pp, path_to_dir):
     #q = q_I[:,0]
     #I = q_I[:,1]
     #features = profile_pattern(q, I)
-    sys = System(pp)
+    sys = System(**pp)
 
     regression_labels = {}
     classification_labels = {}
