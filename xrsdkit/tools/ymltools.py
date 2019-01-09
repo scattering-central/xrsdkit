@@ -21,7 +21,7 @@ def save_sys_to_yaml(file_path,sys):
 def load_sys_from_yaml(file_path):
     with open(file_path, 'r') as yaml_file:
         sd = yaml.load(yaml_file)
-    return System(sd), sd
+    return System(sd)
 
 def setting_properties(ip,pop):
     """Create a dictionary of all settings with
@@ -233,7 +233,7 @@ def read_data(path_to_dir):
                 if s_data_file.endswith('.yml'):
                     file_path = os.path.join(exp_data_dir, s_data_file)
                     sys, sys_data = load_sys_from_yaml(file_path)
-                    if bool(int(sys_data['sample_metadata']['good_fit'])):
+                    if bool(int(sys_data['fit_report']['good_fit'])):
                         samples.append(sys_data)
     return samples
 
