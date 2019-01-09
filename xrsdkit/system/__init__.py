@@ -13,21 +13,13 @@ import yaml
 from .population import Population
 from .specie import Specie
 from .. import definitions as xrsdefs 
-from ..tools import primitives, compute_chi2
+from ..tools import peak_math, compute_chi2
+from ..tools.profiler import profile_pattern
+from ..scattering.form_factors import guinier_porod_intensity
 
 # TODO: when params, settings, etc are changed,
 #   ensure all attributes remain valid,
 #   wrt constraints as well as wrt supported options.
-
-def save_to_yaml(file_path,sys):
-    sd = sys.to_dict()
-    with open(file_path, 'w') as yaml_file:
-        yaml.dump(primitives(sd),yaml_file)
-
-def load_from_yaml(file_path):
-    with open(file_path, 'r') as yaml_file:
-        sd = yaml.load(yaml_file)
-    return System(sd)
 
 class NoiseModel(object):
 
@@ -70,18 +62,46 @@ class NoiseModel(object):
     def update_parameter(self,param_nm,new_param_dict): 
         self.parameters[param_nm].update(new_param_dict)
 
+    def compute_intensity(self,q):
+        n_q = len(q)
+        I = np.zeros(n_q)
+        if not self.model in xrsdefs.noise_model_names:
+            raise ValueError('unsupported noise specification: {}'.format(self.model))
+        if self.model == 'flat':
+            I += self.parameters['I0']['value'] * np.ones(n_q)
+        elif self.model == 'low_q_scatter':
+            I0_beam = self.parameters['I0']['value'] * (1.-self.parameters['I0_flat_fraction']['value'])
+            rg_eff = self.parameters['effective_rg']['value']
+            D_eff = self.parameters['effective_D']['value']
+            I += I0_beam * guinier_porod_intensity(q,rg_eff,D_eff)
+            I += self.parameters['I0']['value'] * self.parameters['I0_flat_fraction']['value'] * np.ones(n_q)
+        return I
+
 class System(object):
 
     # TODO: implement caching of settings, parameters, intensities,
     # so that redundant calls to compute_intensity
     # are handled instantly 
 
-    def __init__(self,populations={}):
+    def __init__(self,**kwargs):
         # TODO: consider polymorphic constructor inputs 
         self.populations = {}
-        self.fit_report = {} # this dict gets populated after self.fit() 
+        self.fit_report = {'good_fit':False}
+        self.features = {}
+        # dict of metadata for the sample:
+        # experiment_id: for grouping
+        # id: for identification
+        # data_file: path to file containing scattering data 
+        self.sample_metadata = dict(
+            experiment_id='',
+            sample_id='',
+            data_file='',
+            source_wavelength=0.,
+            time=0.,
+            notes=''
+            )
         self.noise_model = NoiseModel('flat')
-        self.update_from_dict(populations)
+        self.update_from_dict(kwargs)
 
     def to_dict(self):
         sd = {} 
@@ -89,14 +109,20 @@ class System(object):
             sd[pop_nm] = pop.to_dict()
         sd['noise'] = self.noise_model.to_dict()
         sd['fit_report'] = copy.deepcopy(self.fit_report)
+        sd['sample_metadata'] = self.sample_metadata
+        sd['features'] = self.features
         return sd
 
     def update_from_dict(self,d):
         for pop_name,pd in d.items():
             if pop_name == 'noise':
                 self.update_noise_model(pd)
+            elif pop_name == 'features':
+                self.features.update(pd)
             elif pop_name == 'fit_report':
                 self.fit_report.update(pd)
+            elif pop_name == 'sample_metadata':
+                self.sample_metadata.update(pd)
             elif not pop_name in self.populations:
                 self.populations[pop_name] = Population.from_dict(pd) 
             else:
@@ -141,7 +167,7 @@ class System(object):
         inst.update_from_dict(d)
         return inst
 
-    def compute_intensity(self,q,source_wavelength):
+    def compute_intensity(self,q):
         """Computes scattering/diffraction intensity for some `q` values.
 
         TODO: Document the equations.
@@ -150,29 +176,19 @@ class System(object):
         ----------
         q : array
             Array of q values at which intensities will be computed
-        source_wavelength : float 
-            Wavelength of radiation source in Angstroms
 
         Returns
         ------- 
         I : array
             Array of scattering intensities for each of the input q values
         """
-        I = self.compute_noise_intensity(q)
+        I = self.noise_model.compute_intensity(q)
+        src_wl = self.sample_metadata['source_wavelength']
         for pop_name,pop in self.populations.items():
-            I += pop.compute_intensity(q,source_wavelength)
+            I += pop.compute_intensity(q,src_wl)
         return I
 
-    def compute_noise_intensity(self,q):
-        I = np.zeros(len(q))
-        noise_modnm = self.noise_model.model
-        if not noise_modnm in xrsdefs.noise_model_names:
-            raise ValueError('unsupported noise specification: {}'.format(noise_modnm))
-        if noise_modnm == 'flat':
-            I += self.noise_model.parameters['I0']['value'] * np.ones(len(q))
-        return I
-
-    def evaluate_residual(self,q,I,source_wavelength,dI=None,
+    def evaluate_residual(self,q,I,dI=None,
         error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')],I_comp=None):
         """Evaluate the fit residual for a given populations dict.
     
@@ -182,8 +198,6 @@ class System(object):
             1d array of scattering vector magnitudes (1/Angstrom)
         I : array of float
             1d array of intensities corresponding to `q` values
-        source_wavelength : float
-            Wavelength of scattered radiation source
         dI : array of float
             1d array of intensity error estimates for each `I` value 
         error_weighted : bool
@@ -203,7 +217,7 @@ class System(object):
             Value of the residual 
         """
         if I_comp is None:
-            I_comp = self.compute_intensity(q,source_wavelength)
+            I_comp = self.compute_intensity(q)
         idx_nz = (I>0)
         idx_fit = (idx_nz) & (q>=q_range[0]) & (q<=q_range[1])
         wts = np.ones(len(q))
@@ -230,13 +244,13 @@ class System(object):
                 wts[idx_fit])
         return res 
     
-    def lmf_evaluate(self,lmf_params,src_wl,q,I,dI=None,error_weighted=True,logI_weighted=True,q_range=[None,None]):
+    def lmf_evaluate(self,lmf_params,q,I,dI=None,error_weighted=True,logI_weighted=True,q_range=[None,None]):
         new_params = unpack_lmfit_params(lmf_params)
         old_params = self.flatten_params()
         old_params.update(new_params)
         new_pd = unflatten_params(old_params)
         self.update_params_from_dict(new_pd)
-        return self.evaluate_residual(q,I,src_wl,dI,error_weighted,logI_weighted,q_range)
+        return self.evaluate_residual(q,I,dI,error_weighted,logI_weighted,q_range)
 
     def pack_lmfit_params(self):
         p = self.flatten_params() 
@@ -247,6 +261,8 @@ class System(object):
             param_name = ks[-1]
             if re.match('coord.',param_name):
                 default = xrsdefs.coord_default
+            elif ks[0] == 'noise':
+                default = xrsdefs.noise_param_defaults[param_name]
             else:
                 default = xrsdefs.param_defaults[param_name]
             vary_flag = bool(not default['fixed'])
@@ -276,7 +292,7 @@ class System(object):
                     pd[pop_name+'__'+specie_name+'__'+param_name] = paramd
         return pd
 
-def fit(sys,q,I,source_wavelength,dI=None,
+def fit(sys,q,I,dI=None,
     error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
     """Fit the I(q) pattern and return a System with optimized parameters. 
 
@@ -285,13 +301,10 @@ def fit(sys,q,I,source_wavelength,dI=None,
     sys : xrsdkit.system.System
         System object defining populations and species,
         as well as settings and bounds/constraints for parameters.
-    source_wavelength : float
     q : array of float
         1d array of scattering vector magnitudes (1/Angstrom)
     I : array of float
         1d array of intensities corresponding to `q` values
-    source_wavelength : float
-        Wavelength of scattered radiation source
     dI : array of float
         1d array of intensity error estimates for each `I` value 
     error_weighted : bool
@@ -311,28 +324,27 @@ def fit(sys,q,I,source_wavelength,dI=None,
     # the System to optimize starts as a copy of the input System
     sys_opt = System.from_dict(sys.to_dict())
 
-    obj_init = sys_opt.evaluate_residual(q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
+    obj_init = sys_opt.evaluate_residual(q,I,dI,error_weighted,logI_weighted,q_range)
     lmf_params = sys_opt.pack_lmfit_params() 
     lmf_res = lmfit.minimize(sys_opt.lmf_evaluate,
         lmf_params,method='nelder-mead',
-        kws={'src_wl':source_wavelength,
-            'q':q,'I':I,'dI':dI,
+        kws={'q':q,'I':I,'dI':dI,
             'error_weighted':error_weighted,
             'logI_weighted':logI_weighted,
             'q_range':q_range})
 
-    fit_obj = sys_opt.evaluate_residual(q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range)
-    I_opt = sys_opt.compute_intensity(q,source_wavelength)
+    fit_obj = sys_opt.evaluate_residual(q,I,dI,error_weighted,logI_weighted,q_range)
+    I_opt = sys_opt.compute_intensity(q)
     I_bg = I - I_opt
     snr = np.mean(I_opt)/np.std(I_bg) 
-    sys_opt.fit_report['success'] = lmf_res.success
+    sys_opt.fit_report['converged'] = lmf_res.success
     sys_opt.fit_report['initial_objective'] = obj_init 
     sys_opt.fit_report['final_objective'] = fit_obj 
     sys_opt.fit_report['error_weighted'] = error_weighted 
     sys_opt.fit_report['logI_weighted'] = logI_weighted 
     sys_opt.fit_report['q_range'] = q_range 
     sys_opt.fit_report['fit_snr'] = snr
-    sys_opt.fit_report['source_wavelength'] = source_wavelength
+    sys_opt.features = profile_pattern(q,I)
 
     return sys_opt
 

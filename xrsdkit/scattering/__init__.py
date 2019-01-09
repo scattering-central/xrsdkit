@@ -90,6 +90,9 @@ def crystalline_intensity(q,popd,source_wavelength):
     # NOTE: this is designed to leave out hkl=000 
     all_hkl = np.array([(h,k,l) for l in l_range for k in k_range for h in h_range \
             if (G_min < np.linalg.norm(np.dot((h,k,l),(b1,b2,b3))) <= G_max)])
+
+    if not all_hkl.any():
+        return np.zeros(n_q)
     
     space_group = popd['settings']['space_group']
     # symmetrize the hkl sampling, save the multiplicities 
@@ -148,12 +151,10 @@ def crystalline_intensity(q,popd,source_wavelength):
     for ihkl,absq in zip(range(reduced_hkl.shape[0]),absq_hkl):
         for lc in latcoords:
             for specie_nm,ff in ffs.items():
+                g_dot_r = np.dot(lc+coords[specie_nm],reduced_hkl[ihkl,:])
                 if sf_mode == 'radial':
-                    hkl_range = np.outer(q/absq,reduced_hkl[ihkl,:]).T
-                    g_dot_r = np.dot(lc+coords[specie_nm],hkl_range)
                     sf_hkl[ihkl,:] += ff * np.exp(2j*np.pi*g_dot_r)
                 elif sf_mode == 'local':
-                    g_dot_r = np.dot(lc+coords[specie_nm],reduced_hkl[ihkl,:])
                     sf_hkl[ihkl,:] += ff[absq] * np.exp(2j*np.pi*g_dot_r)
 
     for ihkl,absq,ltz,mult in zip(range(reduced_hkl.shape[0]),absq_hkl,ltz_hkl,hkl_mults):

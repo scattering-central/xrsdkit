@@ -7,9 +7,9 @@ setup(name='xrsdkit',
     author='SSRL',
     license='BSD',
     author_email='paws-developers@slac.stanford.edu',
-    install_requires=['pyyaml','numpy','scipy','pandas','scikit-learn','lmfit','pymatgen'],
+    install_requires=['pyyaml','numpy','scipy','pandas','scikit-learn','lmfit'],
     packages=find_packages(),
     package_data={'xrsdkit':['scattering/*.yml','models/modeling_data/*.yml']}
-)
+    )
 
 

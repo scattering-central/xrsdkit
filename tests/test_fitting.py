@@ -17,7 +17,10 @@ np_dict =  dict(
             )   
         )
     )
-np_sys = System({'nanoparticles':np_dict,'noise':{'model':'flat','parameters':{'I0':{'value':0.1}}}})
+np_sys = System(
+    nanoparticles=np_dict,
+    noise={'model':'flat','parameters':{'I0':{'value':0.1}}}
+    )
 
 datapath = os.path.join(os.path.dirname(__file__),
     'test_data','solution_saxs','spheres','spheres_0.csv')

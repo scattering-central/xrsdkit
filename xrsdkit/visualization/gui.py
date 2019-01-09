@@ -27,15 +27,12 @@ if sys.version_info[0] < 3:
 else:
     import tkinter
 
-def run_fit_gui(system,q,I,source_wavelength,
-    dI=None,error_weighted=True,
-    logI_weighted=True,
-    q_range=[0.,float('inf')],
-    good_fit_prior=False):
-    gui = XRSDFitGUI(system,q,I,source_wavelength,dI,error_weighted,logI_weighted,q_range,good_fit_prior)
-    sys_opt, good_fit = gui.start()
+def run_fit_gui(system,q,I,dI=None,error_weighted=True,
+    logI_weighted=True,q_range=[0.,float('inf')]):
+    gui = XRSDFitGUI(system,q,I,dI,error_weighted,logI_weighted,q_range)
+    sys_opt = gui.start()
     # collect results and return
-    return sys_opt, good_fit
+    return sys_opt
 
 # TODO (low): when a structure or form selection is rejected,
 #   get the associated combobox re-painted-
@@ -51,24 +48,18 @@ def run_fit_gui(system,q,I,source_wavelength,
 
 class XRSDFitGUI(object):
 
-    def __init__(self,system,
-        q,I,source_wavelength,
-        dI=None,error_weighted=True,
-        logI_weighted=True,
-        q_range=[0.,float('inf')],
-        good_fit_prior=False):
+    def __init__(self,system,q,I,dI=None,
+        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
 
         super(XRSDFitGUI, self).__init__()
         self.q = q
         self.I = I
         self.dI = dI
-        self.src_wl = source_wavelength
         if not system: system = xrsdsys.System()
         self.sys = system
         self.error_weighted = error_weighted
         self.logI_weighted = logI_weighted
         self.q_range = q_range
-        self.good_fit = good_fit_prior
 
         self.fit_gui = tkinter.Tk()
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
@@ -86,7 +77,7 @@ class XRSDFitGUI(object):
         # start the tk loop
         self.fit_gui.mainloop()
         # after the loop, return the (optimized) system
-        return self.sys, self.good_fit
+        return self.sys
 
     def _cleanup(self):
         # remove references to all gui objects, widgets, etc. 
@@ -132,7 +123,7 @@ class XRSDFitGUI(object):
         # built from FigureCanvasTkAgg.get_tk_widget()
         plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
         plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
-        self.fig,I_comp = plot_xrsd_fit(self.sys,self.q,self.I,self.src_wl,self.dI,False)
+        self.fig,I_comp = plot_xrsd_fit(self.sys,self.q,self.I,self.dI,False)
         plot_frame_canvas = tkinter.Canvas(plot_frame)
         yscr = tkinter.Scrollbar(plot_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
@@ -252,14 +243,18 @@ class XRSDFitGUI(object):
         self.control_canvas_configure()
 
     def _create_fit_control_frame(self):
-        # TODO: file io q,I (dat/csv) and populations (YAML); output for DB records (JSON)
+        # TODO: file io q,I (dat/csv) and system data (YAML)
 
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
         self._frames['fit_control'] = cf
+        self._vars['fit_control']['experiment_id'] = tkinter.StringVar(cf)
+        self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
+        self._vars['fit_control']['sample_id'] = tkinter.StringVar(cf)
+        self._vars['fit_control']['sample_id'].set(self.sys.sample_metadata['sample_id'])
         self._vars['fit_control']['wavelength'] = tkinter.DoubleVar(cf)
-        self._vars['fit_control']['wavelength'].set(self.src_wl)
+        self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
         self._vars['fit_control']['objective'] = tkinter.StringVar(cf)
         self._vars['fit_control']['error_weighted'] = tkinter.BooleanVar(cf)
         self._vars['fit_control']['logI_weighted'] = tkinter.BooleanVar(cf)
@@ -269,55 +264,83 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['q_range'][0].set(self.q_range[0])
         self._vars['fit_control']['q_range'][1].set(self.q_range[1])
         self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
-        self._vars['fit_control']['good_fit'].set(self.good_fit)
-        
+        self._vars['fit_control']['good_fit'].set(self.sys.fit_report['good_fit'])
+
+        exptidl = tkinter.Label(cf,text='experiment id:',anchor='e')
+        exptide = self.connected_entry(cf,self._vars['fit_control']['experiment_id'],self._set_experiment_id,10)
+        sampidl = tkinter.Label(cf,text='sample id:',anchor='e')
+        sampide = self.connected_entry(cf,self._vars['fit_control']['sample_id'],self._set_sample_id,10)
+        exptidl.grid(row=0,column=0,sticky='e')
+        exptide.grid(row=0,column=1,columnspan=2,sticky='ew')
+        sampidl.grid(row=1,column=0,sticky='e')
+        sampide.grid(row=1,column=1,columnspan=2,sticky='ew')
+
         wll = tkinter.Label(cf,text='wavelength:',anchor='e')
         wle = self.connected_entry(cf,self._vars['fit_control']['wavelength'],self._set_wavelength,10)
-        wll.grid(row=0,column=0,sticky='e')
-        wle.grid(row=0,column=1,sticky='ew')
+        wll.grid(row=2,column=0,sticky='e')
+        wle.grid(row=2,column=1,columnspan=2,sticky='ew')
 
         q_range_lbl = tkinter.Label(cf,text='q-range:',anchor='e')
-        q_range_lbl.grid(row=1,column=0,sticky='e')
+        q_range_lbl.grid(row=3,column=0,sticky='e')
         #q_lo_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][0])
         #q_hi_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][1])
         q_lo_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][0],
             partial(self._set_q_range,0),8) 
         q_hi_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][1],
             partial(self._set_q_range,1),8) 
-        q_lo_ent.grid(row=1,column=1,sticky='ew')
-        q_hi_ent.grid(row=1,column=2,sticky='ew')
+        q_lo_ent.grid(row=3,column=1,sticky='ew')
+        q_hi_ent.grid(row=3,column=2,sticky='ew')
 
         ewtcb = self.connected_checkbutton(cf,self._vars['fit_control']['error_weighted'],
             self._set_error_weighted,'error weighted')
-        ewtcb.grid(row=2,column=0,sticky='w')
+        ewtcb.grid(row=4,column=0,sticky='w')
         logwtcb = self.connected_checkbutton(cf,self._vars['fit_control']['logI_weighted'],
             self._set_logI_weighted,'log(I) weighted')
-        logwtcb.grid(row=3,column=0,sticky='w')
+        logwtcb.grid(row=5,column=0,sticky='w')
 
         estbtn = tkinter.Button(cf,text='Estimate',width=8,command=self._estimate)
-        estbtn.grid(row=2,column=1,rowspan=2,sticky='nesw')
+        estbtn.grid(row=4,column=1,rowspan=2,sticky='nesw')
         fitbtn = tkinter.Button(cf,text='Fit',width=8,command=self._fit)
-        fitbtn.grid(row=2,column=2,rowspan=2,sticky='nesw')
+        fitbtn.grid(row=4,column=2,rowspan=2,sticky='nesw')
 
         objl = tkinter.Label(cf,text='objective:',anchor='e')
-        objl.grid(row=4,column=0,sticky='e')
+        objl.grid(row=6,column=0,sticky='e')
         rese = tkinter.Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
-        rese.grid(row=4,column=1,sticky='ew')
+        rese.grid(row=6,column=1,sticky='ew')
         fitcb = self.connected_checkbutton(cf,self._vars['fit_control']['good_fit'],
             self._set_good_fit,'Good fit')
-        fitcb.grid(row=4,column=2,sticky='ew')
+        fitcb.grid(row=6,column=2,sticky='ew')
 
         cf.grid(row=0,pady=2,padx=2,sticky='ew')
+
+    def _set_experiment_id(self,event=None):
+        try:
+            new_val = self._vars['fit_control']['experiment_id'].get()
+        except:
+            self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
+            new_val = self.sys.sample_metadata['experiment_id']
+        if not new_val == self.sys.sample_metadata['experiment_id']:
+            self.sys.sample_metadata['experiment_id'] = new_val
+        return True
+
+    def _set_sample_id(self,event=None):
+        try:
+            new_val = self._vars['fit_control']['sample_id'].get()
+        except:
+            self._vars['fit_control']['sample_id'].set(self.sys.sample_metadata['sample_id'])
+            new_val = self.sys.sample_metadata['sample_id']
+        if not new_val == self.sys.sample_metadata['sample_id']:
+            self.sys.sample_metadata['sample_id'] = new_val
+        return True
 
     def _set_wavelength(self,event=None):
         try:
             new_val = self._vars['fit_control']['wavelength'].get()
         except:
-            self._vars['fit_control']['wavelength'].set(self.src_wl)
-            new_val = self.src_wl
-            return False
-        if not new_val == self.src_wl:
-            self.src_wl = new_val
+            self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
+            new_val = self.sys.sample_metadata['source_wavelength']
+        if not new_val == self.sys.sample_metadata['source_wavelength']:
+            self.sys.sample_metadata['source_wavelength'] = new_val
             self._draw_plots()
         return True
 
@@ -327,7 +350,6 @@ class XRSDFitGUI(object):
         except:
             self._vars['fit_control']['q_range'][q_idx].set(self.q_range[q_idx])
             new_val = self.q_range[q_idx]
-            return False
         if not new_val == self.q_range[q_idx]:
             self.q_range[q_idx] = new_val
             self._update_fit_objective()
@@ -349,7 +371,7 @@ class XRSDFitGUI(object):
 
     def _set_good_fit(self):
         new_val = self._vars['fit_control']['good_fit'].get()
-        self.good_fit = new_val
+        self.sys.fit_report['good_fit'] = new_val
 
     def _create_noise_frame(self):
         nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
@@ -361,7 +383,7 @@ class XRSDFitGUI(object):
         ntp_option_dict = list(xrsdefs.noise_model_names)
         ntpcb = tkinter.OptionMenu(nmf,ntpvar,*ntp_option_dict)
         ntpvar.set(self.sys.noise_model.model)
-        ntpvar.trace('w',self._repack_noise_frame)
+        ntpvar.trace('w',self._update_noise)
         ntpcb.pack(side=tkinter.LEFT,fill='x')
         self._vars['noise_model'] = ntpvar
         nmf.grid(row=0,sticky='ew')
@@ -379,7 +401,7 @@ class XRSDFitGUI(object):
         for par_nm,frm in self._frames['parameters']['noise'].items(): frm.pack_forget() 
         new_par_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
-        for par_nm in xrsdefs.noise_model_params[nmdl]: 
+        for par_nm in xrsdefs.noise_params[nmdl]: 
             if par_nm in self._frames['parameters']['noise']:
                 new_par_frms[par_nm] = self._frames['parameters']['noise'][par_nm]
             else:
@@ -387,7 +409,7 @@ class XRSDFitGUI(object):
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['parameters']['noise'].keys())
         for par_nm in par_frm_nms: 
-            if not par_nm in xrsdefs.noise_model_params[nmdl]: 
+            if not par_nm in xrsdefs.noise_params[nmdl]: 
                 frm = self._frames['parameters']['noise'].pop(par_nm)
                 frm.destroy()
                 self._vars['parameters']['noise'].pop(par_nm)
@@ -832,13 +854,13 @@ class XRSDFitGUI(object):
         return nsf
 
     def _draw_plots(self):
-        I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.src_wl,self.dI,False)
+        I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.dI,False)
         self.mpl_canvas.draw()
         self._update_fit_objective(I_comp)
 
     def _update_fit_objective(self,I_comp=None):
         obj_val = self.sys.evaluate_residual(
-            self.q,self.I,self.src_wl,self.dI,
+            self.q,self.I,self.dI,
             self.error_weighted,self.logI_weighted,self.q_range,I_comp)
         self._vars['fit_control']['objective'].set(str(obj_val))
 
@@ -1013,6 +1035,16 @@ class XRSDFitGUI(object):
             self.fit_gui.update_idletasks()
             self.control_canvas_configure()
 
+    def _update_noise(self,*event_args):
+        s = self._vars['noise_model'].get()
+        if not s == self.sys.noise_model.model:
+            try:
+                self.sys.noise_model.set_model(s)
+            except:
+                raise
+            self._repack_noise_frame()
+            self._draw_plots()
+
     def _update_structure(self,pop_nm,*event_args):
         s = self._vars['structures'][pop_nm].get()
         if not s == self.sys.populations[pop_nm].structure:
@@ -1051,7 +1083,7 @@ class XRSDFitGUI(object):
     def _fit(self):
         sys_opt = xrsdsys.fit(
             self.sys,
-            self.q,self.I,self.src_wl,self.dI,
+            self.q,self.I,self.dI,
             self.error_weighted,self.logI_weighted,self.q_range
             )
         self.sys.update_from_dict(sys_opt.to_dict())

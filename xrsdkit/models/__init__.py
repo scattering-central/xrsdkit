@@ -5,7 +5,6 @@ from collections import OrderedDict
 import yaml
 import pandas as pd
 import numpy as np
-from citrination_client import CitrinationClient
 from sklearn import preprocessing
 
 from .. import definitions as xrsdefs 
@@ -28,21 +27,6 @@ testing_data_dir = os.path.join(src_dir,'models','modeling_data','test')
 if not os.path.exists(testing_data_dir): os.mkdir(testing_data_dir)
 test_regression_models_dir = os.path.join(testing_data_dir,'regressors')
 test_classification_models_dir = os.path.join(testing_data_dir,'classifiers')
-
-# read api key from file if present
-# TODO (later): look for user's api key in their home directory?
-# NOTE: this will be platform-dependent
-api_key_file = os.path.join(root_dir, 'api_key.txt')
-citcl = None
-if os.path.exists(api_key_file):
-    a_key = open(api_key_file, 'r').readline().strip()
-    citcl = CitrinationClient(site='https://slac.citrination.com',api_key=a_key)
-
-# read index of Citrination dataset ids 
-src_dsid_file = os.path.join(src_dir,'models','modeling_data','source_dataset_ids.yml')
-src_dsid_list = yaml.load(open(src_dsid_file,'r'))
-model_dsid_file = os.path.join(src_dir,'models','modeling_data','modeling_dataset_ids.yml')
-model_dsids = yaml.load(open(model_dsid_file,'r'))
 
 # --- LOAD READY-TRAINED MODELS --- #
 # for any models currently saved as yml files,
@@ -81,7 +65,7 @@ def load_regression_models(model_root_dir=regression_models_dir):
                         if pop_subitm.endswith('.yml'):
                             param_nm = pop_subitm.split('.')[0]
                             yml_path = os.path.join(pop_subdir,pop_subitm)
-                            model_dict[sys_cls][pop_id][pop_itm][param_nm] = Regressor(param_nm,yml_path) 
+                            model_dict[sys_cls][pop_id][pop_itm][param_nm] = Regressor(param_nm,yml_path)
                 elif pop_itm.endswith('.yml'):
                     # model parameters
                     param_nm = pop_itm.split('.')[0]
@@ -147,42 +131,6 @@ def load_classification_models(model_root_dir=classification_models_dir):
     return model_dict
 classification_models = load_classification_models(classification_models_dir) 
 test_classification_models = load_classification_models(test_classification_models_dir)
-
-def downsample_and_train(
-    source_dataset_ids=src_dsid_list,
-    citrination_client=citcl,
-    save_samples=False,
-    save_models=False,
-    train_hyperparameters=False,
-    test=False):
-    """Downsample datasets and use the samples to train xrsdkit models.
-
-    This is a developer tool for building models 
-    from a set of Citrination datasets.
-    It is used by the package developers to deploy
-    a standard set of models with xrsdkit.
-
-    Parameters
-    ----------
-    source_dataset_ids : list of int
-        Dataset ids for downloading source data
-    save_samples : bool
-        If True, downsampled datasets will be saved to their own datasets,
-        according to xrsdkit/models/modeling_data/dataset_ids.yml
-    save_models : bool
-        If True, the models will be saved to yml files 
-        in xrsdkit/models/modeling_data/
-    train_hyperparameters : bool
-        if True, the models will be optimized during training,
-        for best cross-validation performance
-        over a grid of hyperparameters 
-    test : bool
-        if True, the downsampling statistics and models will be
-        saved in modeling_data/testing_data dir
-    """
-    df = piftools.get_data_from_Citrination(citrination_client,source_dataset_ids)
-    df_sample = downsample_by_group(df)
-    train_from_dataframe(df_sample,train_hyperparameters,save_models,test)
 
 def downsample_by_group(df):
     """Group and down-sample a DataFrame of xrsd records.
@@ -695,7 +643,8 @@ def save_regression_models(models=regression_models, test=False):
                     if not os.path.exists(pop_subdir_path): os.mkdir(pop_subdir_path)
                     if k in xrsdefs.setting_selections['lattice']+xrsdefs.setting_selections['interaction']:
                         if k in xrsdefs.setting_selections['lattice']: param_nms = xrsdefs.setting_params['lattice'][k]
-                        if k in xrsdefs.setting_selections['interaction']: param_nms = xrsdefs.setting_params['disordered'][k]
+                        if k in xrsdefs.setting_selections['interaction']:
+                            param_nms = xrsdefs.setting_params['interaction'][k] 
                         for param_nm in param_nms:
                             if v[param_nm]:
                                 model_dict[sys_cls][pop_id][k][param_nm] = v[param_nm]
@@ -933,7 +882,7 @@ def system_from_prediction(prediction,q,I,source_wavelength):
     sys_class = prediction['system_classification']
 
     if sys_class[0] == 'unidentified':
-        return System(), new_sys
+        return System()
 
     # else, create the noise model and build the populations
     new_sys['noise'] = {'model':prediction['noise']['noise_classification'][0],'parameters':{}}
@@ -981,57 +930,15 @@ def system_from_prediction(prediction,q,I,source_wavelength):
 
             # TODO (later - as for predict()): if the specie is atomic, classify its atom symbol
 
-    predicted_system = System(new_sys)
+    new_sys['sample_metadata'] = {'source_wavelength':source_wavelength}
+    predicted_system = System(**new_sys)
     Isum = np.sum(I)
-    I_comp = predicted_system.compute_intensity(q,source_wavelength)
+    I_comp = predicted_system.compute_intensity(q)
     Isum_comp = np.sum(I_comp)
     I_factor = Isum/Isum_comp
     predicted_system.noise_model.parameters['I0']['value'] *= I_factor
     for pop_nm,pop in predicted_system.populations.items():
         pop.parameters['I0']['value'] *= I_factor
 
-    return predicted_system, predicted_system.to_dict() 
-
-# TODO refactor the modeling dataset index: it can no longer be divided simply by system class
-#def save_modeling_datasets(df,grp_cols,all_groups,all_samples,test=True):
-#    dir_path = modeling_data_dir
-#    if test:
-#        dir_path = os.path.join(dir_path,'models','modeling_data','testing_data')
-#    file_path = os.path.join(dir_path,'dataset_statistics.txt')
-#
-#    with open(file_path, 'w') as txt_file:
-#        txt_file.write('Downsampling statistics:\n\n')
-#        for grpk,samp in zip(all_groups.groups.keys(),all_samples):
-#            txt_file.write(grp_cols+'\n')
-#            txt_file.write(grpk+'\n')
-#            txt_file.write(len(samp)+' / '+len(all_groups.groups[grpk])+'\n')
-#
-#    modeling_dsid_file = os.path.join(modeling_data_dir,'modeling_dataset_ids.yml')
-#    all_dsids = yaml.load(open(modeling_dsid_file,'rb'))
-#
-#    ds_map_filepath = os.path.join(modeling_data_dir,'dsid_map.yml')
-#    ds_map = yaml.load(open(ds_map_filepath,'rb'))
-#
-#    # TODO: Take all_dsids one at a time,
-#    # and associate each one with a group.
-#    # (NOTE: If the group already exists in the ds_map,
-#    # should we re-use that dsid?)
-#    # If we run out of available modeling datasets,
-#    # we will add more to the list by hand.
-#    # ds_map should be an embedded dict,
-#    # keyed by all_groups.groups.keys.
-#
-#    # For each dataset that gets assigned to a group,
-#    # set its title to 'xrsdkit modeling dataset',
-#    # set its description to list the group labels,
-#    # create a new version,
-#    # and upload the group.
-#
-#    # Then, upload the entire sample for system_classifier,
-#    # and upload each system_class into a dataset 
-#    # for that system's basis_classifiers.
-#    #            pif.dump(pp, open(jsf,'w'))
-#    #            client.data.upload(ds_id, jsf)
-#    #    with open(ds_map_filepath, 'w') as yaml_file:
-#    #        yaml.dump(dataset_ids, yaml_file)
+    return predicted_system
 
