@@ -63,7 +63,7 @@ form_factor_params = dict(
     guinier_porod = dict(
         rg = {'value':10.,'fixed':False,'bounds':[0.1,None],'constraint_expr':None},
         D = {'value':4.,'fixed':True,'bounds':[0.,4.],'constraint_expr':None} 
-        )
+        ),
     spherical = {'r':{'value':20.,'fixed':False,'bounds':[0.1,None],'constraint_expr':None}}
     )
 noise_params = dict(
@@ -115,7 +115,7 @@ setting_selections = dict(
     n_atoms = [],
     r_distribution = ['r_single','r_normal'],
     rg_distribution = ['rg_single','rg_normal'],
-    n_samples = []
+    n_samples = [],
     sampling_width = []
     )
 
@@ -169,7 +169,7 @@ def additional_params(setting_name,setting_value):
                 hwhm_l = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
                 )
         if setting_name in ['gaussian','lorentzian']:
-            return {'hwhm':'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
+            return {'hwhm':{'value':1.E-3},'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
     if setting_name == 'n_atoms':
         coord_params = {} 
         for iat in range(setting_value):
@@ -186,7 +186,7 @@ def additional_params(setting_name,setting_value):
     if setting_name == 'rg_distribution':
         if setting_value == 'normal':
             return {'sigma_rg':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
-    if setting_name == 'r_distribution']:
+    if setting_name == 'r_distribution':
         if setting_value == 'normal':
             return {'sigma_r':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
     return {} 
@@ -226,7 +226,7 @@ setting_descriptions = dict(
     n_atoms = 'Number of atoms',
     r_distribution = 'Probability distribution for parameter r',
     rg_distribution = 'Probability distribution for parameter rg',
-    n_samples = 'Number of values to sample from distribution'
+    n_samples = 'Number of values to sample from distribution',
     sampling_width = 'Number of standard deviations sample from distribution'
     )
 

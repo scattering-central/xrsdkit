@@ -2,7 +2,8 @@ import os
 
 import numpy as np
 
-from xrsdkit.system import System, Population, NoiseModel, fit 
+from xrsdkit.system import System, Population, fit 
+from xrsdkit.system.noise import NoiseModel
 from xrsdkit.visualization.gui import run_fit_gui
 
 src_wl = 0.8265616
