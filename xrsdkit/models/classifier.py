@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from collections import OrderedDict
+import random
 
 from sklearn import linear_model, model_selection
 from sklearn.metrics import f1_score, confusion_matrix
@@ -184,8 +184,7 @@ class Classifier(XRSDModel):
                 'because some labels in the training set included less than 3 samples.'
         return results
 
-    def hyperparameters_search(self,transformed_data, data_labels,
-                               group_by=None, n_leave_out=None, scoring='f1_macro'):
+    def hyperparameters_search(self,transformed_data, group_by='group_id', n_leave_out=None, scoring='f1_macro'):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
         This invokes the method from the base class with a different scoring argument.
@@ -195,16 +194,8 @@ class Classifier(XRSDModel):
         params : dict
             dictionary of the parameters to get the best f1 score.
         """
-        # TODO (later): try scoring "f1_macro"
-        # or implement customized grid search.
-        # problem with any f1: for each split,
-        # f1 is calculated for EACH class that is present
-        # in the testing or training set,
-        # which currently produces a lot of zeros.
-        # For each split, we want to calculate f1 only for the classes
-        # that are present in training set
         params = super(Classifier,self).hyperparameters_search(
-                transformed_data,data_labels,group_by,n_leave_out,scoring)
+                transformed_data, group_by, n_leave_out, scoring)
         return  params
 
     def print_labels(self, all=True):
@@ -262,12 +253,56 @@ class Classifier(XRSDModel):
                     if number_of_samles_by_cl[i] < 10:
                         dataframe = dataframe[~(dataframe[self.target] == all_classes[i]) ]
 
+            '''
             # check if threre are splits when all testing data have identical labels
             experiments = dataframe.experiment_id.unique()
             for i in range(len(experiments)):
                 tr = dataframe[(dataframe['experiment_id'] != experiments[i])]
                 if len(tr[self.target].unique()) < 2:
                     n_groups_out = None # 3-fold cross validation will be used
+            '''
+            cols = list(dataframe)
+            cols.append('group_id')
+            gr1 = pd.DataFrame(columns=cols)
+            gr2 = pd.DataFrame(columns=cols)
+            gr3 = pd.DataFrame(columns=cols)
+            all_classes = dataframe[self.target].value_counts().keys()
+
+            for cl in all_classes:
+                d = dataframe[dataframe[self.target]==cl]
+
+                if len(d['experiment_id'].unique()) > 2:
+                # for classes that have data from 3 or more experiments:
+                # the data from one experiment will be in the same group
+                    all_exp = d['experiment_id'].value_counts().keys().tolist()
+                    all_exp = random.sample(all_exp, len(all_exp)) # to shuffle the list
+                    print(all_exp)
+                    exp_per_group = len(all_exp)//3
+                    if len(all_exp)%3 == 2: # if we have 5 exeriments: 2 - 2 - 1; 4: 1 - 1 - 2
+                        exp_per_group +=1
+                    gr_1 = all_exp[ : exp_per_group] # these experiments will be at the group 1
+                    gr_2 = all_exp[exp_per_group : exp_per_group *2]
+                    gr_3 = all_exp[exp_per_group * 2 : ]
+                    d_1 = d.loc[d['experiment_id'].isin(gr_1)]
+                    d_2 = d.loc[d['experiment_id'].isin(gr_2)]
+                    d_3 = d.loc[d['experiment_id'].isin(gr_3)]
+                else:
+                    # split the samples of this class in 3 groups:
+                    samp_per_group = d.shape[0]//3
+                    if d.shape[0]%3 == 2:
+                        samp_per_group +=1
+                    d_1 = d.iloc[ :samp_per_group]
+                    d_2 = d.iloc[samp_per_group : 2 * samp_per_group]
+                    d_3 = d.iloc[2 * samp_per_group : ]
+                    print(d_1.shape, d_2.shape, d_3.shape)
+                d_1.loc[ :, 'group_id'] = 1
+                gr1 = pd.concat([gr1, d_1])
+                d_2.loc[ :, 'group_id'] = 2
+                gr2 = pd.concat([gr2, d_2])
+                d_3.loc[ :, 'group_id'] = 3
+                gr3 = pd.concat([gr3, d_3])
+            dataframe = pd.concat([gr1, gr2, gr3])
+            print("-----------done", dataframe.shape, dataframe['group_id'].value_counts())
 
         return result, n_groups_out, dataframe
 

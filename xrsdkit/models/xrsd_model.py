@@ -64,9 +64,7 @@ class XRSDModel(object):
             data = self.standardize(data)
 
             if hyper_parameters_search:
-                new_parameters = self.hyperparameters_search(
-                    data[profiler.profile_keys], data[self.target],
-                    data['experiment_id'], n_groups_out)
+                new_parameters = self.hyperparameters_search(data, n_leave_out=n_groups_out)
                 new_model = self.build_model(new_parameters)
             else:
                 new_model = self.model
@@ -85,15 +83,13 @@ class XRSDModel(object):
         data[profiler.profile_keys] = self.scaler.transform(data[profiler.profile_keys])
         return data
 
-    def hyperparameters_search(self,transformed_data, data_labels, group_by=None, n_leave_out=None, scoring=None):
+    def hyperparameters_search(self,transformed_data, group_by='experiment_id', n_leave_out=None, scoring=None):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
         Parameters
         ----------
-        transformed_data : array
-            2D numpy array of scaled features, one row for each sample
-        data_labels : array
-            array of labels (as a DataFrame column), one label for each sample
+        transformed_data : pandas.DataFrame
+            dataframe containing features and labels
         group_by: string
             DataFrame column header for LeavePGroupsOut(groups=group_by)
         n_leave_out: integer
@@ -106,7 +102,8 @@ class XRSDModel(object):
         """
         if n_leave_out:
             cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data, np.ravel(data_labels), groups=group_by)
+                transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]),
+                                                                  groups=transformed_data[group_by])
         else:
             cv = 3 # number of folds for cross validation
         test_model = self.build_model()
@@ -115,7 +112,7 @@ class XRSDModel(object):
         # will be used by default for dask GridSearchCV
         clf = GridSearchCV(test_model,
                         self.grid_search_hyperparameters, cv=cv, scoring=scoring)
-        clf.fit(transformed_data, np.ravel(data_labels))
+        clf.fit(transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]))
 
         return clf.best_params_
 
