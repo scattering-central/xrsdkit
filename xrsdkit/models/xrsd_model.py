@@ -146,7 +146,7 @@ class XRSDModel(object):
             n_groups_out = None
 
         if len(dataframe[self.target].unique()) > 1:
-            if dataframe.shape[0] >= 5:
+            if dataframe.shape[0] >= 10:
                 return True, n_groups_out
             else:
                 #print('model {}: insufficient training data ({} samples)'.format(

@@ -24,9 +24,9 @@ class Classifier(XRSDModel):
                     loss='log',
                     penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=10)
+                    max_iter=1000, class_weight='balanced')
         else:
-            new_model = linear_model.SGDClassifier(loss='log', penalty='elasticnet', max_iter=10)
+            new_model = linear_model.SGDClassifier(loss='log', penalty='elasticnet', max_iter=1000, class_weight='balanced')
         return new_model
 
     def classify(self, sample_features):
@@ -185,7 +185,7 @@ class Classifier(XRSDModel):
         return results
 
     def hyperparameters_search(self,transformed_data, data_labels,
-                               group_by=None, n_leave_out=None, scoring='accuracy'):
+                               group_by=None, n_leave_out=None, scoring='f1_macro'):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
         This invokes the method from the base class with a different scoring argument.
@@ -254,15 +254,13 @@ class Classifier(XRSDModel):
         """
         result, n_groups_out = super(Classifier,self).check_label(dataframe)
         if result:
-            # check if there are skewed classes and fix them:
-            if min(dataframe[self.target].value_counts().tolist()) < 3:
-                # find samples of skewed classes and add two clones of them
+            if min(dataframe[self.target].value_counts().tolist()) < 10:
+                # remove these samples
                 all_classes = dataframe[self.target].value_counts().keys()
                 number_of_samles_by_cl = dataframe[self.target].value_counts().tolist()
                 for i in range(len(number_of_samles_by_cl)):
-                    if number_of_samles_by_cl[i] < 3:
-                        sampls = dataframe.loc[dataframe[self.target] == all_classes[i]].copy()
-                        dataframe = pd.concat([dataframe,sampls,sampls])
+                    if number_of_samles_by_cl[i] < 10:
+                        dataframe = dataframe[~(dataframe[self.target] == all_classes[i]) ]
 
             # check if threre are splits when all testing data have identical labels
             experiments = dataframe.experiment_id.unique()
