@@ -82,8 +82,8 @@ class Classifier(XRSDModel):
             and testing-training splits.
         """
         experiments = df.experiment_id.unique()# we have at least 3 experiments
+        groups = df.group_id.unique()
         all_classes = df[self.target].unique().tolist()
-        test_scores_by_ex = {}
         test_scores_by_classes = dict.fromkeys(all_classes)
         for k,v in test_scores_by_classes.items():
             test_scores_by_classes[k] = []
@@ -91,15 +91,11 @@ class Classifier(XRSDModel):
         true_labels = []
         pred_labels = []
         acc_weighted_by_classes = []
-        for i in range(len(experiments)):
-            tr = df[(df['experiment_id'] != experiments[i])]
+        for i in range(len(groups)):
+            tr = df[(df['group_id'] != groups[i])]
             if len(tr[self.target].unique()) < 2:
                 continue
-            test = df[(df['experiment_id'] == experiments[i])]
-            # remove from the test set the samples of the classes
-            # that do not exists in the training set:
-            cl_in_training_set = tr[self.target].unique()
-            test = test[(test[self.target].isin(cl_in_training_set))]
+            test = df[(df['group_id'] == groups[i])]
 
             model.fit(tr[features], tr[self.target])
             y_pred = model.predict(test[features])
@@ -151,7 +147,10 @@ class Classifier(XRSDModel):
                       mean_accuracies_by_classes = test_scores_by_classes,
                       mean_not_weighted_accuracy = sum(score_by_cl)/len(score_by_cl),
                       mean_weighted_by_classes_accuracy = sum(acc_weighted_by_classes)/len(acc_weighted_by_classes),
-                      test_training_split = "by experiments")
+                      test_training_split = "by group: for classes that includes data from 3 or more experiments, "
+                                            "the data was splited such that all data from each experiment was "
+                                            "placed in one group; for the other classes - the data was randomply "
+                                            "splited into three groups")
         return result
 
 
@@ -166,7 +165,7 @@ class Classifier(XRSDModel):
                        F1_score_by_classes = [],
                        mean_accuracies_by_classes = None,
                        mean_not_weighted_accuracy= None,
-                       test_training_split = "random 3 folders split")
+                       test_training_split = "3 folders random split")
 
         if min(df[self.target].value_counts()) > 2:
             results['mean_weighted_by_classes_accuracy'] = model_selection.cross_val_score(model,df[features],
@@ -362,9 +361,7 @@ class Classifier(XRSDModel):
             'Data from {} experiments was used\n\n'.format(
             str(self.cross_valid_results['number_of_experiments'])) + \
             'All labels : \n' + self.print_labels()+'\n\n'+ \
-            'model was NOT tested for :' '\n'+ self.print_labels(False) +'\n\n'+ \
             'Confusion matrix:\n' + \
-            'if the model was not tested for some labels, the corresponding rows will have all zeros\n' + \
             self.print_confusion_matrix()+'\n\n' + \
             'F1 scores by label:\n' + \
             self.print_F1_scores() + '\n'\
