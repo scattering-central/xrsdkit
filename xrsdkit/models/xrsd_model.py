@@ -73,6 +73,7 @@ class XRSDModel(object):
             # the entire dataset is used for final training
             self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
             new_model.fit(data[profiler.profile_keys], data[self.target])
+            print("------------------------------------", self.target)
             self.model = new_model
             self.trained = True
 
@@ -164,10 +165,6 @@ class XRSDModel(object):
         so mean_abs_error is not currently supported for hyperparameter training.
         Classifiers are validated by the f1_macro scoring function;
         f1_macro is the average, unweighted f1 score across all labels.
-        The reports also include mean unweighted accuracies for all labels.
-        Scikit-learn does not expose the mean unweighted accuracy by labels
-        as a scoring option, so it cannot currently be used
-        for hyperparameter optimization.
 
         Parameters
         ----------
