@@ -73,7 +73,6 @@ class XRSDModel(object):
             # the entire dataset is used for final training
             self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
             new_model.fit(data[profiler.profile_keys], data[self.target])
-            print("------------------------------------", self.target)
             self.model = new_model
             self.trained = True
 

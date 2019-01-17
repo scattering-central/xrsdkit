@@ -6,6 +6,9 @@ from sklearn import linear_model, model_selection
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
 
 from .xrsd_model import XRSDModel
+from dask_ml.model_selection import GridSearchCV
+from ..tools import profiler
+
 
 class Classifier(XRSDModel):
     """Class for generating models to classifying material systems."""
@@ -116,17 +119,26 @@ class Classifier(XRSDModel):
 
 
     def hyperparameters_search(self,transformed_data, group_by='group_id', n_leave_out=None, scoring='f1_macro'):
-        """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
-        This invokes the method from the base class with a different group_by and scoring arguments.
+        """Grid search for optimal alpha and l1 ratio hyperparameters.
 
         Returns
         -------
         params : dict
             dictionary of the parameters to get the best f1 score.
         """
-        params = super(Classifier,self).hyperparameters_search(
-                transformed_data, group_by, n_leave_out, scoring)
-        return  params
+
+        cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
+                transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]),
+                                                                  groups=transformed_data[group_by])
+        test_model = self.build_model()
+
+        # threaded scheduler with optimal number of threads
+        # will be used by default for dask GridSearchCV
+        clf = GridSearchCV(test_model,
+                        self.grid_search_hyperparameters, cv=cv, scoring=scoring)
+        clf.fit(transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]))
+        params = clf.best_params_
+        return params
 
     def print_labels(self, all=True):
         if all:
@@ -177,23 +189,16 @@ class Classifier(XRSDModel):
                 number_of_samles_by_cl = dataframe[self.target].value_counts().tolist()
                 for i in range(len(number_of_samles_by_cl)):
                     if number_of_samles_by_cl[i] < 10:
-                        dataframe = dataframe[~(dataframe[self.target] == all_classes[i]) ]
+                        dataframe = dataframe.loc[~(dataframe[self.target] == all_classes[i]) ]
                 #check if we still have at least two different classes:
                 if len(dataframe[self.target].unique()) < 2:
                     result = False
                     return result, _, dataframe
 
-
-            cols = list(dataframe)
-            cols.append('group_id')
-            gr1 = pd.DataFrame(columns=cols)
-            gr2 = pd.DataFrame(columns=cols)
-            gr3 = pd.DataFrame(columns=cols)
+            gr_list = []
             all_classes = dataframe[self.target].value_counts().keys()
-
             for cl in all_classes:
-                d = dataframe[dataframe[self.target]==cl]
-
+                d = dataframe.loc[dataframe[self.target]==cl]
                 if len(d['experiment_id'].unique()) > 2:
                 # for classes that have data from 3 or more experiments:
                 # the data from one experiment will be in the same group
@@ -205,9 +210,9 @@ class Classifier(XRSDModel):
                     gr_1 = all_exp[ : exp_per_group] # these experiments will be at the group 1
                     gr_2 = all_exp[exp_per_group : exp_per_group *2]
                     gr_3 = all_exp[exp_per_group * 2 : ]
-                    d_1 = d.loc[d['experiment_id'].isin(gr_1)]
-                    d_2 = d.loc[d['experiment_id'].isin(gr_2)]
-                    d_3 = d.loc[d['experiment_id'].isin(gr_3)]
+                    d_1 = d.loc[d['experiment_id'].isin(gr_1)].copy()
+                    d_2 = d.loc[d['experiment_id'].isin(gr_2)].copy()
+                    d_3 = d.loc[d['experiment_id'].isin(gr_3)].copy()
                 else:
                     # split the samples of this class in 3 groups:
                     samp_per_group = d.shape[0]//3
@@ -217,12 +222,13 @@ class Classifier(XRSDModel):
                     d_2 = d.iloc[samp_per_group : 2 * samp_per_group]
                     d_3 = d.iloc[2 * samp_per_group : ]
                 d_1.loc[ :, 'group_id'] = 1
-                gr1 = pd.concat([gr1, d_1])
+                gr_list.append(d_1)
                 d_2.loc[ :, 'group_id'] = 2
-                gr2 = pd.concat([gr2, d_2])
+                gr_list.append(d_2)
                 d_3.loc[ :, 'group_id'] = 3
-                gr3 = pd.concat([gr3, d_3])
-            dataframe = pd.concat([gr1, gr2, gr3])
+                gr_list.append(d_3)
+
+            dataframe = pd.concat(gr_list)
 
         return result, _, dataframe
 
