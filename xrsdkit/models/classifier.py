@@ -11,7 +11,7 @@ from ..tools import profiler
 
 
 class Classifier(XRSDModel):
-    """Class for generating models to classifying material systems."""
+    """Class for models that classify attributes of material systems."""
 
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
@@ -27,10 +27,13 @@ class Classifier(XRSDModel):
                     loss='log',
                     penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000, class_weight='balanced')
+                    max_iter=1000, class_weight='balanced'
+                    )
         else:
-            new_model = linear_model.SGDClassifier(loss='log', penalty='elasticnet',
-                                                   max_iter=1000, class_weight='balanced')
+            new_model = linear_model.SGDClassifier(
+                loss='log', penalty='elasticnet',
+                max_iter=1000, class_weight='balanced'
+                )
         return new_model
 
     def classify(self, sample_features):
@@ -40,17 +43,15 @@ class Classifier(XRSDModel):
         ----------
         sample_features : OrderedDict
             OrderedDict of features with their values,
-            similar to output of xrsdkit.tools.profiler.profile_pattern()
+            similar to output of xrsdkit.tools.profiler.profile_pattern().
 
         Returns
         -------
-        structure_flags : bool or None
-            a boolean inidicating whether or not
-            the sample exhibits the structure
-            None is reterned for models that was not trained yet
+        sys_cls : object 
+            Predicted classification value for self.target, given `sample_features`
         cert : float or None
             the certainty of the prediction
-            None is reterned for models that was not trained yet
+            (For models that are not trained, cert=None)
         """
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
         x = self.scaler.transform(feature_array)
@@ -58,10 +59,11 @@ class Classifier(XRSDModel):
         cert = max(self.model.predict_proba(x)[0])
         return sys_cls, cert
 
-
-    def run_cross_validation(self, model, df, features, _):
+    def run_cross_validation(self, model, df, features, grouping='group_id'):
         """Test a model by LeaveOneGroupOut cross-validation.
-        In this case, the groupings are defined by the group_id.
+
+        In this case, the groupings are defined by the 'group_id' labels,
+        which are assigned during self.check_label().
 
         Parameters
         ----------
@@ -83,40 +85,39 @@ class Classifier(XRSDModel):
             F1_macro, accuracy,confusion matrix,
             and testing-training splits.
         """
-        experiments = df.experiment_id.unique()# we have at least 3 experiments
+        if not grouping == 'group_id':
+            raise ValueError('grouping specifier {} is not supported'.format(grouping))
         groups = df.group_id.unique()
         all_classes = df[self.target].unique().tolist()
         true_labels = []
         pred_labels = []
         for i in range(len(groups)):
             tr = df[(df['group_id'] != groups[i])]
-            if len(tr[self.target].unique()) < 2:
-                continue
+            # TODO: make sure all groups have all labels
+            #if len(tr[self.target].unique()) < 2:
+            #    continue
             test = df[(df['group_id'] == groups[i])]
-
             model.fit(tr[features], tr[self.target])
             y_pred = model.predict(test[features])
-
             pred_labels.extend(y_pred)
             true_labels.extend(test[self.target])
-
         cm = confusion_matrix(true_labels, pred_labels, all_classes)
-
+        experiments = df.experiment_id.unique() 
         result = dict(all_classes = all_classes,
-                      number_of_experiments = len(experiments),
-                      experiments = str(df.experiment_id.unique()),
-                      confusion_matrix = str(cm),
-                      F1_score_by_classes = f1_score(true_labels, pred_labels,
+                        number_of_experiments = len(experiments),
+                        experiments = str(experiments),
+                        confusion_matrix = str(cm),
+                        F1_score_by_classes = f1_score(true_labels, pred_labels,
                                     labels=all_classes, average=None).tolist(),
-                      F1_score_averaged_not_weighted = f1_score(true_labels,
-                                        pred_labels, labels=all_classes, average='macro'),
-                      accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None),
-                      test_training_split = "by group: for classes that includes data from 3 or more experiments, \n "
-                                            "the data was splited such that all data from each experiment was\n "
-                                            "placed in one group; for the other classes - the data was randomply\n "
-                                            "splited into three groups")
+                        F1_score_averaged_not_weighted = f1_score(true_labels,
+                                    pred_labels, labels=all_classes, average='macro'),
+                        accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None),
+                        test_training_split = 'for classes with samples from 3 or more experiment_ids, '\
+                                            'the data are split according to experiment_id; '\
+                                            'for classes with samples from 2 or fewer experiment_ids, '\
+                                            'the data are randomly split into three groups'
+                        )
         return result
-
 
     def hyperparameters_search(self,transformed_data, group_by='group_id', n_leave_out=None, scoring='f1_macro'):
         """Grid search for optimal alpha and l1 ratio hyperparameters.
@@ -154,14 +155,12 @@ class Classifier(XRSDModel):
         else:
             return "The model was tested for all labels"
 
-
     def check_label(self, dataframe):
         """Test whether or not `dataframe` has legal values for all labels.
-        This invokes the method from the base class and then add a new
-        column "group_by" to the dataframe. It also removes data from
-        the classes that have less than 10 samples.
 
-        Returns "True" if the dataframe has enough rows,
+        This invokes the method from the base class, 
+        and then adds a new column "group_id" to the dataframe. 
+        Returns True if the dataframe has at least 10 rows,
         over which the labels exhibit at least two unique values
 
         Parameters
@@ -175,64 +174,48 @@ class Classifier(XRSDModel):
             indicates whether or not training is possible
             (the dataframe has enough rows,
             over which the labels exhibit at least two unique values)
-        _ : int or None
-            for classification models LeaveOneGroupOut by "group_id" always is used
-        dataframe : pandas.DataFrame
-            updated dataframe: classes with less than 10 samples are removed;
-            a new column "group_by" is added.
+        grouping : str
+            currently, classification models only support
+            LeaveOneGroupOut by "group_id" for cross-validation 
         """
-        result, _ = super(Classifier,self).check_label(dataframe)
+        result, grouping = super(Classifier,self).check_label(dataframe)
         if result:
-            if min(dataframe[self.target].value_counts().tolist()) < 10:
-                # remove these samples
-                all_classes = dataframe[self.target].value_counts().keys()
-                number_of_samles_by_cl = dataframe[self.target].value_counts().tolist()
-                for i in range(len(number_of_samles_by_cl)):
-                    if number_of_samles_by_cl[i] < 10:
-                        dataframe = dataframe.loc[~(dataframe[self.target] == all_classes[i]) ]
-                #check if we still have at least two different classes:
-                if len(dataframe[self.target].unique()) < 2:
-                    result = False
-                    return result, _, dataframe
-
-            gr_list = []
-            all_classes = dataframe[self.target].value_counts().keys()
-            for cl in all_classes:
-                d = dataframe.loc[dataframe[self.target]==cl]
-                if len(d['experiment_id'].unique()) > 2:
-                # for classes that have data from 3 or more experiments:
-                # the data from one experiment will be in the same group
-                    all_exp = d['experiment_id'].value_counts().keys().tolist()
-                    all_exp = random.sample(all_exp, len(all_exp)) # to shuffle the list
-                    exp_per_group = len(all_exp)//3
-                    if len(all_exp)%3 == 2: # if we have 5 exeriments: 2 - 2 - 1; 4: 1 - 1 - 2
-                        exp_per_group +=1
-                    gr_1 = all_exp[ : exp_per_group] # these experiments will be at the group 1
-                    gr_2 = all_exp[exp_per_group : exp_per_group *2]
-                    gr_3 = all_exp[exp_per_group * 2 : ]
-                    d_1 = d.loc[d['experiment_id'].isin(gr_1)].copy()
-                    d_2 = d.loc[d['experiment_id'].isin(gr_2)].copy()
-                    d_3 = d.loc[d['experiment_id'].isin(gr_3)].copy()
+            cl_counts = dataframe[self.target].value_counts()
+            group_ids = np.zeros(dataframe.shape[0])
+            for cl,nsamp in cl_counts.items():
+                if nsamp < 10:
+                    # insufficient samples for the class: set group_id to zero 
+                    group_ids[dataframe[self.target]==cl] = 0
                 else:
-                    # split the samples of this class in 3 groups:
-                    samp_per_group = d.shape[0]//3
-                    if d.shape[0]%3 == 2:
-                        samp_per_group +=1
-                    d_1 = d.iloc[ :samp_per_group]
-                    d_2 = d.iloc[samp_per_group : 2 * samp_per_group]
-                    d_3 = d.iloc[2 * samp_per_group : ]
-                d_1.loc[ :, 'group_id'] = 1
-                gr_list.append(d_1)
-                d_2.loc[ :, 'group_id'] = 2
-                gr_list.append(d_2)
-                d_3.loc[ :, 'group_id'] = 3
-                gr_list.append(d_3)
-
-            dataframe = pd.concat(gr_list)
-
-        return result, _, dataframe
-
-
+                    # sufficient samples exist for training this class
+                    cl_idx = dataframe[self.target] == cl
+                    cl_data = dataframe.loc[cl_idx]
+                    cl_exp_ids = cl_data['experiment_id'].unique()
+                    if len(cl_exp_ids) > 2:
+                        # at least three experiments are represented in this class:
+                        # assign each experiment to a group
+                        for i_exp,exp_id in enumerate(cl_exp_ids):
+                            group_ids[cl_idx&(dataframe['experiment_id']==exp_id)] = i_exp+1
+                    else:
+                        # only one experiment is represented in the class:
+                        # shuffle-split these samples into 3 groups
+                        #cl_group_ids = samp_per_group = d.shape[0]//3
+                        nsamp1 = nsamp2 = nsamp//3
+                        nsamp3 = nsamp-nsamp1-nsamp2
+                        all_idx = range(nsamp)
+                        idx_group1 = random.sample(all_idx,nsamp1)
+                        all_idx = all_idx[idx not in idx_group1 for idx in all_idx]
+                        idx_group2 = random.sample(all_idx,nsamp2)
+                        idx_group3 = all_idx[idx not in idx_group2 for idx in all_idx]
+                        group_ids[idx_group1] = 1
+                        group_ids[idx_group2] = 2
+                        group_ids[idx_group3] = 3
+            dataframe['group_id'] = pd.Series(group_ids,index=dataframe.index)
+            #check if we still have at least two fully represented classes:
+            if len(dataframe.loc[dataframe.group_id>0][self.target].unique()) < 2:
+                return False, grouping 
+            return result, 'group_id' 
+                    
     def print_confusion_matrix(self):
         if self.cross_valid_results['confusion_matrix']:
             result = ''
