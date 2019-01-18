@@ -37,7 +37,13 @@ class XRSDModel(object):
         self.model = self.build_model(model_hyperparams)
 
     def build_model(self,model_hyperparams):
+        # TODO: add a docstring that describes the interface
         msg = 'subclasses of XRSDModel must implement build_model()'
+        raise NotImplementedError(msg)
+
+    def run_cross_validation(self,model,data,features,grouping):
+        # TODO: add a docstring that describes the interface
+        msg = 'subclasses of XRSDModel must implement run_cross_validation()'
         raise NotImplementedError(msg)
 
     def train(self, all_data, hyper_parameters_search=False):
@@ -51,27 +57,27 @@ class XRSDModel(object):
             If true, grid-search model hyperparameters
             to seek high cross-validation accuracy.
         """
-        training_possible, n_groups_out, d = self.check_label(all_data)
+        training_possible, grouping = self.check_label(all_data)
         if not training_possible:
-            # all samples have identical labels or we have <5 samples
-            self.default_val = d[self.target].unique()[0]
+            # not enough samples, or all have identical labels
+            self.default_val = all_data[self.target].unique()[0]
             self.trained = False
             return
         else:
             # NOTE: SGD models train more efficiently on shuffled data
-            d = utils.shuffle(d)
+            d = utils.shuffle(all_data)
             data = d[d[self.target].isnull() == False]
             data = self.standardize(data)
 
             if hyper_parameters_search:
-                new_parameters = self.hyperparameters_search(data, n_leave_out=n_groups_out)
+                new_parameters = self.hyperparameters_search(data, n_leave_out=1)
                 new_model = self.build_model(new_parameters)
             else:
                 new_model = self.model
 
             # NOTE: after cross-validation for parameter selection,
             # the entire dataset is used for final training
-            self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,n_groups_out)
+            self.cross_valid_results = self.run_cross_validation(new_model,data,profiler.profile_keys,grouping)
             new_model.fit(data[profiler.profile_keys], data[self.target])
             self.model = new_model
             self.trained = True
@@ -89,7 +95,8 @@ class XRSDModel(object):
         Parameters
         ----------
         transformed_data : pandas.DataFrame
-            dataframe containing features and labels
+            dataframe containing features and labels;
+            note that the features should be transformed/standardized beforehand
         group_by: string
             DataFrame column header for LeavePGroupsOut(groups=group_by)
         n_leave_out: integer
@@ -102,27 +109,26 @@ class XRSDModel(object):
         """
         if n_leave_out:
             cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]),
-                                                                  groups=transformed_data[group_by])
+                transformed_data[profiler.profile_keys], 
+                np.ravel(transformed_data[self.target]),
+                groups=transformed_data[group_by]
+                )
         else:
             cv = 3 # number of folds for cross validation
         test_model = self.build_model()
-
         # threaded scheduler with optimal number of threads
         # will be used by default for dask GridSearchCV
-        clf = GridSearchCV(test_model,
-                        self.grid_search_hyperparameters, cv=cv, scoring=scoring)
+        clf = GridSearchCV(test_model,self.grid_search_hyperparameters,cv=cv,scoring=scoring)
         clf.fit(transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]))
-
         return clf.best_params_
 
-
     def check_label(self, dataframe):
-        """Test whether or not `dataframe` has legal values for all labels.
+        """Check whether `dataframe` provides sufficient training data for self.target.
  
-        Returns "True" if the dataframe has enough rows, 
-        over which the labels exhibit at least two unique values
-        and there are at least three samples for each label.
+        Returns True if the dataframe has at least 10 rows, 
+        over which the labels exhibit at least two unique values.
+        All rows of `dataframe` are assumed to have valid labels for self.target.
+        A group_id column is added to the dataframe for cross-validation grouping.
 
         Parameters
         ----------
@@ -133,56 +139,20 @@ class XRSDModel(object):
         -------
         result : bool
             indicates whether or not training is possible.
-        n_groups_out : int or None
+        grouping : str 
             using leaveGroupOut makes sense when we have at least 3 groups.
         """
         if len(dataframe.experiment_id.unique()) > 2:
-            n_groups_out = 1
+            grouping = 'experiment_id' 
         else:
-            # use 3-fold cross validation
-            n_groups_out = None
-
+            grouping = None 
         if len(dataframe[self.target].unique()) > 1:
             if dataframe.shape[0] >= 10:
-                return True, n_groups_out
+                # sufficient training data with at least 2 distinct labels
+                return True, grouping 
             else:
-                #print('model {}: insufficient training data ({} samples)'.format(
-                #self.target,dataframe.shape[0]))
-                return False, n_groups_out
+                # insufficient training data
+                return False, grouping 
         else:
-            #print('model {}: all training data have identical outputs ({})'.format(
-            #self.target,dataframe[self.target].iloc[0]))
-            return False, n_groups_out
-
-    def run_cross_validation(self,model,data,features,group_cv):
-        """Run a cross-validation test and return a report of the results.
-
-        Regression models are scored by the coefficient of determination (R^2 or 'r2'),
-        in order to normalize by the variance of the dataset.
-        Training reports also include the more intuitive normalized mean_abs_error.
-        Scikit-learn does not currently provide API for scoring by mean_abs_error,
-        so mean_abs_error is not currently supported for hyperparameter training.
-        Classifiers are validated by the f1_macro scoring function;
-        f1_macro is the average, unweighted f1 score across all labels.
-
-        Parameters
-        ----------
-        model : sklearn.linear_model.SGDRegressor
-            scikit-learn regression model to be cross-validated
-        data : pandas.DataFrame
-            pandas dataframe of features and labels
-        features : list of str
-            list of features that were used for training
-        group_cv : bool
-            indicate if cross validation by experiments can be performed.
-
-        Returns
-        -------
-        cross_val_results : dict
-            with cross validation results.
-        """
-        if group_cv:
-            cross_val_results = self.cross_validate_by_experiments(model,data,features)
-        else:
-            cross_val_results = self.cross_validate(model,data,features)
-        return cross_val_results
+            # all training data have identical outputs 
+            return False, grouping 

@@ -103,13 +103,14 @@ class Regressor(XRSDModel):
                 cv=3,scoring='neg_mean_absolute_error'))
 
         results = dict(normalized_mean_abs_error_by_splits = str(scores),
-                       normalized_mean_abs_error = sum(scores)/len(scores),
-                       #weighted_av_mean_abs_error is the same us unweighted since the splits have the same sizes:
-                       weighted_av_mean_abs_error = sum(scores)/len(scores),
-                       number_of_experiments = len(df.experiment_id.unique()),
-                       experiments = str(df.experiment_id.unique()),
-                       test_training_split = 'random shuffle-split 3-fold cross-validation')
-
+                        normalized_mean_abs_error = sum(scores)/len(scores),
+                        # TODO: weight this by sample size
+                        # (test splits may differ in size by one sample)
+                        weighted_av_mean_abs_error = sum(scores)/len(scores),
+                        number_of_experiments = len(df.experiment_id.unique()),
+                        experiments = str(df.experiment_id.unique()),
+                        test_training_split = '3-fold random shuffle-split cross-validation'
+                        )
         return results
 
     def cross_validate_by_experiments(self, model, df, features):
@@ -213,8 +214,38 @@ class Regressor(XRSDModel):
             '\n\nNOTE: Weighted metrics are weighted by test set size' 
         return CV_report
 
+    def run_cross_validation(self,model,data,features,grouping):
+        """Run a cross-validation test and return a report of the results.
 
+        Regression models are scored by the coefficient of determination (R^2 or 'r2'),
+        in order to normalize by the variance of the dataset.
+        Training reports also include the more intuitive normalized mean_abs_error.
+        Scikit-learn does not currently provide API for scoring by mean_abs_error,
+        so mean_abs_error is not currently supported for hyperparameter training.
 
+        Parameters
+        ----------
+        model : sklearn.linear_model.SGDRegressor
+            scikit-learn regression model to be cross-validated
+        data : pandas.DataFrame
+            pandas dataframe of features and labels
+        features : list of str
+            list of features that were used for training
+        grouping : str or None 
+            either a string (column header) or None-
+            cross-validation splits are defined by this header,
+            or (if None) a 3-fold shuffle-split is performed.
 
-
+        Returns
+        -------
+        cross_val_results : dict
+            with cross validation results.
+        """
+        if grouping == 'experiment_id':
+            cross_val_results = self.cross_validate_by_experiments(model,data,features)
+        elif not grouping:
+            cross_val_results = self.cross_validate(model,data,features)
+        else:
+            raise ValueError('grouping specifier ({}) not supported'.format(grouping))
+        return cross_val_results
 
