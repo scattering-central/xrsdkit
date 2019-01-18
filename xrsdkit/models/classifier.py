@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import random
 
 from sklearn import linear_model, model_selection
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
@@ -59,11 +58,11 @@ class Classifier(XRSDModel):
         cert = max(self.model.predict_proba(x)[0])
         return sys_cls, cert
 
-    def run_cross_validation(self, model, df, features, grouping='group_id'):
-        """Test a model by LeaveOneGroupOut cross-validation.
+    def run_cross_validation(self, model, df, feature_names):
+        """Cross-validate a model by LeaveOneGroupOut. 
 
-        In this case, the groupings are defined by the 'group_id' labels,
-        which are assigned during self.check_label().
+        The train/test groupings are defined by the 'group_id' labels,
+        which are added to the dataframe during self.assign_groups().
 
         Parameters
         ----------
@@ -73,32 +72,30 @@ class Classifier(XRSDModel):
         model : sklearn.linear_model.SGDClassifier
             an sklearn classifier instance trained on some dataset
             with some choice of hyperparameters
-        features : list of str
-            list of features that were used for training.
+        feature_names : list of str
+            list of feature names (column headers) used for training.
 
         Returns
         -------
-        test_scores_by_ex : dict
+        result : dict
             list of all labels from df,
             number of experiments,
             list of all experiments,
-            F1_macro, accuracy,confusion matrix,
+            F1_macro, accuracy, confusion matrix,
             and testing-training splits.
         """
-        if not grouping == 'group_id':
-            raise ValueError('grouping specifier {} is not supported'.format(grouping))
         groups = df.group_id.unique()
         all_classes = df[self.target].unique().tolist()
         true_labels = []
         pred_labels = []
         for i in range(len(groups)):
             tr = df[(df['group_id'] != groups[i])]
-            # TODO: make sure all groups have all labels
+            # TODO: make sure all groups have representatives of all labels
             #if len(tr[self.target].unique()) < 2:
             #    continue
             test = df[(df['group_id'] == groups[i])]
-            model.fit(tr[features], tr[self.target])
-            y_pred = model.predict(test[features])
+            model.fit(tr[feature_names], tr[self.target])
+            y_pred = model.predict(test[feature_names])
             pred_labels.extend(y_pred)
             true_labels.extend(test[self.target])
         cm = confusion_matrix(true_labels, pred_labels, all_classes)
@@ -115,11 +112,11 @@ class Classifier(XRSDModel):
                         test_training_split = 'for classes with samples from 3 or more experiment_ids, '\
                                             'the data are split according to experiment_id; '\
                                             'for classes with samples from 2 or fewer experiment_ids, '\
-                                            'the data are randomly split into three groups'
+                                            'the data are randomly shuffled and split into three groups'
                         )
         return result
 
-    def hyperparameters_search(self,transformed_data, group_by='group_id', n_leave_out=None, scoring='f1_macro'):
+    def hyperparameters_search(self,transformed_data, group_by='group_id', n_leave_out=1, scoring='f1_macro'):
         """Grid search for optimal alpha and l1 ratio hyperparameters.
 
         Returns
@@ -155,13 +152,12 @@ class Classifier(XRSDModel):
         else:
             return "The model was tested for all labels"
 
-    def check_label(self, dataframe):
-        """Test whether or not `dataframe` has legal values for all labels.
+    def assign_groups(self, dataframe):
+        """Assign train/test groups to `dataframe`.
 
-        This invokes the method from the base class, 
-        and then adds a new column "group_id" to the dataframe. 
-        Returns True if the dataframe has at least 10 rows,
-        over which the labels exhibit at least two unique values
+        This reimplementation invokes the base class method, 
+        and then updates the groups if necessary
+        to balance the representation of classes among the groups. 
 
         Parameters
         ----------
@@ -170,51 +166,32 @@ class Classifier(XRSDModel):
 
         Returns
         -------
-        result : bool
+        trainable : bool
             indicates whether or not training is possible
-            (the dataframe has enough rows,
-            over which the labels exhibit at least two unique values)
-        grouping : str
-            currently, classification models only support
-            LeaveOneGroupOut by "group_id" for cross-validation 
         """
-        result, grouping = super(Classifier,self).check_label(dataframe)
-        if result:
+        trainable = super(Classifier,self).assign_groups(dataframe)
+        if trainable:
             cl_counts = dataframe[self.target].value_counts()
-            group_ids = np.zeros(dataframe.shape[0])
             for cl,nsamp in cl_counts.items():
+                cl_idx = dataframe[self.target] == cl
+                cl_data = dataframe.loc[cl_idx]
                 if nsamp < 10:
-                    # insufficient samples for the class: set group_id to zero 
-                    group_ids[dataframe[self.target]==cl] = 0
+                    # insufficient samples for the class: 
+                    # set group_id to zero to leave this class out of the model
+                    dataframe.loc[cl_idx,'group_id'] = 0
                 else:
                     # sufficient samples exist for training this class
-                    cl_idx = dataframe[self.target] == cl
-                    cl_data = dataframe.loc[cl_idx]
-                    cl_exp_ids = cl_data['experiment_id'].unique()
-                    if len(cl_exp_ids) > 2:
-                        # at least three experiments are represented in this class:
-                        # assign each experiment to a group
-                        for i_exp,exp_id in enumerate(cl_exp_ids):
-                            group_ids[cl_idx&(dataframe['experiment_id']==exp_id)] = i_exp+1
-                    else:
-                        # only one experiment is represented in the class:
-                        # shuffle-split these samples into 3 groups
-                        #cl_group_ids = samp_per_group = d.shape[0]//3
-                        nsamp1 = nsamp2 = nsamp//3
-                        nsamp3 = nsamp-nsamp1-nsamp2
-                        all_idx = range(nsamp)
-                        idx_group1 = random.sample(all_idx,nsamp1)
-                        all_idx = all_idx[idx not in idx_group1 for idx in all_idx]
-                        idx_group2 = random.sample(all_idx,nsamp2)
-                        idx_group3 = all_idx[idx not in idx_group2 for idx in all_idx]
-                        group_ids[idx_group1] = 1
-                        group_ids[idx_group2] = 2
-                        group_ids[idx_group3] = 3
-            dataframe['group_id'] = pd.Series(group_ids,index=dataframe.index)
+                    cl_grp_ids = cl_data['group_id'].unique()
+                    if len(cl_grp_ids) < 3:
+                        # less than three groups are represented in this class:
+                        # the group_id assignments should be rebalanced.
+                        # shuffle-split samples into 3 groups.
+                        cl_group_ids = self.shuffle_split_3fold(nsamp) 
+                        dataframe.loc[cl_idx,'group_id'] = cl_group_ids 
             #check if we still have at least two fully represented classes:
-            if len(dataframe.loc[dataframe.group_id>0][self.target].unique()) < 2:
-                return False, grouping 
-            return result, 'group_id' 
+            if len(dataframe.loc[dataframe.group_id>0,self.target].unique()) < 2:
+                return False
+        return trainable 
                     
     def print_confusion_matrix(self):
         if self.cross_valid_results['confusion_matrix']:
@@ -227,7 +204,6 @@ class Classifier(XRSDModel):
         else:
             return "Confusion matrix was not created"
 
-
     def print_F1_scores(self):
         result = ''
         for i in range(len(self.cross_valid_results['F1_score_by_classes'])):
@@ -235,17 +211,14 @@ class Classifier(XRSDModel):
                        " : " + str(self.cross_valid_results['F1_score_by_classes'][i]) + '\n')
         return result
 
-
     def print_accuracy(self):
         if self.cross_valid_results['accuracy']:
             return str(self.cross_valid_results['accuracy'])
         else:
             return "Mean accuracies by classes were not calculated"
 
-
     def average_F1(self):
         return str(self.cross_valid_results['F1_score_averaged_not_weighted'])
-
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
@@ -267,4 +240,3 @@ class Classifier(XRSDModel):
             self.print_accuracy() + '\n'+\
             "Test/training split: " + self.cross_valid_results['test_training_split']
         return CV_report
-
