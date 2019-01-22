@@ -1,10 +1,8 @@
 import numpy as np
-import pandas as pd
-from sklearn import linear_model, model_selection, preprocessing
+from sklearn import linear_model, preprocessing
 from sklearn.metrics import mean_absolute_error
 
 from .xrsd_model import XRSDModel
-from ..tools import profiler
 
 class Regressor(XRSDModel):
     """Class for generating models to predict real-valued parameters."""
@@ -33,11 +31,11 @@ class Regressor(XRSDModel):
                     epsilon=model_hyperparams['epsilon'],
                     loss= 'huber',
                     penalty='elasticnet',
-                    max_iter=1000)
+                    max_iter=10000, tol=1e-5)
         else:
             # NOTE: max_iter is about 10^6 / number of tr samples 
             new_model = linear_model.SGDRegressor(loss= 'huber',
-                    penalty='elasticnet',max_iter=1000)
+                    penalty='elasticnet',max_iter=10000, tol=1e-5)
         return new_model
 
     def standardize(self,data):
@@ -74,120 +72,11 @@ class Regressor(XRSDModel):
 
         return float(self.scaler_y.inverse_transform(self.model.predict(x))[0])
 
-    def cross_validate(self,model,df,features):
-        """Test a model using scikit-learn 3-fold crossvalidation
-
-        Parameters
-        ----------
-        model : sklearn.linear_model.SGDRegressor
-            scikit-learn regression model to be cross-validated 
-        df : pandas.DataFrame
-            pandas dataframe of features and labels
-        features : list of str
-            list of features that were used for training
-
-        Returns
-        -------
-        results : dict
-            includes normalized mean abs error by splits,
-            normalized average mean abs error (unweighted),
-            weighted average mean abs error,
-            number of experiments that were used for training/testing
-            (can only be 1 or 2, since if we have data from 3 or more
-            experiments, cross_validate_by_experiments() will be used),
-            IDs of experiments, and a description 
-            of the train-test split technique.
-        """
-        scores = np.absolute(model_selection.cross_val_score(
-                model,df[features],df[self.target],
-                cv=3,scoring='neg_mean_absolute_error'))
-
-        results = dict(normalized_mean_abs_error_by_splits = str(scores),
-                       normalized_mean_abs_error = sum(scores)/len(scores),
-                       #weighted_av_mean_abs_error is the same us unweighted since the splits have the same sizes:
-                       weighted_av_mean_abs_error = sum(scores)/len(scores),
-                       number_of_experiments = len(df.experiment_id.unique()),
-                       experiments = str(df.experiment_id.unique()),
-                       test_training_split = 'random shuffle-split 3-fold cross-validation')
-
-        return results
-
-    def cross_validate_by_experiments(self, model, df, features):
-        """Test a model by LeaveOneGroupOut cross-validation.
-
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            pandas dataframe of features and labels
-        model : sk-learn
-            with specific parameters
-        features : list of str
-            list of features that were used for training.
-            
-        Returns
-        -------
-        results : dict
-            includes normilezed mean abs error by splits,
-            normilezed average mean abs error (unweighted),
-            weighted average mean abs error,
-            number of experiments that were used for training/testing
-            (can be 3 or more  - if we have data from 1 or 2 experiments
-            only, cross_validate() will be used),
-            IDs of experiments,
-            how the split was done.
-        """
-        experiments = df.experiment_id.unique()
-        test_scores_by_ex = []
-        test_scores_by_ex_weighted = []
-        for i in range(len(experiments)):
-            tr = df[(df['experiment_id']!= experiments[i])]
-            test = df[(df['experiment_id']== experiments[i])]
-            model.fit(tr[features], tr[self.target])
-            pr = model.predict(test[features])
-            test_score = mean_absolute_error(pr, test[self.target])
-            test_scores_by_ex.append(test_score)
-            test_scores_by_ex_weighted.append(test_score*(test.shape[0]/df.shape[0]))
-
-        results = dict(normalized_mean_abs_error_by_splits = str(test_scores_by_ex),
-                       normalized_mean_abs_error = sum(test_scores_by_ex)/len(test_scores_by_ex),
-                       weighted_av_mean_abs_error = sum(test_scores_by_ex_weighted),
-                       number_of_experiments = len(test_scores_by_ex),
-                       experiments = str(df.experiment_id.unique()),
-                       test_training_split = "by experiments")
-        return results
-
     def print_mean_abs_errors(self):
         result = ''
         for r in self.cross_valid_results['normalized_mean_abs_error_by_splits'].split():
             result += (r + '\n')
         return result
-
-    def check_label(self, dataframe):
-        """Test whether or not `dataframe` has legal values for all labels.
-
-        Returns "True" if the dataframe has enough rows,
-        over which the labels exhibit at least two unique values.
-
-        Parameters
-        ----------
-        dataframe : pandas.DataFrame
-            dataframe of sample features and corresponding labels
-
-        Returns
-        -------
-        result : bool
-            indicates whether or not training is possible
-        n_groups_out : int or None
-            using leaveGroupOut makes sense when we have at least 3 groups.
-        dataframe : pandas.DataFrame
-            same as the input dataframe
-        """
-        result, n_groups_out = super(Regressor,self).check_label(dataframe)
-        return result, n_groups_out, dataframe
-
-    # TODO
-    def print_accuracies(self):
-        return ''
 
     def average_mean_abs_error(self,weighted=False):
         if weighted:
@@ -213,8 +102,45 @@ class Regressor(XRSDModel):
             '\n\nNOTE: Weighted metrics are weighted by test set size' 
         return CV_report
 
+    def run_cross_validation(self,model,data,feature_names):
+        """Cross-validate a model by LeaveOneGroupOut. 
 
+        Regression models are scored by the coefficient of determination (R^2 or 'r2'),
+        in order to normalize by the variance of the dataset.
+        Validation reports also include the more intuitive normalized mean_abs_error.
+        Scikit-learn does not currently provide API for scoring by mean_abs_error,
+        so mean_abs_error is not currently supported for hyperparameter training.
 
+        Parameters
+        ----------
+        model : sklearn.linear_model.SGDRegressor
+            scikit-learn regression model to be cross-validated
+        data : pandas.DataFrame
+            pandas dataframe of features and labels
+        feature_names : list of str
+            list of feature names (column headers) used for training
 
+        Returns
+        -------
+        result : dict
+            with cross validation results.
+        """
+        grp_ids = data.group_id.unique()
+        test_scores_by_grp = []
+        test_scores_by_grp_weighted = []
+        for igrp,grp in enumerate(grp_ids):
+            tr = data[(data['group_id']!=grp)]
+            test = data[(data['group_id']==grp)]
+            model.fit(tr[feature_names], tr[self.target])
+            pr = model.predict(test[feature_names])
+            test_score = mean_absolute_error(pr, test[self.target])
+            test_scores_by_grp.append(test_score)
+            test_scores_by_grp_weighted.append(test_score*(test.shape[0]/data.shape[0]))
 
-
+        result = dict(normalized_mean_abs_error_by_splits = str(test_scores_by_grp),
+                       normalized_mean_abs_error = sum(test_scores_by_grp)/len(test_scores_by_grp),
+                       weighted_av_mean_abs_error = sum(test_scores_by_grp_weighted),
+                       number_of_experiments = len(test_scores_by_grp),
+                       experiments = str(data.experiment_id.unique()),
+                       test_training_split = "by experiments")
+        return result
