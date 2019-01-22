@@ -1,10 +1,8 @@
 import numpy as np
-import pandas as pd
-from sklearn import linear_model, model_selection, preprocessing
+from sklearn import linear_model, preprocessing
 from sklearn.metrics import mean_absolute_error
 
 from .xrsd_model import XRSDModel
-from ..tools import profiler
 
 class Regressor(XRSDModel):
     """Class for generating models to predict real-valued parameters."""
@@ -33,11 +31,11 @@ class Regressor(XRSDModel):
                     epsilon=model_hyperparams['epsilon'],
                     loss= 'huber',
                     penalty='elasticnet',
-                    max_iter=1000)
+                    max_iter=10000, tol=1e-5)
         else:
             # NOTE: max_iter is about 10^6 / number of tr samples 
             new_model = linear_model.SGDRegressor(loss= 'huber',
-                    penalty='elasticnet',max_iter=1000)
+                    penalty='elasticnet',max_iter=10000, tol=1e-5)
         return new_model
 
     def standardize(self,data):
@@ -79,10 +77,6 @@ class Regressor(XRSDModel):
         for r in self.cross_valid_results['normalized_mean_abs_error_by_splits'].split():
             result += (r + '\n')
         return result
-
-    # TODO
-    def print_accuracies(self):
-        return ''
 
     def average_mean_abs_error(self,weighted=False):
         if weighted:

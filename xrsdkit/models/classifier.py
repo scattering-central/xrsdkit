@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from sklearn import linear_model, model_selection
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
@@ -26,12 +25,12 @@ class Classifier(XRSDModel):
                     loss='log',
                     penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000, class_weight='balanced'
+                    max_iter=1000, class_weight='balanced', tol=1e-5
                     )
         else:
             new_model = linear_model.SGDClassifier(
                 loss='log', penalty='elasticnet',
-                max_iter=1000, class_weight='balanced'
+                max_iter=1000, class_weight='balanced', tol=1e-5
                 )
         return new_model
 
@@ -90,9 +89,6 @@ class Classifier(XRSDModel):
         pred_labels = []
         for i in range(len(groups)):
             tr = df[(df['group_id'] != groups[i])]
-            # TODO: make sure all groups have representatives of all labels
-            #if len(tr[self.target].unique()) < 2:
-            #    continue
             test = df[(df['group_id'] == groups[i])]
             model.fit(tr[feature_names], tr[self.target])
             y_pred = model.predict(test[feature_names])
@@ -109,9 +105,9 @@ class Classifier(XRSDModel):
                         F1_score_averaged_not_weighted = f1_score(true_labels,
                                     pred_labels, labels=all_classes, average='macro'),
                         accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None),
-                        test_training_split = 'for classes with samples from 3 or more experiment_ids, '\
-                                            'the data are split according to experiment_id; '\
-                                            'for classes with samples from 2 or fewer experiment_ids, '\
+                        test_training_split = 'for classes with samples from 3 or more experiment_ids, \n'\
+                                            'the data are split according to experiment_id; \n'\
+                                            'for classes with samples from 2 or fewer experiment_ids, \n'\
                                             'the data are randomly shuffled and split into three groups'
                         )
         return result

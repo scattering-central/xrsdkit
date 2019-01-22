@@ -1,7 +1,6 @@
 import random
 
 import numpy as np
-import pandas as pd
 import yaml
 from sklearn import model_selection, preprocessing, utils
 from dask_ml.model_selection import GridSearchCV
@@ -176,7 +175,6 @@ class XRSDModel(object):
         group_ids = np.zeros(nsamp,dtype=int)
         nsamp1 = nsamp//3
         nsamp2 = (nsamp-nsamp1)//2
-        nsamp3 = nsamp-nsamp1-nsamp2
         all_idx = range(nsamp)
         idx_group1 = random.sample(all_idx,nsamp1)
         all_idx = [idx for idx in all_idx if not idx in idx_group1]
