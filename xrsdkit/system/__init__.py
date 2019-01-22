@@ -96,7 +96,7 @@ class System(object):
             experiment_id='',
             sample_id='',
             data_file='',
-            source_wavelength=0.,
+            source_wavelength=1.5406,
             time=0.,
             notes=''
             )
