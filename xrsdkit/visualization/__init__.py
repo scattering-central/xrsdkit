@@ -89,6 +89,3 @@ def visualize_dataframe(data,
                 False, save_plots, saving_dir)
     if show_plots:
         plt.show(block=False)
-
-
-
