@@ -19,9 +19,9 @@ def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
         if form == 'polyatomic':
             coords = []
             for iat in range(settings['n_atoms']):
-                crds_i = [  parameters['ra_{}'.format(iat)],\
-                            parameters['rb_{}'.format(iat)],\
-                            parameters['rc_{}'.format(iat)] ]
+                crds_i = [  parameters['u_{}'.format(iat)],\
+                            parameters['v_{}'.format(iat)],\
+                            parameters['w_{}'.format(iat)] ]
                 coords.append(crds_i)
             occs = [parameters['occupancy_{}'.format(iat)] for iat in range(settings['n_atoms'])]
             ff_funcs = [xrff.atomic_ff_func(settings['symbol_{}'.format(iat)]) for iat in range(settings['n_atoms'])]

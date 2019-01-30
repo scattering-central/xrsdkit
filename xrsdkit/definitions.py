@@ -1,4 +1,6 @@
 """This module defines the settings and parameters handled by xrsdkit."""
+import copy
+
 from .scattering import space_groups as sgs
 from .scattering import form_factors as xrff 
 
@@ -8,7 +10,7 @@ structures = dict(
     disordered = 'disordered, interacting particles',
     crystalline = 'particles arranged in a lattice'
     )
-forms = dict( 
+form_factors = dict( 
     atomic = 'Single atom',
     polyatomic = 'Multiple atoms',
     guinier_porod = 'Scatterer described by Guinier-Porod equations',
@@ -33,17 +35,11 @@ def validate(structure,form,settings):
             # distributions of size are not allowed
             if not settings['distribution'] == 'single':
                 msg = 'crystalline structure does not support size distribution {}'\
-                .format(settings['distribution']))
+                .format(settings['distribution'])
                 raise ValueError(msg)
 
-def valid_form_factors(structure,prior_settings={}):
-    diffuse = ['atomic','guinier_porod','spherical'],
-    disordered = ['atomic','guinier_porod','spherical'],
-    crystalline = ['atomic','spherical','polyatomic']
-    )
-
 structure_names = list(structures.keys())
-form_names = list(forms.keys())
+form_factor_names = list(form_factors.keys())
 noise_model_names = list(noise_models.keys())
 
 # supported settings for each structure, form factor,
@@ -60,16 +56,22 @@ structure_settings = dict(
         profile = 'voigt'
         )
     )
-modelable_structure_settings = dict(
-    diffuse = [],
-    disordered = ['interaction'],
-    crystalline = ['lattice']
-    )
 form_settings = dict(
     atomic = {'symbol':'C'},
     polyatomic = {'n_atoms':2},
     guinier_porod = {'distribution':'single'},
     spherical = {'distribution':'single'}
+    )
+
+# TODO: find a better way to deal with modelable settings:
+# consider that after classifying lattice,
+# the next layer will be to classify space group,
+# and after classifying n_atoms, the next layer should attempt 
+# to classify the atom symbols for all n_atoms species.
+modelable_structure_settings = dict(
+    diffuse = [],
+    disordered = ['interaction'],
+    crystalline = ['lattice']
     )
 modelable_form_settings = dict(
     atomic = ['symbol'],
@@ -98,20 +100,22 @@ def all_settings(structure,form=None):
     stgs.update(copy.deepcopy(structure_settings[structure]))
     if form:
         stgs.update(copy.deepcopy(form_settings[form]))
+    addl_stgs = {}
     for stg_nm,stg_val in stgs.items():
         if stg_nm == 'n_atoms':
-            stgs.update(
+            addl_stgs.update(
                 dict([('symbol_{}'.format(iat),'H') for iat in range(setting_value)]) 
                 )
         if stg_nm == 'integration_mode':
             if stg_val == 'spherical':
-                stgs.update({'q_min':0.,'q_max':1.})
+                addl_stgs.update({'q_min':0.,'q_max':1.})
         if stg_nm == 'distribution' and form == 'spherical':
             if setting_value == 'r_normal':
-                stgs.update({'sampling_width':3.5,'sampling_step':0.05})
+                addl_stgs.update({'sampling_width':3.5,'sampling_step':0.05})
         if stg_nm == 'distribution' and form == 'guinier_porod':
             if setting_value == 'rg_normal':
-                return {'sampling_width':2.0,'sampling_step':0.1}
+                addl_stgs.update({'sampling_width':2.0,'sampling_step':0.1})
+    stgs.update(addl_stgs)
     return stgs 
 
 # all possible options for all settings (empty list if not enumerable)
@@ -169,7 +173,7 @@ noise_params = dict(
     )
 
 # generate any additional parameters that depend on setting selections
-def additional_structure_params(structure,prior_settings):
+def structure_params(structure,prior_settings):
     if structure == 'disordered':
         if 'interaction' in prior_settings:
             if prior_settings['interaction'] == 'hard_spheres':
@@ -228,9 +232,9 @@ def additional_form_factor_params(form,prior_settings):
             coord_params = {} 
             for iat in range(prior_settings['n_atoms']):
                 coord_params.update({
-                    'ra_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
-                    'rb_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
-                    'rc_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None} 
+                    'u_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
+                    'v_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
+                    'w_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None} 
                     })
             for iat in range(prior_settings['n_atoms']):
                 coord_params.update( 
@@ -334,9 +338,9 @@ parameter_descriptions = dict(
     alpha = 'Angle between second and third lattice vectors',
     beta = 'Angle between first and third lattice vectors',
     gamma = 'Angle between first and second lattice vectors',
-    ra = 'fractional coordinate along first lattice vector',
-    rb = 'fractional coordinate along second lattice vector',
-    rc = 'fractional coordinate along third lattice vector',
+    u = 'fractional coordinate along first lattice vector',
+    v = 'fractional coordinate along second lattice vector',
+    w = 'fractional coordinate along third lattice vector',
     occupancy = 'likelihood of finding an atomic specie at its lattice site'
     )
 

@@ -3,10 +3,9 @@ import copy
 
 import numpy as np
 
-from . import symmetries
-
 crystal_systems = ['triclinic','monoclinic','orthorhombic','tetragonal','trigonal','hexagonal','cubic']
-bravais_lattices = ['triclinic','P_monoclinic','C_monoclinic',\
+bravais_lattices = [\
+            'triclinic','P_monoclinic','C_monoclinic',\
             'P_orthorhombic','C_orthorhombic','A_orthorhombic',\
             'I_orthorhombic','F_orthorhombic',\
             'P_tetragonal','I_tetragonal',\
@@ -14,158 +13,6 @@ bravais_lattices = ['triclinic','P_monoclinic','C_monoclinic',\
             'P_cubic','I_cubic','F_cubic',\
             ]
 all_lattices = bravais_lattices+['hcp','diamond']
-
-def lattice_coords(lattice):
-    if lattice in ['triclinic','P_monoclinic','P_orthorhombic','P_tetragonal','rhombohedral','hexagonal','P_cubic']:
-        return np.array([[0.,0.,0.]])
-    elif lattice in ['C_monoclinic','C_orthorhombic']:
-        return np.array([
-            [0.,0.,0.],
-            [0.,0.5,0.5]
-            ])
-    elif lattice in ['A_orthorhombic']:
-        return np.array([
-            [0.,0.,0.],
-            [0.5,0.5,0.]
-            ])
-    elif lattice in ['I_orthorhombic','I_tetragonal','I_cubic']:
-        return np.array([
-            [0.,0.,0.],
-            [0.5,0.5,0.5]
-            ])
-    elif lattice in ['F_orthorhombic','F_cubic']:
-        return np.array([
-            [0.,0.,0.],
-            [0.5,0.5,0.],
-            [0.5,0.,0.5],
-            [0.,0.5,0.5]
-            ])
-    elif lattice == 'hcp':
-        return np.array([
-            [0.,0.,0.],
-            [2./3,1./3,0.5]
-            ])
-    elif lattice == 'diamond':
-        return np.array([
-            [0.,0.,0.],
-            [0.5,0.5,0.],
-            [0.5,0.,0.5],
-            [0.,0.5,0.5],
-            [0.25,0.25,0.25],
-            [0.75,0.75,0.25],
-            [0.75,0.25,0.75],
-            [0.25,0.75,0.75]
-            ])
-
-def lattice_vectors(lattice,a=None,b=None,c=None,alpha=None,beta=None,gamma=None):
-    # TODO: expand to support all lattices 
-    if lattice in ['P_cubic','I_cubic','F_cubic','diamond']:
-        a1 = [a, 0., 0.]
-        a2 = [0., a, 0.]
-        a3 = [0., 0., a]
-    elif lattice in ['hcp']:
-        a1 = [a, 0., 0.]
-        a2 = [0.5*a, np.sqrt(3.)/2*a, 0.]
-        a3 = [0., 0., np.sqrt(8./3.)*a]
-    elif lattice in ['hexagonal']:
-        a1 = [a, 0., 0.]
-        a2 = [0.5*a, np.sqrt(3.)/2*a, 0.]
-        a3 = [0., 0., c]
-    elif lattice in ['P_orthorhombic','C_orthorhombic',\
-        'A_orthorhombic','I_orthorhombic','F_orthorhombic']:
-        a1 = [a, 0., 0.]
-        a2 = [0., b, 0.]
-        a3 = [0., 0., c]
-    elif lattice in ['P_tetragonal','I_tetragonal']:
-        a1 = [a, 0., 0.]
-        a2 = [0., a, 0.]
-        a3 = [0., 0., c]
-    elif lattice in ['P_monoclinic','C_monoclinic']:
-        beta_rad = float(beta)*np.pi/180.
-        a1 = [a, 0., 0.]
-        a2 = [0., b, 0.]
-        a3 = [c*np.cos(beta_rad), 0., c*np.sin(beta_rad)]
-    else: raise ValueError('unsupported lattice: {}'.format(lattice))
-    # TODO: finish this
-    #elif lattice in ['rhombohedral']:
-    #    alpha_rad = float(alpha)*np.pi/180.
-    #    a1 = [a, 0., 0.]
-    #    a2 = [a*np.cos(alpha_rad), a*np.sin(alpha_rad), 0.]
-    #    a3 = [...]
-    #elif lattice in ['triclinic']:
-    #    alpha_rad = float(alpha)*np.pi/180.
-    #    beta_rad = float(beta)*np.pi/180.
-    #    gamma_rad = float(gamma)*np.pi/180.
-    #    a1 = [a, 0., 0.]
-    #    a2 = [a*np.cos(alpha_rad), a*np.sin(alpha_rad), 0.]
-    #    a3 = [...]
-    return a1,a2,a3
-
-def reciprocal_lattice_vectors(lat1, lat2, lat3, crystallographic=True):
-    """Compute the reciprocal lattice vectors.
-
-    If not `crystallographic`, the computation includes
-    the factor of 2*pi that is commmon in solid state physics
-    """
-    rlat1_xprod = np.cross(lat2,lat3)
-    rlat2_xprod = np.cross(lat3,lat1)
-    rlat3_xprod = np.cross(lat1,lat2)
-    cellvol = np.dot(lat1,rlat1_xprod)
-    rlat1 = rlat1_xprod/cellvol
-    rlat2 = rlat2_xprod/cellvol
-    rlat3 = rlat3_xprod/cellvol
-    if not crystallographic:
-        rlat1 *= 2*np.pi
-        rlat2 *= 2*np.pi
-        rlat3 *= 2*np.pi
-    return rlat1, rlat2, rlat3
-
-def symmetrize_points(all_hkl,rlat,space_group=None,symprec=1.E-6):
-    # TODO: investigate whether or not the symmetrization
-    # can just make use of the point group symmetries...
-    reduced_hkl = copy.deepcopy(all_hkl)
-    n_pts = all_hkl.shape[0]
-    hkl_mults = np.ones(n_pts,dtype=int)
-    lat_pts = np.dot(all_hkl,rlat.T)
-    # rank the hkl points uniquely: higher rank means more likely to keep the point
-    hkl_range = np.max(all_hkl,axis=0)-np.min(all_hkl,axis=0)
-    hkl_rank = all_hkl[:,0]*(hkl_range[1]+1)*(hkl_range[2]+1) + all_hkl[:,1]*(hkl_range[2]+1) + all_hkl[:,2]
-    sym_ops = []
-    if space_group:
-        if space_group in symmetries.symmetry_operations:
-            sym_ops = symmetries.symmetry_operations[space_group]
-    for op in sym_ops:
-        sym_pts = np.dot(op,lat_pts.T).T 
-        # get difference matrix between lat_pts and sym_pts.
-        # lat_pts and sym_pts each have shape (N_points,3).
-        # to broadcast subtraction of sym_pts across all lat_pts,
-        # give lat_pts an extra dimension, transpose sym_pts, and subtract.
-        # lat_pts[:,:,newaxis].shape = (N_points,3,1)
-        # sym_pts.T.shape = 3,N_points
-        # (lat_pts[:,:,newaxis]-sym_pts.T).shape = (N_points,3,N_points)
-        lat_sym_diffs = lat_pts[:,:,np.newaxis] - sym_pts.T
-        # get the scalar distances by taking vector norms along axis 1
-        lat_sym_dists = np.linalg.norm(lat_sym_diffs,axis=1)
-        # for each sym_pt, find the nearest lat_pt and the corresponding distance
-        hkl_idx = np.arange(reduced_hkl.shape[0])
-        min_dist_idx = np.argmin(lat_sym_dists,axis=1)
-        # TODO: retrieve the min_dist using min_dist_idx
-        min_dist = np.min(lat_sym_dists,axis=1)
-        # get the set of indices to drop 
-        # (those that mapped to within symprec of another point),
-        # and use hkl_rank to decide which point to keep
-        mapped_hkl_rank = hkl_rank[min_dist_idx]
-        idx_to_drop = (min_dist_idx != hkl_idx) & (min_dist < symprec) & (hkl_rank < mapped_hkl_rank) 
-
-        if any(idx_to_drop):
-            idx_to_keep = np.invert(idx_to_drop) 
-            hkl_mults[min_dist_idx[idx_to_drop]] += hkl_mults[idx_to_drop]
-            hkl_mults = hkl_mults[idx_to_keep] 
-            reduced_hkl = reduced_hkl[idx_to_keep,:] 
-            lat_pts = lat_pts[idx_to_keep,:] 
-            hkl_rank = hkl_rank[idx_to_keep] 
-
-    return reduced_hkl,hkl_mults
 
 
 # point groups for each crystal system 
@@ -235,20 +82,21 @@ lattice_space_groups = dict(
         119:'I-4m2',120:'I-4c2',121:'I-42m',122:'I-42d',139:'I4/mmm',
         140:'I4/mcm',141:'I4(1)/amd',142:'I4(1)/acd'
         },
-    trigonal = {
-        143:'P3',144:'P3(1)',145:'P3(2)',146:'R3',147:'P-3',148:'R-3',
-        149:'P312',150:'P321',151:'P3(1)12',152:'P3(1)21',153:'P3(2)12',
-        154:'P3(2)21',155:'R32',156:'P3m1',157:'P31m',158:'P3c1',
-        159:'P31c',160:'R3m',161:'R3c',162:'P-31m',163:'P-31c',
-        164:'P-3m1',165:'P-3c1',166:'R-3m',167:'R-3c'
-        },
     hexagonal = {
+        143:'P3',144:'P3(1)',145:'P3(2)',147:'P-3',
+        149:'P312',150:'P321',151:'P3(1)12',152:'P3(1)21',153:'P3(2)12',
+        154:'P3(2)21',156:'P3m1',157:'P31m',158:'P3c1',159:'P31c',
+        162:'P-31m',163:'P-31c',164:'P-3m1',165:'P-3c1',
         168:'P6',169:'P6(1)',170:'P6(5)',171:'P6(2)',172:'P6(4)',
         173:'P6(3)',174:'P-6',175:'P6/m',176:'P6(3)/m',177:'P622',
         178:'P6(1)22',179:'P6(5)22',180:'P6(2)22',181:'P6(4)22',
         182:'P6(3)22',183:'P6mm',184:'P6cc',185:'P6(3)cm',186:'P6(3)mc',
         187:'P-6m2',188:'P-6c2',189:'P-62m',190:'P-62c',191:'P6/mmm',
         192:'P6/mcc',193:'P6(3)/mcm',194:'P6(3)/mmc'
+        },
+    rhombohedral = {
+        146:'R3',148:'R-3',155:'R32',160:'R3m',
+        161:'R3c',166:'R-3m',167:'R-3c'
         },
     P_cubic = {
         195:'P23',198:'P2(1)3',200:'Pm-3',201:'Pn-3',205:'Pa-3',
@@ -271,24 +119,6 @@ all_space_groups = {}
 for lat in bravais_lattices: 
     for isg in lattice_space_groups[lat].keys():
         all_space_groups[isg] = lattice_space_groups[lat][isg]
-
-# default space groups for each bravais lattice 
-default_space_groups = dict(
-    triclinic = 'P-1',
-    P_monoclinic = 'P2/m',
-    C_monoclinic = 'C2/m',
-    P_tetragonal = 'P4/mmm',
-    I_tetragonal = 'I4/mmm',
-    rhombohedral = 'R-3m',
-    hexagonal = 'P6/mmm',
-    P_orthorhombic = 'Pmmm',
-    C_orthorhombic = 'Cmmm',
-    I_orthorhombic = 'Immm',
-    F_orthorhombic = 'Fmmm',
-    P_cubic = 'Pm-3m',
-    I_cubic = 'I':'Im-3m',
-    F_cubic = 'F':'Fm-3m'
-    )
 
 # map each space group to its underlying point group
 sg_point_groups = OrderedDict()
@@ -327,4 +157,114 @@ for isg in range(200,207): sg_point_groups[all_space_groups[isg]] = 'm-3'
 for isg in range(207,215): sg_point_groups[all_space_groups[isg]] = '432'
 for isg in range(215,221): sg_point_groups[all_space_groups[isg]] = '-43m'
 for isg in range(221,231): sg_point_groups[all_space_groups[isg]] = 'm-3m'
+
+def lattice_coords(lattice):
+    if lattice in ['triclinic','P_monoclinic','P_orthorhombic','P_tetragonal','rhombohedral','hexagonal','P_cubic']:
+        return np.array([[0.,0.,0.]])
+    elif lattice in ['C_monoclinic','C_orthorhombic']:
+        return np.array([
+            [0.,0.,0.],
+            [0.,0.5,0.5]
+            ])
+    elif lattice in ['A_orthorhombic']:
+        return np.array([
+            [0.,0.,0.],
+            [0.5,0.5,0.]
+            ])
+    elif lattice in ['I_orthorhombic','I_tetragonal','I_cubic']:
+        return np.array([
+            [0.,0.,0.],
+            [0.5,0.5,0.5]
+            ])
+    elif lattice in ['F_orthorhombic','F_cubic']:
+        return np.array([
+            [0.,0.,0.],
+            [0.5,0.5,0.],
+            [0.5,0.,0.5],
+            [0.,0.5,0.5]
+            ])
+    elif lattice == 'hcp':
+        return np.array([
+            [0.,0.,0.],
+            [2./3,1./3,0.5]
+            ])
+    elif lattice == 'diamond':
+        return np.array([
+            [0.,0.,0.],
+            [0.5,0.5,0.],
+            [0.5,0.,0.5],
+            [0.,0.5,0.5],
+            [0.25,0.25,0.25],
+            [0.75,0.75,0.25],
+            [0.75,0.25,0.75],
+            [0.25,0.75,0.75]
+            ])
+
+def lattice_vectors(lattice,a=None,b=None,c=None,alpha=None,beta=None,gamma=None):
+    if lattice in ['P_cubic','I_cubic','F_cubic','diamond']:
+        a1 = [a, 0., 0.]
+        a2 = [0., a, 0.]
+        a3 = [0., 0., a]
+    elif lattice in ['hcp']:
+        a1 = [a, 0., 0.]
+        a2 = [0.5*a, np.sqrt(3.)/2*a, 0.]
+        a3 = [0., 0., np.sqrt(8./3.)*a]
+    elif lattice in ['hexagonal']:
+        a1 = [a, 0., 0.]
+        a2 = [0.5*a, np.sqrt(3.)/2*a, 0.]
+        a3 = [0., 0., c]
+    elif lattice in ['P_orthorhombic','C_orthorhombic',\
+        'A_orthorhombic','I_orthorhombic','F_orthorhombic']:
+        a1 = [a, 0., 0.]
+        a2 = [0., b, 0.]
+        a3 = [0., 0., c]
+    elif lattice in ['P_tetragonal','I_tetragonal']:
+        a1 = [a, 0., 0.]
+        a2 = [0., a, 0.]
+        a3 = [0., 0., c]
+    elif lattice in ['P_monoclinic','C_monoclinic']:
+        beta_rad = float(beta)*np.pi/180.
+        a1 = [a, 0., 0.]
+        a2 = [0., b, 0.]
+        a3 = [c*np.cos(beta_rad), 0., c*np.sin(beta_rad)]
+    elif lattice in ['rhombohedral']:
+        alpha_rad = float(alpha)*np.pi/180.
+        omega = a**3*np.sqrt(1.-np.cos(alpha_rad)**2-np.cos(alpha_rad)**2-np.cos(alpha_rad)**2
+                +2*np.cos(alpha_rad)*np.cos(alpha_rad)*np.cos(alpha_rad))
+        cy = a*(np.cos(alpha_rad)-np.cos(alpha_rad)**2)/np.sin(alpha_rad)
+        cz = omega/(a**2*np.sin(alpha_rad)) 
+        a1 = [a, 0., 0.]
+        a2 = [a*np.cos(alpha_rad), a*np.sin(alpha_rad), 0.]
+        a3 = [a*np.cos(alpha_rad), cy, cz]
+    elif lattice in ['triclinic']:
+        alpha_rad = float(alpha)*np.pi/180.
+        beta_rad = float(beta)*np.pi/180.
+        gamma_rad = float(gamma)*np.pi/180.
+        omega = a*b*c*np.sqrt(1.-np.cos(alpha_rad)**2-np.cos(beta_rad)**2-np.cos(gamma_rad)**2
+                +2*np.cos(alpha_rad)*np.cos(beta_rad)*np.cos(gamma_rad))
+        cy = c*(np.cos(alpha_rad)-np.cos(beta_rad)*np.cos(gamma_rad))/np.sin(gamma_rad)
+        cz = omega/(a*b*np.sin(gamma_rad)) 
+        a1 = [a, 0., 0.]
+        a2 = [b*np.cos(gamma_rad), b*np.sin(gamma_rad), 0.]
+        a3 = [c*np.cos(beta_rad),cy,cz]
+    return a1,a2,a3
+
+def reciprocal_lattice_vectors(lat1, lat2, lat3, crystallographic=True):
+    """Compute the reciprocal lattice vectors.
+
+    If not `crystallographic`, the computation includes
+    the factor of 2*pi that is commmon in solid state physics
+    """
+    rlat1_xprod = np.cross(lat2,lat3)
+    rlat2_xprod = np.cross(lat3,lat1)
+    rlat3_xprod = np.cross(lat1,lat2)
+    cellvol = np.dot(lat1,rlat1_xprod)
+    rlat1 = rlat1_xprod/cellvol
+    rlat2 = rlat2_xprod/cellvol
+    rlat3 = rlat3_xprod/cellvol
+    if not crystallographic:
+        rlat1 *= 2*np.pi
+        rlat2 *= 2*np.pi
+        rlat3 *= 2*np.pi
+    return rlat1, rlat2, rlat3
 
