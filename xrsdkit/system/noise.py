@@ -3,7 +3,7 @@ import copy
 import numpy as np
 
 from .. import definitions as xrsdefs 
-from ..scattering.form_factors import guinier_porod_intensity
+from ..scattering import guinier_porod_intensity
 
 class NoiseModel(object):
 

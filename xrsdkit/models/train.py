@@ -397,7 +397,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                 for stg_label in stg_labels:
                     reg_models[sys_cls][pop_id][stg_nm][stg_label] = {}
                     stg_label_data = sys_cls_data.loc[sys_cls_data[stg_header]==stg_label].copy()
-                    for pnm in xrsdefs.additional_structure_params(struct,{stg_nm:stg_label}):
+                    for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                         param_header = pop_id+'_'+pnm
                         model = Regressor(param_header,None)
                         if (sys_cls in regression_models) \
@@ -521,7 +521,7 @@ def save_regression_models(models=regression_models, test=False):
                         if not os.path.exists(stg_label_dir): os.mkdir(stg_label_dir)
                         if not stg_label in model_dict[sys_cls][pop_id][stg_nm]: 
                             model_dict[sys_cls][pop_id][stg_nm][stg_label] = {}
-                        for pnm in xrsdefs.additional_structure_params(struct,{stg_nm:stg_label}):
+                        for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                             if pnm in models[sys_cls][pop_id][stg_nm][stg_label]:
                                 model_dict[sys_cls][pop_id][stg_nm][stg_label][pnm] = \
                                 models[sys_cls][pop_id][stg_nm][stg_label][pnm]

@@ -4,8 +4,6 @@ import numpy as np
 
 from . import space_groups as sgs
 
-import pdb; pdb.set_trace()
-
 # define all symmetry operations: Mx=x'
 # the inversion operator
 inversion = np.array([[-1.,0.,0.],[0.,-1.,0.],[0.,0.,-1.]])

@@ -26,14 +26,14 @@ def load_classification_models(model_root_dir=classification_models_dir):
     model_dict = OrderedDict()
     if not os.path.exists(model_root_dir):
         return model_dict
+    all_sys_cls = os.listdir(model_root_dir)
  
     yml_path = os.path.join(model_root_dir,'system_class.yml')
     if os.path.exists(yml_path):
         model_dict['system_class'] = Classifier('system_class',yml_path)
+        all_sys_cls.pop(all_sys_cls.index('system_class.yml'))
+        all_sys_cls.pop(all_sys_cls.index('system_class.txt'))
 
-    all_sys_cls = os.listdir(model_root_dir)
-    all_sys_cls.pop(all_sys_cls.index('system_class.yml'))
-    all_sys_cls.pop(all_sys_cls.index('system_class.txt'))
     for sys_cls in all_sys_cls:
         model_dict[sys_cls] = {}
         sys_cls_dir = os.path.join(model_root_dir,sys_cls)
@@ -88,7 +88,7 @@ def load_regression_models(model_root_dir=regression_models_dir):
             noise_model_dir = os.path.join(noise_dir,modnm)
             if os.path.exists(noise_model_dir):
                 model_dict[sys_cls]['noise'][modnm] = {}
-                for pnm in xrsdefs.noise_params[modnm]+['I0_fraction']:
+                for pnm in list(xrsdefs.noise_params[modnm].keys())+['I0_fraction']:
                     param_yml_file = os.path.join(noise_model_dir,pnm+'.yml')
                     if os.path.exists(param_yml_file):
                         param_header = 'noise_'+pnm
@@ -112,7 +112,7 @@ def load_regression_models(model_root_dir=regression_models_dir):
                 model_dict[sys_cls][pop_id][stg_nm] = {}
                 for stg_label in os.listdir(stg_dir):
                     stg_label_dir = os.path.join(stg_dir,stg_label)
-                    for pnm in xrsdefs.additional_structure_params(struct,{stg_nm:stg_label}):
+                    for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                         param_header = pop_id+'_'+pnm
                         param_yml = os.path.join(stg_label_dir,pnm+'.yml')
                         model_dict[sys_cls][pop_id][stg_nm][stg_label][pnm] = Regressor(param_header,param_yml)

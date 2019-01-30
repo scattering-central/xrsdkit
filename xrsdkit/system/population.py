@@ -5,7 +5,6 @@ import numpy as np
 
 from .. import definitions as xrsdefs 
 from .. import scattering as xrsdscat
-from ..scattering import diffuse_intensity, disordered_intensity, crystalline_intensity
 from ..scattering import space_groups as sgs
 
 class Population(object):
@@ -35,7 +34,7 @@ class Population(object):
     def update_settings(self,new_settings={}):
         valid_stgs = xrsdefs.all_settings(self.structure,self.form)
         for stg_nm,stg_val in new_settings.items():
-            if not stg_nm in valid_settings:
+            if not stg_nm in valid_stgs:
                 msg = 'Setting {} is not valid for current structure ({}) and form factor ({})'.format(
                 stg_nm,self.structure,self.form)  
                 raise ValueError(msg)
@@ -47,12 +46,12 @@ class Population(object):
         xrsdefs.validate(self.structure,self.form,valid_stgs)
         # remove any self.settings that are no longer valid
         for stg_nm in current_stg_nms:
-            if not stg_nm in valid_settings:
+            if not stg_nm in valid_stgs:
                 self.settings.pop(stg_nm)
         # update settings-
         # at this point, all new_settings are assumed valid
         valid_stgs.update(new_settings)
-        self.settings.update(valid_settings)
+        self.settings.update(valid_stgs)
         self.update_parameters()
 
     def update_parameters(self,new_params={}):

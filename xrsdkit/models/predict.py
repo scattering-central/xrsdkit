@@ -73,7 +73,7 @@ def predict(features,test=False):
             stg_val = results[pop_id+'_'+stg_nm][0]
             
             # evaluate any additional parameters that depend on this setting
-            for param_nm in xrsdefs.additional_structure_params(struct,{stg_nm:stg_val}):
+            for param_nm in xrsdefs.structure_params(struct,{stg_nm:stg_val}):
                 if reg_models_to_use[pop_id][stg_nm][stg_val][param_nm].trained:
                     results[pop_id+'_'+param_nm] = \
                     reg_models_to_use[pop_id][stg_nm][stg_val][param_nm].predict(features)
@@ -129,7 +129,7 @@ def system_from_prediction(prediction,q,I,**kwargs):
         for stg_nm in xrsdefs.modelable_structure_settings[struct]:
             stg_header = pop_id+'_'+stg_nm
             pop_dict['settings'][stg_nm] = prediction[stg_header][0]
-            for param_nm in xrsdefs.additional_structure_params(struct,{stg_nm:stg_val}):
+            for param_nm in xrsdefs.structure_params(struct,{stg_nm:stg_val}):
                 param_header = pop_id+'_'+param_nm
                 pop_dict['parameters'][param_nm] = prediction[param_header] 
         for stg_nm in xrsdefs.modelable_form_factor_settings[form]:
