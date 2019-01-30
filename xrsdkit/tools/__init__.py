@@ -1,12 +1,6 @@
 import numpy as np
 import yaml
 
-# TODO: deprecate
-def load_fit(file_path):
-    with open(file_path, 'r') as yaml_file:
-        data = yaml.load(yaml_file)
-    return data['populations'],data['fixed_params'],data['param_bounds'],data['param_constraints'],data['report']
-
 def primitives(v):
     if isinstance(v,dict):
         rd = {}
