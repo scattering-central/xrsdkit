@@ -177,22 +177,12 @@ class System(object):
         lmfp = lmfit.Parameters()
         for pkey,pd in p.items():
             ks = pkey.split('__')
-            kdepth = len(ks)
-            param_name = ks[-1]
-            if re.match('coord.',param_name):
-                default = xrsdefs.coord_default
-            elif ks[0] == 'noise':
-                default = xrsdefs.noise_param_defaults[param_name]
-            else:
-                default = xrsdefs.param_defaults[param_name]
-            vary_flag = bool(not default['fixed'])
-            if 'fixed' in pd: vary_flag = not pd['fixed']
-            p_bounds = copy.deepcopy(default['bounds'])
-            if 'bounds' in pd: p_bounds = pd['bounds']
-            p_expr = copy.copy(default['constraint_expr'])
-            if 'constraint_expr' in pd: p_expr = pd['constraint_expr']
+            vary_flag = bool(not pd['fixed'])
+            p_bounds = copy.deepcopy(pd['bounds'])
+            p_expr = copy.copy(pd['constraint_expr'])
             lmfp.add(pkey,value=pd['value'],vary=vary_flag,min=p_bounds[0],max=p_bounds[1])
             if p_expr:
+                lmfp[pkey].set(vary=False)
                 lmfp[pkey].set(expr=p_expr)
         return lmfp
     
@@ -268,6 +258,7 @@ def unpack_lmfit_params(lmfit_params):
         pd[par_name]['value'] = par.value
         pd[par_name]['bounds'] = [par.min,par.max]
         pd[par_name]['fixed'] = not par.vary
+        if par._expr: pd[par_name]['fixed'] = False
         pd[par_name]['constraint_expr'] = par._expr
     return pd
 
@@ -275,72 +266,13 @@ def unflatten_params(flat_params):
     pd = {} 
     for pkey,paramd in flat_params.items():
         ks = pkey.split('__')
-        kdepth = len(ks)
+        #kdepth = len(ks)
         pop_name = ks[0]
+        param_name = ks[1]
         if not pop_name in pd:
             pd[pop_name] = {} 
-        if pop_name == 'noise':
-            # a noise parameter
-            if not 'noise' in pd: pd['noise'] = {}
-            if not 'parameters' in pd['noise']: pd['noise']['parameters'] = {}
-            pd['noise']['parameters'][ks[1]] = paramd
-        elif kdepth == 2: 
-            # a structure parameter 
-            if not 'parameters' in pd[pop_name]:
-                pd[pop_name]['parameters'] = {} 
-            param_name = ks[1]
-            pd[pop_name]['parameters'][param_name] = paramd 
-        else:
-            # a basis parameter
-            specie_name = ks[1]
-            if not 'basis' in pd[pop_name]:
-                pd[pop_name]['basis'] = {} 
-            if not specie_name in pd[pop_name]['basis']:
-                pd[pop_name]['basis'][specie_name] = {}
-            if re.match('coord.',ks[2]):
-                # a coordinate
-                if not 'coordinates' in pd[pop_name]['basis'][specie_name]:
-                    pd[pop_name]['basis'][specie_name]['coordinates'] = [None,None,None]
-                coord_id = ks[2][-1]
-                if coord_id == 'x': coord_idx = 0
-                if coord_id == 'y': coord_idx = 1
-                if coord_id == 'z': coord_idx = 2
-                pd[pop_name]['basis'][specie_name]['coordinates'][coord_idx] = paramd 
-            else:
-                # a parameter for a form factor
-                if not 'parameters' in pd[pop_name]['basis'][specie_name]:
-                    pd[pop_name]['basis'][specie_name]['parameters'] = {} 
-                param_name = ks[2]
-                pd[pop_name]['basis'][specie_name]['parameters'][param_name] = paramd
+        if not 'parameters' in pd[pop_name]:
+            pd[pop_name]['parameters'] = {} 
+        pd[pop_name]['parameters'][param_name] = paramd 
     return pd
 
-
-# TODO: update convenience constructors to return System objects. 
-
-def fcc_crystal(atom_symbol,a_lat=10.,pk_profile='voigt',I0=1.E-3,q_min=0.,q_max=1.,hwhm_g=0.001,hwhm_l=0.001):
-    return dict(
-        structure='fcc',
-        settings={'q_min':q_min,'q_max':q_max,'profile':pk_profile},
-        parameters={'I0':I0,'a':a_lat,'hwhm_g':hwhm_g,'hwhm_l':hwhm_l},
-        basis={atom_symbol+'_atom':dict(
-            coordinates=[0,0,0],
-            form='atomic',
-            settings={'symbol':atom_symbol}
-            )}
-        )
-
-def unidentified_population():
-    return dict(
-        structure='unidentified',
-        settings={}, 
-        parameters={},
-        basis={}
-        )
-
-def empty_site():
-    return dict(
-        form='diffuse',
-        settings={},
-        parameters={}
-        )
-        

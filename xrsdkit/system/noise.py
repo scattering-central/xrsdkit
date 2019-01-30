@@ -12,10 +12,7 @@ class NoiseModel(object):
             model = 'flat' 
         self.model = model
         self.parameters = {}
-        for param_nm in xrsdefs.noise_params[model]:
-            self.parameters[param_nm] = copy.deepcopy(xrsdefs.noise_param_defaults[param_nm])  
-        for param_nm in params:
-            self.update_parameter(param_nm,params[param_nm])
+        self.update_parameters(params)
 
     def to_dict(self):
         nd = {} 
@@ -30,21 +27,25 @@ class NoiseModel(object):
         self.update_parameters()
 
     def update_parameters(self,new_params={}):
+        valid_params = copy.deepcopy(xrsdefs.noise_params[self.model])
+        for param_nm,param_val in new_params.items():
+            if not param_nm in valid_params:
+                msg = 'Parameter {} is not valid for noise model {}'.format(
+                param_nm,self.model)  
+                raise ValueError(msg)
+        # remove any non-valid params,
+        # copy current valid values to valid_params
         current_param_nms = list(self.parameters.keys())
-        valid_param_nms = copy.deepcopy(xrsdefs.noise_params[self.model])
-        # remove any non-valid params
         for param_nm in current_param_nms:
-            if not param_nm in valid_param_nms:
+            if param_nm in valid_params.keys():
+                valid_params[param_nm].update(self.parameters[param_nm])
+            else:
                 self.parameters.pop(param_nm)
-        # add any missing params, taking from new_params if available 
-        for param_nm in valid_param_nms:
-            if not param_nm in self.parameters:
-                self.parameters[param_nm] = copy.deepcopy(xrsdefs.noise_param_defaults[param_nm]) 
-            if param_nm in new_params:
-                self.update_parameter(param_nm,new_params[param_nm])
-
-    def update_parameter(self,param_nm,new_param_dict): 
-        self.parameters[param_nm].update(new_param_dict)
+        # update params-
+        # at this point, all new_params are assumed valid
+        for param_nm, param_def in new_params.items():
+            valid_params[param_nm].update(new_params[param_nm])
+        self.parameters.update(valid_params)
 
     def compute_intensity(self,q):
         n_q = len(q)
