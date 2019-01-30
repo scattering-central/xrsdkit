@@ -171,4 +171,11 @@ def compute_Rsquared(y1,y2):
     return float(1)-float(sum_res)/sum_var
 
 
+def positive_normal_sampling(mean_val,sigma_frac,sampling_width,sampling_step):
+    sigma_r = sigma_frac*mean_val
+    step_r = sigma_real*sampling_step
+    min_val = np.max([mean_val-sampling_width*sigma_r,step_r])
+    max_val = mean_val+sampling_width*sigma_r
+    return min_val, max_val, step
+
 
