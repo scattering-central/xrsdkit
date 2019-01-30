@@ -19,6 +19,29 @@ noise_models = dict(
     low_q_scatter = 'Flat noise floor plus a Guinier-Porod-like contribution'
     )
 
+def validate(structure,form,settings):
+    if structure in ['diffuse','disordered']:
+        # polyatomic forms are not allowed- everything else is ok
+        if form == 'polyatomic':
+            raise ValueError('{} structure does not support polyatomic forms'.format(structure))
+    elif structure == 'crystalline':
+        # guinier_porod forms are not allowed
+        if form == 'guinier_porod':
+            raise ValueError('crystalline structure does not support guinier_porod forms')
+        elif form == 'spherical':
+            # crystalline structure with spherical form factor:
+            # distributions of size are not allowed
+            if not settings['distribution'] == 'single':
+                msg = 'crystalline structure does not support size distribution {}'\
+                .format(settings['distribution']))
+                raise ValueError(msg)
+
+def valid_form_factors(structure,prior_settings={}):
+    diffuse = ['atomic','guinier_porod','spherical'],
+    disordered = ['atomic','guinier_porod','spherical'],
+    crystalline = ['atomic','spherical','polyatomic']
+    )
+
 structure_names = list(structures.keys())
 form_names = list(forms.keys())
 noise_model_names = list(noise_models.keys())
@@ -55,30 +78,40 @@ modelable_form_settings = dict(
     spherical = ['distribution']
     )
 
-def all_settings(structure,form=None,prior_settings={}):
+def all_settings(structure,form=None):
+    """Return all valid settings, along with sensible default values.
+
+    Parameters
+    ----------
+    structure : str
+        Population structure designation, for fetching valid structure settings
+    form : str
+        Population form factor designation, for fetching valid form factor settings
+
+    Returns
+    -------
+    stgs : dict
+        Dict of all possible settings along with sensible default values
+    """
+ 
     stgs = {}
     stgs.update(copy.deepcopy(structure_settings[structure]))
     if form:
         stgs.update(copy.deepcopy(form_settings[form]))
-    stgs.update(prior_settings) 
-    addl_settings = {}
     for stg_nm,stg_val in stgs.items():
         if stg_nm == 'n_atoms':
-            addl_settings.update(
-                dict([('symbol{}'.format(iat),'H') for iat in range(setting_value)]) 
+            stgs.update(
+                dict([('symbol_{}'.format(iat),'H') for iat in range(setting_value)]) 
                 )
         if stg_nm == 'integration_mode':
             if stg_val == 'spherical':
-                addl_settings.update({'q_min':0.,'q_max':1.})
+                stgs.update({'q_min':0.,'q_max':1.})
         if stg_nm == 'distribution' and form == 'spherical':
             if setting_value == 'r_normal':
-                addl_settings.update({'n_samples':80,'sampling_width':3.5})
+                stgs.update({'sampling_width':3.5,'sampling_step':0.05})
         if stg_nm == 'distribution' and form == 'guinier_porod':
             if setting_value == 'rg_normal':
-                return {'n_samples':40,'sampling_width':2.0}
-    # ensure prior_setting values take precendence over addl_setting defaults
-    addl_settings.update(prior_settings)
-    stgs.update(addl_settings)
+                return {'sampling_width':2.0,'sampling_step':0.1}
     return stgs 
 
 # all possible options for all settings (empty list if not enumerable)
@@ -86,7 +119,7 @@ def setting_selections(structure,form=None,prior_settings={}):
     stg_sel = {}
     if structure == 'crystalline':
         stg_sel['lattice'] = sgs.lattices
-        valid_sgs = sgs.all_space_groups.values()
+        #valid_sgs = sgs.all_space_groups.values()
         if 'lattice' in prior_settings:
             valid_sgs = sgs.lattice_space_groups[prior_settings['lattice']]
         stg_sel['space_group'] = ['']+valid_sgs
@@ -107,20 +140,15 @@ def setting_selections(structure,form=None,prior_settings={}):
         stg_sel['n_atoms'] = [],
     if form == 'spherical':
         stg_sel['distribution'] = ['single','r_normal'],
-        stg_sel['n_samples'] = [],
+        stg_sel['sampling_width'] = [],
+        stg_sel['sampling_step'] = [],
     if form == 'guinier_porod':
         stg_sel['distribution'] = ['single','rg_normal'],
         stg_sel['sampling_width'] = []
+        stg_sel['sampling_step'] = [],
     return stg_sel
 
-
 # default parameters for each structure, form factor, and noise model
-# TODO: deprecate structure_params and use I0 directly
-#structure_params = dict(
-#    diffuse = {'I0':{'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}},
-#    disordered = {'I0':{'value':100.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}},
-#    crystalline = {'I0':{'value':1.E-5,'fixed':False,'bounds':[0.,None],'constraint_expr':None}}  
-#    )
 form_factor_params = dict(
     atomic = {},
     polyatomic = {},
@@ -200,13 +228,13 @@ def additional_form_factor_params(form,prior_settings):
             coord_params = {} 
             for iat in range(prior_settings['n_atoms']):
                 coord_params.update({
-                    'x'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
-                    'y'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
-                    'z'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None} 
+                    'ra_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
+                    'rb_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
+                    'rc_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None} 
                     })
             for iat in range(prior_settings['n_atoms']):
                 coord_params.update( 
-                    {'occupancy'+str(iat):{'value':1.,'fixed':True,'bounds':[0.,1.],'constraint_expr':None}}
+                    {'occupancy_'+str(iat):{'value':1.,'fixed':True,'bounds':[0.,1.],'constraint_expr':None}}
                     )
             return coord_params
     if form == 'guinier_porod':
@@ -218,6 +246,16 @@ def additional_form_factor_params(form,prior_settings):
             if prior_settings['distribution'] == 'r_normal':
                 return {'sigma_r':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
     return {} 
+
+def all_params(structure,form,prior_settings):
+    all_pars = {}
+    if structure=='diffuse': all_pars['I0']={'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
+    if structure=='disordered': all_pars['I0']={'value':100.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
+    if structure=='crystalline': all_pars['I0']={'value':1.E-5,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
+    all_pars.update(copy.deepcopy(form_factor_params[form]))
+    all_pars.update(additional_structure_params(structure,prior_settings))
+    all_pars.update(additional_form_factor_params(form,prior_settings))
+    return all_pars
 
 # datatypes and descriptions for all settings (gui tooling)
 setting_datatypes = dict(
@@ -236,7 +274,7 @@ setting_datatypes = dict(
     rg_distribution = str,
     r_distribution = str,
     sampling_width = float, 
-    n_samples = int
+    sampling_step = float
     )
 
 setting_descriptions = dict(
@@ -254,8 +292,8 @@ setting_descriptions = dict(
     n_atoms = 'Number of atoms',
     r_distribution = 'Probability distribution for parameter r',
     rg_distribution = 'Probability distribution for parameter rg',
-    n_samples = 'Number of values to sample from distribution',
-    sampling_width = 'Number of standard deviations sample from distribution'
+    sampling_width = 'Number of standard deviations sample from distribution',
+    sampling_step = 'Resolution of sampling, in units of standard deviations'
     )
 
 parameter_units = dict(
@@ -296,9 +334,9 @@ parameter_descriptions = dict(
     alpha = 'Angle between second and third lattice vectors',
     beta = 'Angle between first and third lattice vectors',
     gamma = 'Angle between first and second lattice vectors',
-    x = 'fractional position of atomic specie along first lattice vector',
-    y = 'fractional position of atomic specie along second lattice vector',
-    z = 'fractional position of atomic specie along third lattice vector',
+    ra = 'fractional coordinate along first lattice vector',
+    rb = 'fractional coordinate along second lattice vector',
+    rc = 'fractional coordinate along third lattice vector',
     occupancy = 'likelihood of finding an atomic specie at its lattice site'
     )
 
