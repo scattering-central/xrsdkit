@@ -7,6 +7,7 @@ from sklearn import preprocessing
 
 from .. import definitions as xrsdefs
 from ..tools import primitives, profiler
+from . import classification_models, regression_models
 
 def downsample_by_group(df):
     """Group and down-sample a DataFrame of xrsd records.

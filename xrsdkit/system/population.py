@@ -32,26 +32,25 @@ class Population(object):
         self.update_parameters()
 
     def update_settings(self,new_settings={}):
-        valid_stgs = xrsdefs.all_settings(self.structure,self.form)
-        for stg_nm,stg_val in new_settings.items():
-            if not stg_nm in valid_stgs:
-                msg = 'Setting {} is not valid for current structure ({}) and form factor ({})'.format(
-                stg_nm,self.structure,self.form)  
-                raise ValueError(msg)
-        # copy current setting values to valid_stgs
+        trial_settings = copy.deepcopy(self.settings)
+        trial_settings.update(new_settings)
+        # get all valid settings that would exist,
+        # given current self.settings and new_settings
+        valid_settings = xrsdefs.all_settings(self.structure,self.form,trial_settings)
+        # copy any trial setting values to valid_settings-
+        # at this point trial_settings should be a subset of valid_settings
+        for stg_nm,stg_val in trial_settings.items():
+            if stg_nm in valid_settings:
+                valid_settings[stg_nm] = stg_val
+        # make sure trial_settings are valid 
+        xrsdefs.validate(self.structure,self.form,valid_settings)
+        # remove any self.settings that are no longer valid
         current_stg_nms = list(self.settings.keys())
         for stg_nm in current_stg_nms:
-            if stg_nm in valid_stgs.keys():
-                valid_stgs[stg_nm] = self.settings[stg_nm]
-        xrsdefs.validate(self.structure,self.form,valid_stgs)
-        # remove any self.settings that are no longer valid
-        for stg_nm in current_stg_nms:
-            if not stg_nm in valid_stgs:
+            if not stg_nm in valid_settings:
                 self.settings.pop(stg_nm)
-        # update settings-
-        # at this point, all new_settings are assumed valid
-        valid_stgs.update(new_settings)
-        self.settings.update(valid_stgs)
+        # update settings
+        self.settings.update(valid_settings)
         self.update_parameters()
 
     def update_parameters(self,new_params={}):
@@ -99,7 +98,7 @@ class Population(object):
 
     @classmethod
     def from_dict(cls,d):
-        inst = cls(d['structure'])
+        inst = cls(d['structure'],d['form'])
         inst.update_from_dict(d)
         return inst
 

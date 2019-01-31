@@ -12,6 +12,15 @@ def lorentzian_profile(q,q_pk,hwhm_l):
 def voigt_profile(q,q_pk,hwhm_g,hwhm_l):
     return voigt(q-q_pk,hwhm_g,hwhm_l)
 
+def gaussian_function(hwhm):
+    return lambda q, q_pk: gaussian_profile(q,q_pk,hwhm)
+
+def lorentzian_function(hwhm):
+    return lambda q, q_pk: lorentzian_profile(q,q_pk,hwhm)
+
+def voigt_function(hwhm_g,hwhm_l):
+    return lambda q, q_pk: voigt_profile(q,q_pk,hwhm_g,hwhm_l)
+
 def gaussian(x, hwhm_g):
     """
     gaussian (normal) distribution at points x, 

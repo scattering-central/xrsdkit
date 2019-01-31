@@ -5,7 +5,9 @@ import numpy as np
 
 from . import form_factors as xrff
 from . import space_groups as sgs
+from . import symmetries as xrsdsym
 from ..tools import peak_math, positive_normal_sampling
+from .. import definitions as xrsdefs
 
 def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
     nq = len(q)
@@ -13,54 +15,58 @@ def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
         coords = [[0.,0.,0.]]
         occs = [1.]
         if form == 'spherical':
-            ff_funcs = [xrff.spherical_ff_func(parameters['r'])]
+            ff_funcs = [xrff.spherical_ff_func(parameters['r']['value'])]
         elif form == 'atomic':
             ff_funcs = [xrff.atomic_ff_func(settings['symbol'])]
         if form == 'polyatomic':
             coords = []
             for iat in range(settings['n_atoms']):
-                crds_i = [  parameters['u_{}'.format(iat)],\
-                            parameters['v_{}'.format(iat)],\
-                            parameters['w_{}'.format(iat)] ]
+                crds_i = [  parameters['u_{}'.format(iat)]['value'],\
+                            parameters['v_{}'.format(iat)]['value'],\
+                            parameters['w_{}'.format(iat)]['value'] ]
                 coords.append(crds_i)
-            occs = [parameters['occupancy_{}'.format(iat)] for iat in range(settings['n_atoms'])]
+            occs = [parameters['occupancy_{}'.format(iat)]['value'] for iat in range(settings['n_atoms'])]
             ff_funcs = [xrff.atomic_ff_func(settings['symbol_{}'.format(iat)]) for iat in range(settings['n_atoms'])]
-        latparams = dict(
-                    a=parameters['a'],b=parameters['b'],c=parameters['c'],
-                    alpha=parameters['alpha'],beta=parameters['beta'],gamma=parameters['gamma']
-                    )
+        latparams = {}
+        for param_nm,param_def in xrsdefs.structure_params('crystalline',{'lattice':settings['lattice']}).items():
+            latparams[param_nm] = parameters[param_nm]['value']
+        if settings['profile'] == 'voigt': 
+            pk_func = peak_math.voigt_function(parameters['hwhm_g']['value'],parameters['hwhm_l']['value'])
+        if settings['profile'] == 'gaussian': 
+            pk_func = peak_math.gaussian_function(parameters['hwhm']['value'])
+        if settings['profile'] == 'lorentzian': 
+            pk_func = peak_math.lorentzian_function(parameters['hwhm']['value'])
         I_xtal = integrated_isotropic_diffraction_intensity(
-            q,source_wavelength,settings['lattice'],latparams,coords,ff_funcs,occs,
+            q,source_wavelength,settings['lattice'],latparams,coords,ff_funcs,pk_func,occs,
             q_min=settings['q_min'],q_max=settings['q_max'],
-            profile=settings['profile'],
             space_group=settings['space_group'],
             sf_mode=settings['structure_factor_mode']
             )
-        return parameters['I0'] * I_xtal
+        return parameters['I0']['value'] * I_xtal
     else:
         if form == 'atomic':
             ff_sqr = xrff.atomic_ff(q,settings['symbol']) ** 2
         if form == 'spherical':
             if settings['distribution'] == 'single':
-                ff_sqr = xrff.spherical_ff(q,parameter['r']) ** 2
+                ff_sqr = xrff.spherical_ff(q,parameters['r']['value']) ** 2
             if settings['distribution'] == 'r_normal':
                 ff_sqr = spherical_normal_intensity(q,
-                    parameters['r'],parameters['sigma'],
+                    parameters['r']['value'],parameters['sigma']['value'],
                     settings['sampling_width'],settings['sampling_step']
                     )
         if form == 'guinier_porod':
             if settings['distribution'] == 'single':
-                ff_sqr = guinier_porod_intensity(q,parameters['rg'],parameters['D']) 
+                ff_sqr = guinier_porod_intensity(q,parameters['rg']['value'],parameters['D']['value']) 
             if settings['distribution'] == 'rg_normal':
                 ff_sqr = gp_normal_intensity(q,
-                    parameters['rg'],parameters['sigma'],
+                    parameters['rg']['value'],parameters['sigma']['value'],
                     settings['sampling_width'],settings['sampling_step']
                     )
         if structure == 'disordered':
-            sf = xrsf.hard_sphere_sf(q,parameters['r_hard'],parameters['volume_fraction'])
-            return parameters['I0'] * sf * ff_sqr 
-        if structure == 'disordered':
-            return parameters['I0'] * ff_sqr 
+            sf = xrsf.hard_sphere_sf(q,parameters['r_hard']['value'],parameters['volume_fraction']['value'])
+            return parameters['I0']['value'] * sf * ff_sqr 
+        if structure == 'diffuse':
+            return parameters['I0']['value'] * ff_sqr 
 
 
 def guinier_porod_intensity(q,rg,porod_exponent):
@@ -172,15 +178,15 @@ def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.05)
             rhoi = 1./(np.sqrt(2*np.pi)*sigma_r)*np.exp(-1*(r0-ri)**2/(2*sigma_r**2))
             I0_i = V_ri**2*rhoi*dr
             I_0 += I0_i
-            I += I0_i*spherical_ff(q,ri)**2
+            I += I0_i*xrff.spherical_ff(q,ri)**2
     I = I/I_0 
     return I 
 
 
 # TODO: vectorize and parallelize where possible
 def integrated_isotropic_diffraction_intensity(
-    q,source_wavelength,lattice,latparams,coords,ff_funcs,occupancies=None,
-    q_min=0.,q_max=None,profile='voigt',space_group='',sf_mode='local'):
+    q,source_wavelength,lattice,latparams,coords,ff_funcs,pk_func,
+    occupancies=None,q_min=0.,q_max=None,space_group='',sf_mode='local'):
     """Compute integrated diffraction pattern for an isotropic (powder-like) system.
 
     Parameters
@@ -198,6 +204,8 @@ def integrated_isotropic_diffraction_intensity(
     ff_funcs : list
         List of functions that compute form factors for all species at any q,
         in order corresponding to `coords`
+    pk_func : callable 
+        Function that yields a peak profile, as pk_func(q,q_center)
     source_wavelength : float
         Light source wavelength in Angstroms
     q_min : float
@@ -205,8 +213,6 @@ def integrated_isotropic_diffraction_intensity(
     q_max : float
         Maximum q-value (>`q_min`) for reciprocal space integration-
         if not provided, automatically set to the highest value in `q`.
-    profile : str
-        Either 'voigt', 'gaussian', or 'lorentzian'
     space_group : str
         Space group designation used for symmetrizing the reciprocal space summation,
         should be one of xrsdkit.scattering.space_groups.lattice_space_groups[`lattice`]
@@ -229,14 +235,16 @@ def integrated_isotropic_diffraction_intensity(
     if not q_max: q_max = q[-1]
     n_species = len(coords)
     if not occupancies: occupancies = np.ones(n_species)
-    if not space_group in sgs.lattice_space_groups[lattice]:
+    if not space_group in sgs.lattice_space_groups[lattice].values():
         raise ValueError('space group {} not valid for {} lattice'.format(space_group,lattice))
 
     n_q = len(q)
     I = np.zeros(n_q)
     th = np.arcsin(source_wavelength*q/(4.*np.pi))
     # polarization factor 
-    pz = 1. + np.cos(2.*th)**2 
+    pz = 0.5*(1.+np.cos(2.*th)**2) 
+    I0 = 0.
+    q0 = np.array([0.])
 
     a1,a2,a3 = sgs.lattice_vectors(lattice,**latparams)
     b1,b2,b3 = sgs.reciprocal_lattice_vectors(a1,a2,a3)
@@ -279,7 +287,7 @@ def integrated_isotropic_diffraction_intensity(
     # symmetrize the hkl sampling, save the multiplicities 
     # TODO: determine whether or not this can be done solely based on the point group
     #point_group = sgs.sg_point_groups[space_group]
-    reduced_hkl,hkl_mults = sgs.symmetrize_points(all_hkl,np.array([b1,b2,b3]),space_group)  
+    reduced_hkl,hkl_mults = xrsdsym.symmetrize_points(all_hkl,np.array([b1,b2,b3]),space_group)  
 
     # g-vector magnitude for all hkl
     absg_hkl = np.linalg.norm(np.dot(reduced_hkl,[b1,b2,b3]),axis=1)
@@ -294,37 +302,16 @@ def integrated_isotropic_diffraction_intensity(
 
     # peak profiles for all abs(q) values
     # TODO: vectorize this?
-    pks = {}
+    pk_q = {}
+    pk_0 = {}
     for qval in absq_set: 
-        if profile == 'gaussian':
-            hwhm_g = popd['parameters']['hwhm_g']['value']  
-            pks[qval] = peak_math.gaussian_profile(q,qval,hwhm_g)
-        elif profile == 'lorentzian':
-            hwhm_l = popd['parameters']['hwhm_l']['value']  
-            pks[qval] = peak_math.lorentzian_profile(q,qval,hwhm_l)
-        elif profile == 'voigt':
-            hwhm_g = popd['parameters']['hwhm_g']['value']  
-            hwhm_l = popd['parameters']['hwhm_l']['value']  
-            pks[qval] = peak_math.voigt_profile(q,qval,hwhm_g,hwhm_l)
-
-    # form factors for all species (one for each set of coords)
-    #ffs = {}
-    #for specie_nm, specd in popd['basis'].items():
-    #    coords[specie_nm] = [specd['coordinates'][ic]['value'] for ic in range(3)]
-    #    if sf_mode == 'radial':
-    #        # form factor values are needed for all q
-    #        ffs[specie_nm] = xrff.site_ff(q,specd)
-    #    elif sf_mode == 'local':
-    #        # form factor values are needed only at the q values
-    #        # corresponding to the set of q_hkl points
-    #        ff_set = xrff.site_ff(np.array(absq_set_list),specd)
-    #        ffs[specie_nm] = dict([(qq,ff) for qq,ff in zip(absq_set_list,ff_set)]) 
-    #    else:
-    #        raise ValueError('structure factor mode "{}" not understood'.format(sf_mode))
-
+        pk_q[qval] = pk_func(q,qval)
+        pk_0[qval] = pk_func(q0,qval)[0]
+    
     # structure factors for all hkl
     # TODO: can this be vectorized? 
     sf_hkl = np.zeros((reduced_hkl.shape[0],n_q),dtype=complex) 
+    sf_0 = np.zeros(reduced_hkl.shape[0],dtype=complex)
     latcoords = sgs.lattice_coords(lattice)
     for ccc,fff in zip(coords,ff_funcs):
         if sf_mode == 'radial':
@@ -333,6 +320,7 @@ def integrated_isotropic_diffraction_intensity(
                 for lc in latcoords:
                     g_dot_r = np.dot(lc+ccc,reduced_hkl[ihkl,:])
                     sf_hkl[ihkl,:] += fff(q) * np.exp(2j*np.pi*g_dot_r)
+                    sf_0[ihkl] += fff(q0)[0] * np.exp(2j*np.pi*g_dot_r)
         elif sf_mode == 'local':
             ff_set = fff(np.array(absq_set_list))
             ff_absq = dict([(qq,ff) for qq,ff in zip(absq_set_list,ff_set)]) 
@@ -340,9 +328,12 @@ def integrated_isotropic_diffraction_intensity(
                 for lc in latcoords:
                     g_dot_r = np.dot(lc+ccc,reduced_hkl[ihkl,:])
                     sf_hkl[ihkl,:] += ff_absq[absq] * np.exp(2j*np.pi*g_dot_r)
+                    sf_0[ihkl] += fff(q0)[0] * np.exp(2j*np.pi*g_dot_r)
 
     for ihkl,absq,ltz,mult in zip(range(reduced_hkl.shape[0]),absq_hkl,ltz_hkl,hkl_mults):
-        I += mult*ltz*(sf_hkl[ihkl,:]*sf_hkl[ihkl,:].conjugate()).real*pks[absq] 
-    return I0*pz*I
+        I += mult*ltz*(sf_hkl[ihkl,:]*sf_hkl[ihkl,:].conjugate()).real*pk_q[absq] 
+        I0 += mult*ltz*(sf_0[ihkl]*sf_0[ihkl].conjugate()).real*pk_0[absq]
+    
+    return pz*I/I0
             
 

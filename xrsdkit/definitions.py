@@ -33,7 +33,7 @@ def validate(structure,form,settings):
         elif form == 'spherical':
             # crystalline structure with spherical form factor:
             # distributions of size are not allowed
-            if not settings['distribution'] == 'single':
+            if ('distribution' in settings) and (not settings['distribution'] == 'single'):
                 msg = 'crystalline structure does not support size distribution {}'\
                 .format(settings['distribution'])
                 raise ValueError(msg)
@@ -80,7 +80,7 @@ modelable_form_settings = dict(
     spherical = ['distribution']
     )
 
-def all_settings(structure,form=None):
+def all_settings(structure,form=None,prior_settings={}):
     """Return all valid settings, along with sensible default values.
 
     Parameters
@@ -100,20 +100,21 @@ def all_settings(structure,form=None):
     stgs.update(copy.deepcopy(structure_settings[structure]))
     if form:
         stgs.update(copy.deepcopy(form_settings[form]))
+    stgs.update(prior_settings)
     addl_stgs = {}
     for stg_nm,stg_val in stgs.items():
         if stg_nm == 'n_atoms':
             addl_stgs.update(
-                dict([('symbol_{}'.format(iat),'H') for iat in range(setting_value)]) 
+                dict([('symbol_{}'.format(iat),'H') for iat in range(stg_val)]) 
                 )
         if stg_nm == 'integration_mode':
             if stg_val == 'spherical':
                 addl_stgs.update({'q_min':0.,'q_max':1.})
         if stg_nm == 'distribution' and form == 'spherical':
-            if setting_value == 'r_normal':
+            if stg_val == 'r_normal':
                 addl_stgs.update({'sampling_width':3.5,'sampling_step':0.05})
         if stg_nm == 'distribution' and form == 'guinier_porod':
-            if setting_value == 'rg_normal':
+            if stg_val == 'rg_normal':
                 addl_stgs.update({'sampling_width':2.0,'sampling_step':0.1})
     stgs.update(addl_stgs)
     return stgs 
@@ -174,42 +175,43 @@ noise_params = dict(
 
 # generate any additional parameters that depend on setting selections
 def structure_params(structure,prior_settings):
+    params = {}
     if structure == 'disordered':
         if 'interaction' in prior_settings:
             if prior_settings['interaction'] == 'hard_spheres':
-                return dict(
+                params.update(
                     r_hard = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},
                     v_fraction = {'value':0.5,'fixed':False,'bounds':[0.01,0.7405],'constraint_expr':None}
                     ) 
     if structure == 'crystalline':
         if 'lattice' in prior_settings:
             if prior_settings['lattice'] in ['P_cubic','I_cubic','F_cubic','diamond','hcp']:
-                return {'a':{'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}}
+                params.update(a={'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None})
             if prior_settings['lattice'] in ['hexagonal','P_tetragonal','I_tetragonal']:
-                return dict(
+                params.update(
                     a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
                     c = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}  
                     ) 
             if prior_settings['lattice'] == 'rhombohedral':
-                return dict(
+                params.update(
                     a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
                     alpha = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}  
                     ) 
             if prior_settings['lattice'] in ['P_orthorhombic','C_orthorhombic','I_orthorhombic','F_orthorhombic']:
-                return dict(
+                params.update(
                     a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
                     b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
                     c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}  
                     ) 
             if prior_settings['lattice'] in ['P_monoclinic','C_monoclinic']:
-                return dict(
+                params.update(
                     a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
                     b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
                     c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}, 
                     beta = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}  
                     )
             if prior_settings['lattice'] == 'triclinic':
-                return dict(
+                params.update(
                     a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
                     b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
                     c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}, 
@@ -219,12 +221,13 @@ def structure_params(structure,prior_settings):
                     )
         if 'profile' in prior_settings:
             if prior_settings['profile'] == 'voigt':
-                return dict(
+                params.update(
                     hwhm_g = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None},
                     hwhm_l = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
                     )
             if prior_settings['profile'] in ['gaussian','lorentzian']:
-                return {'hwhm':{'value':1.E-3},'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
+                params.update(hwhm={'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None})
+    return params
 
 def additional_form_factor_params(form,prior_settings):
     if form == 'polyatomic':
@@ -244,21 +247,18 @@ def additional_form_factor_params(form,prior_settings):
     if form == 'guinier_porod':
         if 'distribution' in prior_settings:
             if prior_settings['distribution'] == 'rg_normal':
-                return {'sigma_rg':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
+                return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
     if form == 'spherical':
         if 'distribution' in prior_settings:
             if prior_settings['distribution'] == 'r_normal':
-                return {'sigma_r':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
+                return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
     return {} 
 
-def all_params(structure,form,prior_settings):
-    all_pars = {}
-    if structure=='diffuse': all_pars['I0']={'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
-    if structure=='disordered': all_pars['I0']={'value':100.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
-    if structure=='crystalline': all_pars['I0']={'value':1.E-5,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
-    all_pars.update(copy.deepcopy(form_factor_params[form]))
-    all_pars.update(additional_structure_params(structure,prior_settings))
-    all_pars.update(additional_form_factor_params(form,prior_settings))
+def all_params(structure,form=None,prior_settings={}):
+    all_pars = {'I0':{'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}}
+    all_pars.update(structure_params(structure,prior_settings))
+    if form: all_pars.update(copy.deepcopy(form_factor_params[form]))
+    if form: all_pars.update(additional_form_factor_params(form,prior_settings))
     return all_pars
 
 # datatypes and descriptions for all settings (gui tooling)
@@ -275,8 +275,7 @@ setting_datatypes = dict(
     interaction = str,
     symbol = str,
     n_atoms = int,
-    rg_distribution = str,
-    r_distribution = str,
+    distribution = str,
     sampling_width = float, 
     sampling_step = float
     )
@@ -294,9 +293,8 @@ setting_descriptions = dict(
     interaction = 'Interaction potential describing disordered populations',
     symbol = 'Atomic symbol',
     n_atoms = 'Number of atoms',
-    r_distribution = 'Probability distribution for parameter r',
-    rg_distribution = 'Probability distribution for parameter rg',
-    sampling_width = 'Number of standard deviations sample from distribution',
+    distribution = 'Specifies a distribution for parameter values over a population',
+    sampling_width = 'Number of standard deviations to sample from distribution',
     sampling_step = 'Resolution of sampling, in units of standard deviations'
     )
 
@@ -305,11 +303,10 @@ parameter_units = dict(
     rg = 'Angstrom',
     D = 'unitless',
     r = 'Angstrom',
-    r0 = 'Angstrom',
-    sigma_r = 'unitless',
-    sigma_rg = 'unitless',
+    sigma = 'unitless',
     r_hard = 'Angstrom',
     v_fraction = 'unitless',
+    hwhm = '1/Angstrom',
     hwhm_g = '1/Angstrom',
     hwhm_l = '1/Angstrom',
     a = 'Angstrom',
@@ -325,9 +322,7 @@ parameter_descriptions = dict(
     rg = 'Guinier-Porod model radius of gyration',
     D = 'Guinier-Porod model Porod exponent',
     r = 'Radius of spherical population',
-    r0 = 'Mean radius of spherical population with normal distribution of size',
-    sigma_r = 'fractional standard deviation of radius',
-    sigma_rg = 'fractional standard deviation of radius of gyration',
+    sigma = 'standard deviation of normally distributed parameter divided by the parameter mean',
     r_hard = 'Radius of hard-sphere potential for hard sphere (Percus-Yevick) structure factor',
     v_fraction = 'volume fraction of particles in hard sphere (Percus-Yevick) structure factor',
     hwhm_g = 'Gaussian profile half-width at half-max',

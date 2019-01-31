@@ -7,12 +7,12 @@ from ..scattering import guinier_porod_intensity
 
 class NoiseModel(object):
 
-    def __init__(self,model=None,params={}):
+    def __init__(self,model=None,parameters={}):
         if not model:
             model = 'flat' 
         self.model = model
         self.parameters = {}
-        self.update_parameters(params)
+        self.update_parameters(parameters)
 
     def to_dict(self):
         nd = {} 

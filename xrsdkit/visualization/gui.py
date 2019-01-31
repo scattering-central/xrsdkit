@@ -48,6 +48,7 @@ def run_fit_gui(system,q,I,dI=None,error_weighted=True,
 
 # TODO (low): find a way to fix the errors 
 #   that sometimes occur when the gui is closed
+#   (_tkinter.TclError: invalid command name)
 
 class XRSDFitGUI(object):
 
@@ -559,9 +560,7 @@ class XRSDFitGUI(object):
 
         stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
         stgl.grid(row=0,column=0,sticky='e')
-        s = xrsdefs.setting_defaults[stg_nm]
-        if stg_nm in parent_obj.settings:
-            s = parent_obj.settings[stg_nm]
+        s = parent_obj.settings[stg_nm]
         stgv.set(str(s))
         stge = self.connected_entry(stgf,stgv,
             partial(self._update_setting,pop_nm,stg_nm))
