@@ -63,9 +63,9 @@ def load_classification_models(model_root_dir=classification_models_dir):
             # these would be named according to their form factors
             for ffnm in xrsdefs.form_factor_names:
                 ff_dir = os.path.join(pop_dir,ffnm)
-                if os.path.exists(ffdir):
+                if os.path.exists(ff_dir):
                     model_dict[sys_cls][pop_id][ffnm] = {}
-                    for stg_nm in xrsdefs.modelable_form_settings[ffnm]:
+                    for stg_nm in xrsdefs.modelable_form_factor_settings[ffnm]:
                         stg_header = pop_id+'_'+stg_nm
                         stg_yml_path = os.path.join(ff_dir,stg_nm+'.yml')
                         if os.path.exists(stg_yml_path):
@@ -109,13 +109,16 @@ def load_regression_models(model_root_dir=regression_models_dir):
             # depending on settings
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 stg_dir = os.path.join(pop_dir,stg_nm)
-                model_dict[sys_cls][pop_id][stg_nm] = {}
-                for stg_label in os.listdir(stg_dir):
-                    stg_label_dir = os.path.join(stg_dir,stg_label)
-                    for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
-                        param_header = pop_id+'_'+pnm
-                        param_yml = os.path.join(stg_label_dir,pnm+'.yml')
-                        model_dict[sys_cls][pop_id][stg_nm][stg_label][pnm] = Regressor(param_header,param_yml)
+                if os.path.exists(stg_dir):
+                    model_dict[sys_cls][pop_id][stg_nm] = {}
+                    for stg_label in os.listdir(stg_dir):
+                        stg_label_dir = os.path.join(stg_dir,stg_label)
+                        if os.path.exists(stg_label_dir):
+                            model_dict[sys_cls][pop_id][stg_nm][stg_label] = {}
+                            for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
+                                param_header = pop_id+'_'+pnm
+                                param_yml = os.path.join(stg_label_dir,pnm+'.yml')
+                                model_dict[sys_cls][pop_id][stg_nm][stg_label][pnm] = Regressor(param_header,param_yml)
 
             # each population may have still more parameters,
             # depending on the form factor selection
@@ -131,14 +134,16 @@ def load_regression_models(model_root_dir=regression_models_dir):
                 # the final layer of parameters depends on form factor settings
                 for stg_nm in xrsdefs.modelable_form_factor_settings[ff_nm]:
                     stg_dir = os.path.join(ff_dir,stg_nm)
-                    if os.path.exists(stg_dir): model_dict[sys_cls][pop_id][ff_nm][stg_nm] = {}
-                    for stg_label in os.listdir(stg_dir):
-                        stg_label_dir = os.path.join(stg_dir,stg_label)
-                        model_dict[sys_cls][pop_id][ff_nm][stg_label] = {}
-                        for pnm in xrsdefs.additional_form_factor_params(form,{stg_nm:stg_label}):
-                            param_header = pop_id+'_'+pnm
-                            param_yml = os.path.join(stg_label_dir,pnm+'.yml')
-                            model_dict[sys_cls][pop_id][ff_nm][stg_nm][stg_label][pnm] = Regressor(param_header,param_yml)
+                    if os.path.exists(stg_dir): 
+                        model_dict[sys_cls][pop_id][ff_nm][stg_nm] = {}
+                        for stg_label in os.listdir(stg_dir):
+                            stg_label_dir = os.path.join(stg_dir,stg_label)
+                            if os.path.exists(stg_label_dir):
+                                model_dict[sys_cls][pop_id][ff_nm][stg_nm][stg_label] = {}
+                                for pnm in xrsdefs.additional_form_factor_params(ff_nm,{stg_nm:stg_label}):
+                                    param_header = pop_id+'_'+pnm
+                                    param_yml = os.path.join(stg_label_dir,pnm+'.yml')
+                                    model_dict[sys_cls][pop_id][ff_nm][stg_nm][stg_label][pnm] = Regressor(param_header,param_yml)
     return model_dict
 
 regression_models = load_regression_models(regression_models_dir)

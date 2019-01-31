@@ -54,7 +54,7 @@ class Population(object):
 
     def update_parameters(self,new_params={}):
         valid_params = xrsdefs.all_params(self.structure,self.form,self.settings)
-        for param_nm,param_val in new_params.items():
+        for param_nm in new_params:
             if not param_nm in valid_params:
                 msg = 'Parameter {} is not valid for structure: {}, form: {}, settings: {}'.format(
                 param_nm,self.structure,self.form,self.settings)  
@@ -70,7 +70,7 @@ class Population(object):
         # update params-
         # at this point, all new_params are assumed valid
         for param_nm, param_def in new_params.items():
-            valid_params[param_nm].update(new_params[param_nm])
+            valid_params[param_nm].update(param_def)
         self.parameters.update(valid_params)
 
     def to_dict(self):

@@ -95,7 +95,7 @@ modelable_structure_settings = dict(
     disordered = ['interaction'],
     crystalline = ['lattice']
     )
-modelable_form_settings = dict(
+modelable_form_factor_settings = dict(
     atomic = ['symbol'],
     polyatomic = ['n_atoms'],
     guinier_porod = ['distribution'],

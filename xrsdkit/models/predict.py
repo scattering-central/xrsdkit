@@ -34,8 +34,8 @@ def predict(features,test=False):
 
     # evaluate the system class
     results['system_class'] = classifiers['system_class'].classify(features)
-    cl_models_to_use = classifiers[sys_cl]
-    reg_models_to_use = regressors[sys_cl]
+    cl_models_to_use = classifiers[results['system_class'][0]]
+    reg_models_to_use = regressors[results['system_class'][0]]
 
     # evaluate the noise model
     if cl_models_to_use['noise_model'].trained:
@@ -45,31 +45,34 @@ def predict(features,test=False):
 
     # evaluate noise parameters
     nmodl = results['noise_model'][0]
-    for param_nm in xrsdefs.noise_params[nmodl]+['I0_fraction']:
+    param_nms = list(xrsdefs.noise_params[nmodl].keys())
+    # there is no model for I0, due to its arbitrary scale
+    param_nms.pop(param_nms.index('I0'))
+    for param_nm in param_nms+['I0_fraction']:
         if reg_models_to_use['noise'][nmodl][param_nm].trained:
             results['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].predict(features)
         else:
             results['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].default_val
 
     # evaluate population form factors and parameters
-    for ipop, struct in enumerate(sys_cl.split('__')):
+    for ipop, struct in enumerate(results['system_class'][0].split('__')):
         pop_id = 'pop{}'.format(ipop)
         if reg_models_to_use[pop_id]['I0_fraction'].trained:
             results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
         else:
             results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
         if cl_models_to_use[pop_id]['form'].trained:
-            results[pop_id+'_form'] = reg_models_to_use[pop_id]['form'].predict(features)
+            results[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].classify(features)
         else:
-            results[pop_id+'_form'] = reg_models_to_use[pop_id]['form'].default_val 
+            results[pop_id+'_form'] = (cl_models_to_use[pop_id]['form'].default_val, 0.0) 
         ff_nm = results[pop_id+'_form'][0]
 
-        # evaluate any modelable settings for this population
+        # evaluate any modelable settings for this structure 
         for stg_nm in xrsdefs.modelable_structure_settings[struct]:
             if cl_models_to_use[pop_id][stg_nm].trained:
-                results[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][stg_nm].predict(features)
+                results[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][stg_nm].classify(features)
             else:
-                results[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][stg_nm].default_val
+                results[pop_id+'_'+stg_nm] = (cl_models_to_use[pop_id][stg_nm].default_val, 0.0)
             stg_val = results[pop_id+'_'+stg_nm][0]
             
             # evaluate any additional parameters that depend on this setting
@@ -80,6 +83,15 @@ def predict(features,test=False):
                 else:
                     results[pop_id+'_'+param_nm] = \
                     reg_models_to_use[pop_id][stg_nm][stg_val][param_nm].default_val
+
+        # evaluate any modelable settings for this form factor 
+        for stg_nm in xrsdefs.modelable_form_factor_settings[ff_nm]:
+            if cl_models_to_use[pop_id][ff_nm][stg_nm].trained:
+                results[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][ff_nm][stg_nm].classify(features)
+            else:
+                results[pop_id+'_'+stg_nm] = (cl_models_to_use[pop_id][ff_nm][stg_nm].default_val, 0.0)
+            stg_val = results[pop_id+'_'+stg_nm][0]
+
             for param_nm in xrsdefs.additional_form_factor_params(ff_nm,{stg_nm:stg_val}):
                 if reg_models_to_use[pop_id][ff_nm][stg_nm][stg_val][param_nm].trained:
                     results[pop_id+'_'+param_nm] = \
@@ -92,6 +104,9 @@ def predict(features,test=False):
 
 def system_from_prediction(prediction,q,I,**kwargs):
     """Create a System object from output of predict() function.
+
+    Keyword arguments are used to add metadata to the output System object.
+    Supported keyword arguments: 'source_wavelength'
 
     Parameters
     ----------
@@ -114,8 +129,9 @@ def system_from_prediction(prediction,q,I,**kwargs):
     if prediction['noise_I0_fraction'] < 0.:
         noise_dict['parameters']['I0']['value'] = 0. 
     for param_nm in xrsdefs.noise_params[nmodl]:
-        param_header = 'noise_'+param_nm
-        noise_dict['parameters'][param_nm] = prediction[param_header]
+        if not param_nm == 'I0':
+            param_header = 'noise_'+param_nm
+            noise_dict['parameters'][param_nm] = {'value':prediction[param_header]}
 
     pops_dict = {}
     for ipop,struct in enumerate(sys_cls.split('__')):
@@ -131,13 +147,14 @@ def system_from_prediction(prediction,q,I,**kwargs):
             pop_dict['settings'][stg_nm] = prediction[stg_header][0]
             for param_nm in xrsdefs.structure_params(struct,{stg_nm:stg_val}):
                 param_header = pop_id+'_'+param_nm
-                pop_dict['parameters'][param_nm] = prediction[param_header] 
+                pop_dict['parameters'][param_nm] = {'value':prediction[param_header]}
         for stg_nm in xrsdefs.modelable_form_factor_settings[form]:
             stg_header = pop_id+'_'+stg_nm
-            pop_dict['settings'][stg_nm] = prediction[stg_header][0]
+            stg_val = prediction[stg_header][0]
+            pop_dict['settings'][stg_nm] = stg_val 
             for param_nm in xrsdefs.additional_form_factor_params(form,{stg_nm:stg_val}):
                 param_header = pop_id+'_'+param_nm
-                pop_dict['parameters'][param_nm] = prediction[param_header] 
+                pop_dict['parameters'][param_nm] = {'value':prediction[param_header]}
         pops_dict[pop_id] = pop_dict
 
     kwargs.update(pops_dict)
@@ -145,11 +162,12 @@ def system_from_prediction(prediction,q,I,**kwargs):
 
     if 'source_wavelength' in kwargs:
         new_sys.update_from_dict({'sample_metadata':{'source_wavelength':kwargs['source_wavelength']}})
+
     Isum = np.sum(I)
     I_comp = new_sys.compute_intensity(q)
     Isum_comp = np.sum(I_comp)
     I_factor = Isum/Isum_comp
-    new_sys.noise.parameters['I0']['value'] *= I_factor
+    new_sys.noise_model.parameters['I0']['value'] *= I_factor
     for pop_nm,pop in new_sys.populations.items():
         pop.parameters['I0']['value'] *= I_factor
 

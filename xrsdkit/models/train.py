@@ -5,23 +5,33 @@ import numpy as np
 import yaml
 from sklearn import preprocessing
 
+from . import regression_models_dir, classification_models_dir
+from . import regression_models, classification_models
+from . import test_regression_models_dir, test_classification_models_dir
+from . import test_regression_models, test_classification_models
 from .. import definitions as xrsdefs
 from ..tools import primitives, profiler
 from . import classification_models, regression_models
+from .regressor import Regressor
+from .classifier import Classifier
 
-def downsample_by_group(df):
+def downsample_by_group(df,min_distance=1.):
     """Group and down-sample a DataFrame of xrsd records.
         
     Parameters
     ----------
     df : pandas.DataFrame
         dataframe containing xrsd samples 
+    min_distance : float
+        the minimum allowed nearest-neighbor distance 
+        for continuing to downsample after 10 or more samples
+        have been selected 
 
     Returns
     -------
     data_sample : pandas.DataFrame
         DataFrame containing all of the down-sampled data from 
-        all of the datasets in `dataset_id_list`. 
+        each group in the input dataframe.
         Features in this DataFrame are not scaled:
         the correct scaler should be applied before training models.
     """
@@ -33,7 +43,7 @@ def downsample_by_group(df):
         group_df = df.iloc[grp].copy()
         print('Downsampling data for group: {}'.format(group_labels))
         #lbl_df = _filter_by_labels(data,lbls)
-        dsamp = downsample(df.iloc[grp].copy(), 1.0)
+        dsamp = downsample(df.iloc[grp].copy(), min_distance)
         print('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
         data_sample = data_sample.append(dsamp)
     return data_sample
@@ -76,7 +86,7 @@ def downsample(df, min_distance):
         # get distance matrix between samples in scaled feature space
         features_matr = scaler.transform(df[profiler.profile_keys]) 
         dist_func = lambda i,j: np.sum(
-            np.abs(features_matr[i]
+            np.linalg.norm(features_matr[i]
             - features_matr[j]))
         dist_matrix = np.array([[dist_func(i,j) for i in range(df_size)] for j in range(df_size)])
 
@@ -186,6 +196,8 @@ def train_classification_models(data,hyper_parameters_search=False):
     cls_models['system_class'] = model
 
     sys_cls_labels = list(data['system_class'].unique())
+    # 'unidentified' systems will have no sub-classifiers:
+    if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
     for sys_cls in sys_cls_labels:
         print('Training classifiers for system: ')
         print(sys_cls)
@@ -195,7 +207,7 @@ def train_classification_models(data,hyper_parameters_search=False):
         #sys_cls_data.dropna(axis=1,how='all',inplace=True)
 
         # every system class must have a noise classifier
-        print('    Training noise classifier for system class {}'.format(sys_cls_lbl))
+        print('    Training noise classifier for system class {}'.format(sys_cls))
         model = Classifier('noise_model',None)
         if (sys_cls in classification_models) \
         and ('noise_model' in classification_models[sys_cls]) \
@@ -217,8 +229,8 @@ def train_classification_models(data,hyper_parameters_search=False):
             model = Classifier(form_header,None)
             if (sys_cls in classification_models) \
             and (pop_id in classification_models[sys_cls]) \
-            and ('form' in classification_models[sys_cls_lbl][pop_id]) \
-            and (classification_models[sys_cls_lbl][pop_id]['form'].trained): 
+            and ('form' in classification_models[sys_cls][pop_id]) \
+            and (classification_models[sys_cls][pop_id]['form'].trained): 
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
             model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
@@ -243,7 +255,7 @@ def train_classification_models(data,hyper_parameters_search=False):
             for ff in all_ff_labels:
                 form_data = sys_cls_data.loc[sys_cls_data[form_header]==ff].copy()
                 cls_models[sys_cls][pop_id][ff] = {}
-                for stg_nm in xrsdefs.modelable_form_settings[ff]:
+                for stg_nm in xrsdefs.modelable_form_factor_settings[ff]:
                     stg_header = pop_id+'_'+stg_nm
                     print('    Training: {}'.format(stg_header))
                     model = Classifier(stg_header,None)
@@ -322,7 +334,7 @@ def save_classification_models(models=classification_models, test=False):
                     form_dir = os.path.join(pop_dir,ff_id)
                     if not os.path.exists(form_dir): os.mkdir(form_dir)
                     model_dict[sys_cls][pop_id][ff_id] = {}
-                    for stg_nm in xrsdefs.modelable_form_settings[ff_id]:
+                    for stg_nm in xrsdefs.modelable_form_factor_settings[ff_id]:
                         model_dict[sys_cls][pop_id][ff_id][stg_nm] = models[sys_cls][pop_id][ff_id][stg_nm]
                         yml_path = os.path.join(form_dir,stg_nm+'.yml')
                         txt_path = os.path.join(form_dir,stg_nm+'.txt')
@@ -346,6 +358,8 @@ def train_regression_models(data,hyper_parameters_search=False):
     """
     reg_models = {} 
     sys_cls_labels = list(data['system_class'].unique())
+    # 'unidentified' systems will have no regression models:
+    if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
     for sys_cls in sys_cls_labels:
         reg_models[sys_cls] = {}
         sys_cls_data = data.loc[data['system_class']==sys_cls].copy()
@@ -358,7 +372,7 @@ def train_regression_models(data,hyper_parameters_search=False):
         for modnm in all_noise_models:
             reg_models[sys_cls]['noise'][modnm] = {}
             noise_model_data = sys_cls_data.loc[sys_cls_data['noise_model']==modnm].copy()
-            for pnm in xrsdefs.noise_params[modnm]+['I0_fraction']:
+            for pnm in list(xrsdefs.noise_params[modnm].keys())+['I0_fraction']:
                 param_header = 'noise_'+pnm
                 model = Regressor(param_header,None)
                 if (sys_cls in regression_models) \
@@ -443,7 +457,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                     for stg_label in stg_labels:
                         reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label] = {}
                         stg_label_data = form_data.loc[form_data[stg_header]==stg_label].copy()
-                        for pnm in xrsdefs.additional_form_factor_params(form,{stg_nm:stg_label}):
+                        for pnm in xrsdefs.additional_form_factor_params(form_id,{stg_nm:stg_label}):
                             param_header = pop_id+'_'+pnm
                             model = Regressor(param_header,None)
                             if (sys_cls in regression_models) \

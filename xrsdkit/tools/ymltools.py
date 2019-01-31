@@ -10,6 +10,7 @@ import yaml
 from . import profiler, primitives
 from ..system import System
 from .. import definitions as xrsdefs
+from ..models.train import downsample_by_group
 
 def save_sys_to_yaml(file_path,sys):
     sd = sys.to_dict()
@@ -21,7 +22,7 @@ def load_sys_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(**sd)
 
-def read_all_experiments(path_to_dir):
+def read_all_experiments(dataset_dir):
     """Load xrsdkit data from a directory.
 
     The directory should contain subdirectories,
@@ -31,7 +32,7 @@ def read_all_experiments(path_to_dir):
 
     Parameters
     ----------
-    path_to_dir : str
+    dataset_dir : str
         absolute path to the root directory of the dataset
 
     Returns
@@ -41,8 +42,8 @@ def read_all_experiments(path_to_dir):
         that were found in the experiment subdirectories
     """
     sys_dicts = []
-    for experiment in os.listdir(path_to_dir):
-        exp_data_dir = os.path.join(path_to_dir,experiment)
+    for experiment in os.listdir(dataset_dir):
+        exp_data_dir = os.path.join(dataset_dir,experiment)
         if os.path.isdir(exp_data_dir):
             for s_data_file in os.listdir(exp_data_dir):
                 if s_data_file.endswith('.yml'):
@@ -53,19 +54,22 @@ def read_all_experiments(path_to_dir):
     return sys_dicts
 
 
-def gather_dataset(path_to_dir,output_csv=False):
+def gather_dataset(dataset_dir,downsampling_distance=None,output_csv=False):
     """Build a DataFrame for a dataset saved in a local directory.
 
     The data directory should contain one or more subdirectories,
     where each subdirectory contains the .yml files for an experiment,
     where each .yml file describes one sample,
     as created by save_sys_to_yaml().
+    If `downsampling_distance` is not None,
+    the dataset will be downsampled with 
+    xrsdkit.models.train.downsample_by_group().
     If `output_csv` is True,
-    the dataset is saved to dataset.csv in `path_to_dir`.
+    the dataset is saved to dataset.csv in `dataset_dir`.
 
     Parameters
     ----------
-    path_to_dir : str
+    dataset_dir : str
         absolute path to the folder with the training set
         Precondition: dataset directory includes subdirectories 
         for each of the experiments in the dataset; 
@@ -80,15 +84,16 @@ def gather_dataset(path_to_dir,output_csv=False):
         exctracted from the dataset.
     """
     data = []
-    reg_labels = []
     cls_labels = []
+    reg_labels = []
+    feat_labels = []
     all_reg_labels = set()
     all_cls_labels = set()
 
-    all_sys = read_xrsd_system_data(path_to_dir)
+    all_sys = read_all_experiments(dataset_dir)
 
     for sys in all_sys:
-        expt_id, sample_id, features, classification_labels, regression_outputs = \
+        expt_id, sample_id, feature_labels, classification_labels, regression_outputs = \
             unpack_sample(sys)
 
         for k,v in regression_outputs.items():
@@ -99,8 +104,8 @@ def gather_dataset(path_to_dir,output_csv=False):
             all_cls_labels.add(k)
         cls_labels.append(classification_labels)
 
-        data_row = [expt_id] + [sample_id] + list(features.values())
-        data.append(data_row)
+        feat_labels.append(feature_labels)
+        data.append([expt_id,sample_id])
 
     reg_labels_list = list(all_reg_labels)
     reg_labels_list.sort()
@@ -108,22 +113,27 @@ def gather_dataset(path_to_dir,output_csv=False):
     cls_labels_list = list(all_cls_labels)
     cls_labels_list.sort()
 
-    for datai,rli,cli in zip(data,reg_labels,cls_labels):
-        orl = OrderedDict.fromkeys(reg_labels_list)
+    for datai,cli,rli,featsi in zip(data,cls_labels,reg_labels,feat_labels):
         ocl = OrderedDict.fromkeys(cls_labels_list)
-        orl.update(rli)
         ocl.update(cli)
-        datai.extend(list(orl.values()))
+        orl = OrderedDict.fromkeys(reg_labels_list)
+        orl.update(rli)
+        ofl = OrderedDict.fromkeys(profiler.profile_keys)
+        ofl.update(featsi)
         datai.extend(list(ocl.values()))
+        datai.extend(list(orl.values()))
+        datai.extend(list(ofl.values()))
 
     colnames = ['experiment_id'] + ['sample_id'] +\
-            copy.copy(profiler.profile_keys) + \
+            cls_labels_list + \
             reg_labels_list + \
-            cls_labels_list
+            copy.copy(profiler.profile_keys)
 
     df_work = pd.DataFrame(data=data, columns=colnames)
+    if downsampling_distance:
+        df_work = downsample_by_group(df_work,downsampling_distance)
     if output_csv:
-        df_work.to_csv(os.path.join(path_to_dir,'dataset.csv'))
+        df_work.to_csv(os.path.join(dataset_dir,'dataset.csv'))
     return df_work
 
 
@@ -141,8 +151,8 @@ def unpack_sample(sys_dict):
     -------
     expt_id : str
         name of the experiment (must be unique for a training set)
-    features : OrderedDict
-        OrderedDict of features with their values,
+    features : dict 
+        dict of features with their values,
         similar to output of xrsdkit.tools.profiler.profile_pattern()
     classification_labels : dict
         dict of all classification labels with their values for given sample
@@ -171,7 +181,7 @@ def unpack_sample(sys_dict):
     else:
         regression_labels['noise_I0_fraction'] = I0_noise/I0
 
-    classification_labels['noise_model'] =sys.noise_model.model
+    classification_labels['noise_model'] = sys.noise_model.model
     for param_nm,pd in sys.noise_model.parameters.items():
         regression_labels['noise_'+param_nm] = pd['value']
     # use xrsdefs.structure_names to index the populations 
@@ -201,7 +211,7 @@ def unpack_sample(sys_dict):
             ipop += 1
     if sys_cls == '':
         sys_cls = 'unidentified'
-    classification_labels['system_class'] =sys_cls
+    classification_labels['system_class'] = sys_cls
     return expt_id, sample_id, features, classification_labels, regression_labels
 
 
