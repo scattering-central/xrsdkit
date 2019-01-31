@@ -9,7 +9,7 @@ from xrsdkit.system import System, Population
 fcc_Al = Population(
     structure='crystalline',
     form='atomic',
-    settings={'lattice':'cubic','centering':'F','space_group':'Fm-3m',
+    settings={'lattice':'F_cubic','space_group':'Fm-3m',
         'q_max':5.,'structure_factor_mode':'local','symbol':'Al'},
     parameters=dict(
         a={'value':4.046},
@@ -20,12 +20,11 @@ fcc_Al = Population(
 hcp_spheres = Population(
     structure='crystalline',
     form='spherical',
-    settings={'lattice':'hexagonal','centering':'HCP',
+    settings={'lattice':'hcp',
         'space_group':'P6(3)/mmc','q_max':0.6,
         'structure_factor_mode':'radial'},
     parameters=dict(
         a={'value':120.},
-        c={'value':np.sqrt(8./3.)*120.,'constraint_expr':'hcp_spheres__a*sqrt(8./3.)'},
         hwhm_g={'value':0.002},
         hwhm_l={'value':0.002},
         r={'value':40.}

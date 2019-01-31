@@ -17,7 +17,7 @@ np_sys = System(
     noise={'model':'flat','parameters':{'I0':{'value':0.1}}}
     )
 np_sys = System(
-    nanoparticles=np_dict,
+    nanoparticles=nps,
     noise={'model':'flat','parameters':{'I0':{'value':0.1}}}
     )
 
