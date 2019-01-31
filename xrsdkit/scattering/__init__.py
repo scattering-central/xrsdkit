@@ -4,7 +4,6 @@ import copy
 import numpy as np
 
 from . import form_factors as xrff
-from . import space_groups as sgs
 from . import symmetries as xrsdsym
 from ..tools import peak_math, positive_normal_sampling
 from .. import definitions as xrsdefs
@@ -235,7 +234,7 @@ def integrated_isotropic_diffraction_intensity(
     if not q_max: q_max = q[-1]
     n_species = len(coords)
     if not occupancies: occupancies = np.ones(n_species)
-    if not space_group in sgs.lattice_space_groups[lattice].values():
+    if not space_group in xrsdefs.lattice_space_groups[lattice].values():
         raise ValueError('space group {} not valid for {} lattice'.format(space_group,lattice))
 
     n_q = len(q)
@@ -246,8 +245,8 @@ def integrated_isotropic_diffraction_intensity(
     I0 = 0.
     q0 = np.array([0.])
 
-    a1,a2,a3 = sgs.lattice_vectors(lattice,**latparams)
-    b1,b2,b3 = sgs.reciprocal_lattice_vectors(a1,a2,a3)
+    a1,a2,a3 = xrsdefs.lattice_vectors(lattice,**latparams)
+    b1,b2,b3 = xrsdefs.reciprocal_lattice_vectors(a1,a2,a3)
     absa1 = np.linalg.norm(a1)
     absa2 = np.linalg.norm(a2)
     absa3 = np.linalg.norm(a3)
@@ -286,7 +285,7 @@ def integrated_isotropic_diffraction_intensity(
     
     # symmetrize the hkl sampling, save the multiplicities 
     # TODO: determine whether or not this can be done solely based on the point group
-    #point_group = sgs.sg_point_groups[space_group]
+    #point_group = xrsdefs.sg_point_groups[space_group]
     reduced_hkl,hkl_mults = xrsdsym.symmetrize_points(all_hkl,np.array([b1,b2,b3]),space_group)  
 
     # g-vector magnitude for all hkl
@@ -312,7 +311,7 @@ def integrated_isotropic_diffraction_intensity(
     # TODO: can this be vectorized? 
     sf_hkl = np.zeros((reduced_hkl.shape[0],n_q),dtype=complex) 
     sf_0 = np.zeros(reduced_hkl.shape[0],dtype=complex)
-    latcoords = sgs.lattice_coords(lattice)
+    latcoords = xrsdefs.lattice_coords(lattice)
     for ccc,fff in zip(coords,ff_funcs):
         if sf_mode == 'radial':
             ff = fff(q)

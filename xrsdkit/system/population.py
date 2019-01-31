@@ -5,7 +5,6 @@ import numpy as np
 
 from .. import definitions as xrsdefs 
 from .. import scattering as xrsdscat
-from ..scattering import space_groups as sgs
 
 class Population(object):
 

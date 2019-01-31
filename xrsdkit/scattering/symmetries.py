@@ -3,7 +3,7 @@ import copy
 
 import numpy as np
 
-from . import space_groups as sgs
+from .. import definitions as xrsdefs
 
 # define all symmetry operations: Mx=x'
 # the inversion operator
@@ -24,7 +24,7 @@ mirror_nz_x = np.array([[0,0,1],[0,1,0],[1,0,0]])
 # note that the symmetrization algorithm retains points
 # with higher h values, and then (for equal h), higher k values,
 # and then (for equal h and k), higher l values.
-symmetry_operations = OrderedDict.fromkeys(sgs.all_point_groups)
+symmetry_operations = OrderedDict.fromkeys(xrsdefs.all_point_groups)
 
 # TODO: tabulate all symmetry operations
 # that can be used to reduce the reciprocal space summation

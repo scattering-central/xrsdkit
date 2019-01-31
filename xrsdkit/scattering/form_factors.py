@@ -3,11 +3,10 @@ import os
 import yaml
 import numpy as np
 
-fpath = os.path.join(os.path.dirname(__file__),'atomic_scattering_params.yml')
-atomic_params = yaml.load(open(fpath,'r'))
+from .. import definitions as xrsdefs
 
 def atomic_ff(q,atom_symbol):
-    pars = atomic_params[atom_symbol]
+    pars = xrsdefs.atomic_params[atom_symbol]
     return compute_atomic_ff(q,pars['Z'],pars['a'],pars['b'])
 
 def compute_atomic_ff(q,Z,a,b):
