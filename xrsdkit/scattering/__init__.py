@@ -4,6 +4,7 @@ import copy
 import numpy as np
 
 from . import form_factors as xrff
+from . import structure_factors as xrsf
 from . import symmetries as xrsdsym
 from ..tools import peak_math, positive_normal_sampling
 from .. import definitions as xrsdefs
