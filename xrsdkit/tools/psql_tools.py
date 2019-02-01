@@ -4,6 +4,7 @@ import pandas as pd
 from collections import OrderedDict
 from .ymltools import unpack_sample
 from .profiler import profile_keys
+import pprint
 
 #Data pipeline supported by this module:
 #dir with training data -> files table -> saples table -> training table -> pandas dataframe
@@ -41,45 +42,30 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir):
     exp_from_table = [row[0] for row in exp_from_table]
 
     stdin, stdout, stderr = ssh_client.exec_command('ls '+path_to_dir)
-    #for experiment in stdout:
-        #print(experiment)
 
     for experiment in stdout:
-    #for experiment in ssh_client.exec_command("os.listdir(path_to_dir)"):
         experiment = experiment.strip('\n')
         exp_data_dir = os.path.join(path_to_dir,experiment)
         # add only new experiments
         if ssh_client.exec_command("os.path.isdir(exp_data_dir)") and experiment not in exp_from_table:
-            print(experiment)
             stdin2, stdout2, stderr2 = ssh_client.exec_command('ls '+exp_data_dir)
             for s_data_file in stdout2:
                 s_data_file = s_data_file.strip('\n')
                 if s_data_file.endswith('.yml'):
-                    print("HI")
                     file_path = os.path.join(exp_data_dir, s_data_file)
-                    print(file_path)
                     stdin, stdout, stderr = ssh_client.exec_command('cat ' + file_path)
                     net_dump = stdout.readlines()
-                    str_d = ""
-                    for l in net_dump:
-                        str_d+=l.strip('\n')
-                    print(str_d)
-            '''
-                    yaml_file,_,_ = ssh_client.exec_command("open(file_path, 'r')")
-                    pp = yaml.load(yaml_file)
-                    print(pp)
+                    str_d = "".join(net_dump)
+                    pp = yaml.load(str_d)
                     expt_id_yml = pp['sample_metadata']['experiment_id']
                     sample_id_yml = pp['sample_metadata']['sample_id']
-                    print(file_path)
                     fit = pp['fit_report']['good_fit']
-                    print(sample_id_yml, expt_id_yml,file_path)
 
-                        db.insert('files', sample_id=sample_id_yml, experiment_id = expt_id_yml,
+                    db.insert('files', sample_id=sample_id_yml, experiment_id = expt_id_yml,
                                   yml_path=file_path, good_fit=fit)
-            '''
 
 
-
+'''
 
 def load_from_yml_to_file_table(db, path_to_dir):
     """Add data from a local directory to the "files" table.
@@ -261,3 +247,4 @@ def get_training_dataframe(db):
     df = pd.DataFrame(data)
 
     return df
+'''
