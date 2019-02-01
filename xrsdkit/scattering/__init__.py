@@ -234,7 +234,7 @@ def integrated_isotropic_diffraction_intensity(
     if not q_max: q_max = q[-1]
     n_species = len(coords)
     if not occupancies: occupancies = np.ones(n_species)
-    if not space_group in xrsdefs.lattice_space_groups[lattice].values():
+    if space_group and not space_group in xrsdefs.lattice_space_groups[lattice].values():
         raise ValueError('space group {} not valid for {} lattice'.format(space_group,lattice))
 
     n_q = len(q)
