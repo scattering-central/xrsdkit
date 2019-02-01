@@ -1,81 +1,18 @@
-"""This subpackage defines classes and attributes
-for describing a material system in enough detail
-to compute its scattering/diffraction pattern.
-"""
-from collections import OrderedDict
 import re
 import copy
 
 import numpy as np
 import lmfit
-import yaml
 
+from .noise import NoiseModel
 from .population import Population
-from .specie import Specie
 from .. import definitions as xrsdefs 
-from ..tools import peak_math, compute_chi2
+from ..tools import compute_chi2
 from ..tools.profiler import profile_pattern
-from ..scattering.form_factors import guinier_porod_intensity
 
 # TODO: when params, settings, etc are changed,
 #   ensure all attributes remain valid,
 #   wrt constraints as well as wrt supported options.
-
-class NoiseModel(object):
-
-    def __init__(self,model=None,params={}):
-        if not model:
-            model = 'flat' 
-        self.model = model
-        self.parameters = {}
-        for param_nm in xrsdefs.noise_params[model]:
-            self.parameters[param_nm] = copy.deepcopy(xrsdefs.noise_param_defaults[param_nm])  
-        for param_nm in params:
-            self.update_parameter(param_nm,params[param_nm])
-
-    def to_dict(self):
-        nd = {} 
-        nd['model'] = copy.copy(self.model)
-        nd['parameters'] = {}
-        for param_nm,param in self.parameters.items():
-            nd['parameters'][param_nm] = copy.deepcopy(param)
-        return nd
-
-    def set_model(self,new_model):
-        self.model = new_model 
-        self.update_parameters()
-
-    def update_parameters(self,new_params={}):
-        current_param_nms = list(self.parameters.keys())
-        valid_param_nms = copy.deepcopy(xrsdefs.noise_params[self.model])
-        # remove any non-valid params
-        for param_nm in current_param_nms:
-            if not param_nm in valid_param_nms:
-                self.parameters.pop(param_nm)
-        # add any missing params, taking from new_params if available 
-        for param_nm in valid_param_nms:
-            if not param_nm in self.parameters:
-                self.parameters[param_nm] = copy.deepcopy(xrsdefs.noise_param_defaults[param_nm]) 
-            if param_nm in new_params:
-                self.update_parameter(param_nm,new_params[param_nm])
-
-    def update_parameter(self,param_nm,new_param_dict): 
-        self.parameters[param_nm].update(new_param_dict)
-
-    def compute_intensity(self,q):
-        n_q = len(q)
-        I = np.zeros(n_q)
-        if not self.model in xrsdefs.noise_model_names:
-            raise ValueError('unsupported noise specification: {}'.format(self.model))
-        if self.model == 'flat':
-            I += self.parameters['I0']['value'] * np.ones(n_q)
-        elif self.model == 'low_q_scatter':
-            I0_beam = self.parameters['I0']['value'] * (1.-self.parameters['I0_flat_fraction']['value'])
-            rg_eff = self.parameters['effective_rg']['value']
-            D_eff = self.parameters['effective_D']['value']
-            I += I0_beam * guinier_porod_intensity(q,rg_eff,D_eff)
-            I += self.parameters['I0']['value'] * self.parameters['I0_flat_fraction']['value'] * np.ones(n_q)
-        return I
 
 class System(object):
 
@@ -84,14 +21,9 @@ class System(object):
     # are handled instantly 
 
     def __init__(self,**kwargs):
-        # TODO: consider polymorphic constructor inputs 
         self.populations = {}
         self.fit_report = {'good_fit':False}
         self.features = {}
-        # dict of metadata for the sample:
-        # experiment_id: for grouping
-        # id: for identification
-        # data_file: path to file containing scattering data 
         self.sample_metadata = dict(
             experiment_id='',
             sample_id='',
@@ -115,6 +47,7 @@ class System(object):
 
     def update_from_dict(self,d):
         for pop_name,pd in d.items():
+            if not isinstance(pd,dict): pd = pd.to_dict()
             if pop_name == 'noise':
                 self.update_noise_model(pd)
             elif pop_name == 'features':
@@ -142,24 +75,14 @@ class System(object):
                 if 'parameters' in popd:
                     for param_name, paramd in popd['parameters'].items():
                         self.populations[pop_name].parameters[param_name].update(popd['parameters'][param_name])
-                if 'basis' in popd:
-                    for specie_name, specied in popd['basis'].items():
-                        if 'coordinates' in specied:
-                            for ic in range(3):
-                                self.populations[pop_name].basis[specie_name].coordinates[ic].update(
-                                specied['coordinates'][ic])
-                        if 'parameters' in specied:
-                            for param_name, paramd in specied['parameters'].items():
-                                self.populations[pop_name].basis[specie_name].parameters[param_name].update(
-                                specied['parameters'][param_name])
 
     def remove_population(self,pop_nm):
         # TODO: check for violated constraints
         # in absence of this population
         self.populations.pop(pop_nm)
 
-    def add_population(self,pop_nm,structure,settings={},parameters={},basis={}):
-        self.populations[pop_nm] = Population(structure,settings,parameters,basis)
+    def add_population(self,pop_nm,structure,form,settings={},parameters={}):
+        self.populations[pop_nm] = Population(structure,form,settings,parameters)
 
     @classmethod
     def from_dict(cls,d):
@@ -183,9 +106,8 @@ class System(object):
             Array of scattering intensities for each of the input q values
         """
         I = self.noise_model.compute_intensity(q)
-        src_wl = self.sample_metadata['source_wavelength']
         for pop_name,pop in self.populations.items():
-            I += pop.compute_intensity(q,src_wl)
+            I += pop.compute_intensity(q,self.sample_metadata['source_wavelength'])
         return I
 
     def evaluate_residual(self,q,I,dI=None,
@@ -229,8 +151,7 @@ class System(object):
             wts *= dI**2
         if logI_weighted:
             idx_fit = idx_fit & (I_comp>0)
-            # TODO: returning float('inf') raises a NaN exception within the minimization.
-            # Find a way to deal with I_comp = 0.
+            # NOTE: returning float('inf') raises a NaN exception within the minimization.
             #if not any(idx_fit):
             #    return float('inf')
             res = compute_chi2(
@@ -257,22 +178,12 @@ class System(object):
         lmfp = lmfit.Parameters()
         for pkey,pd in p.items():
             ks = pkey.split('__')
-            kdepth = len(ks)
-            param_name = ks[-1]
-            if re.match('coord.',param_name):
-                default = xrsdefs.coord_default
-            elif ks[0] == 'noise':
-                default = xrsdefs.noise_param_defaults[param_name]
-            else:
-                default = xrsdefs.param_defaults[param_name]
-            vary_flag = bool(not default['fixed'])
-            if 'fixed' in pd: vary_flag = not pd['fixed']
-            p_bounds = copy.deepcopy(default['bounds'])
-            if 'bounds' in pd: p_bounds = pd['bounds']
-            p_expr = copy.copy(default['constraint_expr'])
-            if 'constraint_expr' in pd: p_expr = pd['constraint_expr']
+            vary_flag = bool(not pd['fixed'])
+            p_bounds = copy.deepcopy(pd['bounds'])
+            p_expr = copy.copy(pd['constraint_expr'])
             lmfp.add(pkey,value=pd['value'],vary=vary_flag,min=p_bounds[0],max=p_bounds[1])
             if p_expr:
+                lmfp[pkey].set(vary=False)
                 lmfp[pkey].set(expr=p_expr)
         return lmfp
     
@@ -283,13 +194,6 @@ class System(object):
         for pop_name,pop in self.populations.items():
             for param_name,paramd in pop.parameters.items():
                 pd[pop_name+'__'+param_name] = paramd
-            for specie_name,specie in pop.basis.items(): 
-                if pop.structure == 'crystalline':
-                    pd[pop_name+'__'+specie_name+'__coordx'] = specie.coordinates[0]
-                    pd[pop_name+'__'+specie_name+'__coordy'] = specie.coordinates[1] 
-                    pd[pop_name+'__'+specie_name+'__coordz'] = specie.coordinates[2]
-                for param_name,paramd in specie.parameters.items():
-                    pd[pop_name+'__'+specie_name+'__'+param_name] = paramd
         return pd
 
 def fit(sys,q,I,dI=None,
@@ -355,6 +259,7 @@ def unpack_lmfit_params(lmfit_params):
         pd[par_name]['value'] = par.value
         pd[par_name]['bounds'] = [par.min,par.max]
         pd[par_name]['fixed'] = not par.vary
+        if par._expr: pd[par_name]['fixed'] = False
         pd[par_name]['constraint_expr'] = par._expr
     return pd
 
@@ -362,72 +267,13 @@ def unflatten_params(flat_params):
     pd = {} 
     for pkey,paramd in flat_params.items():
         ks = pkey.split('__')
-        kdepth = len(ks)
+        #kdepth = len(ks)
         pop_name = ks[0]
+        param_name = ks[1]
         if not pop_name in pd:
             pd[pop_name] = {} 
-        if pop_name == 'noise':
-            # a noise parameter
-            if not 'noise' in pd: pd['noise'] = {}
-            if not 'parameters' in pd['noise']: pd['noise']['parameters'] = {}
-            pd['noise']['parameters'][ks[1]] = paramd
-        elif kdepth == 2: 
-            # a structure parameter 
-            if not 'parameters' in pd[pop_name]:
-                pd[pop_name]['parameters'] = {} 
-            param_name = ks[1]
-            pd[pop_name]['parameters'][param_name] = paramd 
-        else:
-            # a basis parameter
-            specie_name = ks[1]
-            if not 'basis' in pd[pop_name]:
-                pd[pop_name]['basis'] = {} 
-            if not specie_name in pd[pop_name]['basis']:
-                pd[pop_name]['basis'][specie_name] = {}
-            if re.match('coord.',ks[2]):
-                # a coordinate
-                if not 'coordinates' in pd[pop_name]['basis'][specie_name]:
-                    pd[pop_name]['basis'][specie_name]['coordinates'] = [None,None,None]
-                coord_id = ks[2][-1]
-                if coord_id == 'x': coord_idx = 0
-                if coord_id == 'y': coord_idx = 1
-                if coord_id == 'z': coord_idx = 2
-                pd[pop_name]['basis'][specie_name]['coordinates'][coord_idx] = paramd 
-            else:
-                # a parameter for a form factor
-                if not 'parameters' in pd[pop_name]['basis'][specie_name]:
-                    pd[pop_name]['basis'][specie_name]['parameters'] = {} 
-                param_name = ks[2]
-                pd[pop_name]['basis'][specie_name]['parameters'][param_name] = paramd
+        if not 'parameters' in pd[pop_name]:
+            pd[pop_name]['parameters'] = {} 
+        pd[pop_name]['parameters'][param_name] = paramd 
     return pd
 
-
-# TODO: update convenience constructors to return System objects. 
-
-def fcc_crystal(atom_symbol,a_lat=10.,pk_profile='voigt',I0=1.E-3,q_min=0.,q_max=1.,hwhm_g=0.001,hwhm_l=0.001):
-    return dict(
-        structure='fcc',
-        settings={'q_min':q_min,'q_max':q_max,'profile':pk_profile},
-        parameters={'I0':I0,'a':a_lat,'hwhm_g':hwhm_g,'hwhm_l':hwhm_l},
-        basis={atom_symbol+'_atom':dict(
-            coordinates=[0,0,0],
-            form='atomic',
-            settings={'symbol':atom_symbol}
-            )}
-        )
-
-def unidentified_population():
-    return dict(
-        structure='unidentified',
-        settings={}, 
-        parameters={},
-        basis={}
-        )
-
-def empty_site():
-    return dict(
-        form='diffuse',
-        settings={},
-        parameters={}
-        )
-        

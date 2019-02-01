@@ -2,20 +2,15 @@
 #
 # The user should select a lattice,
 # and then select one of the associated space groups.
-# By default, if the basis contains only one specie,
-# the highest-symmetry space group for that lattice should be applied.
-# If the basis contains more than one specie,
-# the default should be the lowest-symmetry space group for that lattice.
 # If the user attempts to set a space group that does not match the lattice, 
 # an Exception should be raised.
 #
-# The selected space group should impose constraints
+# If polyatomic, the selected space group should impose constraints
 # on the coordinates of species in the basis.
 # If a space group is selected and the coordinates 
 # do not agree with the selected space group,
 # the coordinates should be corrected or an Exception should be raised.
 #
-# The selected space group should be mapped to its point group,
-# and the point group should be used to symmetrize
-# the sum over reciprocal space for the diffraction computation. 
+# The point group of the selected space group should be used 
+# to symmetrize the sum over reciprocal space for the diffraction computation. 
 

@@ -2,30 +2,20 @@ import os
 
 import numpy as np
 
-from xrsdkit.system import System, fit 
+from xrsdkit.system import System, Population
+from xrsdkit.system.noise import NoiseModel
 from xrsdkit.visualization.gui import run_fit_gui
 
 src_wl = 0.8265616
 
-spheres = dict(
-    form='spherical_normal',
-    parameters={'r0':{'value':35.},'sigma':{'value':0.1}},
+flat_noise=NoiseModel('flat',parameters={'I0':{'value':0.1}})
+nps = Population('diffuse','spherical',
+    settings={'distribution':'r_normal'},
+    parameters={'I0':{'value':1000},'r':{'value':35.},'sigma':{'value':0.1}}
     )
-mono_spheres = dict(
-    form='spherical',
-    parameters={'r':{'value':35.}},
-    )
-flat_noise=dict(model='flat',parameters={'I0':{'value':0.1}})
-nps = dict(
-    structure='diffuse',
-    parameters={'I0':{'value':1000}},
-    basis={'spheres':spheres}
-    )
-np_sl = dict(
-    structure='crystalline',
-    settings={'q_min':0.,'q_max':0.2,'lattice':'cubic','centering':'F','space_group':'Fm-3m'},
-    parameters={'I0':{'value':1.E-5},'a':{'value':130.}},
-    basis={'spheres':mono_spheres}
+np_sl = Population('crystalline','spherical',
+    settings={'q_min':0.,'q_max':0.2,'lattice':'F_cubic','space_group':'Fm-3m','distribution':'single'},
+    parameters={'I0':{'value':1.},'a':{'value':130.},'r':{'value':35.}}
     )
 np_sys = System(
     nanoparticles=nps,
@@ -38,23 +28,10 @@ np_sl_sys = System(
     )
 
 datapath = os.path.join(os.path.dirname(__file__),
-    'test_data','solution_saxs','spheres','spheres_0.csv')
-f = open(datapath,'r')
-q_I = np.loadtxt(f,dtype=float,delimiter=',')
-q = q_I[:,0]
-I = q_I[:,1]
-
-datapath = os.path.join(os.path.dirname(__file__),
     'test_data','solution_saxs','peaks','peaks_0.csv')
-f = open(datapath,'r')
-q_I_sl = np.loadtxt(f,dtype=float,delimiter=',')
-q_sl = q_I_sl[:,0]
-I_sl = q_I_sl[:,1]
+q_I_sl = np.loadtxt(open(datapath,'r'),dtype=float,delimiter=',')
 
 def test_fit_gui():
     if 'DISPLAY' in os.environ:
-        #fit_sys = run_fit_gui(np_sys,q,I,src_wl)
-        fit_sys = run_fit_gui(np_sl_sys,q_sl,I_sl,src_wl)
-
-
+        fit_sys = run_fit_gui(np_sl_sys,q_I_sl[:,0],q_I_sl[:,1])
 

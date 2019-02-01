@@ -7,7 +7,7 @@ from ..tools.visualization_tools import doPCA, plot_2d
 from ..models import src_dir, testing_data_dir
 from ..tools import profiler
 
-default_targets=['system_classification','experiment_id']
+default_targets=['system_class','experiment_id']
 
 def plot_xrsd_fit(sys,q,I,dI=None,show_plot=False):
     mpl_fig = plt.figure() 
@@ -89,6 +89,3 @@ def visualize_dataframe(data,
                 False, save_plots, saving_dir)
     if show_plots:
         plt.show(block=False)
-
-
-
