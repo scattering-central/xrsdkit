@@ -9,9 +9,8 @@ import pprint
 #Data pipeline supported by this module:
 #dir with training data -> files table -> saples table -> training table -> pandas dataframe
 
-def load_yml_to_file_table(db, ssh_client, path_to_dir):
+def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     """Add data from a remote directory to the "files" table.
-    Only data from new experiment directories will be added.
 
     The data directory should contain one or more subdirectories,
     where each subdirectory contains .yml files,
@@ -22,6 +21,12 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir):
     ----------
     db : db.pg object
         a database connection - DB object from PyGreSQL
+    ssh_client : paramiko.SSHClient
+        ssh client connected with the host machine:
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect('134.79.34.167', username='my_user_name', password='my_password')
     path_to_dir : str
         absolute path to the folder with the training set
         Precondition: dataset directory includes directories named
@@ -30,9 +35,13 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir):
         with System object ... and one dat file with q and I arrays
         (array of scattering vector magnitudes, array of integrated
         scattering intensities).
+    drop_table : bool
+        if True, the existing table will be dropped and a new table will be created
+        from scratch;
+        if False, only data that is not already in the "file" table will be added.
     """
-    # create table "files" if it is not exist:
-    #db.query("DROP TABLE files")
+    if drop_table:
+            db.query("DROP TABLE files")
     db.query("CREATE TABLE IF NOT EXISTS files(sample_id VARCHAR PRIMARY KEY, "
                                             "experiment_id VARCHAR, good_fit BOOLEAN, "
                                             "yml_path TEXT)")
@@ -40,6 +49,8 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir):
     # get the list of experiments that are already in the table
     exp_from_table = db.query('SELECT DISTINCT experiment_id FROM files').getresult()
     exp_from_table = [row[0] for row in exp_from_table]
+
+    print(exp_from_table)
 
     stdin, stdout, stderr = ssh_client.exec_command('ls '+path_to_dir)
 
@@ -63,8 +74,64 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir):
 
                     db.insert('files', sample_id=sample_id_yml, experiment_id = expt_id_yml,
                                   yml_path=file_path, good_fit=fit)
+        print(experiment, "DONE")
 
+def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
+    """Process the data from a the "files" table and
+    add to the "samples" table.
+    Only data from new experiment directories will be added.
 
+    Parameters
+    ----------
+    db : db.pg object
+        a database connection - DB object from PyGreSQL
+    ssh_client : paramiko.SSHClient
+        ssh client connected with the host machine:
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect('134.79.34.167', username='my_user_name', password='my_password')
+    drop_table : bool
+        if True, the existing table will be dropped and a new table will be created
+        from scratch;
+        if False, only data that is not already in the "samples" table will be added.
+    """
+    if drop_table:
+            db.query("DROP TABLE samples")
+    db.query("CREATE TABLE IF NOT EXISTS samples(sample_id VARCHAR PRIMARY KEY, "
+                                                "experiment_id VARCHAR, "
+                                                "features JSON, "
+                                                "regression_labels JSON, "
+                                                "classification_labels JSON )")
+
+    # get the list of the experiments that are not in the "samples" table
+    new_experiments = db.query("SELECT DISTINCT experiment_id "
+                               " FROM files "
+                               " WHERE experiment_id NOT IN ("
+                                    "SELECT DISTINCT experiment_id "
+                                    "FROM samples "
+                                    "WHERE experiment_id IS NOT NULL)").getresult()
+    new_experiments = [row[0] for row in new_experiments]
+
+    for ex in new_experiments:
+        print('reading data from {}'.format(ex))
+        q = "SELECT yml_path FROM files WHERE experiment_id = '{}' AND good_fit = true".format(ex)
+        experiment_files = [row[0] for row in db.query(q).getresult()]
+        print('done - found {} records'.format(len(experiment_files)))
+
+        for f in experiment_files:
+            print(f)
+        '''
+        for f in experiment_files:
+            with open(f, 'r') as yaml_file:
+                sd = yaml.load(yaml_file)
+                expt_id, sample_id, features, classification_labels, \
+                    regression_labels = unpack_sample(sd)
+                # add a new row to the table "samples"
+                db.insert('samples', sample_id=sample_id, experiment_id = expt_id,
+                                  features=features, regression_labels=regression_labels,
+                                    classification_labels=classification_labels)
+        '''
 '''
 
 def load_from_yml_to_file_table(db, path_to_dir):
