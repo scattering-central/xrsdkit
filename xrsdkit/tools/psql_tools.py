@@ -121,17 +121,18 @@ def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
 
         for f in experiment_files:
             print(f)
-        '''
-        for f in experiment_files:
-            with open(f, 'r') as yaml_file:
-                sd = yaml.load(yaml_file)
-                expt_id, sample_id, features, classification_labels, \
-                    regression_labels = unpack_sample(sd)
-                # add a new row to the table "samples"
-                db.insert('samples', sample_id=sample_id, experiment_id = expt_id,
+            # get the content of this file
+            stdin, stdout, stderr = ssh_client.exec_command('cat ' + f)
+            net_dump = stdout.readlines()
+            str_d = "".join(net_dump)
+            pp = yaml.load(str_d)
+            expt_id, sample_id, features, classification_labels, \
+                    regression_labels = unpack_sample(pp)
+            # add a new row to the table "samples"
+            db.insert('samples', sample_id=sample_id, experiment_id = expt_id,
                                   features=features, regression_labels=regression_labels,
                                     classification_labels=classification_labels)
-        '''
+
 '''
 
 def load_from_yml_to_file_table(db, path_to_dir):
