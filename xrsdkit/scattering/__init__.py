@@ -63,7 +63,7 @@ def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
                     settings['sampling_width'],settings['sampling_step']
                     )
         if structure == 'disordered':
-            sf = xrsf.hard_sphere_sf(q,parameters['r_hard']['value'],parameters['volume_fraction']['value'])
+            sf = xrsf.hard_sphere_sf(q,parameters['r_hard']['value'],parameters['v_fraction']['value'])
             return parameters['I0']['value'] * sf * ff_sqr 
         if structure == 'diffuse':
             return parameters['I0']['value'] * ff_sqr 
@@ -166,7 +166,7 @@ def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.05)
         x = q*r0
         V_r0 = float(4)/3*np.pi*r0**3
         I_0 = V_r0**2
-        I = I_0*spherical_ff(q,r0)**2
+        I = I_0*xrff.spherical_ff(q,r0)**2
     else:
         I = np.zeros(q.shape)
         rmin,rmax,dr = positive_normal_sampling(r0,sigma,sampling_width,sampling_step)
