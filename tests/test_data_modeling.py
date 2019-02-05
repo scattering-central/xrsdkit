@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 from citrination_client import CitrinationClient
 
+from xrsdkit.tools.ymltools import downsample_by_group
 from xrsdkit.tools import profiler
 from xrsdkit.models import root_dir
-from xrsdkit.models.train import downsample_by_group, train_from_dataframe
+from xrsdkit.models.train import train_from_dataframe
 from xrsdkit.models.predict import predict, system_from_prediction 
 from xrsdkit.visualization import visualize_dataframe
 from xrsdkit.visualization.gui import run_fit_gui 
