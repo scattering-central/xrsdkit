@@ -1,0 +1,35 @@
+Cross validation results for system_class Classifier
+
+Data from 16 experiments was used
+
+Confusion matrix:
+[[229  33   1   0   6  22   1  14  31]  diffuse
+ [ 15  33   0   1  14   4   1   0  14]  diffuse__diffuse
+ [  3   0  50  38   5   1   3   1   0]  crystalline__diffuse
+ [  0   0  23  27   0   1  10   0   0]  crystalline
+ [  1   2   0   0   6   1   0   0   4]  disordered__diffuse__diffuse
+ [ 30   0   0   0   3  18   1  19  31]  disordered
+ [  5   1  11   3   2   1  36   0   2]  crystalline__diffuse__diffuse
+ [  6   0   0   0   0   1   0  31   0]  unidentified
+ [  3  12   0   0   4   2   2   0   8]]  disordered__diffuse
+
+
+F1 scores by label:
+diffuse : 0.7281399046104929
+diffuse__diffuse : 0.40490797546012275
+crystalline__diffuse : 0.5376344086021505
+crystalline : 0.4153846153846154
+disordered__diffuse__diffuse : 0.2222222222222222
+disordered : 0.23529411764705885
+crystalline__diffuse__diffuse : 0.6260869565217391
+unidentified : 0.6019417475728156
+disordered__diffuse : 0.1322314049586777
+
+Label-averaged unweighted F1 score: 0.43376037255332167
+
+Accuracy:
+0.5296251511487303
+Test/training split: for classes with samples from 3 or more experiment_ids, 
+the data are split according to experiment_id; 
+for classes with samples from 2 or fewer experiment_ids, 
+the data are randomly shuffled and split into three groups

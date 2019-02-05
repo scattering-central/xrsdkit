@@ -3,6 +3,7 @@ import os
 import sys
 import copy
 
+from sklearn import preprocessing
 import pandas as pd
 import numpy as np
 import yaml
@@ -10,7 +11,6 @@ import yaml
 from . import profiler, primitives
 from ..system import System
 from .. import definitions as xrsdefs
-from ..models.train import downsample_by_group
 
 def save_sys_to_yaml(file_path,sys):
     sd = sys.to_dict()
@@ -62,8 +62,7 @@ def gather_dataset(dataset_dir,downsampling_distance=None,output_csv=False):
     where each .yml file describes one sample,
     as created by save_sys_to_yaml().
     If `downsampling_distance` is not None,
-    the dataset will be downsampled with 
-    xrsdkit.models.train.downsample_by_group().
+    the dataset will be downsampled with downsample_by_group().
     If `output_csv` is True,
     the dataset is saved to dataset.csv in `dataset_dir`.
 
@@ -283,3 +282,92 @@ def sort_populations(struct_nm,pops_dict):
     for ip,p in enumerate(param_ar): new_pops[p[0]] = pops_dict[p[0]]
     return new_pops
 
+def downsample_by_group(df,min_distance=1.):
+    """Group and down-sample a DataFrame of xrsd records.
+        
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        dataframe containing xrsd samples 
+    min_distance : float
+        the minimum allowed nearest-neighbor distance 
+        for continuing to downsample after 10 or more samples
+        have been selected 
+
+    Returns
+    -------
+    data_sample : pandas.DataFrame
+        DataFrame containing all of the down-sampled data from 
+        each group in the input dataframe.
+        Features in this DataFrame are not scaled:
+        the correct scaler should be applied before training models.
+    """
+    data_sample = pd.DataFrame(columns=df.columns)
+    group_cols = ['experiment_id','system_class']
+    all_groups = df.groupby(group_cols)
+    # downsample each group independently
+    for group_labels,grp in all_groups.groups.items():
+        group_df = df.iloc[grp].copy()
+        print('Downsampling data for group: {}'.format(group_labels))
+        #lbl_df = _filter_by_labels(data,lbls)
+        dsamp = downsample(df.iloc[grp].copy(), min_distance)
+        print('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
+        data_sample = data_sample.append(dsamp)
+    return data_sample
+
+def downsample(df, min_distance):
+    """Downsample records from one DataFrame.
+
+    Transforms the DataFrame feature arrays 
+    (scaling by the columns in profiler.profile_keys),
+    before collecting at least 10 samples.
+    If the size of `df` is <= 10, it is returned directly.
+    If it is larger than 10, the first point is chosen
+    based on greatest nearest-neighbor distance.
+    Subsequent points are chosen  
+    in order of decreasing nearest-neighbor distance
+    to the already-sampled points. 
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        dataframe containing xrsd samples 
+    min_distance : float
+        the minimum allowed nearest-neighbor distance 
+        for continuing to downsample after 10 or more samples
+        have been selected 
+
+    Returns
+    -------
+    sample : pandas.DataFrame
+        dataframe containing downsampled rows
+    """
+    df_size = len(df)
+    sample = pd.DataFrame(columns=df.columns)
+    if df_size <= 10:
+        sample = sample.append(df)
+    else:
+        scaler = preprocessing.StandardScaler()
+        scaler.fit(df[profiler.profile_keys])
+
+        # get distance matrix between samples in scaled feature space
+        features_matr = scaler.transform(df[profiler.profile_keys]) 
+        dist_func = lambda i,j: np.sum(
+            np.linalg.norm(features_matr[i]
+            - features_matr[j]))
+        # TODO: compute only the upper or lower triangle of this matrix
+        dist_matrix = np.array([[dist_func(i,j) for i in range(df_size)] for j in range(df_size)])
+
+        # artificially inflate self-distance,
+        # so that samples are not their own nearest neighbors
+        for i in range(df_size):
+            dist_matrix[i,i] = float('inf')
+
+        # samples are taken in order of greatest nearest-neighbor distance
+        nn_distance_array = np.min(dist_matrix,axis=1)
+        sample_order = np.argsort(nn_distance_array)[::-1]
+        keep_samples = np.array([idx<10 or nn_distance_array[sample_idx]>min_distance for idx,sample_idx in enumerate(sample_order)])
+        sample_order = sample_order[keep_samples]
+
+        sample = sample.append(df.iloc[sample_order])
+    return sample

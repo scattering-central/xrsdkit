@@ -3,7 +3,6 @@ import os
 import pandas as pd
 import numpy as np
 import yaml
-from sklearn import preprocessing
 
 from . import regression_models_dir, classification_models_dir
 from . import regression_models, classification_models
@@ -15,108 +14,6 @@ from . import classification_models, regression_models
 from .regressor import Regressor
 from .classifier import Classifier
 
-def downsample_by_group(df,min_distance=1.):
-    """Group and down-sample a DataFrame of xrsd records.
-        
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        dataframe containing xrsd samples 
-    min_distance : float
-        the minimum allowed nearest-neighbor distance 
-        for continuing to downsample after 10 or more samples
-        have been selected 
-
-    Returns
-    -------
-    data_sample : pandas.DataFrame
-        DataFrame containing all of the down-sampled data from 
-        each group in the input dataframe.
-        Features in this DataFrame are not scaled:
-        the correct scaler should be applied before training models.
-    """
-    data_sample = pd.DataFrame(columns=df.columns)
-    group_cols = ['experiment_id','system_class']
-    all_groups = df.groupby(group_cols)
-    # downsample each group independently
-    for group_labels,grp in all_groups.groups.items():
-        group_df = df.iloc[grp].copy()
-        print('Downsampling data for group: {}'.format(group_labels))
-        #lbl_df = _filter_by_labels(data,lbls)
-        dsamp = downsample(df.iloc[grp].copy(), min_distance)
-        print('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
-        data_sample = data_sample.append(dsamp)
-    return data_sample
-
-def downsample(df, min_distance):
-    """Downsample records from one DataFrame.
-
-    Transforms the DataFrame feature arrays 
-    (scaling by the columns in profiler.profile_keys),
-    before collecting at least 10 samples.
-    If the size of `df` is <= 10, it is returned directly.
-    If it is larger than 10, the first point is chosen
-    based on greatest nearest-neighbor distance.
-    Subsequent points are chosen  
-    in order of decreasing nearest-neighbor distance
-    to the already-sampled points. 
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        dataframe containing xrsd samples 
-    min_distance : float
-        the minimum allowed nearest-neighbor distance 
-        for continuing to downsample after 10 or more samples
-        have been selected 
-
-    Returns
-    -------
-    sample : pandas.DataFrame
-        dataframe containing downsampled rows
-    """
-    df_size = len(df)
-    sample = pd.DataFrame(columns=df.columns)
-    if df_size <= 10:
-        sample = sample.append(df)
-    else:
-        scaler = preprocessing.StandardScaler()
-        scaler.fit(df[profiler.profile_keys])
-
-        # get distance matrix between samples in scaled feature space
-        features_matr = scaler.transform(df[profiler.profile_keys]) 
-        dist_func = lambda i,j: np.sum(
-            np.linalg.norm(features_matr[i]
-            - features_matr[j]))
-        dist_matrix = np.array([[dist_func(i,j) for i in range(df_size)] for j in range(df_size)])
-
-        # get the most isolated sample first:
-        # this should be the sample with the greatest 
-        # nearest-neighbor distance 
-        nn_distance_array = np.array([min(dist_matrix[i,:]) for i in range(df_size)])
-        best_idx = np.argmax(nn_distance_array)
-        sample = sample.append(df.iloc[best_idx])
-        sampled_idxs = [best_idx] 
-
-        continue_downsampling = True
-        while(continue_downsampling):
-            # find the sample with the greatest minimum distance
-            # between itself and the downsampled samples
-            # NOTE: is this wise? should we continue using the entire distance matrix?
-            sample_size = len(sample)
-            sample_dist_matrix = np.array([dist_matrix[i,:] for i in sampled_idxs])
-            nn_distance_array = np.array([min(sample_dist_matrix[:,j]) for j in range(df_size)])
-            best_idx = np.argmax(nn_distance_array)
-            best_nn_distance = nn_distance_array[best_idx]
-            # if we have at least 10 samples,
-            # and all remaining samples are close to the current sample,
-            # down-sampling can stop here.
-            if sample_size >= 10 and best_nn_distance < min_distance: 
-                continue_downsampling = False
-            else:
-                sampled_idxs.append(best_idx)
-                sample = sample.append(df.iloc[best_idx])
-    return sample
 
 def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
     # regression models:
@@ -129,6 +26,7 @@ def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test
     if save_models:
         save_regression_models(reg_models, test=test)
         save_classification_models(cls_models, test=test)
+
 
 def save_model_data(model,yml_path,txt_path):
     with open(yml_path,'w') as yml_file:
@@ -166,6 +64,7 @@ def save_model_data(model,yml_path,txt_path):
         else:
             res_str = 'The model was not trained'
         txt_file.write(res_str)
+
 
 def train_classification_models(data,hyper_parameters_search=False):
     """Train all classifiers that are trainable from `data`.
@@ -271,6 +170,7 @@ def train_classification_models(data,hyper_parameters_search=False):
 
     return cls_models
 
+
 def save_classification_models(models=classification_models, test=False):
     """Serialize `models` to .yml files, and also save them as module attributes.
 
@@ -340,6 +240,7 @@ def save_classification_models(models=classification_models, test=False):
                         txt_path = os.path.join(form_dir,stg_nm+'.txt')
                         save_model_data(models[sys_cls][pop_id][ff_id][stg_nm],yml_path,txt_path)
 
+
 def train_regression_models(data,hyper_parameters_search=False):
     """Train all regression models trainable from `data`. 
 
@@ -361,6 +262,7 @@ def train_regression_models(data,hyper_parameters_search=False):
     # 'unidentified' systems will have no regression models:
     if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
     for sys_cls in sys_cls_labels:
+        print('training regressors for system class {}'.format(sys_cls))
         reg_models[sys_cls] = {}
         sys_cls_data = data.loc[data['system_class']==sys_cls].copy()
         # drop the columns where all values are None:
@@ -370,11 +272,13 @@ def train_regression_models(data,hyper_parameters_search=False):
         reg_models[sys_cls]['noise'] = {}
         all_noise_models = list(sys_cls_data['noise_model'].unique())
         for modnm in all_noise_models:
+            print('    training regressors for noise model {}'.format(modnm))
             reg_models[sys_cls]['noise'][modnm] = {}
             noise_model_data = sys_cls_data.loc[sys_cls_data['noise_model']==modnm].copy()
             for pnm in list(xrsdefs.noise_params[modnm].keys())+['I0_fraction']:
                 param_header = 'noise_'+pnm
                 model = Regressor(param_header,None)
+                print('        training {}'.format(param_header))
                 if (sys_cls in regression_models) \
                 and ('noise' in regression_models[sys_cls]) \
                 and (modnm in regression_models[sys_cls]['noise']) \
@@ -394,6 +298,7 @@ def train_regression_models(data,hyper_parameters_search=False):
             # every population must have a model for I0_fraction
             param_header = pop_id+'_I0_fraction'
             model = Regressor(param_header,None)
+            print('    training regressors for population {}'.format(pop_id))
             if (sys_cls in regression_models) \
             and (pop_id in regression_models[sys_cls]) \
             and ('I0_fraction' in regression_models[sys_cls][pop_id]) \
@@ -415,6 +320,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                     for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                         param_header = pop_id+'_'+pnm
                         model = Regressor(param_header,None)
+                        print('        training {}'.format(param_header))
                         if (sys_cls in regression_models) \
                         and (pop_id in regression_models[sys_cls]) \
                         and (stg_nm in regression_models[sys_cls][pop_id]) \
@@ -438,6 +344,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                 for pnm in xrsdefs.form_factor_params[form_id]:
                     param_header = pop_id+'_'+pnm
                     model = Regressor(param_header,None)
+                    print('        training {}'.format(param_header))
                     if (sys_cls in regression_models) \
                     and (pop_id in regression_models[sys_cls]) \
                     and (form_id in regression_models[sys_cls][pop_id]) \
@@ -460,6 +367,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                         for pnm in xrsdefs.additional_form_factor_params(form_id,{stg_nm:stg_label}):
                             param_header = pop_id+'_'+pnm
                             model = Regressor(param_header,None)
+                            print('        training {}'.format(param_header))
                             if (sys_cls in regression_models) \
                             and (pop_id in regression_models[sys_cls]) \
                             and (form_id in regression_models[sys_cls][pop_id]) \
@@ -475,6 +383,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                             reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm] = model 
 
     return reg_models
+
 
 def save_regression_models(models=regression_models, test=False):
     """Serialize `models` to .yml files, and also save them as module attributes.
@@ -573,5 +482,3 @@ def save_regression_models(models=regression_models, test=False):
                                     txt_path = os.path.join(stg_label_dir,pnm+'.txt')
                                     save_model_data(models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm],
                                     yml_path,txt_path)
-
-

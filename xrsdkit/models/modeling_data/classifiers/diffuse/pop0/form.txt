@@ -1,0 +1,21 @@
+Cross validation results for pop0_form Classifier
+
+Data from 15 experiments was used
+
+Confusion matrix:
+[[291   2]  guinier_porod
+ [  0  44]]  spherical
+
+
+F1 scores by label:
+guinier_porod : 0.9965753424657535
+spherical : 0.9777777777777777
+
+Label-averaged unweighted F1 score: 0.9871765601217657
+
+Accuracy:
+0.9940652818991098
+Test/training split: for classes with samples from 3 or more experiment_ids, 
+the data are split according to experiment_id; 
+for classes with samples from 2 or fewer experiment_ids, 
+the data are randomly shuffled and split into three groups

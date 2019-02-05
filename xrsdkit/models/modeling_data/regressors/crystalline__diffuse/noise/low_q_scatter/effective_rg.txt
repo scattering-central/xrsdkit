@@ -1,0 +1,13 @@
+Cross validation results for noise_effective_rg Regressor
+Data from 3 experiments was used
+
+Normalized mean abs error by train/test split:
+[0.378006676599445,
+0.782336121559642,
+0.352911099577752]
+
+Weighted-average mean abs error by train/test split: 0.5018381436814054
+Unweighted-average mean abs error: 0.5044179659122797
+
+
+NOTE: Weighted metrics are weighted by test set size

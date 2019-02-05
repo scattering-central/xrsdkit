@@ -1,0 +1,7 @@
+cross_valid_results: null
+default_val: low_q_scatter
+model:
+  hyper_parameters: {}
+  trained_par: {}
+scaler: {}
+trained: false

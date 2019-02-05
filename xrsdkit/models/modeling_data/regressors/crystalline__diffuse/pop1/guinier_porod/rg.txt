@@ -1,0 +1,13 @@
+Cross validation results for pop1_rg Regressor
+Data from 3 experiments was used
+
+Normalized mean abs error by train/test split:
+[0.29180745463645363,
+0.4386417908017284,
+0.5425541105707097]
+
+Weighted-average mean abs error by train/test split: 0.4246264385090611
+Unweighted-average mean abs error: 0.42433445200296394
+
+
+NOTE: Weighted metrics are weighted by test set size
