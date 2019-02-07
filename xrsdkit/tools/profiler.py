@@ -5,7 +5,32 @@ import numpy as np
 from . import pearson
 from . import peak_math
 
-profile_defs = OrderedDict(
+#profile_keys = list(profile_defs.keys())
+profile_keys = [\
+'Imax_over_Imean',\
+'Ilowq_over_Imean',\
+'Imax_sharpness',\
+'I_fluctuation',\
+'logI_fluctuation',\
+'logI_max_over_std',\
+'r_fftIcentroid',\
+'q_Icentroid',\
+'q_logIcentroid',\
+'pearson_q',\
+'pearson_q2',\
+'pearson_expq',\
+'pearson_invexpq',\
+'q_best_hump',\
+'q_best_trough',\
+'best_hump_qwidth',\
+'best_trough_qwidth',\
+'q_best_hump_log',\
+'q_best_trough_log',\
+'best_hump_qwidth_log',\
+'best_trough_qwidth_log']
+
+profile_defs = OrderedDict.fromkeys(profile_keys)
+profile_defs.update(
     Imax_over_Imean = 'maximum over mean intensity on the full q-range',
     Ilowq_over_Imean = 'mean intensity on the lower 10% of the q-range, '\
                     'divided by the mean intensity on the full q-range',
@@ -35,8 +60,6 @@ profile_defs = OrderedDict(
     best_hump_qwidth_log = 'like best_hump_qwidth, but fit to standardized log(I)',
     best_trough_qwidth_log = 'like best_trough_qwidth, but fit to standardized log(I)'
     )
-
-profile_keys = list(profile_defs.keys())
 
 def profile_pattern(q,I):
     """Numerical profiling of a scattering or diffraction pattern.
@@ -194,6 +217,9 @@ def profile_pattern(q,I):
     # NOTE: considered these features, decidedly too arbitrary:
     #features['q_min'] = q[0]
     #features['q_max'] = q[-1]
+
+    import pprint
+    pprint.pprint(features)
 
     return features
 
