@@ -231,7 +231,9 @@ def integrated_isotropic_diffraction_intensity(
     numpy.array
         Diffracted intensity, normalized such that I(q=0) is equal to 1.
     """
-
+    #import pdb; pdb.set_trace()
+    if not source_wavelength:
+        raise ValueError('cannot compute diffraction with source wavelength of {}'.format(source_wavelength))
     if not q_max: q_max = q[-1]
     n_species = len(coords)
     if not occupancies: occupancies = np.ones(n_species)

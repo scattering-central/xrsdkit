@@ -4,6 +4,9 @@ import copy
 import sys
 import os
 
+from ..tools import profiler
+from ..models import predict as xrsdpred
+
 import numpy as np
 import matplotlib
 if 'DISPLAY' in os.environ:
@@ -767,7 +770,7 @@ class XRSDFitGUI(object):
     def _new_population(self,event=None):
         new_nm = self._vars['new_population_name'].get()
         if new_nm and not new_nm in self.sys.populations:
-            self.sys.add_population(new_nm,'diffuse')
+            self.sys.add_population(new_nm,'diffuse','atomic')
             self._frames['new_population'].pack_forget() 
             self._frames['populations'][new_nm] = self._create_pop_frame(new_nm)
             npops = len(self._frames['populations'])
@@ -834,10 +837,13 @@ class XRSDFitGUI(object):
 
     def _estimate(self):
         feats = profiler.profile_pattern(self.q,self.I)
-        pred = xrsdmods.predict.predict(feats)
-        sys_est = xrsdmods.predict.system_from_prediction(pred,self.q,self.I)
-        # update self.sys
-        self.sys.update_from_dict(sys_est.to_dict())
+        pred = xrsdpred.predict(feats)
+        sys_est = xrsdpred.system_from_prediction(pred,self.q,self.I,
+            source_wavelength=self._vars['fit_control']['wavelength'].get()
+            )
+        # replace self.sys
+        #self.sys.update_from_dict(sys_est.to_dict())
+        self.sys = sys_est
         # repack everything 
         self._repack_pop_frames()
         self._repack_noise_frame()

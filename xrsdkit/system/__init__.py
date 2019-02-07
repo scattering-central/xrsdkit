@@ -47,7 +47,6 @@ class System(object):
 
     def update_from_dict(self,d):
         for pop_name,pd in d.items():
-            if not isinstance(pd,dict): pd = pd.to_dict()
             if pop_name == 'noise':
                 self.update_noise_model(pd)
             elif pop_name == 'features':
@@ -59,6 +58,7 @@ class System(object):
             elif not pop_name in self.populations:
                 self.populations[pop_name] = Population.from_dict(pd) 
             else:
+                if not isinstance(pd,dict): pd = pd.to_dict()
                 self.populations[pop_name].update_from_dict(pd)
 
     def update_noise_model(self,noise_dict):
