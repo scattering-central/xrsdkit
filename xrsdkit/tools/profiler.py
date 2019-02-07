@@ -218,8 +218,5 @@ def profile_pattern(q,I):
     #features['q_min'] = q[0]
     #features['q_max'] = q[-1]
 
-    import pprint
-    pprint.pprint(features)
-
     return features
 
