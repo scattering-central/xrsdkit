@@ -4,17 +4,17 @@ Data from 5 experiments was used
 
 Confusion matrix:
 [[36  0]  spherical
- [ 6 60]]  guinier_porod
+ [ 0 66]]  guinier_porod
 
 
 F1 scores by label:
-spherical : 0.923076923076923
-guinier_porod : 0.9523809523809523
+spherical : 1.0
+guinier_porod : 1.0
 
-Label-averaged unweighted F1 score: 0.9377289377289377
+Label-averaged unweighted F1 score: 1.0
 
 Accuracy:
-0.9411764705882353
+1.0
 Test/training split: for classes with samples from 3 or more experiment_ids, 
 the data are split according to experiment_id; 
 for classes with samples from 2 or fewer experiment_ids, 

@@ -1,0 +1,15 @@
+Cross validation results for pop0_I0_fraction Regressor
+Data from 5 experiments was used
+
+Normalized mean abs error by train/test split:
+[0.37707807745379346,
+0.13707860430336574,
+0.15468586228183584,
+0.026907155719796166,
+0.35732002716099026]
+
+Weighted-average mean abs error by train/test split: 0.1772847227457521
+Unweighted-average mean abs error: 0.2106139453839563
+
+
+NOTE: Weighted metrics are weighted by test set size

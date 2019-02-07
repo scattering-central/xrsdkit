@@ -1,0 +1,12 @@
+cross_valid_results: null
+default_val: !!python/object/apply:numpy.core.multiarray.scalar
+- !!python/object/apply:numpy.dtype
+  args: [f8, 0, 1]
+  state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
+- !!binary |
+  b4cWMSxUD0A=
+model:
+  hyper_parameters: {}
+  trained_par: {}
+scaler: {}
+trained: false
