@@ -24,7 +24,8 @@ np_sys = System(
 np_sl_sys = System(
     superlattice=np_sl,
     nanoparticles=nps,
-    noise=flat_noise
+    noise=flat_noise,
+    sample_metadata={'source_wavelength':0.8}
     )
 
 datapath = os.path.join(os.path.dirname(__file__),
