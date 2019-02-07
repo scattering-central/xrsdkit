@@ -842,6 +842,11 @@ class XRSDFitGUI(object):
             source_wavelength=self._vars['fit_control']['wavelength'].get()
             )
         # replace self.sys
+        sys_est.update_from_dict(dict(
+            features = self.sys.features,
+            sample_metadata = self.sys.sample_metadata,
+            fit_report = self.sys.fit_report
+            ))
         #self.sys.update_from_dict(sys_est.to_dict())
         self.sys = sys_est
         # repack everything 
