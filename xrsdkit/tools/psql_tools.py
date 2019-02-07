@@ -1,3 +1,60 @@
+"""This module contains API to communicate with scattering_data database on pawsweb.
+    The database server must be running on 134.79.98.141, port=5432.
+    The user should have pygresql installed on his local machine.
+    To crate a connector:
+    from pg import DB, connect
+    db = DB(dbname='scattering_data', host='134.79.98.141', port=5432, user=PSQL_USERNAME, passwd=PSQL_PASSWORD)
+
+    To run load_yml_to_file_table() and load_from_files_table_to_samples_table() the user also need
+    to paramiko installed on his local machine.
+    To create a ssh_clint:
+    client = paramiko.SSHClient()
+    client.load_system_host_keys()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(HOST, username=REMOUTE_USERNAME, password=REMOUT_PASSWORD)
+
+    Data pipeline supported by this module:
+    dir with training data -> files table -> samples table -> training table -> pandas dataframe
+
+    files columns:
+    sample_id     | character varying
+    experiment_id | character varying
+    good_fit      | boolean
+    yml_path      | text
+
+    samples columns:
+    sample_id             | character varying
+    experiment_id         | character varying
+    features              | json
+    regression_labels     | json
+    classification_labels | json
+
+    training columns:
+    sample_id              | character varying
+    experiment_id          | character varying
+    Imax_over_Imean        | numeric
+    Ilowq_over_Imean       | numeric
+    Imax_sharpness         | numeric
+    I_fluctuation          | numeric
+    logI_fluctuation       | numeric
+    ...
+    pop0_lattice           | character varying
+    pop2_form              | character varying
+    pop0_form              | character varying
+    ...
+    Training has a column for each feature, and each label. When we are
+    inserting a new sample with labels that are not in "training",
+    the new colums are appening.
+
+    When user got data from a new experiment, he should run:
+    load_yml_to_file_table(db, client, path_to_dir)
+    load_from_files_table_to_samples_table(db, client)
+    load_from_samples_to_training_table(db)
+
+    Then, when he wants to retrain the models, he can get data from the database:
+    df = get_training_dataframe(db)
+    """
+
 import os
 import yaml
 import pandas as pd
@@ -5,9 +62,6 @@ from collections import OrderedDict
 from .ymltools import unpack_sample
 from .profiler import profile_keys
 import pprint
-
-#Data pipeline supported by this module:
-#dir with training data -> files table -> saples table -> training table -> pandas dataframe
 
 def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     """Add data from a remote directory to the "files" table.
@@ -22,11 +76,7 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     db : db.pg object
         a database connection - DB object from PyGreSQL
     ssh_client : paramiko.SSHClient
-        ssh client connected with the host machine:
-        client = paramiko.SSHClient()
-        client.load_system_host_keys()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect('134.79.34.167', username='my_user_name', password='my_password')
+        ssh client connected with the host machine
     path_to_dir : str
         absolute path to the folder with the training set
         Precondition: dataset directory includes directories named
@@ -49,8 +99,6 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     # get the list of experiments that are already in the table
     exp_from_table = db.query('SELECT DISTINCT experiment_id FROM files').getresult()
     exp_from_table = [row[0] for row in exp_from_table]
-
-    print(exp_from_table)
 
     stdin, stdout, stderr = ssh_client.exec_command('ls '+path_to_dir)
 
@@ -78,8 +126,7 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
 
 def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
     """Process the data from a the "files" table and
-    add to the "samples" table.
-    Only data from new experiment directories will be added.
+    insert corresponding rows into the "samples" table.
 
     Parameters
     ----------
@@ -133,9 +180,10 @@ def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
                                     classification_labels=classification_labels)
 
 
-def create_training_table(db, drop_table=False):
+def load_from_samples_to_training_table(db, drop_table=False):
     """Process the data from a the "samples" table and
-    add to the "training" table in the format sutable for training
+    insert corresponding rows into the "training" table
+    in the format sutable for training
     (each feature and labels has its own column).
     Only data from new experiment directories will be added.
 
