@@ -148,24 +148,32 @@ def system_from_prediction(prediction,q,I,**kwargs):
         pop_dict = {'structure':struct,'form':form,'settings':{},'parameters':{}}
         pop_dict['parameters']['I0'] = {'value':prediction[pop_id+'_I0_fraction']}
         if prediction[pop_id+'_I0_fraction'] <= 0.:
-            # pop_dict['parameters']['I0']['value'] = 0
-            # this population may not belong -- ignore it?
-            pass
+            pop_dict['parameters']['I0']['value'] = 0
         else:
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 stg_header = pop_id+'_'+stg_nm
                 stg_val = prediction[stg_header][0]
                 pop_dict['settings'][stg_nm] = stg_val 
-                for param_nm in xrsdefs.structure_params(struct,{stg_nm:stg_val}):
+                for param_nm,param_def in xrsdefs.structure_params(struct,{stg_nm:stg_val}).items():
                     param_header = pop_id+'_'+param_nm
-                    pop_dict['parameters'][param_nm] = {'value':prediction[param_header]}
+                    param_val = prediction[param_header]
+                    if param_def['bounds'][0] is not None:
+                        if param_val < param_def['bounds'][0]: param_val = param_def['bounds'][0]
+                    if param_def['bounds'][1] is not None:
+                        if param_val > param_def['bounds'][1]: param_val = param_def['bounds'][1]
+                    pop_dict['parameters'][param_nm] = {'value':param_val}
             for stg_nm in xrsdefs.modelable_form_factor_settings[form]:
                 stg_header = pop_id+'_'+stg_nm
                 stg_val = prediction[stg_header][0]
                 pop_dict['settings'][stg_nm] = stg_val 
-                for param_nm in xrsdefs.additional_form_factor_params(form,{stg_nm:stg_val}):
+                for param_nm,param_def in xrsdefs.additional_form_factor_params(form,{stg_nm:stg_val}).items():
                     param_header = pop_id+'_'+param_nm
-                    pop_dict['parameters'][param_nm] = {'value':prediction[param_header]}
+                    param_val = prediction[param_header]
+                    if param_def['bounds'][0] is not None:
+                        if param_val < param_def['bounds'][0]: param_val = param_def['bounds'][0]
+                    if param_def['bounds'][1] is not None:
+                        if param_val > param_def['bounds'][1]: param_val = param_def['bounds'][1]
+                    pop_dict['parameters'][param_nm] = {'value':param_val}
             pops_dict[pop_id] = pop_dict
 
     kwargs.update(pops_dict)
