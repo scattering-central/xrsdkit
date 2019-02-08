@@ -4,7 +4,7 @@ default_val: !!python/object/apply:numpy.core.multiarray.scalar
   args: [f8, 0, 1]
   state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
 - !!binary |
-  3MKv/Nrx6T8=
+  bF7VlGp19D8=
 model:
   hyper_parameters: {}
   trained_par: {}

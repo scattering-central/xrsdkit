@@ -33,9 +33,14 @@ def predict(features,test=False):
     results = {}
 
     # evaluate the system class
-    results['system_class'] = classifiers['system_class'].classify(features)
-    cl_models_to_use = classifiers[results['system_class'][0]]
-    reg_models_to_use = regressors[results['system_class'][0]]
+    sys_cls = classifiers['system_class'].classify(features)
+    results['system_class'] = sys_cls 
+
+    if sys_cls[0] == 'unidentified':
+        return results
+
+    cl_models_to_use = classifiers[sys_cls[0]]
+    reg_models_to_use = regressors[sys_cls[0]]
 
     # evaluate the noise model
     if cl_models_to_use['noise_model'].trained:
@@ -123,6 +128,8 @@ def system_from_prediction(prediction,q,I,**kwargs):
         a System object built from the prediction dictionary
     """
     sys_cls = prediction['system_class'][0]
+    if sys_cls == 'unidentified':
+        return System()
     nmodl = prediction['noise_model'][0]
     noise_dict = {'model':nmodl,'parameters':{}}
     noise_dict['parameters']['I0'] = {'value':prediction['noise_I0_fraction']}
@@ -140,26 +147,40 @@ def system_from_prediction(prediction,q,I,**kwargs):
         form = prediction[form_header][0]
         pop_dict = {'structure':struct,'form':form,'settings':{},'parameters':{}}
         pop_dict['parameters']['I0'] = {'value':prediction[pop_id+'_I0_fraction']}
-        if prediction[pop_id+'_I0_fraction'] < 0.:
+        if prediction[pop_id+'_I0_fraction'] <= 0.:
             pop_dict['parameters']['I0']['value'] = 0
-        for stg_nm in xrsdefs.modelable_structure_settings[struct]:
-            stg_header = pop_id+'_'+stg_nm
-            pop_dict['settings'][stg_nm] = prediction[stg_header][0]
-            for param_nm in xrsdefs.structure_params(struct,{stg_nm:stg_val}):
-                param_header = pop_id+'_'+param_nm
-                pop_dict['parameters'][param_nm] = {'value':prediction[param_header]}
-        for stg_nm in xrsdefs.modelable_form_factor_settings[form]:
-            stg_header = pop_id+'_'+stg_nm
-            stg_val = prediction[stg_header][0]
-            pop_dict['settings'][stg_nm] = stg_val 
-            for param_nm in xrsdefs.additional_form_factor_params(form,{stg_nm:stg_val}):
-                param_header = pop_id+'_'+param_nm
-                pop_dict['parameters'][param_nm] = {'value':prediction[param_header]}
-        pops_dict[pop_id] = pop_dict
+        else:
+            for stg_nm in xrsdefs.modelable_structure_settings[struct]:
+                stg_header = pop_id+'_'+stg_nm
+                stg_val = prediction[stg_header][0]
+                pop_dict['settings'][stg_nm] = stg_val 
+                for param_nm,param_def in xrsdefs.structure_params(struct,{stg_nm:stg_val}).items():
+                    param_header = pop_id+'_'+param_nm
+                    param_val = prediction[param_header]
+                    if param_def['bounds'][0] is not None:
+                        if param_val < param_def['bounds'][0]: param_val = param_def['bounds'][0]
+                    if param_def['bounds'][1] is not None:
+                        if param_val > param_def['bounds'][1]: param_val = param_def['bounds'][1]
+                    pop_dict['parameters'][param_nm] = {'value':param_val}
+            for stg_nm in xrsdefs.modelable_form_factor_settings[form]:
+                stg_header = pop_id+'_'+stg_nm
+                stg_val = prediction[stg_header][0]
+                pop_dict['settings'][stg_nm] = stg_val 
+                for param_nm,param_def in xrsdefs.additional_form_factor_params(form,{stg_nm:stg_val}).items():
+                    param_header = pop_id+'_'+param_nm
+                    param_val = prediction[param_header]
+                    if param_def['bounds'][0] is not None:
+                        if param_val < param_def['bounds'][0]: param_val = param_def['bounds'][0]
+                    if param_def['bounds'][1] is not None:
+                        if param_val > param_def['bounds'][1]: param_val = param_def['bounds'][1]
+                    pop_dict['parameters'][param_nm] = {'value':param_val}
+            pops_dict[pop_id] = pop_dict
 
     kwargs.update(pops_dict)
     new_sys = System(noise=noise_dict,**pops_dict)
 
+    # TODO: handle other kwargs for sample_metadata
+    # TODO: System.features.update(feats)
     if 'source_wavelength' in kwargs:
         new_sys.update_from_dict({'sample_metadata':{'source_wavelength':kwargs['source_wavelength']}})
 
