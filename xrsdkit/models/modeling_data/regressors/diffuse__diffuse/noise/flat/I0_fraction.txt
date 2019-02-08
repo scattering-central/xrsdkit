@@ -1,0 +1,22 @@
+Cross validation results for noise_I0_fraction Regressor
+Data from 12 experiments was used
+
+Normalized mean abs error by train/test split:
+[0.14629031464011932,
+0.015115185005948948,
+0.019339501526801906,
+0.05578178278336887,
+0.022632633602403425,
+0.014981701041118239,
+0.046236079306032796,
+0.029669978811682915,
+0.021280035569805466,
+4.367195066372766,
+0.041347482158582256,
+0.02931613007940534]
+
+Weighted-average mean abs error by train/test split: 0.26925230761549546
+Unweighted-average mean abs error: 0.40076549090816965
+
+
+NOTE: Weighted metrics are weighted by test set size
