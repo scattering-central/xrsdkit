@@ -9,8 +9,7 @@ from ..models import predict as xrsdpred
 
 import numpy as np
 import matplotlib
-if 'DISPLAY' in os.environ:
-    matplotlib.use("TkAgg")
+
 mplv = matplotlib.__version__
 mplvmaj = int(mplv.split('.')[0])
 from matplotlib.figure import Figure
