@@ -80,7 +80,7 @@ noise_params = dict(
     low_q_scatter = dict(
         I0 = {'value':100,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
         I0_flat_fraction = {'value':0.01,'fixed':False,'bounds':[0.,1.],'constraint_expr':None},
-        effective_rg = {'value':100.,'fixed':True,'bounds':[0.,None],'constraint_expr':None},
+        effective_rg = {'value':100.,'fixed':True,'bounds':[0.1,None],'constraint_expr':None},
         effective_D = {'value':4.,'fixed':True,'bounds':[0.,4.],'constraint_expr':None} 
         )
     )
