@@ -1,7 +1,0 @@
-cross_valid_results: null
-default_val: hard_spheres
-model:
-  hyper_parameters: {}
-  trained_par: {}
-scaler: {}
-trained: false
