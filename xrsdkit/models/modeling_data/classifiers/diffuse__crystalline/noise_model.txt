@@ -1,0 +1,21 @@
+Cross validation results for noise_model Classifier
+
+Data from 5 experiments was used
+
+Confusion matrix:
+[[48  1]  low_q_scatter
+ [ 1 51]]  flat
+
+
+F1 scores by label:
+low_q_scatter : 0.9795918367346939
+flat : 0.9807692307692307
+
+Label-averaged unweighted F1 score: 0.9801805337519622
+
+Accuracy:
+0.9801980198019802
+Test/training split: for classes with samples from 3 or more experiment_ids, 
+the data are split according to experiment_id; 
+for classes with samples from 2 or fewer experiment_ids, 
+the data are randomly shuffled and split into three groups

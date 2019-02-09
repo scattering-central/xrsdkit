@@ -1,14 +1,15 @@
 import numpy as np
 
+from xrsdkit import scattering as xrsdscat 
 from xrsdkit.scattering import form_factors as xrff
 
 qvals = np.arange(0.,1.,0.01)
 
 def test_guinier_porod():
-    ff = xrff.guinier_porod_intensity(qvals,20,4)
+    ff = xrsdscat.guinier_porod_intensity(qvals,20,4)
 
 def test_spherical_normal():
-    ff2 = xrff.spherical_normal_intensity(qvals,20,0.2)
+    ff2 = xrsdscat.spherical_normal_intensity(qvals,20,0.2)
     ff_mono = xrff.spherical_ff(qvals,20)
 
 qvals = np.arange(0.,2.,0.01)
@@ -16,8 +17,8 @@ def test_plot_ff():
     ff_H = xrff.atomic_ff(qvals,'H')
     ff_Al = xrff.atomic_ff(qvals,'Al')
     ff_U = xrff.atomic_ff(qvals,'U')
-    ff2_gp = xrff.guinier_porod_intensity(qvals,20,4)
-    ff2_poly = xrff.spherical_normal_intensity(qvals,20,0.2)
+    ff2_gp = xrsdscat.guinier_porod_intensity(qvals,20,4)
+    ff2_poly = xrsdscat.spherical_normal_intensity(qvals,20,0.2)
     ff_mono = xrff.spherical_ff(qvals,20)
     #from matplotlib import pyplot as plt
     #plt.plot(qvals,ff_H/ff_H[0]) 

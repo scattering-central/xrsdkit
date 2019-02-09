@@ -1,0 +1,7 @@
+cross_valid_results: null
+default_val: spherical
+model:
+  hyper_parameters: {}
+  trained_par: {}
+scaler: {}
+trained: false

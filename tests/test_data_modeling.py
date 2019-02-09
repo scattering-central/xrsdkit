@@ -4,14 +4,16 @@ import numpy as np
 import pandas as pd
 from citrination_client import CitrinationClient
 
+from xrsdkit.tools.ymltools import downsample_by_group
 from xrsdkit.tools import profiler
-from xrsdkit.models import root_dir, downsample_by_group, train_from_dataframe
-from xrsdkit.models import predict, system_from_prediction 
+from xrsdkit.models import root_dir
+from xrsdkit.models.train import train_from_dataframe
+from xrsdkit.models.predict import predict, system_from_prediction 
 from xrsdkit.visualization import visualize_dataframe
 from xrsdkit.visualization.gui import run_fit_gui 
 
 datapath = os.path.join(os.path.dirname(__file__),
-        'test_data','training_data','test_dataset.csv')
+        'test_data','dataset.csv')
 df = None
 if os.path.exists(datapath):
     print('loading cached dataset from {}'.format(datapath))
@@ -42,9 +44,9 @@ def test_predict_spheres():
     # models will only be trained if a dataframe was downloaded
     if df_ds is not None:
         pred = predict(feats,test=True)
-        sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],0.8)
+        sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],source_wavelength=0.8265617)
         if 'DISPLAY' in os.environ:
-            fit_sys = run_fit_gui(sys,q_I[:,0],q_I[:,1],0.8265616)
+            fit_sys = run_fit_gui(sys,q_I[:,0],q_I[:,1])
 
 
 

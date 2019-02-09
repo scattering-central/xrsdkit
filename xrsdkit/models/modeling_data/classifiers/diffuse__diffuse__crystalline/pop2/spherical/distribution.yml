@@ -1,0 +1,7 @@
+cross_valid_results: null
+default_val: single
+model:
+  hyper_parameters: {}
+  trained_par: {}
+scaler: {}
+trained: false
