@@ -8,3 +8,5 @@ citrination_client
 pypif
 matplotlib
 dask_ml
+pygresql
+paramiko
