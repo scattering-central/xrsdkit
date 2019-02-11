@@ -82,7 +82,7 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
         Precondition: dataset directory includes directories named
         by the name of the experiments; each experiment directory
         holds data from this experiment. For each sample there is one yml file
-        with System object ... and one dat file with q and I arrays
+        with System object and one dat file with q and I arrays
         (array of scattering vector magnitudes, array of integrated
         scattering intensities).
     drop_table : bool
@@ -133,11 +133,7 @@ def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
     db : db.pg object
         a database connection - DB object from PyGreSQL
     ssh_client : paramiko.SSHClient
-        ssh client connected with the host machine:
-        client = paramiko.SSHClient()
-        client.load_system_host_keys()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect('134.79.34.167', username='my_user_name', password='my_password')
+        ssh client to connected with the host machine
     drop_table : bool
         if True, the existing table will be dropped and a new table will be created
         from scratch;
@@ -264,6 +260,9 @@ def get_training_dataframe(db):
     ----------
     db : db.pg object
         a database connection - DB object from PyGreSQL
+
+    Returns
+    -------
     df : pandas.DataFrame
         dataframe containing features and labels
     """
