@@ -1,27 +1,39 @@
-"""This module contains API to communicate with scattering_data database on pawsweb.
-    The database server must be running on 134.79.98.141, port=5432.
-    The user should have pygresql installed on his local machine.
-    To crate a connector:
+"""This module contains the API to communicate with the xrsdkit database (PostgreSQL).
+
+This API requires the pygresql Python package.
+The database server must be running on a machine 
+that shares a network connection with the local machine.
+This can be the localhost itself, a server, or a virtual machine.
+
+Communications are facilitated by DB connector objects.
+To create a connector:
     from pg import DB, connect
-    db = DB(dbname='scattering_data', host='134.79.98.141', port=5432, user=PSQL_USERNAME, passwd=PSQL_PASSWORD)
+    db = DB(dbname='PSQL_DB_NAME', host='PSQL_HOST_ADDRESS', port=PSQL_PORT, user='PSQL_USERNAME', passwd='PSQL_PASSWORD')
 
-    To run load_yml_to_file_table() and load_from_files_table_to_samples_table() the user also need
-    to paramiko installed on his local machine.
-    To create a ssh_clint:
-    client = paramiko.SSHClient()
-    client.load_system_host_keys()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(HOST, username=REMOUTE_USERNAME, password=REMOUT_PASSWORD)
+File operations are facilitated by SSH clients 
+(requiring the paramiko Python package).
+Instructions on using paramiko to set up SSH clients 
+can be found in the paramiko documentation.
+At the time of development:
+https://docs.paramiko.org/en/2.4/api/client.html
 
-    Data pipeline supported by this module:
-    dir with training data -> files table -> samples table -> training table -> pandas dataframe
+The data pipeline supported by this module is as follows:
+    directory of training data (on DB host) 
+    -> DB files table 
+    -> DB samples table 
+    -> DB training table 
+    -> pandas.DataFrame on localhost
+Before using this pipeline, the database host machine
+must have access to a directory containing the training dataset.
+This directory should have sub-directories for each experiment.
 
-    files columns:
+The "files" table has the following columns:
     sample_id     | character varying
     experiment_id | character varying
     good_fit      | boolean
     yml_path      | text
 
+The "samples" table has the following columns:
     samples columns:
     sample_id             | character varying
     experiment_id         | character varying
@@ -29,42 +41,56 @@
     regression_labels     | json
     classification_labels | json
 
-    training columns:
+The "training" table has the following columns:
     sample_id              | character varying
     experiment_id          | character varying
-    Imax_over_Imean        | numeric
-    Ilowq_over_Imean       | numeric
-    Imax_sharpness         | numeric
-    I_fluctuation          | numeric
-    logI_fluctuation       | numeric
-    ...
-    pop0_lattice           | character varying
-    pop2_form              | character varying
-    pop0_form              | character varying
-    ...
-    Training has a column for each feature, and each label. When we are
-    inserting a new sample with labels that are not in "training",
-    the new colums are appening.
+    <feature_name_1>       | numeric
+    <feature_name_2>       | numeric
+    ...                    | ... 
+    <feature_name_N>       | numeric
+    <class_name_0>         | character varying
+    <class_name_1>         | character varying
+    ...                    | ... 
+    <class_name_N>         | character varying
+    <parameter_name_1>     | numeric
+    <parameter_name_2>     | numeric
+    ...                    | ... 
+    <parameter_name_N>     | numeric
 
-    When user got data from a new experiment, he should run:
-    load_yml_to_file_table(db, client, path_to_dir)
-    load_from_files_table_to_samples_table(db, client)
-    load_from_samples_to_training_table(db)
 
-    Then, when he wants to retrain the models, he can get data from the database:
-    df = get_training_dataframe(db)
-    """
+The "training" table has numeric columns for each feature, 
+character columns for each classification label,
+and numeric columns for each regression (parameter) label.
+When we are inserting a new sample with labels that are not in the table,
+the new colums are appended to the table.
 
+Assuming a user has collected data from an experiment,
+processed the data into .yml files,
+and stored the .yml files in a directory on the DB host machine,
+the user should do the following to include their data into the database:
+    > load_yml_to_file_table(db, client, path_to_dir)
+    > load_from_files_table_to_samples_table(db, client)
+    > load_from_samples_to_training_table(db)
+
+To train or re-train xrsdkit models from the "training" table,
+the user should then download the data from the database:
+    > df = get_training_dataframe(db)
+
+The DataFrame `df` is then used to train new classifiers and regression models
+with xrsdkit.models.train.
+"""
 import os
-import yaml
-import pandas as pd
 from collections import OrderedDict
-from .ymltools import unpack_sample
-from .profiler import profile_keys
 import pprint
 
+import yaml
+import pandas as pd
+
+from .ymltools import unpack_sample
+from .profiler import profile_keys
+
 def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
-    """Add data from a remote directory to the "files" table.
+    """Add data to the 'files' table from a directory on the DB host machine.
 
     The data directory should contain one or more subdirectories,
     where each subdirectory contains .yml files,
@@ -73,25 +99,24 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
 
     Parameters
     ----------
-    db : db.pg object
-        a database connection - DB object from PyGreSQL
+    db : pg.DB 
+        A database connector (DB object from PyGreSQL)
     ssh_client : paramiko.SSHClient
-        ssh client connected with the host machine
+        ssh client connected with the database host machine
     path_to_dir : str
         absolute path to the folder with the training set
         Precondition: dataset directory includes directories named
         by the name of the experiments; each experiment directory
-        holds data from this experiment. For each sample there is one yml file
-        with System object and one dat file with q and I arrays
-        (array of scattering vector magnitudes, array of integrated
-        scattering intensities).
+        holds a set of .yml files that contain all the data from this experiment. 
+        Each .yml file has all the features and labels 
+        to describe the System object that was fit to the sample.
     drop_table : bool
-        if True, the existing table will be dropped and a new table will be created
-        from scratch;
-        if False, only data that is not already in the "file" table will be added.
+        If True, the existing table will be dropped,
+        and a new table will be created from scratch,
+        else, only data that are not already in the table will be added.
     """
     if drop_table:
-            db.query("DROP TABLE files")
+        db.query("DROP TABLE files")
     db.query("CREATE TABLE IF NOT EXISTS files(sample_id VARCHAR PRIMARY KEY, "
                                             "experiment_id VARCHAR, good_fit BOOLEAN, "
                                             "yml_path TEXT)")
@@ -100,47 +125,51 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     exp_from_table = db.query('SELECT DISTINCT experiment_id FROM files').getresult()
     exp_from_table = [row[0] for row in exp_from_table]
 
+    # get the list of experiments that are in the dataset directory
     stdin, stdout, stderr = ssh_client.exec_command('ls '+path_to_dir)
 
     for experiment in stdout:
         experiment = experiment.strip('\n')
         exp_data_dir = os.path.join(path_to_dir,experiment)
-        # add only new experiments
+        # make sure exp_data_dir is a directory, and that the experiment is not yet in the table 
         if ssh_client.exec_command("os.path.isdir(exp_data_dir)") and experiment not in exp_from_table:
+            # get the list of files in the experiment directory
             stdin2, stdout2, stderr2 = ssh_client.exec_command('ls '+exp_data_dir)
             for s_data_file in stdout2:
                 s_data_file = s_data_file.strip('\n')
+                # if the file is a .yml file, attempt to load it into the files table
                 if s_data_file.endswith('.yml'):
                     file_path = os.path.join(exp_data_dir, s_data_file)
+                    # use cat to grab the file content and dump it to a stream
                     stdin, stdout, stderr = ssh_client.exec_command('cat ' + file_path)
                     net_dump = stdout.readlines()
                     str_d = "".join(net_dump)
+                    # load the stream to data as yaml, grab key attributes
                     pp = yaml.load(str_d)
                     expt_id_yml = pp['sample_metadata']['experiment_id']
                     sample_id_yml = pp['sample_metadata']['sample_id']
                     fit = pp['fit_report']['good_fit']
-
+                    # add attributes and file path to the DB
                     db.insert('files', sample_id=sample_id_yml, experiment_id = expt_id_yml,
                                   yml_path=file_path, good_fit=fit)
-        print(experiment, "DONE")
+        print('FINISHED loading experiment {} to files table'.format(experiment))
 
 def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
-    """Process the data from a the "files" table and
-    insert corresponding rows into the "samples" table.
+    """Process the data from a the "files" table and insert corresponding rows into the "samples" table.
 
     Parameters
     ----------
-    db : db.pg object
-        a database connection - DB object from PyGreSQL
+    db : pg.DB 
+        a database connector (DB object from PyGreSQL)
     ssh_client : paramiko.SSHClient
-        ssh client to connected with the host machine
+        ssh client connected with the database host machine
     drop_table : bool
-        if True, the existing table will be dropped and a new table will be created
-        from scratch;
-        if False, only data that is not already in the "samples" table will be added.
+        If True, the existing table will be dropped,
+        and a new table will be created from scratch,
+        else, only data that are not already in the table will be added.
     """
     if drop_table:
-            db.query("DROP TABLE samples")
+        db.query("DROP TABLE samples")
     db.query("CREATE TABLE IF NOT EXISTS samples(sample_id VARCHAR PRIMARY KEY, "
                                                 "experiment_id VARCHAR, "
                                                 "features JSON, "
@@ -177,25 +206,24 @@ def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
 
 
 def load_from_samples_to_training_table(db, drop_table=False):
-    """Process the data from a the "samples" table and
-    insert corresponding rows into the "training" table
-    in the format sutable for training
-    (each feature and labels has its own column).
-    Only data from new experiment directories will be added.
+    """Process the data from a the "samples" table and insert corresponding rows into the "training" table.
+
+    This unpacks JSON columns from the samples table,
+    so that the training table has distinct columns for each feature and label.
+    Only data from new experiments will be added.
 
     Parameters
     ----------
     db : db.pg object
         a database connection - DB object from PyGreSQL
     drop_table : bool
-        if True, the existing table will be dropped and a new table will be created
-        from scratch;
-        if False, only data that is not already in the "samples" table will be added.
+        If True, the existing table will be dropped,
+        and a new table will be created from scratch,
+        else, only data that are not already in the table will be added.
     """
     if drop_table:
             db.query("DROP TABLE training")
 
-    #db.query("DROP TABLE training")
     # get all existing classification labes:
     q = 'SELECT json_object_keys(classification_labels) FROM samples'
     all_cl_labels = set([r[0] for r in db.query(q).getresult()])
@@ -211,7 +239,7 @@ def load_from_samples_to_training_table(db, drop_table=False):
         '" NUMERIC, "'.join(profile_keys) + '" NUMERIC)'
     db.query(q)
 
-    #add new columns if it is needed (new classification and regression labels)
+    # add new columns if needed (for new classification and regression labels)
     q = 'ALTER TABLE training ADD COLUMN IF NOT EXISTS "' + \
         '" VARCHAR, ADD COLUMN IF NOT EXISTS "'.join(all_cl_labels) + '" VARCHAR, ADD COLUMN IF NOT EXISTS "' + \
         '" NUMERIC, ADD COLUMN IF NOT EXISTS "'.join(all_reg_labels) + '" NUMERIC'
@@ -226,7 +254,7 @@ def load_from_samples_to_training_table(db, drop_table=False):
                                     "WHERE experiment_id IS NOT NULL)").getresult()
     new_experiments = [row[0] for row in new_experiments]
 
-    # get data from the "samples" table from the experiments that are not in "training" table:
+    # get data from the "samples" table for all experiments that are not in the "training" table:
     for ex in new_experiments:
         print('reading data from {}'.format(ex))
         q = "SELECT * FROM samples WHERE experiment_id = '{}'".format(ex)
@@ -253,13 +281,12 @@ def load_from_samples_to_training_table(db, drop_table=False):
 
 
 def get_training_dataframe(db):
-    """Create a Pandas DataFrame object from
-    a postgreSQL table.
+    """Create a Pandas DataFrame from a postgreSQL table.
 
     Parameters
     ----------
-    db : db.pg object
-        a database connection - DB object from PyGreSQL
+    db : pg.DB
+        a database connector (DB object from PyGreSQL)
 
     Returns
     -------
@@ -268,5 +295,4 @@ def get_training_dataframe(db):
     """
     data = db.query('SELECT * FROM training').dictresult()
     df = pd.DataFrame(data)
-
     return df
