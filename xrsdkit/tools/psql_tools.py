@@ -81,7 +81,6 @@ with xrsdkit.models.train.
 """
 import os
 from collections import OrderedDict
-import pprint
 
 import yaml
 import pandas as pd
@@ -90,7 +89,7 @@ from .ymltools import unpack_sample
 from .profiler import profile_keys
 
 def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
-    """Add data to the 'files' table from a directory on the DB host machine.
+    """Add data to the 'files' table from a directory on any remote machine.
 
     The data directory should contain one or more subdirectories,
     where each subdirectory contains .yml files,
