@@ -1,9 +1,48 @@
-"""This module contains the API to communicate with the xrsdkit database (PostgreSQL).
+"""This subpackage defines the API to communicate with the xrsdkit database (PostgreSQL).
 
 This API requires the pygresql Python package.
-The database server must be running on a machine 
+In turn, pygresql requires PostgreSQL packages to be installed on the local host.
+At the time of development, Unix platforms require libpq and libpq-dev.
+
+The operations for managing this database involve up to three hosts.
+One, the localhost (your machine) running the program.
+Two, the storage host, where YAML-formatted xrsdkit results are saved.
+Three, the database host, where tables of xrsdkit data are managed.
+The localhost machine may serve all three of these purposes at small scale.
+For installations at scale, separate specialized hosts are probably necessary.
+
+To facilitate connections between the local host and the storage and db hosts,
+the local host user must have two files in their home directory:
+'.xrsdkit_db_host' and '.xrsdkit_storage_host'.
+These are plain text files whose lines are as follows.
+
+.xrsdkit_db_host:
+    line 1: db_host_name:db_server_port
+    line 2: database title 
+    line 3: database username
+    line 4: database user password
+
+example .xrsdkit_db_host file content:
+192.99.99.999:7653
+test_db
+db_user
+clever_password
+
+.xrsdkit_storage_host:
+    line 1: storage_host_name
+    line 2: path to dataset directory on storage host
+    line 3: username on storage host
+    line 4: path to user's private ssh key file on local host
+
+example .xrsdkit_storage_host file content:
+192.99.99.998
+/path/to/test/dataset
+storage_user
+/home/.ssh/id_rsa
+
+The database server must be running on a host 
 that shares a network connection with the local machine.
-This can be the localhost itself, a server, or a virtual machine.
+This database host can be the localhost, or a remote server/virtual machine.
 
 Communications are facilitated by DB connector objects.
 To create a connector:
@@ -18,13 +57,14 @@ At the time of development:
 https://docs.paramiko.org/en/2.4/api/client.html
 
 The data pipeline supported by this module is as follows:
-    directory of training data (on DB host) 
-    -> DB files table 
-    -> DB samples table 
-    -> DB training table 
-    -> pandas.DataFrame on localhost
-Before using this pipeline, the database host machine
-must have access to a directory containing the training dataset.
+    directory of training data (on any host) 
+    -> DB files table (on DB host)
+    -> DB samples table (on DB host)
+    -> DB training table (on DB host)
+    -> pandas.DataFrame (on localhost)
+Before using this pipeline, the local host 
+must have access to a remote (or local) directory 
+that contains the training dataset.
 This directory should have sub-directories for each experiment.
 
 The "files" table has the following columns:
@@ -57,7 +97,6 @@ The "training" table has the following columns:
     ...                    | ... 
     <parameter_name_N>     | numeric
 
-
 The "training" table has numeric columns for each feature, 
 character columns for each classification label,
 and numeric columns for each regression (parameter) label.
@@ -66,7 +105,7 @@ the new colums are appended to the table.
 
 Assuming a user has collected data from an experiment,
 processed the data into .yml files,
-and stored the .yml files in a directory on the DB host machine,
+and stored the .yml files in the dataset directory, 
 the user should do the following to include their data into the database:
     > load_yml_to_file_table(db, client, path_to_dir)
     > load_from_files_table_to_samples_table(db, client)
@@ -77,16 +116,55 @@ the user should then download the data from the database:
     > df = get_training_dataframe(db)
 
 The DataFrame `df` is then used to train new classifiers and regression models
-with xrsdkit.models.train.
+with methods in the xrsdkit.models.train subpackage.
 """
 import os
 from collections import OrderedDict
+import warnings
 
 import yaml
 import pandas as pd
+import paramiko
+from pg import DB, connect
 
-from .ymltools import unpack_sample
-from .profiler import profile_keys
+from ..tools.ymltools import unpack_sample
+from ..tools.profiler import profile_keys
+
+user_home_dir = os.path.expanduser('~')
+storage_host_info_file = os.path.join(user_home_dir,'.xrsdkit_storage_host')
+db_host_info_file = os.path.join(user_home_dir,'.xrsdkit_db_host')
+
+storage_client = None
+storage_path = None
+try:
+    if os.path.exists(storage_host_info_file):
+        storage_host_lines = open(storage_host_info_file,'r').readlines()
+        storage_host = storage_host_lines[0].strip()
+        storage_path = storage_host_lines[1].strip()
+        storage_user = storage_host_lines[2].strip()
+        private_key_file = storage_host_lines[3].strip()
+        storage_client = paramiko.SSHClient()
+        storage_client.load_system_host_keys()
+        storage_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        storage_client.connect(storage_host, username=storage_user, key_filename=private_key_file)
+    else:
+        warnings.warn('storage host info file not found')
+except:
+    warnings.warn('unable to establish connection to storage host')
+
+db_connector = None
+try:
+    if os.path.exists(db_host_info_file): 
+        db_host_lines = open(db_host_info_file,'r').readlines()
+        db_host,db_port = db_host_lines[0].split(':')
+        db_name = db_host_lines[1].strip()
+        db_user = db_host_lines[2].strip()
+        db_key = db_host_lines[3].strip()
+        db_connector = DB(dbname=db_name, host=db_host, port=int(db_port), user=db_user, passwd=db_key)
+    else:
+        warnings.warn('database host info file not found')
+except:
+    warnings.warn('unable to establish connection to database host')
 
 def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     """Add data to the 'files' table from a directory on any remote machine.
