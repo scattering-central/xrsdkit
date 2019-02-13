@@ -28,12 +28,10 @@ if sys.version_info[0] < 3:
 else:
     import tkinter
 
-def run_fit_gui(system,q,I,dI=None,error_weighted=True,
-    logI_weighted=True,q_range=[0.,float('inf')]):
-    gui = XRSDFitGUI(system,q,I,dI,error_weighted,logI_weighted,q_range)
-    sys_opt = gui.start()
-    # collect results and return
-    return sys_opt
+def run_fit_gui(data_files={}):
+    # data_files dict: keys are q_I file paths, values are .yml file paths (or None)
+    gui = XRSDFitGUI(data_files)
+    gui.start()
 
 # TODO (low): when a structure or form selection is rejected,
 #   get the associated combobox re-painted-
@@ -54,19 +52,12 @@ def run_fit_gui(system,q,I,dI=None,error_weighted=True,
 
 class XRSDFitGUI(object):
 
-    def __init__(self,system,q,I,dI=None,
-        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
+    def __init__(self,data_files={}):
 
         super(XRSDFitGUI, self).__init__()
-        self.q = q
-        self.I = I
-        self.dI = dI
-        if not system: system = xrsdsys.System()
-        self.sys = system
-        self.error_weighted = error_weighted
-        self.logI_weighted = logI_weighted
-        self.q_range = q_range
-
+        # start with a default system definition
+        self.sys = xrsdsys.System()
+        self.data_files = {}
         self.fit_gui = tkinter.Tk()
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
         # setup the main gui objects
@@ -78,6 +69,7 @@ class XRSDFitGUI(object):
         # draw the plots...
         #self._draw_plots()
         self.fit_gui.geometry('1100x700')
+        self._set_data_files(data_files)
 
     def start(self):
         # start the tk loop
@@ -129,7 +121,7 @@ class XRSDFitGUI(object):
         # built from FigureCanvasTkAgg.get_tk_widget()
         plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
         plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
-        self.fig,I_comp = plot_xrsd_fit(self.sys,self.q,self.I,self.dI,False)
+        self.fig,I_comp = plot_xrsd_fit(sys=self.sys,show_plot=False)
         plot_frame_canvas = tkinter.Canvas(plot_frame)
         yscr = tkinter.Scrollbar(plot_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
@@ -145,7 +137,7 @@ class XRSDFitGUI(object):
             plot_frame_canvas,self.plot_canvas,plot_canvas_window)
         plot_frame_canvas.bind("<Configure>",self.plot_canvas_configure)
         self.mpl_canvas.draw()
-        self._update_fit_objective(I_comp)
+        #self._update_fit_objective(I_comp)
 
     def _build_control_widgets(self):
         # the main frame contains a control frame on the right,
@@ -183,7 +175,8 @@ class XRSDFitGUI(object):
             parameters=OrderedDict(),
             settings=OrderedDict(),
             new_population=None,
-            fit_control=OrderedDict()
+            fit_control=OrderedDict(),
+            io_control=OrderedDict()
             )
         self._vars = OrderedDict(
             noise_model=None,
@@ -192,12 +185,14 @@ class XRSDFitGUI(object):
             parameters=OrderedDict(),
             settings=OrderedDict(),
             new_population_name=None,
-            fit_control=OrderedDict()
+            fit_control=OrderedDict(),
+            io_control=OrderedDict()
             )
 
     def _create_control_widgets(self):
         self._frames['parameters']['noise'] = OrderedDict()
         self._vars['parameters']['noise'] = OrderedDict()
+        self._create_io_control_frame()
         self._create_fit_control_frame()
         self._create_noise_frame()
         for pop_nm in self.sys.populations.keys():
@@ -211,8 +206,8 @@ class XRSDFitGUI(object):
         n_pop_frames = len(self._frames['populations'])
         for pop_idx, pop_nm in enumerate(self._frames['populations'].keys()):
             self._frames['populations'][pop_nm].grid(
-            row=2+pop_idx,pady=2,padx=2,sticky='ew')
-        self._frames['new_population'].grid(row=2+n_pop_frames,pady=2,padx=2,sticky='ew')
+            row=3+pop_idx,pady=2,padx=2,sticky='ew')
+        self._frames['new_population'].grid(row=3+n_pop_frames,pady=2,padx=2,sticky='ew')
 
     def _repack_pop_frames(self):
         for pop_nm,frm in self._frames['populations'].items(): frm.pack_forget() 
@@ -241,9 +236,60 @@ class XRSDFitGUI(object):
         self.fit_gui.update_idletasks()
         self.control_canvas_configure()
 
-    def _create_fit_control_frame(self):
-        # TODO: file io q,I (dat/csv) and system data (YAML)
+    def _create_io_control_frame(self):
+        iof = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        iof.grid_columnconfigure(1,weight=1)
+        iof.grid_columnconfigure(2,weight=1)
+        self._frames['io_control'] = iof
+        dfvar = tkinter.StringVar(iof)
+        self._vars['io_control']['system_file'] = tkinter.StringVar(iof)
 
+        dfl = tkinter.Label(iof,text='data files:',anchor='e')
+        dfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_data_files)
+
+        df_option_dict = list(self.data_files.keys())
+        dfcb = tkinter.OptionMenu(iof,dfvar,df_option_dict)  
+        #if df_option_dict:
+        #    dfvar.set(df_option_dict[0])
+        dfvar.trace('w',self._update_data_file)
+        self._vars['io_control']['data_file'] = dfvar
+
+        sysfl = tkinter.Label(iof,text='system definition file:',anchor='w')
+        sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],self._set_system_file,10)
+        sysfsvb = tkinter.Button(iof,text='Save',width=8,command=self._save_sys_file) 
+        sysfldb = tkinter.Button(iof,text='Load',width=8,command=self._load_sys_file) 
+        sysfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_sys_file)
+
+        dfl.grid(row=0,column=0,sticky='w')
+        dfbb.grid(row=0,column=1,sticky='e')
+        dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
+        sysfl.grid(row=2,column=0,sticky='w')
+        sysfbb.grid(row=2,column=1,sticky='e')
+        sysfe.grid(row=3,column=0,columnspan=2,sticky='ew')
+        sysfsvb.grid(row=4,column=0,sticky='ew')
+        sysfldb.grid(row=4,column=1,sticky='ew')
+
+        iof.grid(row=0,pady=2,padx=2,sticky='ew')
+
+    def _browse_sys_file(*args,**kwargs):
+        raise NotImplementedError('implement _browse_sys_file()!') 
+
+    def _save_sys_file(*args,**kwargs):
+        raise NotImplementedError('implement _save_sys_file()!') 
+
+    def _load_sys_file(*args,**kwargs):
+        raise NotImplementedError('implement _load_sys_file()!') 
+
+    def _set_system_file(*args,**kwargs):
+        raise NotImplementedError('implement _set_system_file()!') 
+
+    def _update_data_file(*args,**kwargs):
+        raise NotImplementedError('implement _update_data_file()!') 
+
+    def _browse_data_files(*args,**kwargs):
+        raise NotImplementedError('implement _browse_data_files()!') 
+
+    def _create_fit_control_frame(self):
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
@@ -257,11 +303,11 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['objective'] = tkinter.StringVar(cf)
         self._vars['fit_control']['error_weighted'] = tkinter.BooleanVar(cf)
         self._vars['fit_control']['logI_weighted'] = tkinter.BooleanVar(cf)
-        self._vars['fit_control']['error_weighted'].set(self.error_weighted)
-        self._vars['fit_control']['logI_weighted'].set(self.logI_weighted)
+        self._vars['fit_control']['error_weighted'].set(self.sys.fit_report['error_weighted'])
+        self._vars['fit_control']['logI_weighted'].set(self.sys.fit_report['logI_weighted'])
         self._vars['fit_control']['q_range'] = [tkinter.DoubleVar(cf),tkinter.DoubleVar(cf)]
-        self._vars['fit_control']['q_range'][0].set(self.q_range[0])
-        self._vars['fit_control']['q_range'][1].set(self.q_range[1])
+        self._vars['fit_control']['q_range'][0].set(self.sys.fit_report['q_range'][0])
+        self._vars['fit_control']['q_range'][1].set(self.sys.fit_report['q_range'][1])
         self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
         self._vars['fit_control']['good_fit'].set(self.sys.fit_report['good_fit'])
 
@@ -310,7 +356,11 @@ class XRSDFitGUI(object):
             self._set_good_fit,'Good fit')
         fitcb.grid(row=6,column=2,sticky='ew')
 
-        cf.grid(row=0,pady=2,padx=2,sticky='ew')
+        cf.grid(row=1,pady=2,padx=2,sticky='ew')
+    
+    def _set_data_files(self,data_files):
+        # TODO: update data file index, etc.
+        pass
 
     def _set_experiment_id(self,event=None):
         try:
@@ -347,10 +397,10 @@ class XRSDFitGUI(object):
         try:
             new_val = self._vars['fit_control']['q_range'][q_idx].get()
         except:
-            self._vars['fit_control']['q_range'][q_idx].set(self.q_range[q_idx])
-            new_val = self.q_range[q_idx]
-        if not new_val == self.q_range[q_idx]:
-            self.q_range[q_idx] = new_val
+            self._vars['fit_control']['q_range'][q_idx].set(self.sys.fit_report['q_range'][q_idx])
+            new_val = self.sys.fit_report['q_range'][q_idx]
+        if not new_val == self.sys.fit_report['q_range'][q_idx]:
+            self.sys.fit_report['q_range'][q_idx] = new_val
             self._update_fit_objective()
         return True
 
@@ -376,6 +426,7 @@ class XRSDFitGUI(object):
         nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         self._frames['noise_model'] = nf
         nmf = tkinter.Frame(nf,bd=0) 
+        #nmf.grid_columnconfigure(0,weight=1)
         nl = tkinter.Label(nmf,text='noise model:',width=12,anchor='e',padx=10)
         nl.pack(side=tkinter.LEFT)
         ntpvar = tkinter.StringVar(nmf)
@@ -393,7 +444,7 @@ class XRSDFitGUI(object):
             self._frames['parameters']['noise'][noise_param_nm] = \
             self._create_param_frame('noise',noise_param_nm) 
         self._pack_noise_params()
-        nf.grid(row=1,pady=2,padx=2,sticky='ew')
+        nf.grid(row=2,pady=2,padx=2,sticky='ew')
 
     def _repack_noise_frame(self):
         nmdl = self.sys.noise_model.model
@@ -661,8 +712,7 @@ class XRSDFitGUI(object):
 
     def _update_fit_objective(self,I_comp=None):
         obj_val = self.sys.evaluate_residual(
-            self.q,self.I,self.dI,
-            self.error_weighted,self.logI_weighted,self.q_range,I_comp)
+            self.q,self.I,self.dI,I_comp)
         self._vars['fit_control']['objective'].set(str(obj_val))
 
     def _update_param(self,pop_nm,param_nm,param_key,param_idx=None,event=None):
