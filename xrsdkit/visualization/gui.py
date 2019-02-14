@@ -22,6 +22,7 @@ else:
 from .. import definitions as xrsdefs 
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
+from ..tools.ymltools import load_sys_from_yaml,save_sys_to_yaml
 
 if sys.version_info[0] < 3:
     import Tkinter as tkinter
@@ -58,6 +59,7 @@ class XRSDFitGUI(object):
         # start with a default system definition
         self.sys = xrsdsys.System()
         self.data_files = {}
+        self.q = self.I = self.dI = None
         self.fit_gui = tkinter.Tk()
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
         # setup the main gui objects
@@ -188,6 +190,9 @@ class XRSDFitGUI(object):
             fit_control=OrderedDict(),
             io_control=OrderedDict()
             )
+        self._widgets = OrderedDict(
+            datafile_option_menu = None
+            )
 
     def _create_control_widgets(self):
         self._frames['parameters']['noise'] = OrderedDict()
@@ -241,28 +246,30 @@ class XRSDFitGUI(object):
         iof.grid_columnconfigure(1,weight=1)
         iof.grid_columnconfigure(2,weight=1)
         self._frames['io_control'] = iof
-        dfvar = tkinter.StringVar(iof)
         self._vars['io_control']['system_file'] = tkinter.StringVar(iof)
 
         dfl = tkinter.Label(iof,text='data files:',anchor='e')
         dfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_data_files)
 
-        df_option_dict = list(self.data_files.keys())
-        dfcb = tkinter.OptionMenu(iof,dfvar,df_option_dict)  
-        #if df_option_dict:
-        #    dfvar.set(df_option_dict[0])
-        dfvar.trace('w',self._update_data_file)
-        self._vars['io_control']['data_file'] = dfvar
+        #dfvar = tkinter.StringVar(iof)
+        #df_options_dict = {'':None}
+        #dfcb = tkinter.OptionMenu(iof,dfvar,*df_options_dict)
+        #dfcb.config(width=10,anchor='e')
+        #dfvar.trace('w',self._update_data_file)
+        #self._vars['io_control']['data_file'] = dfvar
+        #self._widgets['datafile_option_menu'] = dfcb
+        self._set_data_files()
 
         sysfl = tkinter.Label(iof,text='system definition file:',anchor='w')
-        sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],self._set_system_file,10)
+        #sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],self._load_sys_file,10)
+        sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],None,10)
         sysfsvb = tkinter.Button(iof,text='Save',width=8,command=self._save_sys_file) 
         sysfldb = tkinter.Button(iof,text='Load',width=8,command=self._load_sys_file) 
         sysfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_sys_file)
 
         dfl.grid(row=0,column=0,sticky='w')
         dfbb.grid(row=0,column=1,sticky='e')
-        dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
+        #dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
         sysfl.grid(row=2,column=0,sticky='w')
         sysfbb.grid(row=2,column=1,sticky='e')
         sysfe.grid(row=3,column=0,columnspan=2,sticky='ew')
@@ -271,20 +278,62 @@ class XRSDFitGUI(object):
 
         iof.grid(row=0,pady=2,padx=2,sticky='ew')
 
+    def _set_data_files(self,data_files=None):
+        self.data_files = data_files
+        dfvar = tkinter.StringVar(self._frames['io_control'])
+        df_options_dict = {'':None}
+        if data_files:
+            df_options_dict = OrderedDict.fromkeys(data_files.keys())
+        dfcb = tkinter.OptionMenu(self._frames['io_control'],dfvar,*df_options_dict)
+        dfcb.config(width=10,anchor='e')
+        dfvar.trace('w',self._update_data_file)
+        if self._widgets['datafile_option_menu']: 
+            self._widgets['datafile_option_menu'].pack_forget()
+        dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
+        self._vars['io_control']['data_file'] = dfvar
+        self._widgets['datafile_option_menu'] = dfcb
+
+        #if data_files is not None:
+        #    self.data_files = data_files
+        #df_options_dict = {'':None}
+        #if self.data_files:
+        #    df_options_dict = OrderedDict.fromkeys(self.data_files.keys())
+        ## delete current OptionMenu entries:
+        #self._widgets['datafile_option_menu']['menu'].delete(0,'end')
+        ## add each new datafile as a "choice" for the OptionMenu
+        #for df in df_options_dict.keys():
+        #    self._widgets['datafile_option_menu']['menu'].add_command(#label=df)
+        #        #label=df, command=tkinter._setit(self._vars['io_control']['data_file'],df))
+        #        label=df, command=partial(self._vars['io_control']['data_file'].set,df))
+        #        #label=df, command=self._vars['io_control']['data_file'].set(df))
+        ##import pdb; pdb.set_trace()
+        #self._vars['io_control']['data_file'].set(list(df_options_dict.keys())[0])
+        ##if df_options:
+        #    self._vars['io_control']['data_file'].set(df_options[0])
+
     def _browse_sys_file(*args,**kwargs):
         raise NotImplementedError('implement _browse_sys_file()!') 
 
     def _save_sys_file(*args,**kwargs):
         raise NotImplementedError('implement _save_sys_file()!') 
 
-    def _load_sys_file(*args,**kwargs):
-        raise NotImplementedError('implement _load_sys_file()!') 
+    def _load_sys_file(self,sys_file):
+        if os.path.exists(sys_file):
+            new_sys = load_sys_from_yaml(sys_file)
+        else:
+            new_sys = xrsdsys.System()
+        self._vars['io_control']['system_file'].set(sys_file)
+        self._set_system(new_sys)
 
-    def _set_system_file(*args,**kwargs):
-        raise NotImplementedError('implement _set_system_file()!') 
-
-    def _update_data_file(*args,**kwargs):
-        raise NotImplementedError('implement _update_data_file()!') 
+    def _update_data_file(self,*event_args):
+        df = self._vars['io_control']['data_file'].get()
+        q_I = np.loadtxt(df)
+        self.q = q_I[:,0]
+        self.I = q_I[:,1]
+        if q_I.shape[1] > 2:
+            self.dI = q_I[:,2]
+        if self.data_files[df]:
+            self._load_sys_file(self.data_files[df])
 
     def _browse_data_files(*args,**kwargs):
         raise NotImplementedError('implement _browse_data_files()!') 
@@ -358,10 +407,6 @@ class XRSDFitGUI(object):
 
         cf.grid(row=1,pady=2,padx=2,sticky='ew')
     
-    def _set_data_files(self,data_files):
-        # TODO: update data file index, etc.
-        pass
-
     def _set_experiment_id(self,event=None):
         try:
             new_val = self._vars['fit_control']['experiment_id'].get()
@@ -823,8 +868,8 @@ class XRSDFitGUI(object):
             self._frames['new_population'].pack_forget() 
             self._frames['populations'][new_nm] = self._create_pop_frame(new_nm)
             npops = len(self._frames['populations'])
-            self._frames['populations'][new_nm].grid(row=1+npops,padx=2,pady=2,sticky='ew') 
-            self._frames['new_population'].grid(row=2+npops,padx=2,pady=2,sticky='ew') 
+            self._frames['populations'][new_nm].grid(row=2+npops,padx=2,pady=2,sticky='ew') 
+            self._frames['new_population'].grid(row=3+npops,padx=2,pady=2,sticky='ew') 
             # update_idletasks() processes the new frame,
             # so that it is accounted for in control_canvas_configure()
             self.fit_gui.update_idletasks()
@@ -867,11 +912,11 @@ class XRSDFitGUI(object):
         self._draw_plots()
 
     def _fit(self):
-        sys_opt = xrsdsys.fit(
-            self.sys,
-            self.q,self.I,self.dI,
-            self.error_weighted,self.logI_weighted,self.q_range
-            )
+        sys_opt = xrsdsys.fit(self.sys,self.q,self.I,self.dI)
+            #self._vars['fit_control']['error_weighted'].get(),
+            #self._vars['fit_control']['logI_weighted'].get(),
+            #[self._vars['fit_control']['q_range'][0].get(),self._vars['fit_control']['q_range'][1].get()]
+            #)
         self.sys.update_from_dict(sys_opt.to_dict())
         self._update_parameter_values() 
         self._draw_plots()
@@ -887,17 +932,33 @@ class XRSDFitGUI(object):
     def _estimate(self):
         feats = profiler.profile_pattern(self.q,self.I)
         pred = xrsdpred.predict(feats)
-        sys_est = xrsdpred.system_from_prediction(pred,self.q,self.I,
-            source_wavelength=self._vars['fit_control']['wavelength'].get()
-            )
+        sys_est = xrsdpred.system_from_prediction(pred,self.q,self.I)
         # replace self.sys
         sys_est.update_from_dict(dict(
             features = self.sys.features,
             sample_metadata = self.sys.sample_metadata,
             fit_report = self.sys.fit_report
             ))
+        self._set_system(sys_est)
+
+    def _set_system(self,new_sys):
         #self.sys.update_from_dict(sys_est.to_dict())
-        self.sys = sys_est
+        self.sys = new_sys 
+        # update fit control widgets for new system
+        self._vars['fit_control']['good_fit'].set(self.sys.fit_report['good_fit'])
+        self._vars['fit_control']['q_range'][0].set(self.sys.fit_report['q_range'][0])
+        self._vars['fit_control']['q_range'][1].set(self.sys.fit_report['q_range'][1])
+        self._vars['fit_control']['error_weighted'].set(self.sys.fit_report['error_weighted'])
+        self._vars['fit_control']['logI_weighted'].set(self.sys.fit_report['logI_weighted'])
+        self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
+        self._vars['fit_control']['sample_id'].set(self.sys.sample_metadata['sample_id'])
+        self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
+        if any([pp.structure=='crystalline' for pp in new_sys.populations.values()]):
+            if new_sys.sample_metadata['source_wavelength'] == 0.:
+                warnings.warn('Diffraction computations require a nonzero wavelength: setting default 1.5406')
+                self._vars['fit_control']['wavelength'].set(1.5406)
+                #sys_est.sample_metadata['source_wavelength'] = 1.
+
         # repack everything 
         self._repack_pop_frames()
         self._repack_noise_frame()
