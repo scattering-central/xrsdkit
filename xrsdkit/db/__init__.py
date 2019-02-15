@@ -3,6 +3,7 @@
 This API requires the pygresql Python package.
 In turn, pygresql requires PostgreSQL packages to be installed on the local host.
 At the time of development, Unix platforms require libpq and libpq-dev.
+The setup of PostgreSQL is outlined in the main xrsdkit package documentation.
 
 The operations for managing this database involve up to three hosts.
 One, the localhost (your machine) running the program.
@@ -12,17 +13,18 @@ The localhost machine may serve all three of these purposes at small scale.
 For installations at scale, separate specialized hosts are probably necessary.
 
 To facilitate connections between the local host and the storage and db hosts,
-the local host user must have two files in their home directory:
+the localhost user must have two files in their home directory:
 '.xrsdkit_db_host' and '.xrsdkit_storage_host'.
-These are plain text files whose lines are as follows.
+Developers planning on running tests against a test database
+should also have a '.xrsdkit_test_db_host' file.
 
-.xrsdkit_db_host:
+.xrsdkit_db_host / .xrsdkit_test_db_host:
     line 1: db_host_name:db_server_port
     line 2: database title 
     line 3: database username
     line 4: database user password
 
-example .xrsdkit_db_host file content:
+example:
 192.99.99.999:7653
 test_db
 db_user
@@ -34,7 +36,7 @@ clever_password
     line 3: username on storage host
     line 4: path to user's private ssh key file on local host
 
-example .xrsdkit_storage_host file content:
+example:
 192.99.99.998
 /path/to/test/dataset
 storage_user
@@ -133,6 +135,7 @@ from ..tools.profiler import profile_keys
 user_home_dir = os.path.expanduser('~')
 storage_host_info_file = os.path.join(user_home_dir,'.xrsdkit_storage_host')
 db_host_info_file = os.path.join(user_home_dir,'.xrsdkit_db_host')
+test_db_host_info_file = os.path.join(user_home_dir,'.xrsdkit_test_db_host')
 
 storage_client = None
 storage_path = None
@@ -165,6 +168,20 @@ try:
         warnings.warn('database host info file not found')
 except:
     warnings.warn('unable to establish connection to database host')
+
+test_db_connector = None
+try:
+    if os.path.exists(test_db_host_info_file): 
+        db_host_lines = open(db_host_info_file,'r').readlines()
+        db_host,db_port = db_host_lines[0].split(':')
+        db_name = db_host_lines[1].strip()
+        db_user = db_host_lines[2].strip()
+        db_key = db_host_lines[3].strip()
+        test_db_connector = DB(dbname=db_name, host=db_host, port=int(db_port), user=db_user, passwd=db_key)
+    else:
+        warnings.warn('test database host info file not found')
+except:
+    warnings.warn('unable to establish connection to test database host')
 
 def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     """Add data to the 'files' table from a directory on any remote machine.
