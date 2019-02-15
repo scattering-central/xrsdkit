@@ -32,9 +32,10 @@ and many public resources are available by searching on the web.
 Locate your database configuration files. 
 On RedHat servers with PostgreSQL 10, 
 the files are located at: 
+::
 
-    `/var/lib/pgsql/10/data/pg_hba.conf`
-    `/var/lib/pgsql/10/data/postgresql.conf`
+    /var/lib/pgsql/10/data/pg_hba.conf
+    /var/lib/pgsql/10/data/postgresql.conf
 
 Note that other platforms and database version 
 may place these files in different locations.
@@ -53,6 +54,7 @@ https://www.postgresql.org/docs/10/runtime-config-connection.html
 If the database is not being set up on the local host,
 client authentication over TCP/IP is controlled by the "host" line,
 which should be formatted as follows:
+::
 
     host    database    user    IP-address  IP-mask auth-method [auth-options]
 
@@ -103,9 +105,9 @@ The tables will be created by methods in the `xrsdkit.db` subpackage.
 See, for example:
 ::
 
-    `load_yml_to_file_table()`
-    `load_from_files_table_to_samples_table()`
-    `load_from_samples_to_training_table()`
+    xrsdkit.db.load_yml_to_file_table()
+    xrsdkit.db.load_from_files_table_to_samples_table()
+    xrsdkit.db.load_from_samples_to_training_table()
 
 For developers who will be running tests,
 The tables in the test database will be created by running `tests/test_db.py`.
