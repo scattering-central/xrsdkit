@@ -31,26 +31,56 @@ class Population(object):
         self.update_parameters()
 
     def update_settings(self,new_settings={}):
-        trial_settings = copy.deepcopy(self.settings)
-        trial_settings.update(new_settings)
-        # get all valid settings that would exist,
-        # given current self.settings and new_settings
-        valid_settings = xrsdefs.all_settings(self.structure,self.form,trial_settings)
-        # copy any trial setting values to valid_settings-
-        # at this point trial_settings should be a subset of valid_settings
-        for stg_nm,stg_val in trial_settings.items():
-            if stg_nm in valid_settings:
-                valid_settings[stg_nm] = stg_val
-        # make sure trial_settings are valid 
-        xrsdefs.validate(self.structure,self.form,valid_settings)
-        # remove any self.settings that are no longer valid
+        #current_settings = copy.deepcopy(self.settings)
+        primary_settings = copy.deepcopy(xrsdefs.structure_settings[self.structure])
+        # edge case: self.form is None during __init__.
+        if self.form: primary_settings.update(copy.deepcopy(xrsdefs.form_settings[self.form]))
+        # replace any primary_setting values with the new_settings
+        for stgnm in primary_settings.keys():
+            #if stgnm in current_settings:
+            #    primary_settings[stgnm] = current_settings[stgnm]
+            if stgnm in new_settings:
+                primary_settings[stgnm] = new_settings[stgnm]
+        # fetch the secondary settings corresponding to these primary settings
+        secondary_settings = xrsdefs.secondary_settings(self.structure,self.form,primary_settings)
+        for stgnm in secondary_settings.keys():
+            if stgnm in new_settings:
+                secondary_settings[stgnm] = new_settings[stgnm]
+        # form a dict of all settings, primary plus secondary
+        all_settings = copy.deepcopy(primary_settings)
+        all_settings.update(secondary_settings)
+        # ensure validity
+        xrsdefs.validate(self.structure,self.form,all_settings)
+        # remove any self.settings not in all_settings
         current_stg_nms = list(self.settings.keys())
         for stg_nm in current_stg_nms:
-            if not stg_nm in valid_settings:
+            if not stg_nm in all_settings:
                 self.settings.pop(stg_nm)
-        # update settings
-        self.settings.update(valid_settings)
+        # update self.settings
+        self.settings.update(all_settings)
+        # update self.parameters to respect the new settings
         self.update_parameters()
+
+        #trial_settings = copy.deepcopy(self.settings)
+        #trial_settings.update(new_settings)
+        ## get all valid settings that would exist,
+        ## given current self.settings and new_settings
+        #valid_settings = xrsdefs.all_settings(self.structure,self.form,trial_settings)
+        ## copy any trial setting values to valid_settings-
+        ## at this point trial_settings should be a subset of valid_settings
+        #for stg_nm,stg_val in trial_settings.items():
+        #    if stg_nm in valid_settings:
+        #        valid_settings[stg_nm] = stg_val
+        ## make sure valid_settings are valid 
+        #xrsdefs.validate(self.structure,self.form,valid_settings)
+        ## remove any self.settings that are no longer valid
+        #current_stg_nms = list(self.settings.keys())
+        #for stg_nm in current_stg_nms:
+        #    if not stg_nm in valid_settings:
+        #        self.settings.pop(stg_nm)
+        ## update settings
+        #self.settings.update(valid_settings)
+        #self.update_parameters()
 
     def update_parameters(self,new_params={}):
         valid_params = xrsdefs.all_params(self.structure,self.form,self.settings)
@@ -97,8 +127,11 @@ class Population(object):
 
     @classmethod
     def from_dict(cls,d):
-        inst = cls(d['structure'],d['form'])
-        inst.update_from_dict(d)
+        stgs = {}
+        if 'settings' in d: stgs = d.pop('settings')
+        params = {}
+        if 'parameters' in d: params = d.pop('parameters')
+        inst = cls(d.pop('structure'),d.pop('form'),stgs,params)
         return inst
 
     def compute_intensity(self,q,source_wavelength):
