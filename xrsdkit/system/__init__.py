@@ -8,7 +8,7 @@ from .noise import NoiseModel
 from .population import Population
 from .. import definitions as xrsdefs 
 from ..tools import compute_chi2
-from ..tools.profiler import profile_pattern
+from ..tools.profiler import profile_keys, profile_pattern
 
 # TODO: when params, settings, etc are changed,
 #   ensure all attributes remain valid,
@@ -16,9 +16,7 @@ from ..tools.profiler import profile_pattern
 
 class System(object):
 
-    # TODO: implement caching of settings, parameters, intensities,
-    # so that redundant calls to compute_intensity
-    # are handled instantly 
+    # TODO: use caching to speed up repeated compute_intensity() evaluations
 
     def __init__(self,**kwargs):
         self.populations = {}
@@ -28,7 +26,7 @@ class System(object):
             good_fit=False,
             q_range=[0.,float('inf')]
             )
-        self.features = {}
+        self.features = dict.fromkeys(profile_keys) 
         src_wl = 0.
         if 'source_wavelength' in kwargs: src_wl = kwargs['source_wavelength'] 
         self.sample_metadata = dict(
@@ -104,9 +102,7 @@ class System(object):
 
     @classmethod
     def from_dict(cls,d):
-        inst = cls()
-        inst.update_from_dict(d)
-        return inst
+        return cls(**d)
 
     def compute_intensity(self,q):
         """Computes scattering/diffraction intensity for some `q` values.
