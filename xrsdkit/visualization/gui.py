@@ -215,8 +215,8 @@ class XRSDFitGUI(object):
         self._frames['new_population'].grid(row=3+n_pop_frames,pady=2,padx=2,sticky='ew')
 
     def _repack_pop_frames(self):
-        for pop_nm,frm in self._frames['populations'].items(): frm.pack_forget() 
-        self._frames['new_population'].pack_forget()
+        for pop_nm,frm in self._frames['populations'].items(): frm.grid_forget() 
+        self._frames['new_population'].grid_forget()
         new_pop_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
         for pop_nm in self._frames['populations'].keys(): 
@@ -288,7 +288,7 @@ class XRSDFitGUI(object):
         dfcb.config(width=10,anchor='e')
         dfvar.trace('w',self._update_data_file)
         if self._widgets['datafile_option_menu']: 
-            self._widgets['datafile_option_menu'].pack_forget()
+            self._widgets['datafile_option_menu'].grid_forget()
         dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
         self._vars['io_control']['data_file'] = dfvar
         self._widgets['datafile_option_menu'] = dfcb
@@ -493,7 +493,7 @@ class XRSDFitGUI(object):
 
     def _repack_noise_frame(self):
         nmdl = self.sys.noise_model.model
-        for par_nm,frm in self._frames['parameters']['noise'].items(): frm.pack_forget() 
+        for par_nm,frm in self._frames['parameters']['noise'].items(): frm.grid_forget() 
         new_par_frms = OrderedDict()
         # save the relevant frames, create new ones as needed 
         for par_nm in xrsdefs.noise_params[nmdl]: 
@@ -586,14 +586,13 @@ class XRSDFitGUI(object):
         pop_params = self.sys.populations[pop_nm].parameters
         #
         # SETTINGS: 
-        for stg_nm,frm in self._frames['settings'][pop_nm].items(): frm.pack_forget() 
+        for stg_nm,frm in self._frames['settings'][pop_nm].items(): frm.grid_forget() 
         new_stg_frms = OrderedDict()
-        # save the relevant frames, create new ones as needed 
-        for stg_nm in pop_settings:
-            if stg_nm in self._frames['settings'][pop_nm]:
-                new_stg_frms[stg_nm] = self._frames['settings'][pop_nm][stg_nm]
-            else:
-                new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,stg_nm)
+        # create new frames for all settings
+        # NOTE: it is tempting to "keep" some frames that need not be renewed,
+        # but if so, the relevant OptionMenu widgets would still need to be updated
+        for stg_nm, stg_val in pop_settings.items():
+            new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,stg_nm)
         # destroy any frames that didn't get repacked
         stg_frm_nms = list(self._frames['settings'][pop_nm].keys())
         for stg_nm in stg_frm_nms: 
@@ -605,14 +604,14 @@ class XRSDFitGUI(object):
         self._frames['settings'][pop_nm] = new_stg_frms
         #
         # PARAMETERS: 
-        for par_nm,frm in self._frames['parameters'][pop_nm].items(): frm.pack_forget() 
+        for par_nm,frm in self._frames['parameters'][pop_nm].items(): frm.grid_forget() 
+        self.fit_gui.update_idletasks()
         new_par_frms = OrderedDict()
-        # save the relevant frames, create new ones as needed 
+        # NOTE: it is tempting to "keep" some frames that need not be renewed,
+        # but if so, the widgets for the bounds, constraints, etc. would still need to be updated 
+        # create new frames for all params
         for par_nm in pop_params: 
-            if par_nm in self._frames['parameters'][pop_nm]:
-                new_par_frms[par_nm] = self._frames['parameters'][pop_nm][par_nm]
-            else:
-                new_par_frms[par_nm] = self._create_param_frame(pop_nm,par_nm)
+            new_par_frms[par_nm] = self._create_param_frame(pop_nm,par_nm)
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['parameters'][pop_nm].keys())
         for par_nm in par_frm_nms: 
@@ -638,7 +637,6 @@ class XRSDFitGUI(object):
         for param_idx, paramf in enumerate(self._frames['parameters'][pop_nm].values()):
             paramf.grid(row=1+n_stg_frms+param_idx,sticky='ew')
 
-    # TODO: if xrsdefs.setting_selections, make the entry a combobox
     def _create_setting_frame(self,pop_nm,stg_nm):
         stg_vars = self._vars['settings'][pop_nm]
         stg_frames = self._frames['settings'][pop_nm]
@@ -647,11 +645,11 @@ class XRSDFitGUI(object):
         stgf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
         stgf.grid_columnconfigure(1,weight=1)
 
-        if xrsdefs.setting_datatypes[stg_nm] is str:
+        if xrsdefs.setting_datatypes(stg_nm) is str:
             stgv = tkinter.StringVar(parent_frame)
-        elif xrsdefs.setting_datatypes[stg_nm] is int:
+        elif xrsdefs.setting_datatypes(stg_nm) is int:
             stgv = tkinter.IntVar(parent_frame)
-        elif xrsdefs.setting_datatypes[stg_nm] is float:
+        elif xrsdefs.setting_datatypes(stg_nm) is float:
             stgv = tkinter.DoubleVar(parent_frame)
         stg_frames[stg_nm] = stgf
         stg_vars[stg_nm] = stgv
@@ -660,9 +658,15 @@ class XRSDFitGUI(object):
         stgl.grid(row=0,column=0,sticky='e')
         s = parent_obj.settings[stg_nm]
         stgv.set(str(s))
-        stge = self.connected_entry(stgf,stgv,
-            partial(self._update_setting,pop_nm,stg_nm))
-        stge.grid(row=0,column=1,sticky='ew')
+
+        stg_sel = OrderedDict.fromkeys(xrsdefs.setting_selections(stg_nm,parent_obj.structure,parent_obj.form))
+        if stg_sel:
+            stgcb = tkinter.OptionMenu(stgf,stgv,*stg_sel)
+            stgv.trace('w',partial(self._update_setting,pop_nm,stg_nm))
+            stgcb.grid(row=0,column=1,sticky='ew')
+        else:
+            stge = self.connected_entry(stgf,stgv,partial(self._update_setting,pop_nm,stg_nm))
+            stge.grid(row=0,column=1,sticky='ew')
         return stgf
 
     def _create_param_frame(self,pop_nm,param_nm):
@@ -794,7 +798,7 @@ class XRSDFitGUI(object):
                 self._draw_plots()
         return vflag
 
-    def _update_setting(self,pop_nm,stg_nm,event=None):
+    def _update_setting(self,pop_nm,stg_nm,*event_args):
         vflag = self._validate_setting(pop_nm,stg_nm) 
         if vflag:
             x = self.sys.populations[pop_nm]
@@ -865,7 +869,7 @@ class XRSDFitGUI(object):
         new_nm = self._vars['new_population_name'].get()
         if new_nm and not new_nm in self.sys.populations:
             self.sys.add_population(new_nm,'diffuse','atomic')
-            self._frames['new_population'].pack_forget() 
+            self._frames['new_population'].grid_forget() 
             self._frames['populations'][new_nm] = self._create_pop_frame(new_nm)
             npops = len(self._frames['populations'])
             self._frames['populations'][new_nm].grid(row=2+npops,padx=2,pady=2,sticky='ew') 
