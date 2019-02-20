@@ -153,9 +153,9 @@ def secondary_settings(structure,form,primary_settings):
         if stg_nm == 'distribution' and form == 'spherical':
             if stg_val == 'r_normal':
                 sec_stgs.update({'sampling_width':3.5,'sampling_step':0.05})
-        if stg_nm == 'distribution' and form == 'guinier_porod':
-            if stg_val == 'rg_normal':
-                sec_stgs.update({'sampling_width':2.0,'sampling_step':0.1})
+        #if stg_nm == 'distribution' and form == 'guinier_porod':
+        #    if stg_val == 'rg_normal':
+        #        sec_stgs.update({'sampling_width':2.0,'sampling_step':0.1})
     return sec_stgs 
 
 # datatypes for all settings 
@@ -185,7 +185,7 @@ def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
     if stg_nm == 'interaction': return ['hard_spheres']
     if stg_nm == 'distribution':
         if form == 'guinier_porod':
-            return ['single','rg_normal']
+            return ['single']#,'rg_normal']
         if form == 'spherical':
             return ['single','r_normal']
     if stg_nm in ['q_min','q_max','sampling_width','sampling_step']: return []
@@ -263,10 +263,10 @@ def additional_form_factor_params(form,prior_settings):
                     {'occupancy_'+str(iat):{'value':1.,'fixed':True,'bounds':[0.,1.],'constraint_expr':None}}
                     )
             return coord_params
-    if form == 'guinier_porod':
-        if 'distribution' in prior_settings:
-            if prior_settings['distribution'] == 'rg_normal':
-                return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
+    #if form == 'guinier_porod':
+    #    if 'distribution' in prior_settings:
+    #        if prior_settings['distribution'] == 'rg_normal':
+    #            return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
     if form == 'spherical':
         if 'distribution' in prior_settings:
             if prior_settings['distribution'] == 'r_normal':
