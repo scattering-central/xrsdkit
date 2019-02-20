@@ -57,11 +57,11 @@ def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
         if form == 'guinier_porod':
             if settings['distribution'] == 'single':
                 ff_sqr = guinier_porod_intensity(q,parameters['rg']['value'],parameters['D']['value']) 
-            if settings['distribution'] == 'rg_normal':
-                ff_sqr = gp_normal_intensity(q,
-                    parameters['rg']['value'],parameters['sigma']['value'],
-                    settings['sampling_width'],settings['sampling_step']
-                    )
+            #if settings['distribution'] == 'rg_normal':
+            #    ff_sqr = gp_normal_intensity(q,
+            #        parameters['rg']['value'],parameters['sigma']['value'],
+            #        settings['sampling_width'],settings['sampling_step']
+            #        )
         if structure == 'disordered':
             sf = xrsf.hard_sphere_sf(q,parameters['r_hard']['value'],parameters['v_fraction']['value'])
             return parameters['I0']['value'] * sf * ff_sqr 
@@ -111,23 +111,23 @@ def guinier_porod_intensity(q,rg,porod_exponent):
     return I 
 
 
-def gp_normal_intensity(q,rg,D,sigma,sampling_width=2.0,sampling_step=0.1):
-    if sigma < 1.E-9:
-        I = guinier_porod_intensity(q,rg,D)
-        I_0 = 1.
-    else:
-        I = np.zeros(q.shape)
-        I_0 = 0.
-        sigma_rg = sigma*rg
-        rg_min,rg_max,d_rg = positive_normal_sampling(rg,sigma,sampling_width,sampling_step)
-        for rg_i in np.arange(rg_min,rg_max,d_rg):
-            # The normal-distributed density of particles with rg = rg_i:
-            rhoi = 1./(np.sqrt(2*np.pi)*sigma_rg)*np.exp(-1*(rg-rg_i)**2/(2*sigma_rg**2))
-            I0_i = rhoi*d_rg
-            I_0 += I0_i
-            I += I0_i*guinier_porod_intensity(q,rg_i,D)
-    I = I/I_0 
-    return I 
+#def gp_normal_intensity(q,rg,D,sigma,sampling_width=2.0,sampling_step=0.1):
+#    if sigma < 1.E-9:
+#        I = guinier_porod_intensity(q,rg,D)
+#        I_0 = 1.
+#    else:
+#        I = np.zeros(q.shape)
+#        I_0 = 0.
+#        sigma_rg = sigma*rg
+#        rg_min,rg_max,d_rg = positive_normal_sampling(rg,sigma,sampling_width,sampling_step)
+#        for rg_i in np.arange(rg_min,rg_max,d_rg):
+#            # The normal-distributed density of particles with rg = rg_i:
+#            rhoi = 1./(np.sqrt(2*np.pi)*sigma_rg)*np.exp(-1*(rg-rg_i)**2/(2*sigma_rg**2))
+#            I0_i = rhoi*d_rg
+#            I_0 += I0_i
+#            I += I0_i*guinier_porod_intensity(q,rg_i,D)
+#        I = I/I_0 
+#    return I 
 
 
 def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.05):  
