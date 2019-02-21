@@ -1,5 +1,3 @@
-import re
-
 import numpy as np
 
 from . import regression_models, classification_models, test_regression_models, test_classification_models
@@ -33,14 +31,45 @@ def predict(features,test=False):
     results = {}
 
     # evaluate the system class
-    sys_cls = classifiers['system_class'].classify(features)
-    results['system_class'] = sys_cls 
-
-    if sys_cls[0] == 'unidentified':
+    #sys_cls = classifiers['system_class'].classify(features)
+    main_cls = classifiers['main_classifiers']
+    pop_pred = []
+    n_pop_pred = {}
+    for name, cl in main_cls.items():
+        if name.startswith("n_") == False and cl.classify(features)[0]:
+            pop_pred.append(name)
+    if len(pop_pred)==0:
+        results['system_class'] = 'unidentified'
         return results
 
-    cl_models_to_use = classifiers[sys_cls[0]]
-    reg_models_to_use = regressors[sys_cls[0]]
+    #TODO find a better way to keep the order: diffuse__disordered__crystalline
+    sys_cls = ""
+    if "diffuse" in pop_pred:
+        if main_cls["n_diffuse"].trained:
+            n = main_cls["n_diffuse"].classify(features)[0]
+        else:
+            n = 1
+        for i in range(n):
+            sys_cls +="diffuse__"
+    if "disordered" in pop_pred:
+        if main_cls["n_disordered"].trained:
+            n = main_cls["n_disordered"].classify(features)[0]
+        else:
+            n = 1
+        for i in range(n):
+            sys_cls +="disordered__"
+    if "crystalline" in pop_pred:
+        if main_cls["n_crystalline"].trained:
+            n= main_cls["n_crystalline"].classify(features)[0]
+        else:
+            n = 1
+        for i in range(n):
+            sys_cls +="crystalline__"
+    sys_cls=sys_cls.strip("__")
+    results['system_class'] = sys_cls
+
+    cl_models_to_use = classifiers[sys_cls]
+    reg_models_to_use = regressors[sys_cls]
 
     # evaluate the noise model
     if cl_models_to_use['noise_model'].trained:
@@ -60,7 +89,7 @@ def predict(features,test=False):
             results['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].default_val
 
     # evaluate population form factors and parameters
-    for ipop, struct in enumerate(results['system_class'][0].split('__')):
+    for ipop, struct in enumerate(results['system_class'].split('__')):
         pop_id = 'pop{}'.format(ipop)
         if reg_models_to_use[pop_id]['I0_fraction'].trained:
             results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
@@ -127,7 +156,7 @@ def system_from_prediction(prediction,q,I,**kwargs):
     new_sys : xrsdkit.system.System
         a System object built from the prediction dictionary
     """
-    sys_cls = prediction['system_class'][0]
+    sys_cls = prediction['system_class']
     if sys_cls == 'unidentified':
         return System()
     nmodl = prediction['noise_model'][0]

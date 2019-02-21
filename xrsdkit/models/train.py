@@ -82,7 +82,45 @@ def train_classification_models(data,hyper_parameters_search=False):
         trained on the given dataset `data`.
     """
     
-    cls_models = {} 
+    cls_models = {}
+    cls_models['main_classifiers'] = {}
+
+    # find all existing types of populations in training data:
+    pops = data['system_class'].tolist()
+    pops = [p.split("__") for p in pops]
+    flat_list = [item for sublist in pops for item in sublist]
+    all_pops = set(flat_list)
+    all_pops.discard('unidentified')
+    all_sys_cls = data['system_class'].tolist()
+
+    for p in all_pops:
+        print(os.linesep+'Training '+p+' classifier')
+        model = Classifier(p, None)
+        p_data = data.copy()
+        col_d = [p in s for s in all_sys_cls]
+        p_data[p] = col_d
+        if p in classification_models['main_classifiers'].keys() \
+        and classification_models['main_classifiers'][p].trained:
+            old_pars = classification_models['main_classifiers'][p].model.get_params()
+            model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+        model.train(p_data, hyper_parameters_search=hyper_parameters_search)
+        cls_models['main_classifiers'][p] = model
+
+        # number of p populations
+        target = "n_" + p
+        print(os.linesep+'Training '+target+' classifier')
+        model = Classifier(target, None)
+        n_p_data = p_data.loc[p_data[p]==True].copy()
+        col_n = n_p_data['system_class'].tolist()
+        col_d_n = [s.count(p) for s in col_n]
+        n_p_data[target] = col_d_n
+        if target in classification_models.keys() \
+        and classification_models[target].trained:
+            old_pars = classification_models[target].model.get_params()
+            model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+        model.train(n_p_data, hyper_parameters_search=hyper_parameters_search)
+        cls_models['main_classifiers'][target] = model
+    '''
     print(os.linesep+'Training main system classifier')
     model = Classifier('system_class',None)
     if 'system_class' in classification_models.keys() \
@@ -91,6 +129,7 @@ def train_classification_models(data,hyper_parameters_search=False):
         model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
     model.train(data, hyper_parameters_search=hyper_parameters_search)
     cls_models['system_class'] = model
+    '''
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers:
@@ -190,14 +229,24 @@ def save_classification_models(models=classification_models, test=False):
         model_dict = test_classification_models
     if not os.path.exists(cl_root_dir): os.mkdir(cl_root_dir)
 
+    if 'main_classifiers' in models:
+        model_dict['main_classifiers'] = models['main_classifiers']
+        if not os.path.exists(os.path.join(cl_root_dir,'main_classifiers')):
+            os.mkdir(os.path.join(cl_root_dir,'main_classifiers'))
+        for model_name, mod in model_dict['main_classifiers'].items():
+            yml_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.yml')
+            txt_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.txt')
+            save_model_data(mod,yml_path,txt_path)
+    '''
+
     if 'system_class' in models:
         model_dict['system_class'] = models['system_class']
         yml_path = os.path.join(cl_root_dir,'system_class.yml')
         txt_path = os.path.join(cl_root_dir,'system_class.txt')
         save_model_data(models['system_class'],yml_path,txt_path)
-
+    '''
     all_sys_cls = list(models.keys())
-    all_sys_cls.pop(all_sys_cls.index('system_class'))
+    all_sys_cls.pop(all_sys_cls.index('main_classifiers'))
     for sys_cls in all_sys_cls: 
         sys_cls_dir = os.path.join(cl_root_dir,sys_cls)
         if not sys_cls in model_dict: model_dict[sys_cls] = {}

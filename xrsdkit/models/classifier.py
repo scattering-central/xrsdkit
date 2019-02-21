@@ -107,8 +107,6 @@ class Classifier(XRSDModel):
                         number_of_experiments = len(experiments),
                         experiments = str(experiments),
                         confusion_matrix = str(cm),
-                        F1_score_by_classes = f1_score(true_labels, pred_labels,
-                                    labels=all_classes, average=None).tolist(),
                         F1_score_averaged_not_weighted = f1_score(true_labels,
                                     pred_labels, labels=all_classes, average='macro'),
                         accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None),
@@ -310,18 +308,18 @@ class Classifier(XRSDModel):
             matrix = self.cross_valid_results['confusion_matrix'].split('\n')
             for i in range(len(self.cross_valid_results['all_classes'])):
                 result += (matrix[i] + "  " +
-                        self.cross_valid_results['all_classes'][i] + '\n')
+                        str(self.cross_valid_results['all_classes'][i]) + '\n')
             return result
         else:
             return "Confusion matrix was not created"
-
+    '''
     def print_F1_scores(self):
         result = ''
         for i in range(len(self.cross_valid_results['F1_score_by_classes'])):
-            result += (self.cross_valid_results['all_classes'][i] +
+            result += (str(self.cross_valid_results['all_classes'][i]) +
                        " : " + str(self.cross_valid_results['F1_score_by_classes'][i]) + '\n')
         return result
-
+    '''
     def print_accuracy(self):
         if self.cross_valid_results['accuracy']:
             return str(self.cross_valid_results['accuracy'])
@@ -344,9 +342,7 @@ class Classifier(XRSDModel):
             str(self.cross_valid_results['number_of_experiments'])) + \
             'Confusion matrix:\n' + \
             self.print_confusion_matrix()+'\n\n' + \
-            'F1 scores by label:\n' + \
-            self.print_F1_scores() + '\n'\
-            'Label-averaged unweighted F1 score: {}\n\n'.format(self.average_F1()) + \
+            'F1 score (for multi class: label-averaged unweighted): {}\n\n'.format(self.average_F1()) + \
             'Accuracy:\n' + \
             self.print_accuracy() + '\n'+\
             "Test/training split: " + self.cross_valid_results['test_training_split']
