@@ -15,6 +15,7 @@ class Classifier(XRSDModel):
 
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
+        self.score = 'f1_macro'
         self.grid_search_hyperparameters = dict(
             alpha = [0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
             l1_ratio = [0.15, 0.5, 0.85, 1.0] # default 0.15
@@ -25,19 +26,31 @@ class Classifier(XRSDModel):
         return -1*f1_score(true_labels, pred_labels, average='macro')
 
     def build_model(self,model_hyperparams={}):
+        '''
+        if all([p in model_hyperparams for p in ['C']]):
+            new_model = linear_model.LogisticRegression(
+                    C=model_hyperparams['C'],
+                    max_iter=1000, class_weight='balanced', penalty='l1'
+                    )
+        else:
+            new_model = linear_model.LogisticRegression(
+                max_iter=1000, class_weight='balanced', penalty='l1'
+                )
+        '''
         if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
             new_model = linear_model.SGDClassifier(
                     alpha=model_hyperparams['alpha'], 
                     loss='log',
                     penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000000, class_weight='balanced', tol=1e-10#, eta0 = 0.001, learning_rate='adaptive'
+                    max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.0001, learning_rate='constant'
                     )
         else:
             new_model = linear_model.SGDClassifier(
                 loss='log', penalty='elasticnet',
-                max_iter=1000000, class_weight='balanced', tol=1e-10#, eta0 = 0.001, learning_rate='adaptive'
+                max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.0001, learning_rate='constant'
                 )
+
         return new_model
 
     def classify(self, sample_features):
