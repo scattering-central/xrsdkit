@@ -229,11 +229,12 @@ class Classifier(XRSDModel):
                 if not underrep_pair_scores and not underrep_pair_n_cl:
                     # there are no underrepresented groups that are valid pairing candidates- 
                     # pair with the fully represented group that gives the best pairing score
-                    best_pairing_gid = list(pairing_scores.keys())[np.argmin(np.array(pairing_scores.values()))]
+                    best_pairing_gid = list(pairing_scores.keys())[np.argmin(list(pairing_scores.values()))]
                     # if `gid` is the only remaining underrepresented group, 
-                    # we have the possibility of `best_pairing_gid` == `gid`
+                    # we have the possibility of `best_pairing_gid` == `gid`-
+                    # use np.argmax to select a fully represented group
                     if best_pairing_gid == gid:
-                        best_pairing_gid = list(n_cl_in_pair.keys())[np.argmax(np.array(n_cl_in_pair.values()))]
+                        best_pairing_gid = list(n_cl_in_pair.keys())[np.argmax(list(n_cl_in_pair.values()))]
                 else:
                     # if possible, get full representation by pairing 
                     # with another underrepresented group
@@ -255,12 +256,17 @@ class Classifier(XRSDModel):
             if final_gids.shape[0] < 2:
                 n_splits = 2
                 for cl,count in cl_counts.items():
-                    if n_splits > count: 
-                        msg = 'too many splits ({}) for sample count ({})'.format(n_splits,count)
-                        raise ValueError(msg)
-                    km = KMeans(n_splits)
-                    new_grps = km.fit_predict(dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),profiler.profile_keys])+1
-                    dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),'group_id'] = new_grps 
+                    if n_splits > count:
+                        # not enough samples- remove the class 
+                        dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),'group_id'] = 0 
+                    else:    
+                        km = KMeans(n_splits)
+                        new_grps = km.fit_predict(dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),profiler.profile_keys])+1
+                        dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),'group_id'] = new_grps 
+
+            # ensure we are left with at least 2 classes
+            cl_count = len(dataframe.loc[dataframe['group_id']>0,self.target].unique())
+            if cl_count < 2: return False
 
         return trainable 
 
