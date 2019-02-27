@@ -1,8 +1,13 @@
+import copy
+
 import numpy as np
 from sklearn import linear_model, preprocessing
 from sklearn.metrics import mean_absolute_error
+from sklearn.cluster import KMeans
 
 from .xrsd_model import XRSDModel
+from ..tools import profiler
+
 
 class Regressor(XRSDModel):
     """Class for generating models to predict real-valued parameters."""
@@ -39,12 +44,12 @@ class Regressor(XRSDModel):
         return new_model
 
     def standardize(self,data):
-        """Standardize the columns of data that are used as model inputs
+        """Standardize the columns that are used as inputs and outputs.
 
-        Overriding of XRSDModel.standardize():
-        For the regression models we also need to scale the target,
-        since 'epsilon' and other hyperparameters will be affected
-        by the scale of the training data outputs. 
+        Reimplementation of XRSDModel.standardize():
+        For the regression models the target must also be standardized,
+        since the effects of model hyperparameters 
+        are relative to the scale of the outputs. 
         """
         data = super(Regressor,self).standardize(data)
         self.scaler_y = preprocessing.StandardScaler() 
@@ -101,6 +106,66 @@ class Regressor(XRSDModel):
             'Unweighted-average mean abs error: {}\n'.format(self.average_mean_abs_error(False)) + \
             '\n\nNOTE: Weighted metrics are weighted by test set size' 
         return CV_report
+
+    def assign_groups(self, dataframe):
+        """Assign train/test groups to `dataframe`.
+
+        This reimplementation invokes the base class method, 
+        and then updates the groups if necessary
+        to ensure there are at least 2 groups,
+        where each group has nonzero variance for for the target.
+
+        Parameters
+        ----------
+        dataframe : pandas.DataFrame
+            dataframe of sample features and corresponding labels
+
+        Returns
+        -------
+        trainable : bool
+            indicates whether or not training is possible
+        """
+        trainable = super(Regressor,self).assign_groups(dataframe)
+        if trainable:
+            group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+
+            # if we have only one group, use KMeans to split it
+            if len(group_ids) == 1:
+                n_splits = 2
+                km = KMeans(n_splits)
+                dataframe.loc[dataframe['group_id']>0,'group_id'] = \
+                km.fit_predict(dataframe.loc[dataframe['group_id']>0,profiler.profile_keys])+1
+                group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+
+            # if we have any groups with zero variance,
+            # redistribute them to other groups
+            n_groups = len(group_ids)
+            old_group_ids = copy.copy(group_ids)
+            for gid in old_group_ids:
+                group_data = dataframe.loc[dataframe['group_id']==gid,self.target]
+                group_sd = np.std(group_data)
+                group_count = group_data.shape[0]
+                if group_sd == 0:
+                    n_clusters = n_groups-1
+                    if n_clusters > group_count:
+                        n_clusters = group_count
+                    km = KMeans(n_clusters)
+                    new_gids = km.fit_predict(dataframe.loc[dataframe['group_id']==gid,profiler.profile_keys])
+                    # map the KMeans groupings to the target group_ids
+                    for iggid,ggid in enumerate(group_ids):
+                        if not ggid == gid:
+                            new_gids[new_gids==iggid] = ggid
+                    # reassign the group_ids
+                    dataframe.loc[dataframe['group_id']==gid,'group_id'] = new_gids
+                    # refresh the group_ids 
+                    group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+                    n_groups = len(group_ids) 
+
+            # check that we have more than one group left, else return False
+            if not n_groups > 1: return False
+
+        return trainable
+
 
     def run_cross_validation(self,model,data,feature_names):
         """Cross-validate a model by LeaveOneGroupOut. 

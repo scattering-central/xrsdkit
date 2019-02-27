@@ -1,10 +1,12 @@
-import numpy as np
+from collections import OrderedDict
 
+import numpy as np
 from sklearn import linear_model, model_selection
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
+from sklearn.cluster import KMeans
+from dask_ml.model_selection import GridSearchCV
 
 from .xrsd_model import XRSDModel
-from dask_ml.model_selection import GridSearchCV
 from ..tools import profiler
 
 
@@ -83,13 +85,13 @@ class Classifier(XRSDModel):
             F1_macro, accuracy, confusion matrix,
             and testing-training splits.
         """
-        groups = df.group_id.unique()
+        group_ids = df.group_id.unique()
         all_classes = df[self.target].unique().tolist()
         true_labels = []
         pred_labels = []
-        for i in range(len(groups)):
-            tr = df[(df['group_id'] != groups[i])]
-            test = df[(df['group_id'] == groups[i])]
+        for gid in group_ids:
+            tr = df[(df['group_id'] != gid)]
+            test = df[(df['group_id'] == gid)]
             model.fit(tr[feature_names], tr[self.target])
             y_pred = model.predict(test[feature_names])
             pred_labels.extend(y_pred)
@@ -167,28 +169,101 @@ class Classifier(XRSDModel):
         """
         trainable = super(Classifier,self).assign_groups(dataframe)
         if trainable:
-            cl_counts = dataframe[self.target].value_counts()
-            for cl,nsamp in cl_counts.items():
-                cl_idx = dataframe[self.target] == cl
-                cl_data = dataframe.loc[cl_idx]
-                if nsamp < 10:
-                    # insufficient samples for the class: 
-                    # set group_id to zero to leave this class out of the model
-                    dataframe.loc[cl_idx,'group_id'] = 0
+            cl_counts = dataframe.loc[dataframe['group_id']>0,self.target].value_counts()
+            min_count = 2
+
+            # if any labels do not have at least `min_count` representative samples,
+            # the label should not be trained-
+            # ignore these samples by setting their group_id to 0
+            for cl,count in cl_counts.items():
+                if count<min_count:
+                    dataframe.loc[dataframe[self.target]==cl,'group_id']=0
+
+            # if this leaves us with only one distinct label, 
+            # return False (not trainable).
+            cl_counts = dataframe.loc[dataframe['group_id']>0,self.target].value_counts()
+            n_cl_total = len(cl_counts.keys())
+            if n_cl_total < 2: return False
+
+            # count the number of samples for each label in each group,
+            # and take note of any underrepresented groups
+            group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+            #group_ids.sort()
+            cl_counts_by_group = OrderedDict.fromkeys(group_ids)
+            underrep_gids = [] 
+            for gid in group_ids:
+                cl_counts_by_group[gid] = dataframe.loc[dataframe['group_id']==gid,self.target].value_counts()
+                if len(cl_counts_by_group[gid].keys()) < n_cl_total:
+                    underrep_gids.append(gid)
+
+            # merge groups to eliminate underrepresentation
+            while len(underrep_gids) > 0:
+                gid = underrep_gids.pop(0)
+                cl_in_group = set(cl_counts_by_group[gid].keys())
+                n_cl_in_pair = OrderedDict.fromkeys(cl_counts_by_group.keys())
+                pairing_scores = OrderedDict.fromkeys(cl_counts_by_group.keys())
+                #pairing_scores[0] = float('inf')
+
+                # evaluate best pairing
+                for pair_gid in cl_counts_by_group.keys():
+                    if pair_gid == gid: 
+                        pairing_scores[pair_gid] = float('inf')
+                        n_cl_in_pair[pair_gid] = cl_counts_by_group[gid] 
+                    else:
+                        cl_in_pair = cl_in_group.union(set(cl_counts_by_group[pair_gid].keys()))
+                        n_cl_in_pair[pair_gid] = len(cl_in_pair)
+                        if n_cl_in_pair[pair_gid] == n_cl_total:
+                            pair_cl_counts = dict([(cl_label,0) for cl_label in cl_counts.keys()])
+                            for cl_label, cl_count in cl_counts_by_group[gid].items():
+                                pair_cl_counts[cl_label] += cl_count
+                            for cl_label, cl_count in cl_counts_by_group[pair_gid].items():
+                                pair_cl_counts[cl_label] += cl_count
+                            #pairing_scores[pair_gid] = np.min(pair_cl_counts.values())
+                            pairing_scores[pair_gid] = np.std(list(pair_cl_counts.values()))
+                        else:
+                            pairing_scores[pair_gid] = float('inf')
+
+                # assign the best pairing
+                underrep_pair_scores = [pairing_scores[ugid] for ugid in underrep_gids] 
+                underrep_pair_n_cl = [n_cl_in_pair[ugid] for ugid in underrep_gids] 
+                if not underrep_pair_scores and not underrep_pair_n_cl:
+                    # there are no underrepresented groups that are valid pairing candidates- 
+                    # pair with the fully represented group that gives the best pairing score
+                    best_pairing_gid = list(pairing_scores.keys())[np.argmin(np.array(pairing_scores.values()))]
+                    # if `gid` is the only remaining underrepresented group, 
+                    # we have the possibility of `best_pairing_gid` == `gid`
+                    if best_pairing_gid == gid:
+                        best_pairing_gid = list(n_cl_in_pair.keys())[np.argmax(np.array(n_cl_in_pair.values()))]
                 else:
-                    # sufficient samples exist for training this class
-                    cl_grp_ids = cl_data['group_id'].unique()
-                    if len(cl_grp_ids) < 3:
-                        # less than three groups are represented in this class:
-                        # the group_id assignments should be rebalanced.
-                        # shuffle-split samples into 3 groups.
-                        cl_group_ids = self.shuffle_split_3fold(nsamp) 
-                        dataframe.loc[cl_idx,'group_id'] = cl_group_ids 
-            #check if we still have at least two fully represented classes:
-            if len(dataframe.loc[dataframe.group_id>0,self.target].unique()) < 2:
-                return False
+                    # if possible, get full representation by pairing 
+                    # with another underrepresented group
+                    if any([ps<float('inf') for ps in underrep_pair_scores]):
+                        best_pairing_gid = underrep_gids[np.argmin(underrep_pair_scores)] 
+                        underrep_gids.pop(underrep_gids.index(best_pairing_gid))
+                    else:
+                        # else, take underrepresented pair with the best partial representation 
+                        best_pairing_gid = underrep_gids[np.argmax(underrep_pair_n_cl)]
+                dataframe.loc[dataframe['group_id']==gid,'group_id'] = best_pairing_gid 
+
+                # update cl_counts_by_group
+                cl_counts_by_group.pop(gid)
+                cl_counts_by_group[best_pairing_gid] = dataframe.loc[dataframe['group_id']==best_pairing_gid,self.target].value_counts()
+
+            # verify that we are left with at least two groups;
+            # if not, split the remaining group with k-means
+            final_gids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+            if final_gids.shape[0] < 2:
+                n_splits = 2
+                for cl,count in cl_counts.items():
+                    if n_splits > count: 
+                        msg = 'too many splits ({}) for sample count ({})'.format(n_splits,count)
+                        raise ValueError(msg)
+                    km = KMeans(n_splits)
+                    new_grps = km.fit_predict(dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),profiler.profile_keys])+1
+                    dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),'group_id'] = new_grps 
+
         return trainable 
-                    
+
     def print_confusion_matrix(self):
         if self.cross_valid_results['confusion_matrix']:
             result = ''
