@@ -17,6 +17,7 @@ class XRSDModel(object):
         self.trained = False
         self.model_file = yml_file
         self.default_val = None
+        self.features = []
 
         if yml_file:
             content = yaml.load(open(yml_file,'rb'))
@@ -28,6 +29,7 @@ class XRSDModel(object):
         self.trained = model_data['trained']
         self.default_val = model_data['default_val']
         if self.trained:
+            self.features = model_data['features']
             self.set_model(model_data['model']['hyper_parameters'])
             for k,v in model_data['model']['trained_par'].items():
                 setattr(self.model, k, np.array(v))
@@ -46,6 +48,10 @@ class XRSDModel(object):
     def run_cross_validation(self,model,data,feature_names):
         # TODO: add a docstring that describes the interface
         msg = 'subclasses of XRSDModel must implement run_cross_validation()'
+        raise NotImplementedError(msg)
+
+    def validate_feature_set(self, model, df, feature_names):
+        msg = 'subclasses of XRSDModel must implement validate_feature_set()'
         raise NotImplementedError(msg)
 
     def train(self, model_data, hyper_parameters_search=False):
@@ -75,18 +81,53 @@ class XRSDModel(object):
             data = d[d[self.target].isnull() == False]
             # exclude samples with group_id==0
             valid_data = data[data.group_id>0]
-
+            '''
             if hyper_parameters_search:
                 new_parameters = self.hyperparameters_search(valid_data, n_leave_out=1)
                 new_model = self.build_model(new_parameters)
             else:
                 new_model = self.model
+            '''
 
+            '''
+
+            cv = model_selection.LeavePGroupsOut(n_groups=1).split(
+                valid_data[profiler.profile_keys], np.ravel(valid_data[self.target]),
+                                                                  groups=valid_data['group_id'])
+
+            rfecv = RFECV(estimator=self.model, step=1, cv=cv, scoring=self.score, min_features_to_select=3, n_jobs=-1)
+            rfecv.fit(valid_data[profiler.profile_keys], valid_data[self.target])
+
+            print("Optimal number of features : %d" % rfecv.n_features_)
+            print(rfecv.score(valid_data[profiler.profile_keys], valid_data[self.target]))
+            print(rfecv.support_ )
+            print(rfecv.grid_scores_)
+
+            best_features = [profiler.profile_keys[i] for i in range(len(profiler.profile_keys)) if rfecv.support_[i]]
+            '''
+            # features selection
+            features = []
+            features.extend(profiler.profile_keys)
+            score_features = []
+            while len(features) > 2:
+                if hyper_parameters_search:
+                    new_parameters = self.hyperparameters_search(valid_data, features, n_leave_out=1)
+                    new_model = self.build_model(new_parameters)
+                else:
+                    new_model = self.model
+                optimization_obj, ind = self.validate_feature_set(new_model,valid_data,features)
+                score_features.append((optimization_obj, features.copy()))
+                del features[ind]
+            score_features.sort()
+            best_features = score_features[0][1]
             # NOTE: after cross-validation for parameter selection,
-            # the entire dataset is used for final training
-            self.cross_valid_results = self.run_cross_validation(new_model,valid_data,profiler.profile_keys)
-            new_model.fit(valid_data[profiler.profile_keys], valid_data[self.target])
+            # the entire dataset is used for final training,
+            #self.cross_valid_results = self.run_cross_validation(new_model,valid_data,profiler.profile_keys)
+            #new_model.fit(valid_data[profiler.profile_keys], valid_data[self.target])
+            self.cross_valid_results = self.run_cross_validation(new_model,valid_data,best_features)
+            new_model.fit(valid_data[best_features], valid_data[self.target])
             self.model = new_model
+            self.features = best_features
             self.trained = True
 
     def standardize(self,data):
@@ -96,7 +137,7 @@ class XRSDModel(object):
         data[profiler.profile_keys] = self.scaler.transform(data[profiler.profile_keys])
         return data
 
-    def hyperparameters_search(self,transformed_data,group_by='group_id',n_leave_out=1,scoring=None):
+    def hyperparameters_search(self,transformed_data,features,group_by='group_id',n_leave_out=1,scoring=None):
         """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
 
         Parameters
@@ -104,13 +145,15 @@ class XRSDModel(object):
         transformed_data : pandas.DataFrame
             dataframe containing features and labels;
             note that the features should be transformed/standardized beforehand
+        features : list of str
+            list of features to use
         group_by: string
             DataFrame column header for LeavePGroupsOut(groups=group_by)
         n_leave_out: integer
             number of groups to leave out, if group_by is specified 
         scoring : str
             Selection of scoring function.
-            TODO: explain the choice of scoring=None?
+            if None, the default scoring function of the model will be used
 
         Returns
         -------
@@ -119,7 +162,7 @@ class XRSDModel(object):
         """
         if n_leave_out:
             cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data[profiler.profile_keys], 
+                transformed_data[features],
                 np.ravel(transformed_data[self.target]),
                 groups=transformed_data[group_by]
                 )
@@ -128,8 +171,8 @@ class XRSDModel(object):
         test_model = self.build_model()
         # threaded scheduler with optimal number of threads
         # will be used by default for dask GridSearchCV
-        clf = GridSearchCV(test_model,self.grid_search_hyperparameters,cv=cv,scoring=scoring)
-        clf.fit(transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]))
+        clf = GridSearchCV(test_model,self.grid_search_hyperparameters,cv=cv,scoring=scoring,n_jobs=-1)
+        clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
         return clf.best_params_
 
     def assign_groups(self, dataframe):

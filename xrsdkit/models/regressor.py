@@ -1,6 +1,7 @@
 import copy
 
 import numpy as np
+from collections import OrderedDict
 from sklearn import linear_model, preprocessing
 from sklearn.metrics import mean_absolute_error
 from sklearn.cluster import KMeans
@@ -16,9 +17,9 @@ class Regressor(XRSDModel):
         self.scaler_y = None
         super(Regressor,self).__init__(label, yml_file)
         self.grid_search_hyperparameters = dict(
-            epsilon = [10, 1, 0.1, 0.01, 0.001, 0],
-            alpha = [0.00001, 0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
-            l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
+            epsilon = [1, 0.1, 0.01],
+            alpha = [0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
+            l1_ratio = [0.15, 0.5, 0.85, 1.0] # default 0.15
             )
 
     def load_model_data(self,model_data):
@@ -71,11 +72,53 @@ class Regressor(XRSDModel):
         prediction : float
             predicted parameter value
         """
-
+        ind = []
+        for i, k in enumerate(sample_features.keys()):
+            if k in self.features:
+                ind.append(i)
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-        x = self.scaler.transform(feature_array)
+        x = self.scaler.transform(feature_array)[:, ind]
 
         return float(self.scaler_y.inverse_transform(self.model.predict(x))[0])
+
+    def validate_feature_set(self, model, df, feature_names):
+        """
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            pandas dataframe of features and labels,
+            including at least three distinct experiment_id labels
+        model : sklearn.linear_model.SGDClassifier
+            an sklearn classifier instance trained on some dataset
+            with some choice of hyperparameters
+        feature_names : list of str
+            list of feature names (column headers) used for training.
+
+        Returns
+        -------
+        score : float
+            mean absolute error;
+        ind_of_least_important_f : int
+            index of the features with the smallest coef
+        """
+        groups = df.group_id.unique()
+        true_labels = []
+        pred_labels = []
+        coef = []
+        for i in range(len(groups)):
+            tr = df[(df['group_id'] != groups[i])]
+            test = df[(df['group_id'] == groups[i])]
+            model.fit(tr[feature_names], tr[self.target])
+            coef.append(np.abs(model.coef_))
+            y_pred = model.predict(test[feature_names])
+            pred_labels.extend(y_pred)
+            true_labels.extend(test[self.target])
+        coef = np.array(coef)
+        coef_sum_by_features = coef.sum(axis=0).tolist()
+        ind_of_least_important_f = coef_sum_by_features.index(min(coef_sum_by_features))
+        score = mean_absolute_error(true_labels, pred_labels)
+        return score, ind_of_least_important_f
+
 
     def print_mean_abs_errors(self):
         result = ''

@@ -93,7 +93,6 @@ def load_regression_models(model_root_dir=regression_models_dir):
                     if os.path.exists(param_yml_file):
                         param_header = 'noise_'+pnm
                         model_dict[sys_cls]['noise'][modnm][pnm] = Regressor(param_header,param_yml_file)
-
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
             model_dict[sys_cls][pop_id] = {}

@@ -5,7 +5,6 @@ import numpy as np
 import yaml
 
 from . import regression_models_dir, classification_models_dir
-from . import regression_models, classification_models
 from . import test_regression_models_dir, test_classification_models_dir
 from . import test_regression_models, test_classification_models
 from .. import definitions as xrsdefs
@@ -35,7 +34,8 @@ def save_model_data(model,yml_path,txt_path):
             model=dict(hyper_parameters=dict(), trained_par=dict()),
             cross_valid_results=primitives(model.cross_valid_results),
             trained=model.trained,
-            default_val = model.default_val
+            default_val = model.default_val,
+            features = model.features
             )
         if model.trained:
             hyper_par = list(model.grid_search_hyperparameters.keys())

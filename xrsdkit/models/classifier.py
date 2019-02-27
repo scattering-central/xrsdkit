@@ -16,24 +16,37 @@ class Classifier(XRSDModel):
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
         self.grid_search_hyperparameters = dict(
-            alpha = [0.00001, 0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
-            l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
+            alpha = [0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
+            l1_ratio = [0.15, 0.5, 0.85, 1.0] # default 0.15
+            #C = [ 0.1, 1.0]
             )
 
     def build_model(self,model_hyperparams={}):
+        '''
+        if all([p in model_hyperparams for p in ['C']]):
+            new_model = linear_model.LogisticRegression(
+                    C=model_hyperparams['C'],
+                    max_iter=1000, class_weight='balanced', penalty='l1'
+                    )
+        else:
+            new_model = linear_model.LogisticRegression(
+                max_iter=1000, class_weight='balanced', penalty='l1'
+                )
+        '''
         if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
             new_model = linear_model.SGDClassifier(
                     alpha=model_hyperparams['alpha'], 
                     loss='log',
                     penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000, class_weight='balanced', tol=1e-5
+                    max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
                     )
         else:
             new_model = linear_model.SGDClassifier(
                 loss='log', penalty='elasticnet',
-                max_iter=1000, class_weight='balanced', tol=1e-5
+                max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
                 )
+
         return new_model
 
     def classify(self, sample_features):
@@ -53,8 +66,12 @@ class Classifier(XRSDModel):
             the certainty of the prediction
             (For models that are not trained, cert=None)
         """
+        ind = []
+        for i, k in enumerate(sample_features.keys()):
+            if k in self.features:
+                ind.append(i)
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-        x = self.scaler.transform(feature_array)
+        x = self.scaler.transform(feature_array)[:, ind]
         sys_cls = self.model.predict(x)[0]
         cert = max(self.model.predict_proba(x)[0])
         return sys_cls, cert
@@ -114,8 +131,23 @@ class Classifier(XRSDModel):
                         )
         return result
 
-    def hyperparameters_search(self,transformed_data, group_by='group_id', n_leave_out=1, scoring='f1_macro'):
+    def hyperparameters_search(self,transformed_data,features,group_by='group_id',n_leave_out=1,scoring='f1_macro'):
         """Grid search for optimal alpha and l1 ratio hyperparameters.
+
+        Parameters
+        ----------
+        transformed_data : pandas.DataFrame
+            dataframe containing features and labels;
+            note that the features should be transformed/standardized beforehand
+        features : list of str
+            list of features to use
+        group_by: string
+            DataFrame column header for LeavePGroupsOut(groups=group_by)
+        n_leave_out: integer
+            number of groups to leave out, if group_by is specified
+        scoring : str
+            Selection of scoring function.
+            if None, the default scoring function of the model will be used
 
         Returns
         -------
@@ -124,17 +156,57 @@ class Classifier(XRSDModel):
         """
 
         cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]),
+                transformed_data[features], np.ravel(transformed_data[self.target]),
                                                                   groups=transformed_data[group_by])
         test_model = self.build_model()
 
         # threaded scheduler with optimal number of threads
         # will be used by default for dask GridSearchCV
         clf = GridSearchCV(test_model,
-                        self.grid_search_hyperparameters, cv=cv, scoring=scoring)
-        clf.fit(transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]))
+                        self.grid_search_hyperparameters, cv=cv, scoring=scoring, n_jobs=-1)
+        clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
         params = clf.best_params_
         return params
+
+    def validate_feature_set(self, model, df, feature_names):
+        """
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            pandas dataframe of features and labels,
+            including at least three distinct experiment_id labels
+        model : sklearn.linear_model.SGDClassifier
+            an sklearn classifier instance trained on some dataset
+            with some choice of hyperparameters
+        feature_names : list of str
+            list of feature names (column headers) used for training.
+
+        Returns
+        -------
+        score : float
+            -f1 score for given set of features;
+            we are using -f1 since we will  minimize it.
+        ind_of_least_important_f : int
+            index of the features with the smallest coef
+        """
+        groups = df.group_id.unique()
+        true_labels = []
+        pred_labels = []
+        coef = []
+        for i in range(len(groups)):
+            tr = df[(df['group_id'] != groups[i])]
+            test = df[(df['group_id'] == groups[i])]
+            model.fit(tr[feature_names], tr[self.target])
+            coef.append(np.abs(model.coef_).sum(axis=0))
+            y_pred = model.predict(test[feature_names])
+            pred_labels.extend(y_pred)
+            true_labels.extend(test[self.target])
+        coef = np.array(coef)
+        coef_sum_by_features = coef.sum(axis=0).tolist()
+        ind_of_least_important_f = coef_sum_by_features.index(min(coef_sum_by_features))
+        score = -f1_score(true_labels, pred_labels, average='macro')
+        return score, ind_of_least_important_f
+
 
     def print_labels(self, all=True):
         if all:
