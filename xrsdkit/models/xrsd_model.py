@@ -153,6 +153,7 @@ class XRSDModel(object):
             # the entire dataset is used for final training,
             self.cross_valid_results = self.run_cross_validation(new_model,valid_data,best_features)
             new_model.fit(valid_data[best_features], valid_data[self.target])
+
             self.model = new_model
             self.features = best_features
             self.trained = True

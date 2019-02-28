@@ -15,28 +15,15 @@ class Classifier(XRSDModel):
 
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
-        self.score = 'f1_macro'
         self.grid_search_hyperparameters = dict(
-            alpha = [0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
+            alpha = [0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
             l1_ratio = [0.15, 0.5, 0.85, 1.0] # default 0.15
-            #C = [ 0.1, 1.0]
             )
 
     def minimization_score(self,true_labels,pred_labels):
         return -1*f1_score(true_labels, pred_labels, average='macro')
 
     def build_model(self,model_hyperparams={}):
-        '''
-        if all([p in model_hyperparams for p in ['C']]):
-            new_model = linear_model.LogisticRegression(
-                    C=model_hyperparams['C'],
-                    max_iter=1000, class_weight='balanced', penalty='l1'
-                    )
-        else:
-            new_model = linear_model.LogisticRegression(
-                max_iter=1000, class_weight='balanced', penalty='l1'
-                )
-        '''
         if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
             new_model = linear_model.SGDClassifier(
                     alpha=model_hyperparams['alpha'], 
@@ -325,14 +312,7 @@ class Classifier(XRSDModel):
             return result
         else:
             return "Confusion matrix was not created"
-    '''
-    def print_F1_scores(self):
-        result = ''
-        for i in range(len(self.cross_valid_results['F1_score_by_classes'])):
-            result += (str(self.cross_valid_results['all_classes'][i]) +
-                       " : " + str(self.cross_valid_results['F1_score_by_classes'][i]) + '\n')
-        return result
-    '''
+
     def print_accuracy(self):
         if self.cross_valid_results['accuracy']:
             return str(self.cross_valid_results['accuracy'])

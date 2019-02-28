@@ -13,7 +13,6 @@ class Regressor(XRSDModel):
     def __init__(self,label,yml_file):
         self.scaler_y = None
         super(Regressor,self).__init__(label, yml_file)
-        self.score = None
         self.grid_search_hyperparameters = dict(
             epsilon = [1, 0.1, 0.01],
             alpha = [0.0001, 0.001, 0.01], # regularisation coef, default 0.0001

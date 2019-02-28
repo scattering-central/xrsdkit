@@ -99,10 +99,11 @@ def train_classification_models(data,hyper_parameters_search=False):
         p_data = data.copy()
         col_d = [p in s for s in all_sys_cls]
         p_data[p] = col_d
-        if p in classification_models['main_classifiers'].keys() \
-        and classification_models['main_classifiers'][p].trained:
-            old_pars = classification_models['main_classifiers'][p].model.get_params()
-            model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+        if 'main_classifiers' in classification_models.keys() \
+                and p in classification_models['main_classifiers'].keys() \
+                and classification_models['main_classifiers'][p].trained:
+                    old_pars = classification_models['main_classifiers'][p].model.get_params()
+                    model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(p_data, hyper_parameters_search=hyper_parameters_search)
         cls_models['main_classifiers'][p] = model
 
@@ -120,16 +121,6 @@ def train_classification_models(data,hyper_parameters_search=False):
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(n_p_data, hyper_parameters_search=hyper_parameters_search)
         cls_models['main_classifiers'][target] = model
-    '''
-    print(os.linesep+'Training main system classifier')
-    model = Classifier('system_class',None)
-    if 'system_class' in classification_models.keys() \
-    and classification_models['system_class'].trained: 
-        old_pars = classification_models['system_class'].model.get_params()
-        model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-    model.train(data, hyper_parameters_search=hyper_parameters_search)
-    cls_models['system_class'] = model
-    '''
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers:
@@ -237,14 +228,7 @@ def save_classification_models(models=classification_models, test=False):
             yml_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.yml')
             txt_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.txt')
             save_model_data(mod,yml_path,txt_path)
-    '''
 
-    if 'system_class' in models:
-        model_dict['system_class'] = models['system_class']
-        yml_path = os.path.join(cl_root_dir,'system_class.yml')
-        txt_path = os.path.join(cl_root_dir,'system_class.txt')
-        save_model_data(models['system_class'],yml_path,txt_path)
-    '''
     all_sys_cls = list(models.keys())
     all_sys_cls.pop(all_sys_cls.index('main_classifiers'))
     for sys_cls in all_sys_cls: 
