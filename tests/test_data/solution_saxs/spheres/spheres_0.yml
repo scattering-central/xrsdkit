@@ -1,0 +1,40 @@
+features: {I_fluctuation: null, Ilowq_over_Imean: null, Imax_over_Imean: null, Imax_sharpness: null,
+  best_hump_qwidth: null, best_hump_qwidth_log: null, best_trough_qwidth: null, best_trough_qwidth_log: null,
+  logI_fluctuation: null, logI_max_over_std: null, pearson_expq: null, pearson_invexpq: null,
+  pearson_q: null, pearson_q2: null, q_Icentroid: null, q_best_hump: null, q_best_hump_log: null,
+  q_best_trough: null, q_best_trough_log: null, q_logIcentroid: null, r_fftIcentroid: null}
+fit_report:
+  error_weighted: 1
+  good_fit: 0
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, null]
+      constraint_expr: null
+      fixed: 0
+      value: 0.0
+pop0:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, null]
+      constraint_expr: null
+      fixed: 0
+      value: 1300.6609337160605
+    r:
+      bounds: [0.1, null]
+      constraint_expr: null
+      fixed: 0
+      value: 20.0
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.08179554371118031
+  settings: {distribution: r_normal, sampling_step: 0.05, sampling_width: 3.5}
+  structure: diffuse
+sample_metadata: {data_file: '', experiment_id: '', notes: '', sample_id: '', source_wavelength: 0.8265617,
+  time: 0.0}
