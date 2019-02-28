@@ -28,12 +28,12 @@ class Classifier(XRSDModel):
                     loss='log',
                     penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
+                    max_iter=1000000, class_weight='balanced', tol=1e-10#, eta0 = 0.001, learning_rate='adaptive'
                     )
         else:
             new_model = linear_model.SGDClassifier(
                 loss='log', penalty='elasticnet',
-                max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
+                max_iter=1000000, class_weight='balanced', tol=1e-10#, eta0 = 0.001, learning_rate='adaptive'
                 )
         return new_model
 
