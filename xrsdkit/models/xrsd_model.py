@@ -93,7 +93,7 @@ class XRSDModel(object):
                 else:
                     new_model = self.model
                 optimization_obj, ind = self.validate_feature_set(new_model,valid_data,features)
-                score_features.append((optimization_obj, features.copy()))
+                score_features.append((optimization_obj, list(features)))
                 del features[ind]
             score_features.sort()
             best_features = score_features[0][1]
