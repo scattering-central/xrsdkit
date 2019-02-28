@@ -6,7 +6,7 @@ import sys
 import os
 if sys.version_info[0] < 3:
     import Tkinter as tkinter
-    from tkinter import tkFileDialog as filedialog
+    import tkFileDialog as filedialog
 else:
     import tkinter
     from tkinter import filedialog
