@@ -92,6 +92,18 @@ noise_params = dict(
         )
     )
 
+# crystal system and lattice definitions
+crystal_systems = ['triclinic','monoclinic','orthorhombic','tetragonal','trigonal','hexagonal','cubic']
+bravais_lattices = [\
+            'triclinic','P_monoclinic','C_monoclinic',\
+            'P_orthorhombic','C_orthorhombic','A_orthorhombic',\
+            'I_orthorhombic','F_orthorhombic',\
+            'P_tetragonal','I_tetragonal',\
+            'rhombohedral','hexagonal',\
+            'P_cubic','I_cubic','F_cubic',\
+            ]
+all_lattices = bravais_lattices+['hcp','diamond']
+
 # TODO: deprecate this, 
 # and find a better way to deal with modelable settings:
 # consider that after classifying lattice,
@@ -171,7 +183,7 @@ def setting_datatypes(stg_nm):
 
 # all possible options for all settings (empty list if not enumerable)
 def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
-    if stg_nm == 'lattice': return lattices
+    if stg_nm == 'lattice': return all_lattices
     if stg_nm == 'space_group':
         if 'lattice' in prior_settings:
             valid_sgs = lattice_space_groups[prior_settings['lattice']]
@@ -279,18 +291,6 @@ def all_params(structure,form=None,prior_settings={}):
     if form: all_pars.update(copy.deepcopy(form_factor_params[form]))
     if form: all_pars.update(additional_form_factor_params(form,prior_settings))
     return all_pars
-
-# build crystal system, lattice, and space group tables...
-crystal_systems = ['triclinic','monoclinic','orthorhombic','tetragonal','trigonal','hexagonal','cubic']
-bravais_lattices = [\
-            'triclinic','P_monoclinic','C_monoclinic',\
-            'P_orthorhombic','C_orthorhombic','A_orthorhombic',\
-            'I_orthorhombic','F_orthorhombic',\
-            'P_tetragonal','I_tetragonal',\
-            'rhombohedral','hexagonal',\
-            'P_cubic','I_cubic','F_cubic',\
-            ]
-all_lattices = bravais_lattices+['hcp','diamond']
 
 # point groups associated with each crystal system 
 crystal_point_groups = dict(
