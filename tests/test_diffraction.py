@@ -5,6 +5,7 @@ import numpy as np
 from xrsdkit import scattering as xrs
 from xrsdkit.tools import peak_math
 from xrsdkit.system import System, Population
+from xrsdkit.tools import ymltools as xrsdyml
 
 fcc_Al = Population(
     structure='crystalline',
@@ -59,19 +60,11 @@ mixed_Al_system = System(
     sample_metadata={'source_wavelength':0.8265617}
     )
 
-#def test_Al_scattering():
-#    qvals = np.arange(1.,5.,0.001)
-#    I_fcc = fcc_Al_system.compute_intensity(qvals,0.8265616)
-#    I_gls = glassy_Al_system.compute_intensity(qvals,0.8265616)
-#    I_mxd = mixed_Al_system.compute_intensity(qvals,0.8265616)
-
-    #from matplotlib import pyplot as plt
-    #plt.figure(4)
-    #plt.plot(qvals,I_fcc)
-    #plt.plot(qvals,I_gls)
-    #plt.plot(qvals,I_mxd)
-    #plt.legend(['fcc','glassy','mixed'])
-    #plt.show()
+def test_Al_scattering():
+    qvals = np.arange(1.,5.,0.001)
+    I_fcc = fcc_Al_system.compute_intensity(qvals)
+    I_gls = glassy_Al_system.compute_intensity(qvals)
+    I_mxd = mixed_Al_system.compute_intensity(qvals)
 
 def test_sphere_scattering():
     qvals = np.arange(0.02,0.6,0.001)
@@ -81,25 +74,15 @@ def test_gaussian():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm in [0.01,0.03,0.05,0.1]:
         g = peak_math.gaussian(qvals-2.,hwhm)
-        #intg = np.sum(0.01*g)
-        #print('approx. integral of gaussian with hwhm {}: {}'\
-        #    .format(hwhm,intg))
 
 def test_lorentzian():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm in [0.01,0.03,0.05,0.1]:
         l = peak_math.lorentzian(qvals-2.,hwhm)
-        #intl = np.sum(0.01*l)
-        #print('approx. integral of lorentzian with hwhm {}: {}'\
-        #    .format(hwhm,intl))
 
 def test_voigt():
     qvals = np.arange(0.01,4.,0.01)
     for hwhm_g in [0.01,0.03,0.05,0.1]:
         for hwhm_l in [0.01,0.03,0.05,0.1]:
-            v = peak_math.voigt(qvals-2.0,hwhm_g,hwhm_l)
-            #intv = np.sum(0.01*v)
-            #print('approx. integral of voigt '\
-            #    'with gaussian hwhm {} and lorentzian hwhm {}: {}'\
-            #    .format(hwhm_g,hwhm_l,intv))
+            v = peak_math.voigt(qvals-2.,hwhm_g,hwhm_l)
 

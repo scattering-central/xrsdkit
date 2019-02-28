@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from xrsdkit.tools.ymltools import downsample_by_group
+from xrsdkit.tools import ymltools as xrsdyml 
 from xrsdkit.tools import profiler
 from xrsdkit.models.train import train_from_dataframe
 from xrsdkit.models.predict import predict, system_from_prediction 
@@ -24,7 +24,7 @@ def test_visualization():
 def downsample_df():
     df_ds = None
     if df is not None:
-        df_ds = downsample_by_group(df) 
+        df_ds = xrsdyml.downsample_by_group(df) 
     return df_ds
 
 df_ds = downsample_df()
@@ -35,16 +35,16 @@ def test_training():
 
 def test_predict_spheres():
     datapath = os.path.join(os.path.dirname(__file__),
-        'test_data','solution_saxs','spheres','spheres_0.csv')
+        'test_data','solution_saxs','spheres','spheres_0.dat')
+    sysfpath = os.path.splitext(datapath)[0]+'.yml'
     f = open(datapath,'r')
-    q_I = np.loadtxt(f,dtype=float,delimiter=',')
+    q_I = np.loadtxt(f,dtype=float)
     feats = profiler.profile_pattern(q_I[:,0],q_I[:,1])
     # models will only be trained if a dataframe was downloaded
     if df_ds is not None:
         pred = predict(feats,test=True)
         sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],source_wavelength=0.8265617)
+        xrsdyml.save_sys_to_yaml(sysfpath,sys)
         if 'DISPLAY' in os.environ:
-            fit_sys = run_fit_gui(sys,q_I[:,0],q_I[:,1])
-
-
+            fit_sys = run_fit_gui({datapath:sysfpath})
 
