@@ -61,27 +61,6 @@ class Population(object):
         # update self.parameters to respect the new settings
         self.update_parameters()
 
-        #trial_settings = copy.deepcopy(self.settings)
-        #trial_settings.update(new_settings)
-        ## get all valid settings that would exist,
-        ## given current self.settings and new_settings
-        #valid_settings = xrsdefs.all_settings(self.structure,self.form,trial_settings)
-        ## copy any trial setting values to valid_settings-
-        ## at this point trial_settings should be a subset of valid_settings
-        #for stg_nm,stg_val in trial_settings.items():
-        #    if stg_nm in valid_settings:
-        #        valid_settings[stg_nm] = stg_val
-        ## make sure valid_settings are valid 
-        #xrsdefs.validate(self.structure,self.form,valid_settings)
-        ## remove any self.settings that are no longer valid
-        #current_stg_nms = list(self.settings.keys())
-        #for stg_nm in current_stg_nms:
-        #    if not stg_nm in valid_settings:
-        #        self.settings.pop(stg_nm)
-        ## update settings
-        #self.settings.update(valid_settings)
-        #self.update_parameters()
-
     def update_parameters(self,new_params={}):
         valid_params = xrsdefs.all_params(self.structure,self.form,self.settings)
         for param_nm in new_params:

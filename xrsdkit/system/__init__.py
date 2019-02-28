@@ -210,8 +210,8 @@ class System(object):
                 pd[pop_name+'__'+param_name] = paramd
         return pd
 
-def fit(sys,q,I,dI=None):
-    #error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
+def fit(sys,q,I,dI=None,
+    error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
     """Fit the I(q) pattern and return a System with optimized parameters. 
 
     Parameters
@@ -230,17 +230,22 @@ def fit(sys,q,I,dI=None):
     -------
     sys_opt : xrsdkit.system.System 
         Similar to input `sys`, but with fit-optimized parameters.
+    error_weighted : bool
+        Flag for weighting the objective with the I(q) error estimates.
+    logI_weighted : bool
+        Flag for evaluating the objective on log(I(q)) instead if I(q)
+    q_range : list
+        Two floats indicating the lower and 
+        upper q-limits for objective evaluation
     """
-    #error_weighted : bool
-    #    Flag for weighting the objective with the I(q) error estimates.
-    #logI_weighted : bool
-    #    Flag for evaluating the objective on log(I(q)) instead if I(q)
-    #q_range : list
-    #    Two floats indicating the lower and 
-    #    upper q-limits for objective evaluation
 
     # the System to optimize starts as a copy of the input System
     sys_opt = System.from_dict(sys.to_dict())
+    sys_opt.fit_report.update(
+        error_weighted=error_weighted,
+        logI_weighted=logI_weighted,
+        q_range=q_range
+        )
 
     obj_init = sys_opt.evaluate_residual(q,I,dI)
     lmf_params = sys_opt.pack_lmfit_params() 
@@ -257,9 +262,6 @@ def fit(sys,q,I,dI=None):
     sys_opt.fit_report['converged'] = lmf_res.success
     sys_opt.fit_report['initial_objective'] = obj_init 
     sys_opt.fit_report['final_objective'] = fit_obj 
-    #sys_opt.fit_report['error_weighted'] = error_weighted 
-    #sys_opt.fit_report['logI_weighted'] = logI_weighted 
-    #sys_opt.fit_report['q_range'] = q_range 
     sys_opt.fit_report['fit_snr'] = snr
     sys_opt.features = profile_pattern(q,I)
 
