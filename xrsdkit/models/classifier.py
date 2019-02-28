@@ -22,17 +22,6 @@ class Classifier(XRSDModel):
             )
 
     def build_model(self,model_hyperparams={}):
-        '''
-        if all([p in model_hyperparams for p in ['C']]):
-            new_model = linear_model.LogisticRegression(
-                    C=model_hyperparams['C'],
-                    max_iter=1000, class_weight='balanced', penalty='l1'
-                    )
-        else:
-            new_model = linear_model.LogisticRegression(
-                max_iter=1000, class_weight='balanced', penalty='l1'
-                )
-        '''
         if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
             new_model = linear_model.SGDClassifier(
                     alpha=model_hyperparams['alpha'], 
@@ -46,7 +35,6 @@ class Classifier(XRSDModel):
                 loss='log', penalty='elasticnet',
                 max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
                 )
-
         return new_model
 
     def classify(self, sample_features):

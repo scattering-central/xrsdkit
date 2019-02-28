@@ -72,6 +72,7 @@ class Regressor(XRSDModel):
         prediction : float
             predicted parameter value
         """
+
         ind = []
         for i, k in enumerate(sample_features.keys()):
             if k in self.features:

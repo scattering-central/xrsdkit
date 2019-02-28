@@ -81,30 +81,7 @@ class XRSDModel(object):
             data = d[d[self.target].isnull() == False]
             # exclude samples with group_id==0
             valid_data = data[data.group_id>0]
-            '''
-            if hyper_parameters_search:
-                new_parameters = self.hyperparameters_search(valid_data, n_leave_out=1)
-                new_model = self.build_model(new_parameters)
-            else:
-                new_model = self.model
-            '''
 
-            '''
-
-            cv = model_selection.LeavePGroupsOut(n_groups=1).split(
-                valid_data[profiler.profile_keys], np.ravel(valid_data[self.target]),
-                                                                  groups=valid_data['group_id'])
-
-            rfecv = RFECV(estimator=self.model, step=1, cv=cv, scoring=self.score, min_features_to_select=3, n_jobs=-1)
-            rfecv.fit(valid_data[profiler.profile_keys], valid_data[self.target])
-
-            print("Optimal number of features : %d" % rfecv.n_features_)
-            print(rfecv.score(valid_data[profiler.profile_keys], valid_data[self.target]))
-            print(rfecv.support_ )
-            print(rfecv.grid_scores_)
-
-            best_features = [profiler.profile_keys[i] for i in range(len(profiler.profile_keys)) if rfecv.support_[i]]
-            '''
             # features selection
             features = []
             features.extend(profiler.profile_keys)
