@@ -1,15 +1,18 @@
 from collections import OrderedDict
 from functools import partial
+import glob
 import copy
 import sys
 import os
-
-from ..tools import profiler
-from ..models import predict as xrsdpred
+if sys.version_info[0] < 3:
+    import Tkinter as tkinter
+    from tkinter import tkFileDialog as filedialog
+else:
+    import tkinter
+    from tkinter import filedialog
 
 import numpy as np
 import matplotlib
-
 mplv = matplotlib.__version__
 mplvmaj = int(mplv.split('.')[0])
 from matplotlib.figure import Figure
@@ -23,22 +26,23 @@ from .. import definitions as xrsdefs
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
 from ..tools.ymltools import load_sys_from_yaml,save_sys_to_yaml
+from ..tools import profiler
+from ..models import predict as xrsdpred
 
-if sys.version_info[0] < 3:
-    import Tkinter as tkinter
-else:
-    import tkinter
+# plot fillers for the case of nonexistent data:
+q_default = np.linspace(0.,1.,100)
+I_default = 10**np.random.normal(-3,1.,100)
 
 def run_fit_gui(data_files={}):
     # data_files dict: keys are q_I file paths, values are .yml file paths (or None)
     gui = XRSDFitGUI(data_files)
     gui.start()
 
-# TODO (low): when a structure or form selection is rejected,
+# TODO (low): when a selection is rejected (raises an Exception),
 #   get the associated combobox re-painted-
 #   currently the value does get reset, 
 #   but the cb does not repaint until it is focused-on...
-#   note, this may be a use case for update_idletasks()
+#   try update_idletasks()?
 
 # TODO (low): in _validate_param(), 
 #   if param_key == 'constraint_expr', 
@@ -56,10 +60,11 @@ class XRSDFitGUI(object):
     def __init__(self,data_files={}):
 
         super(XRSDFitGUI, self).__init__()
-        # start with a default system definition
+        # start with a default system definition, q, and I(q)
         self.sys = xrsdsys.System()
-        self.data_files = {}
-        self.q = self.I = self.dI = None
+        self.q = q_default
+        self.I = I_default
+        self.dI = None
         self.fit_gui = tkinter.Tk()
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
         # setup the main gui objects
@@ -68,16 +73,13 @@ class XRSDFitGUI(object):
         self._build_control_widgets()
         # create the plots
         self._build_plot_widgets()
-        # draw the plots...
-        #self._draw_plots()
-        self.fit_gui.geometry('1100x700')
         self._set_data_files(data_files)
+        self.fit_gui.geometry('1100x700')
+        self._draw_plots()
 
     def start(self):
         # start the tk loop
         self.fit_gui.mainloop()
-        # after the loop, return the (optimized) system
-        return self.sys
 
     def _cleanup(self):
         # remove references to all gui objects, widgets, etc. 
@@ -117,7 +119,7 @@ class XRSDFitGUI(object):
         canvas.config(scrollregion=canvas.bbox(tkinter.ALL))
 
     def _build_plot_widgets(self):
-        # the main frame contains a plot frame on the left,
+        # the main frame contains a frame on the left,
         # containing a canvas, which contains a window item,
         # which displays a view on a plot widget 
         # built from FigureCanvasTkAgg.get_tk_widget()
@@ -139,10 +141,9 @@ class XRSDFitGUI(object):
             plot_frame_canvas,self.plot_canvas,plot_canvas_window)
         plot_frame_canvas.bind("<Configure>",self.plot_canvas_configure)
         self.mpl_canvas.draw()
-        #self._update_fit_objective(I_comp)
 
     def _build_control_widgets(self):
-        # the main frame contains a control frame on the right,
+        # the main frame contains a frame on the right,
         # containing a canvas, which contains a window item,
         # which displays a view on a frame full of entry widgets and labels, 
         # which are used to control parameters, settings, etc. 
@@ -177,8 +178,8 @@ class XRSDFitGUI(object):
             parameters=OrderedDict(),
             settings=OrderedDict(),
             new_population=None,
-            fit_control=OrderedDict(),
-            io_control=OrderedDict()
+            fit_control=None,
+            io_control=None
             )
         self._vars = OrderedDict(
             noise_model=None,
@@ -195,154 +196,286 @@ class XRSDFitGUI(object):
             )
 
     def _create_control_widgets(self):
-        self._frames['parameters']['noise'] = OrderedDict()
-        self._vars['parameters']['noise'] = OrderedDict()
         self._create_io_control_frame()
         self._create_fit_control_frame()
         self._create_noise_frame()
         for pop_nm in self.sys.populations.keys():
-            self._frames['parameters'][pop_nm] = OrderedDict()
-            self._vars['parameters'][pop_nm] = OrderedDict()
-            self._frames['populations'][pop_nm] = self._create_pop_frame(pop_nm)
-        self._frames['new_population'] = self._create_new_pop_frame()
+            self._create_pop_frame(pop_nm)
+        self._create_new_pop_frame()
         self._pack_population_frames()
-
-    def _pack_population_frames(self):
-        n_pop_frames = len(self._frames['populations'])
-        for pop_idx, pop_nm in enumerate(self._frames['populations'].keys()):
-            self._frames['populations'][pop_nm].grid(
-            row=3+pop_idx,pady=2,padx=2,sticky='ew')
-        self._frames['new_population'].grid(row=3+n_pop_frames,pady=2,padx=2,sticky='ew')
-
-    def _repack_pop_frames(self):
-        for pop_nm,frm in self._frames['populations'].items(): frm.grid_forget() 
-        self._frames['new_population'].grid_forget()
-        new_pop_frms = OrderedDict()
-        # save the relevant frames, create new ones as needed 
-        for pop_nm in self._frames['populations'].keys(): 
-            if pop_nm in self.sys.populations:
-                new_pop_frms[pop_nm] = self._frames['populations'][pop_nm]
-        for pop_nm in self.sys.populations.keys():
-            if not pop_nm in self._frames['populations']:
-                new_pop_frms[pop_nm] = self._create_pop_frame(pop_nm)
-        # destroy any frames that didn't get saved
-        pop_frm_nms = list(self._frames['populations'].keys())
-        for pop_nm in pop_frm_nms:
-            if not pop_nm in self.sys.populations: 
-                frm = self._frames['populations'].pop(pop_nm)
-                frm.destroy()
-                # TODO (low): clean up refs to obsolete vars
-                # and widgets that were children of this frame 
-        # place the new frames in the _frames dict 
-        self._frames['populations'] = new_pop_frms
-        self._pack_population_frames()
-        # update_idletasks() processes the frame changes, 
-        # so that they are accounted for in control_canvas_configure()
-        self.fit_gui.update_idletasks()
-        self.control_canvas_configure()
 
     def _create_io_control_frame(self):
         iof = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        iof.grid_columnconfigure(0,weight=1)
         iof.grid_columnconfigure(1,weight=1)
         iof.grid_columnconfigure(2,weight=1)
         self._frames['io_control'] = iof
-        self._vars['io_control']['system_file'] = tkinter.StringVar(iof)
+        dfvar = tkinter.StringVar(iof)
+        dfvar.trace('w',self._update_data_file)
+        self._vars['io_control']['data_file'] = dfvar
 
-        dfl = tkinter.Label(iof,text='data files:',anchor='e')
+        self._vars['io_control']['data_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['data_file_extension'] = tkinter.StringVar(iof)
+        self._vars['io_control']['data_filename_suffix'] = tkinter.StringVar(iof)
+        self._vars['io_control']['data_search_expression'] = tkinter.StringVar(iof)
+        self._vars['io_control']['system_definition_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['system_definition_filename_suffix'] = tkinter.StringVar(iof)
+        self._vars['io_control']['data_dir'].trace('w',self._update_search_expression)
+        self._vars['io_control']['data_file_extension'].trace('w',self._update_search_expression)
+        self._vars['io_control']['data_filename_suffix'].trace('w',self._update_search_expression)
+
+        dfl = tkinter.Label(iof,text='scattering/diffraction data files:',anchor='w')
         dfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_data_files)
+        dfl.grid(row=0,column=0,columnspan=2,sticky='w')
+        dfbb.grid(row=0,column=2,sticky='e')
 
-        #dfvar = tkinter.StringVar(iof)
-        #df_options_dict = {'':None}
-        #dfcb = tkinter.OptionMenu(iof,dfvar,*df_options_dict)
-        #dfcb.config(width=10,anchor='e')
-        #dfvar.trace('w',self._update_data_file)
-        #self._vars['io_control']['data_file'] = dfvar
-        #self._widgets['datafile_option_menu'] = dfcb
+        # this creates and packs the data file selection menu:
         self._set_data_files()
 
-        sysfl = tkinter.Label(iof,text='system definition file:',anchor='w')
-        #sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],self._load_sys_file,10)
-        sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],None,10)
-        sysfsvb = tkinter.Button(iof,text='Save',width=8,command=self._save_sys_file) 
-        sysfldb = tkinter.Button(iof,text='Load',width=8,command=self._load_sys_file) 
-        sysfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_sys_file)
-
-        dfl.grid(row=0,column=0,sticky='w')
-        dfbb.grid(row=0,column=1,sticky='e')
-        #dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
-        sysfl.grid(row=2,column=0,sticky='w')
-        sysfbb.grid(row=2,column=1,sticky='e')
-        sysfe.grid(row=3,column=0,columnspan=2,sticky='ew')
-        sysfsvb.grid(row=4,column=0,sticky='ew')
-        sysfldb.grid(row=4,column=1,sticky='ew')
+        prevb = tkinter.Button(iof,text='Previous',width=8,command=self._previous_data_file)
+        nxtb = tkinter.Button(iof,text='Next',width=8,command=self._next_data_file)
+        prevb.grid(row=2,column=0,sticky='w')
+        nxtb.grid(row=2,column=2,sticky='e')
 
         iof.grid(row=0,pady=2,padx=2,sticky='ew')
 
-    def _set_data_files(self,data_files=None):
+    def _update_search_expression(self,*args):
+        new_dir = self._vars['io_control']['data_dir'].get()
+        new_file_expr = '*'+self._vars['io_control']['data_filename_suffix'].get()+'.'+self._vars['io_control']['data_file_extension'].get()
+        new_search_expr = os.path.join(new_dir,new_file_expr)
+        self._vars['io_control']['data_search_expression'].set(new_search_expr)
+
+    def _set_data_files(self,data_files={}):
         self.data_files = data_files
-        dfvar = tkinter.StringVar(self._frames['io_control'])
         df_options_dict = {'':None}
         if data_files:
             df_options_dict = OrderedDict.fromkeys(data_files.keys())
-        dfcb = tkinter.OptionMenu(self._frames['io_control'],dfvar,*df_options_dict)
+        dfcb = tkinter.OptionMenu(self._frames['io_control'],self._vars['io_control']['data_file'],*df_options_dict)
         dfcb.config(width=10,anchor='e')
-        dfvar.trace('w',self._update_data_file)
         if self._widgets['datafile_option_menu']: 
             self._widgets['datafile_option_menu'].grid_forget()
-        dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
-        self._vars['io_control']['data_file'] = dfvar
+        dfcb.grid(row=1,column=0,columnspan=3,sticky='ew')
         self._widgets['datafile_option_menu'] = dfcb
 
-        #if data_files is not None:
-        #    self.data_files = data_files
-        #df_options_dict = {'':None}
-        #if self.data_files:
-        #    df_options_dict = OrderedDict.fromkeys(self.data_files.keys())
-        ## delete current OptionMenu entries:
-        #self._widgets['datafile_option_menu']['menu'].delete(0,'end')
-        ## add each new datafile as a "choice" for the OptionMenu
-        #for df in df_options_dict.keys():
-        #    self._widgets['datafile_option_menu']['menu'].add_command(#label=df)
-        #        #label=df, command=tkinter._setit(self._vars['io_control']['data_file'],df))
-        #        label=df, command=partial(self._vars['io_control']['data_file'].set,df))
-        #        #label=df, command=self._vars['io_control']['data_file'].set(df))
-        ##import pdb; pdb.set_trace()
-        #self._vars['io_control']['data_file'].set(list(df_options_dict.keys())[0])
-        ##if df_options:
-        #    self._vars['io_control']['data_file'].set(df_options[0])
+    def _browse_data_files(self,*args):
+        browser_popup = tkinter.Toplevel(master=self.fit_gui)
+        browser_popup.geometry('500x800')
+        #browser_popup.wm_title('data file browser')
+        browser_popup.title('data file browser')
+        scrollbar = tkinter.Scrollbar(browser_popup,orient='vertical')
+        main_canvas = tkinter.Canvas(browser_popup)
+        scrollbar.pack(side=tkinter.RIGHT,fill=tkinter.Y)
+        main_canvas.pack(fill=tkinter.BOTH,expand=tkinter.YES)
+        scrollbar.config(command=main_canvas.yview)
+        main_canvas.config(yscrollcommand=scrollbar.set)
+        main_frame = tkinter.Frame(main_canvas,bd=4,padx=10,pady=10)
+        main_frame_window = main_canvas.create_window(0,0,window=main_frame,anchor='nw')
+        main_canvas_configure = partial(self._canvas_configure,main_canvas,main_frame,main_frame_window)  
+        main_canvas.bind("<Configure>",main_canvas_configure)
 
-    def _browse_sys_file(*args,**kwargs):
-        raise NotImplementedError('implement _browse_sys_file()!') 
+        #iof = self._frames['io_control']
 
-    def _save_sys_file(*args,**kwargs):
-        raise NotImplementedError('implement _save_sys_file()!') 
+        display_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        display_frame.grid_columnconfigure(0,weight=1)
+        display_frame.grid_columnconfigure(1,weight=1)
+        display_frame.grid_rowconfigure(1,weight=1)
+        # widgets for displaying file lists:
+        dfl = tkinter.Label(display_frame,text='data files:',anchor='w')
+        sfl = tkinter.Label(display_frame,text='system definition files:',anchor='w')
+        dfl.grid(row=0,column=0,sticky='w')
+        sfl.grid(row=0,column=1,sticky='w')
 
-    def _load_sys_file(self,sys_file):
+        # TODO: figure out how to right-justify the Listbox
+        dfl.config(justify=tkinter.RIGHT)
+        sfl.config(justify=tkinter.RIGHT)
+
+        dfplist = tkinter.Listbox(display_frame)
+        sfplist = tkinter.Listbox(display_frame)
+        dfplist.grid(row=1,column=0,sticky='nsew') 
+        sfplist.grid(row=1,column=1,sticky='nsew')
+        finbtn = tkinter.Button(display_frame,text='Finish / Load Files',
+            command=partial(self._get_data_files_from_browser,dfplist,sfplist))
+        finbtn.grid(row=2,column=0,columnspan=2,sticky='ew')
+
+        entry_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        entry_frame.grid_columnconfigure(0,weight=3)
+        entry_frame.grid_columnconfigure(1,weight=1)
+        entry_frame.grid_rowconfigure(4,minsize=40)
+        entry_frame.grid_rowconfigure(8,minsize=30)
+        # widgets for setting data files directory
+        ddirl = tkinter.Label(entry_frame,text='data files directory:',anchor='w')
+
+        ddirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['data_dir'])
+        #ddirent = self.connected_entry(entry_frame,self._vars['io_control']['data_dir'],self._update_search_expression)
+
+        ddirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['data_dir'],
+            'Select scattering data directory'
+            ))
+        ddirl.grid(row=0,column=0,sticky='sew')
+        ddirbb.grid(row=0,column=1,sticky='sew')
+        ddirent.grid(row=1,column=0,columnspan=2,sticky='ew')
+        # widgets for setting data file suffix and extension
+        dsfxl = tkinter.Label(entry_frame,text='file suffix:',anchor='e')
+        dsfxent = tkinter.Entry(entry_frame,width=8,textvariable=self._vars['io_control']['data_filename_suffix'])
+        dextl = tkinter.Label(entry_frame,text='file extension:',anchor='e')
+        dextent = tkinter.Entry(entry_frame,width=8,textvariable=self._vars['io_control']['data_file_extension']) 
+        dsfxl.grid(row=2,column=0,sticky='e')
+        dsfxent.grid(row=2,column=1,sticky='ew')
+        dextl.grid(row=3,column=0,sticky='e')
+        dextent.grid(row=3,column=1,sticky='ew')
+        # widgets for setting system definition files directory
+        sdirl = tkinter.Label(entry_frame,text='system definition files directory:',anchor='w')
+        sdirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['system_definition_dir'])
+        sdirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['system_definition_dir'],
+            'Select directory for system definition files'
+            ))
+        sdirl.grid(row=4,column=0,sticky='sew')
+        sdirbb.grid(row=4,column=1,sticky='sew')
+        sdirent.grid(row=5,column=0,columnspan=2,sticky='ew')
+        # widgets for setting system definition file suffix and extension
+        ssfxl = tkinter.Label(entry_frame,text='file suffix:',anchor='e')
+        ssfxent = tkinter.Entry(entry_frame,width=8,textvariable=self._vars['io_control']['system_definition_filename_suffix'])
+        sextl = tkinter.Label(entry_frame,text='file extension:',anchor='e')
+        # NOTE: hard-coded yml extension... could be updated to a variable
+        sextvar = tkinter.StringVar(entry_frame)
+        sextvar.set('yml')
+        sextent = tkinter.Entry(entry_frame,width=8,state='readonly',textvariable=sextvar) 
+        ssfxl.grid(row=6,column=0,sticky='e')
+        ssfxent.grid(row=6,column=1,sticky='ew')
+        sextl.grid(row=7,column=0,sticky='e')
+        sextent.grid(row=7,column=1,sticky='ew')
+        # widgets for displaying data file search expression
+        sexprl = tkinter.Label(entry_frame,text='data search expression:',anchor='w')
+        sexprent = tkinter.Entry(entry_frame,state='readonly',textvariable=self._vars['io_control']['data_search_expression'])
+
+        # TODO: figure out how to always see the end of the expression as it gets updated
+        #sexprent.config(justify=tkinter.RIGHT)
+
+        sexprl.grid(row=8,column=0,columnspan=2,sticky='sw')
+        sexprent.grid(row=9,column=0,columnspan=2,sticky='ew')
+        sexprb = tkinter.Button(entry_frame,text='Execute Search',command=partial(self._execute_search,dfplist,sfplist))
+        sexprb.grid(row=10,column=0,columnspan=2,sticky='ew')
+        canclb = tkinter.Button(entry_frame,text='Cancel / Exit',command=browser_popup.destroy)
+        canclb.grid(row=11,column=0,columnspan=2,sticky='ew')
+
+        # finally, pack frames into the main widget
+        entry_frame.pack(side=tkinter.TOP,fill=tkinter.X,expand=False,padx=2,pady=2)
+        display_frame.pack(side=tkinter.TOP,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
+
+        # wait for the browser to close before continuing main loop 
+        self.fit_gui.wait_window(browser_popup)
+
+    def _execute_search(self,data_file_listbox,system_file_listbox):
+        data_file_list = glob.glob(self._vars['io_control']['data_search_expression'].get())
+        data_file_listbox.delete(0,tkinter.END)
+        system_file_listbox.delete(0,tkinter.END)
+        sys_file_list = []
+        dfsfx = self._vars['io_control']['data_filename_suffix'].get()
+        sfdir = self._vars['io_control']['system_definition_dir'].get()
+        sfsfx = self._vars['io_control']['system_definition_filename_suffix'].get()
+        for df in data_file_list:
+            dfname = os.path.split(df)[1]
+            sfname = os.path.splitext(dfname)[0]
+            sfname = sfname[:sfname.rfind(dfsfx)]
+            sfname = sfname+sfsfx+'.yml'
+            sf = os.path.join(sfdir,sfname)
+            sys_file_list.append(sf)
+        data_file_listbox.insert(0,*data_file_list)
+        system_file_listbox.insert(0,*sys_file_list)
+
+    def _get_data_files_from_browser(self,data_file_listbox,system_file_listbox):
+        df_list = data_file_listbox.get(0,tkinter.END)
+        sf_list = system_file_listbox.get(0,tkinter.END)
+        data_files = OrderedDict((df,sf) for df,sf in zip(df_list,sf_list))
+        self._set_data_files(data_files)
+
+    def _browse_for_directory(self,parent_widget,dir_entry_var,title=''):
+        browser_root = os.getcwd()
+        data_dir = filedialog.askdirectory(
+            parent=parent_widget,
+            initialdir=browser_root,
+            title=title
+            )
+        dir_entry_var.set(data_dir)
+
+    def _next_data_file(self,*args):
+        current_file = self._vars['io_control']['data_file'].get()
+        file_list = list(self.data_files.keys())
+        nfiles = len(file_list)
+        if current_file:
+            current_file_idx = file_list.index(current_file)
+            next_file_idx = min([nfiles-1,current_file_idx+1])
+        else:
+            next_file_idx = 0
+        next_file = file_list[next_file_idx]
+        if not current_file == next_file:
+            # setting the var triggers self._update_data_file()
+            self._vars['io_control']['data_file'].set(next_file)
+
+    def _previous_data_file(self,*args):
+        current_file = self._vars['io_control']['data_file'].get()
+        file_list = list(self.data_files.keys())
+        prev_file = ''
+        if current_file:
+            current_file_idx = file_list.index(current_file)
+            prev_file_idx = current_file_idx-1
+            if prev_file_idx>=0: prev_file = file_list[prev_file_idx]
+        if not current_file == prev_file:
+            # setting the var triggers self._update_data_file()
+            self._vars['io_control']['data_file'].set(prev_file)
+
+    def _save_sys_file(self,*args):
+        # TODO: if file already exists, warn user about overwrite
+        sys_file = self._vars['fit_control']['sys_def_file'].get()
+        if sys_file and os.path.exists(os.path.split(sys_file)[0]):
+            save_sys_to_yaml(sys_file,self.sys)
+
+    def _load_sys_file(self,*args):
+        sys_file = self._vars['fit_control']['sys_def_file'].get()
         if os.path.exists(sys_file):
             new_sys = load_sys_from_yaml(sys_file)
         else:
             new_sys = xrsdsys.System()
-        self._vars['io_control']['system_file'].set(sys_file)
         self._set_system(new_sys)
 
     def _update_data_file(self,*event_args):
         df = self._vars['io_control']['data_file'].get()
-        q_I = np.loadtxt(df)
-        self.q = q_I[:,0]
-        self.I = q_I[:,1]
-        if q_I.shape[1] > 2:
-            self.dI = q_I[:,2]
-        if self.data_files[df]:
-            self._load_sys_file(self.data_files[df])
-
-    def _browse_data_files(*args,**kwargs):
-        raise NotImplementedError('implement _browse_data_files()!') 
+        if df:
+            q_I = np.loadtxt(df)
+            self.q = q_I[:,0]
+            self.I = q_I[:,1]
+            if q_I.shape[1] > 2:
+                self.dI = q_I[:,2]
+            self._vars['fit_control']['sys_def_file'].set(self.data_files[df])
+            self._load_sys_file()
+        else:
+            self.q = q_default
+            self.I = I_default
+            self.dI = None
+            self._vars['fit_control']['sys_def_file'].set('')
+            self._set_system(xrsdsys.System())
 
     def _create_fit_control_frame(self):
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
         self._frames['fit_control'] = cf
+        self._vars['fit_control']['sys_def_file'] = tkinter.StringVar(cf)
+
+        sysdefl = tkinter.Label(cf,text='system definition file:',anchor='w')
+        sysdefl.grid(row=0,column=0,sticky='w')
+        sysfsvb = tkinter.Button(cf,text='Save',width=8,command=self._save_sys_file) 
+        sysfldb = tkinter.Button(cf,text='Load',width=8,command=self._load_sys_file) 
+        sysfsvb.grid(row=0,column=1,sticky='ew')
+        sysfldb.grid(row=0,column=2,sticky='ew')
+
+        sysfne = tkinter.Entry(cf,state='readonly',textvariable=self._vars['fit_control']['sys_def_file'])
+        sysfne.grid(row=1,column=0,columnspan=3,sticky='ew')
+
         self._vars['fit_control']['experiment_id'] = tkinter.StringVar(cf)
         self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
         self._vars['fit_control']['sample_id'] = tkinter.StringVar(cf)
@@ -364,49 +497,42 @@ class XRSDFitGUI(object):
         exptide = self.connected_entry(cf,self._vars['fit_control']['experiment_id'],self._set_experiment_id,10)
         sampidl = tkinter.Label(cf,text='sample id:',anchor='e')
         sampide = self.connected_entry(cf,self._vars['fit_control']['sample_id'],self._set_sample_id,10)
-        exptidl.grid(row=0,column=0,sticky='e')
-        exptide.grid(row=0,column=1,columnspan=2,sticky='ew')
-        sampidl.grid(row=1,column=0,sticky='e')
-        sampide.grid(row=1,column=1,columnspan=2,sticky='ew')
+        exptidl.grid(row=5,column=0,sticky='e')
+        exptide.grid(row=5,column=1,columnspan=2,sticky='ew')
+        sampidl.grid(row=6,column=0,sticky='e')
+        sampide.grid(row=6,column=1,columnspan=2,sticky='ew')
 
         wll = tkinter.Label(cf,text='wavelength:',anchor='e')
         wle = self.connected_entry(cf,self._vars['fit_control']['wavelength'],self._set_wavelength,10)
-        wll.grid(row=2,column=0,sticky='e')
-        wle.grid(row=2,column=1,columnspan=2,sticky='ew')
+        wll.grid(row=7,column=0,sticky='e')
+        wle.grid(row=7,column=1,columnspan=2,sticky='ew')
 
         q_range_lbl = tkinter.Label(cf,text='q-range:',anchor='e')
-        q_range_lbl.grid(row=3,column=0,sticky='e')
-        #q_lo_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][0])
-        #q_hi_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][1])
-        q_lo_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][0],
-            partial(self._set_q_range,0),8) 
-        q_hi_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][1],
-            partial(self._set_q_range,1),8) 
-        q_lo_ent.grid(row=3,column=1,sticky='ew')
-        q_hi_ent.grid(row=3,column=2,sticky='ew')
+        q_range_lbl.grid(row=8,column=0,sticky='e')
+        q_lo_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][0],partial(self._set_q_range,0),8) 
+        q_hi_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][1],partial(self._set_q_range,1),8) 
+        q_lo_ent.grid(row=8,column=1,sticky='ew')
+        q_hi_ent.grid(row=8,column=2,sticky='ew')
 
-        ewtcb = self.connected_checkbutton(cf,self._vars['fit_control']['error_weighted'],
-            self._set_error_weighted,'error weighted')
-        ewtcb.grid(row=4,column=0,sticky='w')
-        logwtcb = self.connected_checkbutton(cf,self._vars['fit_control']['logI_weighted'],
-            self._set_logI_weighted,'log(I) weighted')
-        logwtcb.grid(row=5,column=0,sticky='w')
+        ewtcb = self.connected_checkbutton(cf,self._vars['fit_control']['error_weighted'],self._set_error_weighted,'error weighted')
+        ewtcb.grid(row=9,column=0,sticky='e')
+        logwtcb = self.connected_checkbutton(cf,self._vars['fit_control']['logI_weighted'],self._set_logI_weighted,'log(I) weighted')
+        logwtcb.grid(row=10,column=0,sticky='e')
 
-        estbtn = tkinter.Button(cf,text='Estimate',width=8,command=self._estimate)
-        estbtn.grid(row=4,column=1,rowspan=2,sticky='nesw')
         fitbtn = tkinter.Button(cf,text='Fit',width=8,command=self._fit)
-        fitbtn.grid(row=4,column=2,rowspan=2,sticky='nesw')
+        fitbtn.grid(row=9,column=1,rowspan=2,sticky='nesw')
+        estbtn = tkinter.Button(cf,text='Estimate',width=8,command=self._estimate)
+        estbtn.grid(row=9,column=2,rowspan=2,sticky='nesw')
 
         objl = tkinter.Label(cf,text='objective:',anchor='e')
-        objl.grid(row=6,column=0,sticky='e')
+        objl.grid(row=11,column=0,sticky='e')
         rese = tkinter.Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
-        rese.grid(row=6,column=1,sticky='ew')
-        fitcb = self.connected_checkbutton(cf,self._vars['fit_control']['good_fit'],
-            self._set_good_fit,'Good fit')
-        fitcb.grid(row=6,column=2,sticky='ew')
+        rese.grid(row=11,column=1,sticky='ew')
+        gdfitcb = self.connected_checkbutton(cf,self._vars['fit_control']['good_fit'],self._set_good_fit,'Good fit')
+        gdfitcb.grid(row=11,column=2,sticky='ew')
 
         cf.grid(row=1,pady=2,padx=2,sticky='ew')
-    
+
     def _set_experiment_id(self,event=None):
         try:
             new_val = self._vars['fit_control']['experiment_id'].get()
@@ -577,7 +703,7 @@ class XRSDFitGUI(object):
         # PACKING:
         self._pack_setting_frames(pop_nm)
         self._pack_parameter_frames(pop_nm)
-        return pf
+        #return pf
 
     def _repack_pop_frame(self,pop_nm):
         pop_struct = self.sys.populations[pop_nm].structure
@@ -623,6 +749,32 @@ class XRSDFitGUI(object):
         self._frames['parameters'][pop_nm] = new_par_frms
         self._pack_setting_frames(pop_nm)
         self._pack_parameter_frames(pop_nm)
+        # update_idletasks() processes the frame changes, 
+        # so that they are accounted for in control_canvas_configure()
+        self.fit_gui.update_idletasks()
+        self.control_canvas_configure()
+
+    def _pack_population_frames(self):
+        n_pop_frames = len(self._frames['populations'])
+        for pop_idx, pop_nm in enumerate(self._frames['populations'].keys()):
+            self._frames['populations'][pop_nm].grid(
+            row=3+pop_idx,pady=2,padx=2,sticky='ew')
+        self._frames['new_population'].grid(row=3+n_pop_frames,pady=2,padx=2,sticky='ew')
+
+    def _repack_pop_frames(self):
+        for pop_nm,frm in self._frames['populations'].items(): frm.grid_forget() 
+        self._frames['new_population'].grid_forget()
+        for pop_nm in self.sys.populations.keys():
+            if not pop_nm in self._frames['populations']:
+                self._create_pop_frame(pop_nm)
+        pop_frm_nms = list(self._frames['populations'].keys())
+        for pop_nm in pop_frm_nms:
+            if not pop_nm in self.sys.populations: 
+                frm = self._frames['populations'].pop(pop_nm)
+                frm.destroy()
+                # TODO (low): clean up refs to obsolete vars
+                # and widgets that were children of this frame 
+        self._pack_population_frames()
         # update_idletasks() processes the frame changes, 
         # so that they are accounted for in control_canvas_configure()
         self.fit_gui.update_idletasks()
@@ -752,7 +904,7 @@ class XRSDFitGUI(object):
         addb = tkinter.Button(npf,text='+',command=self._new_population)
         addb.grid(row=0,column=2,sticky='e')
         npops = len(self._frames['populations'])
-        return npf
+        #return npf
 
     def _draw_plots(self):
         I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.dI,False)
@@ -870,7 +1022,7 @@ class XRSDFitGUI(object):
         if new_nm and not new_nm in self.sys.populations:
             self.sys.add_population(new_nm,'diffuse','atomic')
             self._frames['new_population'].grid_forget() 
-            self._frames['populations'][new_nm] = self._create_pop_frame(new_nm)
+            self._create_pop_frame(new_nm)
             npops = len(self._frames['populations'])
             self._frames['populations'][new_nm].grid(row=2+npops,padx=2,pady=2,sticky='ew') 
             self._frames['new_population'].grid(row=3+npops,padx=2,pady=2,sticky='ew') 
@@ -917,10 +1069,6 @@ class XRSDFitGUI(object):
 
     def _fit(self):
         sys_opt = xrsdsys.fit(self.sys,self.q,self.I,self.dI)
-            #self._vars['fit_control']['error_weighted'].get(),
-            #self._vars['fit_control']['logI_weighted'].get(),
-            #[self._vars['fit_control']['q_range'][0].get(),self._vars['fit_control']['q_range'][1].get()]
-            #)
         self.sys.update_from_dict(sys_opt.to_dict())
         self._update_parameter_values() 
         self._draw_plots()
@@ -946,7 +1094,6 @@ class XRSDFitGUI(object):
         self._set_system(sys_est)
 
     def _set_system(self,new_sys):
-        #self.sys.update_from_dict(sys_est.to_dict())
         self.sys = new_sys 
         # update fit control widgets for new system
         self._vars['fit_control']['good_fit'].set(self.sys.fit_report['good_fit'])
@@ -960,9 +1107,8 @@ class XRSDFitGUI(object):
         if any([pp.structure=='crystalline' for pp in new_sys.populations.values()]):
             if new_sys.sample_metadata['source_wavelength'] == 0.:
                 warnings.warn('Diffraction computations require a nonzero wavelength: setting default 1.5406')
+                # NOTE: setting this var will also set the corresponding system attribute
                 self._vars['fit_control']['wavelength'].set(1.5406)
-                #sys_est.sample_metadata['source_wavelength'] = 1.
-
         # repack everything 
         self._repack_pop_frames()
         self._repack_noise_frame()
@@ -984,15 +1130,21 @@ class XRSDFitGUI(object):
         canvas.yview_scroll(d,'units')
 
     @staticmethod
-    def connected_entry(parent,tkvar,cbfun=None,entry_width=20):
+    def connected_entry(parent,tkvar,cbfun=None,entry_width=None):
         if cbfun:
             # piggyback on entry validation to update internal data
             # NOTE: validatecommand must return a boolean, or else it will disconnect quietly
-            e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar,validate="focusout",validatecommand=cbfun)
+            if entry_width:
+                e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar,validate="focusout",validatecommand=cbfun)
+            else:
+                e = tkinter.Entry(parent,textvariable=tkvar,validate="focusout",validatecommand=cbfun)
             # also respond to the return key
             e.bind('<Return>',cbfun)
         else:
-            e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar)
+            if entry_width:
+                e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar)
+            else:
+                e = tkinter.Entry(parent,textvariable=tkvar)
         return e
 
     @staticmethod
@@ -1002,4 +1154,107 @@ class XRSDFitGUI(object):
         else:
             e = tkinter.Checkbutton(parent,text=label,variable=boolvar,anchor='w')
         return e
+
+        #self._vars['io_control']['data_dir'] = tkinter.StringVar(iof)
+        #self._vars['io_control']['file_extension'] = tkinter.StringVar(iof)
+        #self._vars['io_control']['filename_suffix'] = tkinter.StringVar(iof)
+        #self._vars['io_control']['search_path'] = tkinter.StringVar(iof)
+
+        #dire = tkinter.Entry(iof,state='readonly',textvariable=self._vars['io_control']['data_dir']) 
+        #dire.grid(row=1,column=0,columnspan=3,sticky='ew')
+
+        #fxl = tkinter.Label(iof,text='file extension:',anchor='e')
+        #fxe = self.connected_entry(iof,self._vars['io_control']['file_extension'],self._update_data_files,10)
+        #fxl.grid(row=2,column=0,sticky='e')
+        #fxe.grid(row=2,column=1,columnspan=2,sticky='ew')
+
+        #fsfxl = tkinter.Label(iof,text='filename suffix:',anchor='e')
+        #fsfxe = self.connected_entry(iof,self._vars['io_control']['filename_suffix'],self._update_data_files,10)
+        #fsfxl.grid(row=3,column=0,sticky='e')
+        #fsfxe.grid(row=3,column=1,columnspan=2,sticky='ew')
+
+        #fpthl = tkinter.Label(iof,text='current search path:',anchor='e')
+        #fpthe = tkinter.Entry(iof,state='readonly',textvariable=self._vars['io_control']['search_path'])
+        #fpthl.grid(row=4,column=0,sticky='e')
+        #fpthe.grid(row=4,column=1,columnspan=2,sticky='ew')
+
+
+    #def _set_data_dir(self,new_dir):
+    #    # get suffix and extension from vars
+    #    # build search regex
+    #    # load search regex into display var
+    #    # perform search, get file list
+    #    # build data_files dict:
+    #    # for each data file,
+    #        # build the corresponding system definitions file path
+    #        # load the file path into the display var
+    #        # if the file exists, load it, else disable the load button
+    #    # call self._set_data_files()
+
+    #def _browse_data_files(self,*args):
+    #    browser_root = os.getcwd()
+    #    current_file = self._vars['io_control']['data_file'].get()
+    #    if current_file:
+    #        browser_root = os.path.split(current_file)[0]
+    #    # get the currently selected data file, if any
+    #    data_dir = filedialog.askdirectory(
+    #        parent=self.fit_gui,
+    #        initialdir=browser_root,
+    #        title='Select a directory of scattering data (regex: *.dat)'
+    #        )
+    #    self._set_data_dir(data_dir)
+    #    #data_rx = os.path.join(data_dir,'*.dat')
+    #    #data_files = OrderedDict.fromkeys(glob.glob(data_rx))
+    #    #for fp in data_files.keys():
+    #    #    sys_file_path = os.path.join(os.path.splitext(fp)[0]+'.yml')
+    #    #self._set_data_files(data_files)
+
+    #def _browse_sysdef_files(self,*args):
+    #    raise NotImplementedError('implement _browse_sysdefs_dir()!') 
+
+    #def _update_sys_files(self,*args):
+    #    raise NotImplementedError('implement _update_sys_files()!') 
+
+    #def _update_data_files(self,*args):
+    #    raise NotImplementedError('implement _update_data_files()!') 
+
+
+        #self._vars['fit_control']['sys_defs_dir'] = tkinter.StringVar(cf)
+        #self._vars['fit_control']['filename_suffix'] = tkinter.StringVar(cf)
+        #sysfbb = tkinter.Button(cf,text='Browse...',width=8,command=self._browse_sysdef_files)
+        #sysfbb.grid(row=0,column=2,sticky='e')
+        #dire = tkinter.Entry(cf,state='readonly',textvariable=self._vars['fit_control']['sys_defs_dir']) 
+        #dire.grid(row=1,column=0,columnspan=3,sticky='ew')
+        #sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],self._load_sys_file,10)
+        #sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],None,10)
+        #sysfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_sys_file)
+        #dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
+
+        #fsfxl = tkinter.Label(cf,text='filename suffix:',anchor='e')
+        #fsfxe = self.connected_entry(cf,self._vars['fit_control']['filename_suffix'],self._update_sys_files,10)
+        #fsfxl.grid(row=2,column=0,sticky='e')
+        #fsfxe.grid(row=2,column=1,columnspan=2,sticky='ew')
+
+        #sysfnl = tkinter.Label(cf,text='current file path:',anchor='e')
+        #sysfnl.grid(row=3,column=0,sticky='e')
+
+        #self._vars['fit_control']['sys_defs_dir'] = tkinter.StringVar(cf)
+        #self._vars['fit_control']['filename_suffix'] = tkinter.StringVar(cf)
+        #sysfbb = tkinter.Button(cf,text='Browse...',width=8,command=self._browse_sysdef_files)
+        #sysfbb.grid(row=0,column=2,sticky='e')
+        #dire = tkinter.Entry(cf,state='readonly',textvariable=self._vars['fit_control']['sys_defs_dir']) 
+        #dire.grid(row=1,column=0,columnspan=3,sticky='ew')
+        #sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],self._load_sys_file,10)
+        #sysfe = self.connected_entry(iof,self._vars['io_control']['system_file'],None,10)
+        #sysfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_sys_file)
+        #dfcb.grid(row=1,column=0,columnspan=2,sticky='ew')
+
+        #fsfxl = tkinter.Label(cf,text='filename suffix:',anchor='e')
+        #fsfxe = self.connected_entry(cf,self._vars['fit_control']['filename_suffix'],self._update_sys_files,10)
+        #fsfxl.grid(row=2,column=0,sticky='e')
+        #fsfxe.grid(row=2,column=1,columnspan=2,sticky='ew')
+
+        #sysfnl = tkinter.Label(cf,text='current file path:',anchor='e')
+        #sysfnl.grid(row=3,column=0,sticky='e')
+
 
