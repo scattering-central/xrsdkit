@@ -128,10 +128,10 @@ class Population(object):
     @classmethod
     def from_dict(cls,d):
         stgs = {}
-        if 'settings' in d: stgs = d.pop('settings')
+        if 'settings' in d: stgs = d['settings']
         params = {}
-        if 'parameters' in d: params = d.pop('parameters')
-        inst = cls(d.pop('structure'),d.pop('form'),stgs,params)
+        if 'parameters' in d: params = d['parameters']
+        inst = cls(d['structure'],d['form'],stgs,params)
         return inst
 
     def compute_intensity(self,q,source_wavelength):
