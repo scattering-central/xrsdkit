@@ -29,9 +29,8 @@ from ..tools.ymltools import load_sys_from_yaml,save_sys_to_yaml
 from ..tools import profiler
 from ..models import predict as xrsdpred
 
-# plot fillers for the case of nonexistent data:
 q_default = np.linspace(0.,1.,100)
-I_default = 10**np.random.normal(-3,1.,100)
+I_default = np.zeros(q_default.shape)
 
 def run_fit_gui(data_files={}):
     # data_files dict: keys are q_I file paths, values are .yml file paths (or None)
@@ -76,6 +75,7 @@ class XRSDFitGUI(object):
         self._set_data_files(data_files)
         self.fit_gui.geometry('1100x700')
         self._draw_plots()
+        #self._next_data_file()
 
     def start(self):
         # start the tk loop
@@ -256,6 +256,8 @@ class XRSDFitGUI(object):
             self._widgets['datafile_option_menu'].grid_forget()
         dfcb.grid(row=1,column=0,columnspan=3,sticky='ew')
         self._widgets['datafile_option_menu'] = dfcb
+        if self.data_files:
+            self._next_data_file()
 
     def _browse_data_files(self,*args):
         browser_popup = tkinter.Toplevel(master=self.fit_gui)
@@ -450,7 +452,10 @@ class XRSDFitGUI(object):
             self.I = q_I[:,1]
             if q_I.shape[1] > 2:
                 self.dI = q_I[:,2]
-            self._vars['fit_control']['sys_def_file'].set(self.data_files[df])
+            sysf = self.data_files[df]
+            if not sysf:
+                sysf = os.path.splitext(df)[0]+'.yml'
+            self._vars['fit_control']['sys_def_file'].set(sysf)
             self._load_sys_file()
         else:
             self.q = q_default
