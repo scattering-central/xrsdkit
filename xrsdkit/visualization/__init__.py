@@ -9,30 +9,37 @@ from ..tools import profiler
 
 default_targets=['system_class','experiment_id']
 
-def plot_xrsd_fit(sys,q,I,dI=None,show_plot=False):
+def plot_xrsd_fit(sys=None,q=None,I=None,dI=None,show_plot=False):
     mpl_fig = plt.figure() 
     ax_plot = mpl_fig.add_subplot(111)
     I_comp = draw_xrsd_fit(mpl_fig,sys,q,I,dI,show_plot)
     return mpl_fig, I_comp
 
-def draw_xrsd_fit(mpl_fig,sys,q,I,dI=None,show_plot=False):
+def draw_xrsd_fit(mpl_fig,sys=None,q=None,I=None,dI=None,show_plot=False):
     ax_plot = mpl_fig.gca()
     ax_plot.clear()
-    ax_plot.semilogy(q,I,lw=2,color='black')
-    I_comp = sys.compute_intensity(q)
-    ax_plot.semilogy(q,I_comp,lw=2,color='red')
-    I_noise = sys.noise_model.compute_intensity(q)
-    ax_plot.semilogy(q,I_noise,lw=1) 
-    for popnm,pop in sys.populations.items():
-        I_p = pop.compute_intensity(q,sys.sample_metadata['source_wavelength'])
-        ax_plot.semilogy(q,I_p,lw=1)
+    legend_entries = []
+    if q is not None and I is not None:
+        ax_plot.semilogy(q,I,lw=2,color='black')
+        legend_entries.append('measured')
+    I_comp = None
+    if sys and q is not None:
+        I_comp = sys.compute_intensity(q)
+        ax_plot.semilogy(q,I_comp,lw=2,color='red')
+        legend_entries.append('computed')
+        I_noise = sys.noise_model.compute_intensity(q)
+        ax_plot.semilogy(q,I_noise,lw=1) 
+        legend_entries.append('noise')
+        for popnm,pop in sys.populations.items():
+            I_p = pop.compute_intensity(q,sys.sample_metadata['source_wavelength'])
+            ax_plot.semilogy(q,I_p,lw=1)
+            legend_entries.append(popnm)
     ax_plot.set_xlabel('q (1/Angstrom)')
     ax_plot.set_ylabel('Intensity (counts)')
-    ax_plot.legend(['measured','computed','noise']+list(sys.populations.keys()))
+    ax_plot.legend(legend_entries)
     if show_plot:
         mpl_fig.show()
     return I_comp
-
 
 def visualize_dataframe(data,
     labels = default_targets,

@@ -26,8 +26,8 @@ np_sys = System(
     )
 
 datapath = os.path.join(os.path.dirname(__file__),
-    'test_data','solution_saxs','spheres','spheres_0.csv')
-q_I = np.loadtxt(open(datapath,'r'),dtype=float,delimiter=',')
+    'test_data','solution_saxs','spheres','spheres_0.dat')
+q_I = np.loadtxt(open(datapath,'r'),dtype=float)
 
 def test_fit():
     fit_sys = fit(np_sys,q_I[:,0],q_I[:,1],src_wl)

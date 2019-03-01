@@ -8,7 +8,7 @@ from .noise import NoiseModel
 from .population import Population
 from .. import definitions as xrsdefs 
 from ..tools import compute_chi2
-from ..tools.profiler import profile_pattern
+from ..tools.profiler import profile_keys, profile_pattern
 
 # TODO: when params, settings, etc are changed,
 #   ensure all attributes remain valid,
@@ -16,19 +16,24 @@ from ..tools.profiler import profile_pattern
 
 class System(object):
 
-    # TODO: implement caching of settings, parameters, intensities,
-    # so that redundant calls to compute_intensity
-    # are handled instantly 
+    # TODO: use caching to speed up repeated compute_intensity() evaluations
 
     def __init__(self,**kwargs):
         self.populations = {}
-        self.fit_report = {'good_fit':False}
-        self.features = {}
+        self.fit_report = dict(
+            error_weighted=True,
+            logI_weighted=True,
+            good_fit=False,
+            q_range=[0.,float('inf')]
+            )
+        self.features = dict.fromkeys(profile_keys) 
+        src_wl = 0.
+        if 'source_wavelength' in kwargs: src_wl = kwargs['source_wavelength'] 
         self.sample_metadata = dict(
             experiment_id='',
             sample_id='',
             data_file='',
-            source_wavelength=0.,
+            source_wavelength=src_wl,
             time=0.,
             notes=''
             )
@@ -78,6 +83,15 @@ class System(object):
                     for param_name, paramd in popd['parameters'].items():
                         self.populations[pop_name].parameters[param_name].update(popd['parameters'][param_name])
 
+    def set_q_range(self,q_min,q_max):
+        self.fit_report['q_range'] = [float(q_min),float(q_max)]
+
+    def set_error_weighted(self,err_wtd):
+        self.fit_report['error_weighted'] = bool(err_wtd) 
+
+    def set_logI_weighted(self,logI_wtd):
+        self.fit_report['logI_weighted'] = bool(logI_wtd) 
+
     def remove_population(self,pop_nm):
         # TODO: check for violated constraints
         # in absence of this population
@@ -88,9 +102,7 @@ class System(object):
 
     @classmethod
     def from_dict(cls,d):
-        inst = cls()
-        inst.update_from_dict(d)
-        return inst
+        return cls(**d)
 
     def compute_intensity(self,q):
         """Computes scattering/diffraction intensity for some `q` values.
@@ -112,8 +124,7 @@ class System(object):
             I += pop.compute_intensity(q,self.sample_metadata['source_wavelength'])
         return I
 
-    def evaluate_residual(self,q,I,dI=None,
-        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')],I_comp=None):
+    def evaluate_residual(self,q,I,dI=None,I_comp=None):
         """Evaluate the fit residual for a given populations dict.
     
         Parameters
@@ -140,18 +151,19 @@ class System(object):
         res : float
             Value of the residual 
         """
+        q_range = self.fit_report['q_range']
         if I_comp is None:
             I_comp = self.compute_intensity(q)
         idx_nz = (I>0)
         idx_fit = (idx_nz) & (q>=q_range[0]) & (q<=q_range[1])
         wts = np.ones(len(q))
-        if error_weighted:
+        if self.fit_report['error_weighted']:
             if dI is None:
                 dI = np.empty(I.shape)
                 dI.fill(np.nan)
                 dI[idx_fit] = np.sqrt(I[idx_fit])
             wts *= dI**2
-        if logI_weighted:
+        if self.fit_report['logI_weighted']:
             idx_fit = idx_fit & (I_comp>0)
             # NOTE: returning float('inf') raises a NaN exception within the minimization.
             #if not any(idx_fit):
@@ -166,14 +178,14 @@ class System(object):
                 I[idx_fit],
                 wts[idx_fit])
         return res 
-    
-    def lmf_evaluate(self,lmf_params,q,I,dI=None,error_weighted=True,logI_weighted=True,q_range=[None,None]):
+
+    def lmf_evaluate(self,lmf_params,q,I,dI=None):
         new_params = unpack_lmfit_params(lmf_params)
         old_params = self.flatten_params()
         old_params.update(new_params)
         new_pd = unflatten_params(old_params)
         self.update_params_from_dict(new_pd)
-        return self.evaluate_residual(q,I,dI,error_weighted,logI_weighted,q_range)
+        return self.evaluate_residual(q,I,dI)
 
     def pack_lmfit_params(self):
         p = self.flatten_params() 
@@ -213,6 +225,11 @@ def fit(sys,q,I,dI=None,
         1d array of intensities corresponding to `q` values
     dI : array of float
         1d array of intensity error estimates for each `I` value 
+
+    Returns
+    -------
+    sys_opt : xrsdkit.system.System 
+        Similar to input `sys`, but with fit-optimized parameters.
     error_weighted : bool
         Flag for weighting the objective with the I(q) error estimates.
     logI_weighted : bool
@@ -220,35 +237,31 @@ def fit(sys,q,I,dI=None,
     q_range : list
         Two floats indicating the lower and 
         upper q-limits for objective evaluation
-
-    Returns
-    -------
-    sys_opt : xrsdkit.system.System 
-        Similar to input `sys`, but with fit-optimized parameters.
     """
 
     # the System to optimize starts as a copy of the input System
     sys_opt = System.from_dict(sys.to_dict())
+    sys_opt.fit_report.update(
+        error_weighted=error_weighted,
+        logI_weighted=logI_weighted,
+        q_range=q_range
+        )
 
-    obj_init = sys_opt.evaluate_residual(q,I,dI,error_weighted,logI_weighted,q_range)
+    obj_init = sys_opt.evaluate_residual(q,I,dI)
     lmf_params = sys_opt.pack_lmfit_params() 
-    lmf_res = lmfit.minimize(sys_opt.lmf_evaluate,
+    lmf_res = lmfit.minimize(
+        sys_opt.lmf_evaluate,
         lmf_params,method='nelder-mead',
-        kws={'q':q,'I':I,'dI':dI,
-            'error_weighted':error_weighted,
-            'logI_weighted':logI_weighted,
-            'q_range':q_range})
+        kws={'q':q,'I':I,'dI':dI}
+        )
 
-    fit_obj = sys_opt.evaluate_residual(q,I,dI,error_weighted,logI_weighted,q_range)
+    fit_obj = sys_opt.evaluate_residual(q,I,dI)
     I_opt = sys_opt.compute_intensity(q)
     I_bg = I - I_opt
     snr = np.mean(I_opt)/np.std(I_bg) 
     sys_opt.fit_report['converged'] = lmf_res.success
     sys_opt.fit_report['initial_objective'] = obj_init 
     sys_opt.fit_report['final_objective'] = fit_obj 
-    sys_opt.fit_report['error_weighted'] = error_weighted 
-    sys_opt.fit_report['logI_weighted'] = logI_weighted 
-    sys_opt.fit_report['q_range'] = q_range 
     sys_opt.fit_report['fit_snr'] = snr
     sys_opt.features = profile_pattern(q,I)
 
