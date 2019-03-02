@@ -161,7 +161,9 @@ class Regressor(XRSDModel):
 
             # if we have any groups with zero variance,
             # balance with samples from other groups
-            for gid in group_ids:
+            groups_to_check = list(group_ids.copy())
+            while len(groups_to_check) > 0:
+                gid = groups_to_check.pop(0) 
                 vals = dataframe.loc[dataframe['group_id']==gid,self.target]
                 if np.std(vals) == 0:
                     val = vals.iloc[0]
@@ -177,8 +179,8 @@ class Regressor(XRSDModel):
                     # TODO: come up with a more balanced clustering mechanism
                     km = KMeans(2,n_init=10)
                     new_gids = km.fit_predict(dataframe.loc[
-                    (dataframe['group_id']==gid_to_split)&(dataframe[self.target]!=val),
-                    profiler.profile_keys])
+                        (dataframe['group_id']==gid_to_split)&(dataframe[self.target]!=val),
+                        profiler.profile_keys])
                     idx_gp0 = new_gids==0
                     idx_gp1 = new_gids==1
                     new_gids[idx_gp0] = gid_to_split
@@ -187,6 +189,10 @@ class Regressor(XRSDModel):
                         (dataframe['group_id']==gid_to_split)&(dataframe[self.target]!=val),
                         'group_id'] = new_gids
                     gp_counts = dataframe.loc[dataframe['group_id']>0,'group_id'].value_counts()
+                    # if this leaves gid_to_split with zero variance, add it to groups_to_check
+                    new_vals = dataframe.loc[dataframe['group_id']==gid_to_split,self.target]
+                    if np.std(new_vals) == 0: groups_to_check.append(gid_to_split)
+
                     
             # check that we have only nonzero variances remaining 
             for gid in group_ids:
