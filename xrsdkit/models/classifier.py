@@ -150,7 +150,7 @@ class Classifier(XRSDModel):
         else:
             return "The model was tested for all labels"
 
-    def assign_groups(self, dataframe):
+    def assign_groups(self, dataframe, min_groups=5):
         """Assign train/test groups to `dataframe`.
 
         This reimplementation invokes the base class method, 
@@ -161,6 +161,8 @@ class Classifier(XRSDModel):
         ----------
         dataframe : pandas.DataFrame
             dataframe of sample features and corresponding labels
+        min_groups : int
+            minimum number of groups to create
 
         Returns
         -------
@@ -170,13 +172,12 @@ class Classifier(XRSDModel):
         trainable = super(Classifier,self).assign_groups(dataframe)
         if trainable:
             cl_counts = dataframe.loc[dataframe['group_id']>0,self.target].value_counts()
-            min_count = 2
 
-            # if any labels do not have at least `min_count` representative samples,
+            # if any labels do not have at least `min_groups` representative samples,
             # the label should not be trained-
             # ignore these samples by setting their group_id to 0
             for cl,count in cl_counts.items():
-                if count<min_count:
+                if count<min_groups:
                     dataframe.loc[dataframe[self.target]==cl,'group_id']=0
 
             # if this leaves us with only one distinct label, 
@@ -250,23 +251,36 @@ class Classifier(XRSDModel):
                 cl_counts_by_group.pop(gid)
                 cl_counts_by_group[best_pairing_gid] = dataframe.loc[dataframe['group_id']==best_pairing_gid,self.target].value_counts()
 
-            # verify that we are left with at least two groups;
-            # if not, split the remaining group with k-means
-            final_gids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
-            if final_gids.shape[0] < 2:
-                n_splits = 2
-                for cl,count in cl_counts.items():
-                    if n_splits > count:
-                        # not enough samples- remove the class 
-                        dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),'group_id'] = 0 
-                    else:    
-                        km = KMeans(n_splits)
-                        new_grps = km.fit_predict(dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),profiler.profile_keys])+1
-                        dataframe.loc[(dataframe['group_id']>0)&(dataframe[self.target]==cl),'group_id'] = new_grps 
+            # if we are left with fewer than min_groups,
+            # split the groups with k-means,
+            # until we are up to min_groups
+            while len(cl_counts_by_group) < min_groups:
+                group_ids = cl_counts_by_group.keys()
+                new_gid = 1
+                while new_gid in group_ids: new_gid += 1
+                # perform split for each class to preserve full representation
+                for cl in cl_counts.keys():
+                    # get the fully-represented group with the greatest sample count-
+                    # NOTE that this condition should enforce full representation in all groups
+                    sample_counts = [cl_counts_by_group[gid][cl] for gid in cl_counts_by_group.keys()]
+                    gid_to_split = list(cl_counts_by_group.keys())[np.argmax(sample_counts)]
 
-            # ensure we are left with at least 2 classes
-            cl_count = len(dataframe.loc[dataframe['group_id']>0,self.target].unique())
-            if cl_count < 2: return False
+                    # TODO: come up with a more balanced clustering mechanism
+                    km = KMeans(2,n_init=10)
+                    new_grps = km.fit_predict(
+                    dataframe.loc[(dataframe['group_id']==gid_to_split)&(dataframe[self.target]==cl),
+                    profiler.profile_keys]
+                    )
+                    idx_gp0 = new_grps==0
+                    idx_gp1 = new_grps==1
+                    new_grps[idx_gp0] = gid_to_split
+                    new_grps[idx_gp1] = new_gid
+                    dataframe.loc[(dataframe['group_id']==gid_to_split)&(dataframe[self.target]==cl),'group_id'] = new_grps 
+
+                # re-count all groups
+                for gid in group_ids:
+                    cl_counts_by_group[gid] = dataframe.loc[dataframe['group_id']==gid,self.target].value_counts()
+                cl_counts_by_group[new_gid] = dataframe.loc[dataframe['group_id']==new_gid,self.target].value_counts()
 
         return trainable 
 

@@ -107,12 +107,12 @@ class Regressor(XRSDModel):
             '\n\nNOTE: Weighted metrics are weighted by test set size' 
         return CV_report
 
-    def assign_groups(self, dataframe):
+    def assign_groups(self, dataframe, min_groups=5):
         """Assign train/test groups to `dataframe`.
 
         This reimplementation invokes the base class method, 
         and then updates the groups if necessary
-        to ensure there are at least 2 groups,
+        to ensure there are at least min_groups groups,
         where each group has nonzero variance for for the target.
 
         Parameters
@@ -126,43 +126,73 @@ class Regressor(XRSDModel):
             indicates whether or not training is possible
         """
         trainable = super(Regressor,self).assign_groups(dataframe)
+
+        # check for at least min_groups pairs of distinct values:
+        count_0 = 0
+        count_1 = 0
+        val_counts = dataframe.loc[dataframe['group_id']>0,self.target].value_counts()
+        sorted_counts = np.sort(list(val_counts.values))[::-1]
+        for ct in sorted_counts: 
+            if count_0 < min_groups: 
+                count_0 += ct
+            else:
+                count_1 += ct
+        if count_0 < min_groups or count_1 < min_groups: return False
+
         if trainable:
             group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+            gp_counts = dataframe.loc[dataframe['group_id']>0,'group_id'].value_counts()
 
-            # if we have only one group, use KMeans to split it
-            if len(group_ids) == 1:
-                n_splits = 2
-                km = KMeans(n_splits)
-                dataframe.loc[dataframe['group_id']>0,'group_id'] = \
-                km.fit_predict(dataframe.loc[dataframe['group_id']>0,profiler.profile_keys])+1
+            # if we have too few groups, use KMeans to split them until we have enough 
+            while len(group_ids) < min_groups: 
+                gid_to_split = gp_counts.keys()[gp_counts.values.argmax()]
+                new_gid = 1
+                while new_gid in group_ids: new_gid += 1
+                # TODO: come up with a more balanced clustering mechanism
+                km = KMeans(2,n_init=10)
+                new_gids = km.fit_predict(dataframe.loc[dataframe['group_id']==gid_to_split,profiler.profile_keys])
+                idx_gp0 = new_gids==0
+                idx_gp1 = new_gids==1
+                new_gids[idx_gp0] = gid_to_split
+                new_gids[idx_gp1] = new_gid
+                dataframe.loc[dataframe['group_id']==gid_to_split,'group_id'] = new_gids
                 group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+                gp_counts = dataframe.loc[dataframe['group_id']>0,'group_id'].value_counts()
 
             # if we have any groups with zero variance,
-            # redistribute them to other groups
-            n_groups = len(group_ids)
-            old_group_ids = copy.copy(group_ids)
-            for gid in old_group_ids:
-                group_data = dataframe.loc[dataframe['group_id']==gid,self.target]
-                group_sd = np.std(group_data)
-                group_count = group_data.shape[0]
-                if group_sd == 0:
-                    n_clusters = n_groups-1
-                    if n_clusters > group_count:
-                        n_clusters = group_count
-                    km = KMeans(n_clusters)
-                    new_gids = km.fit_predict(dataframe.loc[dataframe['group_id']==gid,profiler.profile_keys])
-                    # map the KMeans groupings to the target group_ids
-                    for iggid,ggid in enumerate(group_ids):
-                        if not ggid == gid:
-                            new_gids[new_gids==iggid] = ggid
-                    # reassign the group_ids
-                    dataframe.loc[dataframe['group_id']==gid,'group_id'] = new_gids
-                    # refresh the group_ids 
-                    group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
-                    n_groups = len(group_ids) 
+            # balance with samples from other groups
+            for gid in group_ids:
+                vals = dataframe.loc[dataframe['group_id']==gid,self.target]
+                if np.std(vals) == 0:
+                    val = vals.iloc[0]
+                    # find the group with the greatest population of values not equal to val
+                    gp_otherval_counts = gp_counts.copy()
+                    for ggiidd in gp_otherval_counts.keys():
+                        val_cts = dataframe.loc[dataframe['group_id']==ggiidd,self.target].value_counts()
+                        if val in val_cts.keys():
+                            gp_otherval_counts[ggiidd] = gp_otherval_counts[ggiidd]-val_cts[val]
+                    gid_to_split = gp_otherval_counts.keys()[gp_otherval_counts.values.argmax()]
 
-            # check that we have more than one group left, else return False
-            if not n_groups > 1: return False
+                    # split the gid_to_split, reassign
+                    # TODO: come up with a more balanced clustering mechanism
+                    km = KMeans(2,n_init=10)
+                    new_gids = km.fit_predict(dataframe.loc[
+                    (dataframe['group_id']==gid_to_split)&(dataframe[self.target]!=val),
+                    profiler.profile_keys])
+                    idx_gp0 = new_gids==0
+                    idx_gp1 = new_gids==1
+                    new_gids[idx_gp0] = gid_to_split
+                    new_gids[idx_gp1] = gid
+                    dataframe.loc[
+                        (dataframe['group_id']==gid_to_split)&(dataframe[self.target]!=val),
+                        'group_id'] = new_gids
+                    gp_counts = dataframe.loc[dataframe['group_id']>0,'group_id'].value_counts()
+                    
+            # check that we have only nonzero variances remaining 
+            for gid in group_ids:
+                vals = dataframe.loc[dataframe['group_id']==gid,self.target]
+                if np.std(vals) == 0:
+                    raise ValueError('zero variance in target labels for a regression group')
 
         return trainable
 
