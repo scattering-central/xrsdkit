@@ -21,6 +21,9 @@ class Classifier(XRSDModel):
             #C = [ 0.1, 1.0]
             )
 
+    def minimization_score(self,true_labels,pred_labels):
+        return -1*f1_score(true_labels, pred_labels, average='macro')
+
     def build_model(self,model_hyperparams={}):
         if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
             new_model = linear_model.SGDClassifier(
@@ -54,12 +57,9 @@ class Classifier(XRSDModel):
             the certainty of the prediction
             (For models that are not trained, cert=None)
         """
-        ind = []
-        for i, k in enumerate(sample_features.keys()):
-            if k in self.features:
-                ind.append(i)
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-        x = self.scaler.transform(feature_array)[:, ind]
+        feature_idx = [k in self.features for k in sample_features.keys()]
+        x = self.scaler.transform(feature_array)[:, feature_idx]
         sys_cls = self.model.predict(x)[0]
         cert = max(self.model.predict_proba(x)[0])
         return sys_cls, cert
@@ -155,46 +155,6 @@ class Classifier(XRSDModel):
         clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
         params = clf.best_params_
         return params
-
-    def validate_feature_set(self, model, df, feature_names):
-        """
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            pandas dataframe of features and labels,
-            including at least three distinct experiment_id labels
-        model : sklearn.linear_model.SGDClassifier
-            an sklearn classifier instance trained on some dataset
-            with some choice of hyperparameters
-        feature_names : list of str
-            list of feature names (column headers) used for training.
-
-        Returns
-        -------
-        score : float
-            -f1 score for given set of features;
-            we are using -f1 since we will  minimize it.
-        ind_of_least_important_f : int
-            index of the features with the smallest coef
-        """
-        groups = df.group_id.unique()
-        true_labels = []
-        pred_labels = []
-        coef = []
-        for i in range(len(groups)):
-            tr = df[(df['group_id'] != groups[i])]
-            test = df[(df['group_id'] == groups[i])]
-            model.fit(tr[feature_names], tr[self.target])
-            coef.append(np.abs(model.coef_).sum(axis=0))
-            y_pred = model.predict(test[feature_names])
-            pred_labels.extend(y_pred)
-            true_labels.extend(test[self.target])
-        coef = np.array(coef)
-        coef_sum_by_features = coef.sum(axis=0).tolist()
-        ind_of_least_important_f = coef_sum_by_features.index(min(coef_sum_by_features))
-        score = -f1_score(true_labels, pred_labels, average='macro')
-        return score, ind_of_least_important_f
-
 
     def print_labels(self, all=True):
         if all:

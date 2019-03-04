@@ -1,24 +1,22 @@
 import os
 
-import pandas as pd
-import numpy as np
 import yaml
 
 from . import regression_models_dir, classification_models_dir
 from . import test_regression_models_dir, test_classification_models_dir
+from . import regression_models, classification_models
 from . import test_regression_models, test_classification_models
 from .. import definitions as xrsdefs
-from ..tools import primitives, profiler
-from . import classification_models, regression_models
+from ..tools import primitives
 from .regressor import Regressor
 from .classifier import Classifier
 
 
 def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
-    # regression models:
-    reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
     # classification models: 
     cls_models = train_classification_models(data, hyper_parameters_search=train_hyperparameters)
+    # regression models:
+    reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
     # optionally, save the models:
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.

@@ -1,9 +1,11 @@
 import random
+import copy
 
 import numpy as np
 import yaml
-from sklearn import model_selection, preprocessing, utils
-from dask_ml.model_selection import GridSearchCV
+from sklearn import preprocessing, utils
+from sklearn.model_selection import LeavePGroupsOut
+from dask_ml.model_selection import GridSearchCV 
 
 from ..tools import profiler
 
@@ -50,9 +52,59 @@ class XRSDModel(object):
         msg = 'subclasses of XRSDModel must implement run_cross_validation()'
         raise NotImplementedError(msg)
 
-    def validate_feature_set(self, model, df, feature_names):
-        msg = 'subclasses of XRSDModel must implement validate_feature_set()'
+    def minimization_score(self, true_values, pred_values):
+        # TODO: add a docstring that describes the interface
+        msg = 'subclasses of XRSDModel must implement minimization_score()'
         raise NotImplementedError(msg)
+
+    def validate_feature_set(self, model, df, feature_names):
+        """Use cross-validation to determine the model's least significant feature.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            pandas dataframe of features and labels,
+            including at least three distinct experiment_id labels
+        model : sklearn.linear_model
+            an sklearn model instance trained on some dataset
+            with some choice of hyperparameters
+        feature_names : list of str
+            list of feature names (column headers) used for training.
+
+        Returns
+        -------
+        score : float
+            mean absolute error;
+        ind_of_least_important_f : int
+            index of the feature with the smallest coef
+        """
+        groups = df.group_id.unique()
+        true_labels = []
+        pred_labels = []
+        coef = []
+        for i in range(len(groups)):
+            tr = df[(df['group_id'] != groups[i])]
+            test = df[(df['group_id'] == groups[i])]
+            model.fit(tr[feature_names], tr[self.target])
+            # if this is a classifier, there is a coef_ matrix,
+            # where each row gives the coef_ values for each binary sub-classifier;
+            # take the column sum to get the overall coef_ importance
+            if len(model.coef_.shape)>1:
+                coef.append(np.abs(model.coef_).sum(axis=0))
+            else:
+                # else, the coef_ array will be one-dimensional- use it as is
+                coef.append(np.abs(model.coef_))
+            y_pred = model.predict(test[feature_names])
+            pred_labels.extend(y_pred)
+            true_labels.extend(test[self.target])
+        # rows of `coef` are the feature coefficients for a given train-test split.
+        # the column sum of `coef` is used as a measure of relative feature importance
+        # averaged across all train-test splits
+        coef = np.array(coef)
+        coef_sum_by_features = coef.sum(axis=0).tolist()
+        ind_of_least_important_f = np.argmin(coef_sum_by_features)
+        score = self.minimization_score(true_labels, pred_labels)
+        return score, ind_of_least_important_f
 
     def train(self, model_data, hyper_parameters_search=False):
         """Train the model, optionally searching for optimal hyperparameters.
@@ -79,12 +131,11 @@ class XRSDModel(object):
             # NOTE: SGD models train more efficiently on shuffled data
             d = utils.shuffle(model_data)
             data = d[d[self.target].isnull() == False]
-            # exclude samples with group_id==0
+            # NOTE: exclude samples with group_id==0
             valid_data = data[data.group_id>0]
 
             # features selection
-            features = []
-            features.extend(profiler.profile_keys)
+            features = copy.deepcopy(profiler.profile_keys)
             score_features = []
             while len(features) > 2:
                 if hyper_parameters_search:
@@ -95,12 +146,11 @@ class XRSDModel(object):
                 optimization_obj, ind = self.validate_feature_set(new_model,valid_data,features)
                 score_features.append((optimization_obj, list(features)))
                 del features[ind]
+            # NOTE: features are selected solely for the best cross-validation score
             score_features.sort()
             best_features = score_features[0][1]
             # NOTE: after cross-validation for parameter selection,
             # the entire dataset is used for final training,
-            #self.cross_valid_results = self.run_cross_validation(new_model,valid_data,profiler.profile_keys)
-            #new_model.fit(valid_data[profiler.profile_keys], valid_data[self.target])
             self.cross_valid_results = self.run_cross_validation(new_model,valid_data,best_features)
             new_model.fit(valid_data[best_features], valid_data[self.target])
             self.model = new_model
@@ -130,7 +180,7 @@ class XRSDModel(object):
             number of groups to leave out, if group_by is specified 
         scoring : str
             Selection of scoring function.
-            if None, the default scoring function of the model will be used
+            If None, the default scoring function of the model will be used
 
         Returns
         -------
@@ -138,7 +188,7 @@ class XRSDModel(object):
             Dictionary of the best found hyperparameters.
         """
         if n_leave_out:
-            cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
+            cv = LeavePGroupsOut(n_groups=n_leave_out).split(
                 transformed_data[features],
                 np.ravel(transformed_data[self.target]),
                 groups=transformed_data[group_by]
