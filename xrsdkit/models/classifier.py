@@ -16,9 +16,13 @@ class Classifier(XRSDModel):
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
         self.grid_search_hyperparameters = dict(
-            alpha = [0.00001, 0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
-            l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
+            alpha = [0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
+            l1_ratio = [0.15, 0.5, 0.85, 1.0] # default 0.15
+            #C = [ 0.1, 1.0]
             )
+
+    def minimization_score(self,true_labels,pred_labels):
+        return -1*f1_score(true_labels, pred_labels, average='macro')
 
     def build_model(self,model_hyperparams={}):
         if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
@@ -27,12 +31,12 @@ class Classifier(XRSDModel):
                     loss='log',
                     penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000, class_weight='balanced', tol=1e-5
+                    max_iter=1000000, class_weight='balanced', tol=1e-10#, eta0 = 0.001, learning_rate='adaptive'
                     )
         else:
             new_model = linear_model.SGDClassifier(
                 loss='log', penalty='elasticnet',
-                max_iter=1000, class_weight='balanced', tol=1e-5
+                max_iter=1000000, class_weight='balanced', tol=1e-10#, eta0 = 0.001, learning_rate='adaptive'
                 )
         return new_model
 
@@ -54,7 +58,8 @@ class Classifier(XRSDModel):
             (For models that are not trained, cert=None)
         """
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-        x = self.scaler.transform(feature_array)
+        feature_idx = [k in self.features for k in sample_features.keys()]
+        x = self.scaler.transform(feature_array)[:, feature_idx]
         sys_cls = self.model.predict(x)[0]
         cert = max(self.model.predict_proba(x)[0])
         return sys_cls, cert
@@ -114,8 +119,23 @@ class Classifier(XRSDModel):
                         )
         return result
 
-    def hyperparameters_search(self,transformed_data, group_by='group_id', n_leave_out=1, scoring='f1_macro'):
+    def hyperparameters_search(self,transformed_data,features,group_by='group_id',n_leave_out=1,scoring='f1_macro'):
         """Grid search for optimal alpha and l1 ratio hyperparameters.
+
+        Parameters
+        ----------
+        transformed_data : pandas.DataFrame
+            dataframe containing features and labels;
+            note that the features should be transformed/standardized beforehand
+        features : list of str
+            list of features to use
+        group_by: string
+            DataFrame column header for LeavePGroupsOut(groups=group_by)
+        n_leave_out: integer
+            number of groups to leave out, if group_by is specified
+        scoring : str
+            Selection of scoring function.
+            if None, the default scoring function of the model will be used
 
         Returns
         -------
@@ -124,15 +144,15 @@ class Classifier(XRSDModel):
         """
 
         cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]),
+                transformed_data[features], np.ravel(transformed_data[self.target]),
                                                                   groups=transformed_data[group_by])
         test_model = self.build_model()
 
         # threaded scheduler with optimal number of threads
         # will be used by default for dask GridSearchCV
         clf = GridSearchCV(test_model,
-                        self.grid_search_hyperparameters, cv=cv, scoring=scoring)
-        clf.fit(transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]))
+                        self.grid_search_hyperparameters, cv=cv, scoring=scoring, n_jobs=-1)
+        clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
         params = clf.best_params_
         return params
 

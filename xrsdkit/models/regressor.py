@@ -1,5 +1,3 @@
-import copy
-
 import numpy as np
 from sklearn import linear_model, preprocessing
 from sklearn.metrics import mean_absolute_error
@@ -16,10 +14,13 @@ class Regressor(XRSDModel):
         self.scaler_y = None
         super(Regressor,self).__init__(label, yml_file)
         self.grid_search_hyperparameters = dict(
-            epsilon = [10, 1, 0.1, 0.01, 0.001, 0],
-            alpha = [0.00001, 0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
-            l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
+            epsilon = [1, 0.1, 0.01],
+            alpha = [0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
+            l1_ratio = [0.15, 0.5, 0.85, 1.0] # default 0.15
             )
+
+    def minimization_score(self,true_values,pred_values):
+        return mean_absolute_error(true_values,pred_values)
 
     def load_model_data(self,model_data):
         super(Regressor,self).load_model_data(model_data)
@@ -71,10 +72,9 @@ class Regressor(XRSDModel):
         prediction : float
             predicted parameter value
         """
-
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-        x = self.scaler.transform(feature_array)
-
+        feature_idx = [k in self.features for k in sample_features.keys()]
+        x = self.scaler.transform(feature_array)[:, feature_idx]
         return float(self.scaler_y.inverse_transform(self.model.predict(x))[0])
 
     def print_mean_abs_errors(self):
@@ -234,7 +234,7 @@ class Regressor(XRSDModel):
             test = data[(data['group_id']==grp)]
             model.fit(tr[feature_names], tr[self.target])
             pr = model.predict(test[feature_names])
-            test_score = mean_absolute_error(pr, test[self.target])
+            test_score = self.minimization_score(test[self.target], pr)
             test_scores_by_grp.append(test_score)
             test_scores_by_grp_weighted.append(test_score*(test.shape[0]/data.shape[0]))
 
