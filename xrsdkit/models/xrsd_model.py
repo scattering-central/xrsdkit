@@ -62,6 +62,7 @@ class XRSDModel(object):
         # copy the model dataframe: this avoids pandas SettingWithCopyWarning
         # TODO: find a more elegant solution to the SettingWithCopyWarning
         model_data = model_data.copy()
+        model_data = self.standardize(model_data)
         training_possible = self.assign_groups(model_data)
         if not training_possible:
             # not enough samples, or all have identical labels
@@ -72,7 +73,6 @@ class XRSDModel(object):
             # NOTE: SGD models train more efficiently on shuffled data
             d = utils.shuffle(model_data)
             data = d[d[self.target].isnull() == False]
-            data = self.standardize(data)
             # exclude samples with group_id==0
             valid_data = data[data.group_id>0]
 
@@ -83,7 +83,7 @@ class XRSDModel(object):
                 new_model = self.model
 
             # NOTE: after cross-validation for parameter selection,
-            # the entire dataset is used for final training,
+            # the entire dataset is used for final training
             self.cross_valid_results = self.run_cross_validation(new_model,valid_data,profiler.profile_keys)
             new_model.fit(valid_data[profiler.profile_keys], valid_data[self.target])
             self.model = new_model
@@ -135,12 +135,17 @@ class XRSDModel(object):
     def assign_groups(self, dataframe):
         """Assign cross-validation groups to all samples in input `dataframe`.
  
-        A group_id column is added to the dataframe for cross-validation grouping.
-        Returns True if the dataframe has at least 10 rows, 
-        over which the labels exhibit at least two unique values.
-        Else, returns False to indicate that `dataframe` 
-        is not sufficient for model training.
-        All rows of `dataframe` are assumed to have valid labels for self.target.
+        A `group_id` column is added to `dataframe` for cross-validation grouping.
+        All rows of `dataframe` are assumed to have valid target values-
+        unlabeled samples should be filtered out before calling this.
+        The base class implementation simply assigns the groups 
+        based on the `experiment_id` labels.
+        A sample missing an `experiment_id` label gets a `group_id` of 0. 
+        Returns False if the data are insufficient for model training,
+        i.e., if the target values are all identical.
+        This does NOT return False if there is only one group-
+        the splitting of a monolithic group should occur in subclasses, 
+        based on the grouping requirements of the subclass.
 
         Parameters
         ----------
@@ -150,25 +155,20 @@ class XRSDModel(object):
         Returns
         -------
         trainable : bool
-            indicates whether or not training is possible.
+            indicates whether or not training is possible
         """
+        all_exp_ids = dataframe['experiment_id'].unique()
         all_labels = dataframe[self.target].unique()
-        if dataframe.shape[0]>10 and len(all_labels)>1:
-            # sufficient samples, with at least 2 distinct labels
-            model_exp_ids = dataframe['experiment_id'].unique()
-            if len(model_exp_ids) > 2:
-                group_ids = np.zeros(dataframe.shape[0],dtype=int)
-                # assign groups according to experiment_id
-                for i_exp,exp_id in enumerate(model_exp_ids):
-                    group_ids[dataframe['experiment_id']==exp_id] = i_exp+1
-            else:
-                # assign groups by 3-fold shuffle-split
-                group_ids = self.shuffle_split_3fold(dataframe.shape[0])
-            dataframe.loc[:,'group_id'] = group_ids
-            return True
-        else:
-            # insufficient samples or zero label variance 
-            return False
+        trainable = len(all_labels)>1
+        group_ids = np.zeros(dataframe.shape[0],dtype=int)
+        gid = 1
+        for exp_id in all_exp_ids:
+            # all samples without an experiment_id get stuck with group_id==0
+            if exp_id:
+                group_ids[dataframe['experiment_id']==exp_id] = gid
+                gid += 1 
+        dataframe.loc[:,'group_id'] = group_ids
+        return trainable
 
     @staticmethod
     def shuffle_split_3fold(nsamp):

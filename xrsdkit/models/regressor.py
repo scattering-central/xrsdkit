@@ -1,8 +1,13 @@
+import copy
+
 import numpy as np
 from sklearn import linear_model, preprocessing
 from sklearn.metrics import mean_absolute_error
+from sklearn.cluster import KMeans
 
 from .xrsd_model import XRSDModel
+from ..tools import profiler
+
 
 class Regressor(XRSDModel):
     """Class for generating models to predict real-valued parameters."""
@@ -39,12 +44,12 @@ class Regressor(XRSDModel):
         return new_model
 
     def standardize(self,data):
-        """Standardize the columns of data that are used as model inputs
+        """Standardize the columns that are used as inputs and outputs.
 
-        Overriding of XRSDModel.standardize():
-        For the regression models we also need to scale the target,
-        since 'epsilon' and other hyperparameters will be affected
-        by the scale of the training data outputs. 
+        Reimplementation of XRSDModel.standardize():
+        For the regression models the target must also be standardized,
+        since the effects of model hyperparameters 
+        are relative to the scale of the outputs. 
         """
         data = super(Regressor,self).standardize(data)
         self.scaler_y = preprocessing.StandardScaler() 
@@ -101,6 +106,102 @@ class Regressor(XRSDModel):
             'Unweighted-average mean abs error: {}\n'.format(self.average_mean_abs_error(False)) + \
             '\n\nNOTE: Weighted metrics are weighted by test set size' 
         return CV_report
+
+    def assign_groups(self, dataframe, min_groups=5):
+        """Assign train/test groups to `dataframe`.
+
+        This reimplementation invokes the base class method, 
+        and then updates the groups if necessary
+        to ensure there are at least min_groups groups,
+        where each group has nonzero variance for for the target.
+
+        Parameters
+        ----------
+        dataframe : pandas.DataFrame
+            dataframe of sample features and corresponding labels
+
+        Returns
+        -------
+        trainable : bool
+            indicates whether or not training is possible
+        """
+        trainable = super(Regressor,self).assign_groups(dataframe)
+
+        # check for at least min_groups pairs of distinct values:
+        count_0 = 0
+        count_1 = 0
+        val_counts = dataframe.loc[dataframe['group_id']>0,self.target].value_counts()
+        sorted_counts = np.sort(list(val_counts.values))[::-1]
+        for ct in sorted_counts: 
+            if count_0 < min_groups: 
+                count_0 += ct
+            else:
+                count_1 += ct
+        if count_0 < min_groups or count_1 < min_groups: return False
+
+        if trainable:
+            group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+            gp_counts = dataframe.loc[dataframe['group_id']>0,'group_id'].value_counts()
+
+            # if we have too few groups, use KMeans to split them until we have enough 
+            while len(group_ids) < min_groups: 
+                gid_to_split = gp_counts.keys()[gp_counts.values.argmax()]
+                new_gid = 1
+                while new_gid in group_ids: new_gid += 1
+                # TODO: come up with a more balanced clustering mechanism
+                km = KMeans(2,n_init=10)
+                new_gids = km.fit_predict(dataframe.loc[dataframe['group_id']==gid_to_split,profiler.profile_keys])
+                idx_gp0 = new_gids==0
+                idx_gp1 = new_gids==1
+                new_gids[idx_gp0] = gid_to_split
+                new_gids[idx_gp1] = new_gid
+                dataframe.loc[dataframe['group_id']==gid_to_split,'group_id'] = new_gids
+                group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
+                gp_counts = dataframe.loc[dataframe['group_id']>0,'group_id'].value_counts()
+
+            # if we have any groups with zero variance,
+            # balance with samples from other groups
+            groups_to_check = list(group_ids.copy())
+            while len(groups_to_check) > 0:
+                gid = groups_to_check.pop(0) 
+                vals = dataframe.loc[dataframe['group_id']==gid,self.target]
+                if np.std(vals) == 0:
+                    val = vals.iloc[0]
+                    # find the group with the greatest population of values not equal to val
+                    gp_otherval_counts = gp_counts.copy()
+                    for ggiidd in gp_otherval_counts.keys():
+                        val_cts = dataframe.loc[dataframe['group_id']==ggiidd,self.target].value_counts()
+                        if val in val_cts.keys():
+                            gp_otherval_counts[ggiidd] = gp_otherval_counts[ggiidd]-val_cts[val]
+                    gid_to_split = gp_otherval_counts.keys()[gp_otherval_counts.values.argmax()]
+
+                    # split the gid_to_split, reassign
+                    # TODO: come up with a more balanced clustering mechanism
+                    km = KMeans(2,n_init=10)
+                    new_gids = km.fit_predict(dataframe.loc[
+                        (dataframe['group_id']==gid_to_split)&(dataframe[self.target]!=val),
+                        profiler.profile_keys])
+                    idx_gp0 = new_gids==0
+                    idx_gp1 = new_gids==1
+                    new_gids[idx_gp0] = gid_to_split
+                    new_gids[idx_gp1] = gid
+                    dataframe.loc[
+                        (dataframe['group_id']==gid_to_split)&(dataframe[self.target]!=val),
+                        'group_id'] = new_gids
+                    gp_counts = dataframe.loc[dataframe['group_id']>0,'group_id'].value_counts()
+                    # if this leaves gid_to_split with zero variance, add it to groups_to_check
+                    new_vals = dataframe.loc[dataframe['group_id']==gid_to_split,self.target]
+                    if np.std(new_vals) == 0: groups_to_check.append(gid_to_split)
+
+                    
+            # check that we have only nonzero variances remaining 
+            for gid in group_ids:
+                vals = dataframe.loc[dataframe['group_id']==gid,self.target]
+                if np.std(vals) == 0:
+                    raise ValueError('zero variance in target labels for a regression group')
+
+        return trainable
+
 
     def run_cross_validation(self,model,data,feature_names):
         """Cross-validate a model by LeaveOneGroupOut. 
