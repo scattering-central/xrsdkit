@@ -30,43 +30,25 @@ def predict(features,test=False):
         regressors=test_regression_models
     results = {}
 
-    # evaluate the system class
-    #sys_cls = classifiers['system_class'].classify(features)
+    # use the main classifiers to evaluate the system class
     main_cls = classifiers['main_classifiers']
-    pop_pred = []
-    n_pop_pred = {}
-    for name, cl in main_cls.items():
-        if name.startswith("n_") == False and cl.classify(features)[0]:
-            pop_pred.append(name)
-    if len(pop_pred)==0:
-        results['system_class'] = 'unidentified'
-        return results
-
-    #TODO find a better way to keep the order: diffuse__disordered__crystalline
-    sys_cls = ""
-    if "diffuse" in pop_pred:
-        if main_cls["n_diffuse"].trained:
-            n = main_cls["n_diffuse"].classify(features)[0]
-        else:
-            n = 1
-        for i in range(n):
-            sys_cls +="diffuse__"
-    if "disordered" in pop_pred:
-        if main_cls["n_disordered"].trained:
-            n = main_cls["n_disordered"].classify(features)[0]
-        else:
-            n = 1
-        for i in range(n):
-            sys_cls +="disordered__"
-    if "crystalline" in pop_pred:
-        if main_cls["n_crystalline"].trained:
-            n= main_cls["n_crystalline"].classify(features)[0]
-        else:
-            n = 1
-        for i in range(n):
-            sys_cls +="crystalline__"
+    sys_cls = ''
+    certainties = {}
+    for struct_nm in xrsdefs.structure_names:
+        if struct_nm in main_cls:
+            struct_result = main_cls[struct_nm].classify(features)
+            certainties[struct_nm] = struct_result[1]
+            if struct_result[0]:
+                n_pops_model_id = 'n_'+struct_nm
+                if n_pops_model_id in main_cls:
+                    n_pops_result = main_cls[n_pops_model_id].classify(features) 
+                    certainties[n_pops_model_id] = n_pops_result[1]
+                    for ipop in range(n_pops_result[0]):
+                        sys_cls += struct_nm+'__'
+    if not sys_cls:
+        sys_cls = 'unidentified'
     sys_cls=sys_cls.strip("__")
-    results['system_class'] = sys_cls
+    results['system_class'] = (sys_cls, certainties)
 
     cl_models_to_use = classifiers[sys_cls]
     reg_models_to_use = regressors[sys_cls]
@@ -89,7 +71,7 @@ def predict(features,test=False):
             results['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].default_val
 
     # evaluate population form factors and parameters
-    for ipop, struct in enumerate(results['system_class'].split('__')):
+    for ipop, struct in enumerate(results['system_class'][0].split('__')):
         pop_id = 'pop{}'.format(ipop)
         if reg_models_to_use[pop_id]['I0_fraction'].trained:
             results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
@@ -156,7 +138,7 @@ def system_from_prediction(prediction,q,I,**kwargs):
     new_sys : xrsdkit.system.System
         a System object built from the prediction dictionary
     """
-    sys_cls = prediction['system_class']
+    sys_cls = prediction['system_class'][0]
     if sys_cls == 'unidentified':
         return System()
     nmodl = prediction['noise_model'][0]
