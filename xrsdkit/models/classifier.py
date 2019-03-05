@@ -319,9 +319,6 @@ class Classifier(XRSDModel):
         else:
             return "Mean accuracies by classes were not calculated"
 
-    def average_F1(self):
-        return str(self.cross_valid_results['F1_score_averaged_not_weighted'])
-
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
 
@@ -335,7 +332,8 @@ class Classifier(XRSDModel):
             str(self.cross_valid_results['number_of_experiments'])) + \
             'Confusion matrix:\n' + \
             self.print_confusion_matrix()+'\n\n' + \
-            'F1 score (for multi class: label-averaged unweighted): {}\n\n'.format(self.average_F1()) + \
+            'F1 score (for multi class: label-averaged unweighted): {}\n\n'.format(
+            self.cross_valid_results['F1_score_averaged_not_weighted']) + \
             'Accuracy:\n' + \
             self.print_accuracy() + '\n'+\
             "Test/training split: " + self.cross_valid_results['test_training_split']
