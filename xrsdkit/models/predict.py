@@ -85,7 +85,7 @@ def predict(features,test=False):
         if reg_models_to_use[pop_id]['I0_fraction'].trained:
             results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
         else:
-            results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
+            results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].default_val
         if cl_models_to_use[pop_id]['form'].trained:
             results[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].classify(features)
         else:
