@@ -26,6 +26,9 @@ def load_classification_models(model_root_dir=classification_models_dir):
         return model_dict
     all_sys_cls = os.listdir(model_root_dir)
 
+    # the top-level classifier is a collection of classifiers;
+    # their cumulative effect is to find the number of distinct populations
+    # for each structure
     if 'main_classifiers' in all_sys_cls:
         all_sys_cls.remove('main_classifiers')
 
