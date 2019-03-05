@@ -51,7 +51,7 @@ class Classifier(XRSDModel):
 
         Returns
         -------
-        sys_cls : object 
+        cls : object 
             Predicted classification value for self.target, given `sample_features`
         cert : float or None
             the certainty of the prediction
@@ -60,9 +60,9 @@ class Classifier(XRSDModel):
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
         feature_idx = [k in self.features for k in sample_features.keys()]
         x = self.scaler.transform(feature_array)[:, feature_idx]
-        sys_cls = self.model.predict(x)[0]
+        cls = self.model.predict(x)[0]
         cert = max(self.model.predict_proba(x)[0])
-        return sys_cls, cert
+        return cls, cert
 
     def run_cross_validation(self, model, df, feature_names):
         """Cross-validate a model by LeaveOneGroupOut. 

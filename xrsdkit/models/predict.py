@@ -36,12 +36,18 @@ def predict(features,test=False):
     certainties = {}
     for struct_nm in xrsdefs.structure_names:
         if struct_nm in main_cls:
-            struct_result = main_cls[struct_nm].classify(features)
+            if main_cls[struct_nm].trained:
+                struct_result = main_cls[struct_nm].classify(features)
+            else:
+                struct_result = (main_cls[struct_nm].default_val, 0.0) 
             certainties[struct_nm] = struct_result[1]
             if struct_result[0]:
                 n_pops_model_id = 'n_'+struct_nm
                 if n_pops_model_id in main_cls:
-                    n_pops_result = main_cls[n_pops_model_id].classify(features) 
+                    if main_cls[n_pops_model_id].trained:
+                        n_pops_result = main_cls[n_pops_model_id].classify(features) 
+                    else:
+                        n_pops_result = (main_cls[n_pops_model_id].default_val, 0.0) 
                     certainties[n_pops_model_id] = n_pops_result[1]
                     for ipop in range(n_pops_result[0]):
                         sys_cls += struct_nm+'__'
@@ -49,6 +55,9 @@ def predict(features,test=False):
         sys_cls = 'unidentified'
     sys_cls=sys_cls.strip("__")
     results['system_class'] = (sys_cls, certainties)
+
+    if sys_cls == 'unidentified':
+        return results
 
     cl_models_to_use = classifiers[sys_cls]
     reg_models_to_use = regressors[sys_cls]
