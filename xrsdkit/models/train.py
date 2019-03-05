@@ -86,48 +86,46 @@ def train_classification_models(data,hyper_parameters_search=False):
     cls_models['main_classifiers'] = {}
 
     # find all existing types of populations in training data:
-    pops = data['system_class'].tolist()
-    pops = [p.split("__") for p in pops]
-    flat_list = [item for sublist in pops for item in sublist]
-    all_pops = set(flat_list)
-    all_pops.discard('unidentified')
     all_sys_cls = data['system_class'].tolist()
+    #pops = [p.split("__") for p in pops]
+    #flat_list = [item for sublist in pops for item in sublist]
+    #all_pops = set(flat_list)
+    #all_pops.discard('unidentified')
+    #all_sys_cls = data['system_class'].tolist()
 
-    for p in all_pops:
-        print(os.linesep+'Training '+p+' classifier')
-        model = Classifier(p, None)
-        p_data = data.copy()
-        col_d = [p in s for s in all_sys_cls]
-        p_data[p] = col_d
+    data_copy = data.copy()
+    for struct_nm in xrsdefs.structure_names:
+        print(os.linesep+'Training binary classifier for '+struct_nm+' structures')
+        model = Classifier(struct_nm, None)
+        labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
+        data_copy.loc[:,struct_nm] = labels 
         if 'main_classifiers' in classification_models.keys() \
-                and p in classification_models['main_classifiers'].keys() \
-                and classification_models['main_classifiers'][p].trained:
-                    old_pars = classification_models['main_classifiers'][p].model.get_params()
-                    model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-        model.train(p_data, hyper_parameters_search=hyper_parameters_search)
-        cls_models['main_classifiers'][p] = model
-
-        # number of p populations
-        target = "n_" + p
-        print(os.linesep+'Training '+target+' classifier')
-        model = Classifier(target, None)
-        n_p_data = p_data.loc[p_data[p]==True].copy()
-        col_n = n_p_data['system_class'].tolist()
-        col_d_n = [s.count(p) for s in col_n]
-        n_p_data[target] = col_d_n
-        if target in classification_models.keys() \
-        and classification_models[target].trained:
-            old_pars = classification_models[target].model.get_params()
+        and struct_nm in classification_models['main_classifiers'] \
+        and classification_models['main_classifiers'][struct_nm].trained:
+            old_pars = classification_models['main_classifiers'][struct_nm].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-        model.train(n_p_data, hyper_parameters_search=hyper_parameters_search)
-        cls_models['main_classifiers'][target] = model
+        model.train(data_copy, hyper_parameters_search=hyper_parameters_search)
+        cls_models['main_classifiers'][struct_nm] = model
+
+        print(os.linesep+'Training population count classifier for '+struct_nm+' structures')
+        n_pops_model_id = 'n_'+struct_nm
+        model = Classifier(n_pops_model_id, None)
+        n_pops_data = data_copy.loc[data_copy[struct_nm]==True].copy()
+        n_pops_labels = [sys_cls.count(struct_nm) for sys_cls in n_pops_data['system_class']]
+        n_pops_data.loc[:,n_pops_model_id] = n_pops_labels
+        if 'main_classifiers' in classification_models.keys() \
+        and n_pops_model_id in classification_models['main_classifiers'] \
+        and classification_models['main_classifiers'][n_pops_model_id].trained:
+            old_pars = classification_models['main_classifiers'][n_pops_model_id].model.get_params()
+            model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+        model.train(n_pops_data, hyper_parameters_search=hyper_parameters_search)
+        cls_models['main_classifiers'][n_pops_model_id] = model
 
     sys_cls_labels = list(data['system_class'].unique())
-    # 'unidentified' systems will have no sub-classifiers:
-    if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
+    # 'unidentified' systems will have no sub-classifiers; drop this label up front 
+    if 'unidentified' in sys_cls_labels: sys_cls_labels.remove('unidentified')
     for sys_cls in sys_cls_labels:
-        print('Training classifiers for system: ')
-        print(sys_cls)
+        print('Training classifiers for system class {}'.format(sys_cls))
         cls_models[sys_cls] = {}
         sys_cls_data = data.loc[data['system_class']==sys_cls].copy()
         # drop the columns where all values are None:
@@ -182,9 +180,10 @@ def train_classification_models(data,hyper_parameters_search=False):
             for ff in all_ff_labels:
                 form_data = sys_cls_data.loc[sys_cls_data[form_header]==ff].copy()
                 cls_models[sys_cls][pop_id][ff] = {}
+                print('    Training classifiers for {} form factors'.format(ff))
                 for stg_nm in xrsdefs.modelable_form_factor_settings[ff]:
                     stg_header = pop_id+'_'+stg_nm
-                    print('    Training: {}'.format(stg_header))
+                    print('        Training: {}'.format(stg_header))
                     model = Classifier(stg_header,None)
                     if (sys_cls in classification_models) \
                     and (pop_id in classification_models[sys_cls]) \
@@ -230,7 +229,7 @@ def save_classification_models(models=classification_models, test=False):
             save_model_data(mod,yml_path,txt_path)
 
     all_sys_cls = list(models.keys())
-    all_sys_cls.pop(all_sys_cls.index('main_classifiers'))
+    all_sys_cls.remove('main_classifiers')
     for sys_cls in all_sys_cls: 
         sys_cls_dir = os.path.join(cl_root_dir,sys_cls)
         if not sys_cls in model_dict: model_dict[sys_cls] = {}
@@ -348,6 +347,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                 for stg_label in stg_labels:
                     reg_models[sys_cls][pop_id][stg_nm][stg_label] = {}
                     stg_label_data = sys_cls_data.loc[sys_cls_data[stg_header]==stg_label].copy()
+                    print('    training regressors for {} with {}=={}'.format(pop_id,stg_nm,stg_label))
                     for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                         param_header = pop_id+'_'+pnm
                         model = Regressor(param_header,None)
@@ -372,6 +372,7 @@ def train_regression_models(data,hyper_parameters_search=False):
             for form_id in form_specifiers:
                 form_data = sys_cls_data.loc[data[form_header]==form_id].copy()
                 reg_models[sys_cls][pop_id][form_id] = {}
+                print('    training regressors for {} form factors'.format(form_id))
                 for pnm in xrsdefs.form_factor_params[form_id]:
                     param_header = pop_id+'_'+pnm
                     model = Regressor(param_header,None)
@@ -395,6 +396,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                     for stg_label in stg_labels:
                         reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label] = {}
                         stg_label_data = form_data.loc[form_data[stg_header]==stg_label].copy()
+                        print('    training regressors for {} form factors with {}=={}'.format(form_id,stg_nm,stg_label))
                         for pnm in xrsdefs.additional_form_factor_params(form_id,{stg_nm:stg_label}):
                             param_header = pop_id+'_'+pnm
                             model = Regressor(param_header,None)
