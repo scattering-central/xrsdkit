@@ -6,19 +6,26 @@ import os
 import numpy as np
 import yaml
 
+structure_names = ['diffuse','disordered','crystalline']
+structures = OrderedDict.fromkeys(structure_names)
+form_factor_names = ['atomic','polyatomic','guinier_porod','spherical']
+form_factors = OrderedDict.fromkeys(form_factor_names)
+noise_model_names = ['flat','low_q_scatter'] 
+noise_models = OrderedDict.fromkeys(noise_model_names)
+
 # supported structures, forms, and noise models
-structures = dict(
+structures.update(
     diffuse = 'disordered, non-interacting particles',
     disordered = 'disordered, interacting particles',
     crystalline = 'particles arranged in a lattice'
     )
-form_factors = dict( 
+form_factors.update( 
     atomic = 'Single atom',
     polyatomic = 'Multiple atoms',
     guinier_porod = 'Scatterer described by Guinier-Porod equations',
     spherical = 'Spherical particle'
     )
-noise_models = dict(
+noise_models.update(
     flat = 'Flat noise floor for all q',
     low_q_scatter = 'Flat noise floor plus a Guinier-Porod-like contribution'
     )
@@ -43,10 +50,6 @@ def validate(structure,form,settings):
                 msg = 'crystalline structure does not support size distribution {}'\
                 .format(settings['distribution'])
                 raise ValueError(msg)
-
-structure_names = list(structures.keys())
-form_factor_names = list(form_factors.keys())
-noise_model_names = list(noise_models.keys())
 
 # top-level settings, along with default values:
 # these settings must exist for the corresponding
