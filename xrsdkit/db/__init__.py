@@ -32,7 +32,7 @@ clever_password
 
 .xrsdkit_storage_host:
     line 1: storage_host_name
-    line 2: path to dataset directory on storage host
+    line 2: path to dataset directory on storage host 
     line 3: username on storage host
     line 4: path to user's private ssh key file on local host
 
@@ -129,7 +129,7 @@ import pandas as pd
 import paramiko
 from pg import DB, connect
 
-from ..tools.ymltools import unpack_sample
+from ..tools.ymltools import unpack_sample, create_modeling_dataset
 from ..tools.profiler import profile_keys
 
 user_home_dir = os.path.expanduser('~')
@@ -138,7 +138,6 @@ db_host_info_file = os.path.join(user_home_dir,'.xrsdkit_db_host')
 test_db_host_info_file = os.path.join(user_home_dir,'.xrsdkit_test_db_host')
 
 storage_client = None
-storage_path = None
 try:
     if os.path.exists(storage_host_info_file):
         storage_host_lines = open(storage_host_info_file,'r').readlines()
@@ -183,7 +182,8 @@ try:
 except:
     warnings.warn('unable to establish connection to test database host')
 
-def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
+
+def load_yml_to_file_table(db, path_to_dir, drop_table=False):
     """Add data to the 'files' table from a directory on any remote machine.
 
     The data directory should contain one or more subdirectories,
@@ -195,10 +195,8 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     ----------
     db : pg.DB 
         A database connector (DB object from PyGreSQL)
-    ssh_client : paramiko.SSHClient
-        ssh client connected with the database host machine
     path_to_dir : str
-        absolute path to the folder with the training set
+        absolute path to the directory with the training set
         Precondition: dataset directory includes directories named
         by the name of the experiments; each experiment directory
         holds a set of .yml files that contain all the data from this experiment. 
@@ -219,44 +217,67 @@ def load_yml_to_file_table(db, ssh_client, path_to_dir, drop_table=False):
     exp_from_table = db.query('SELECT DISTINCT experiment_id FROM files').getresult()
     exp_from_table = [row[0] for row in exp_from_table]
 
-    # get the list of experiments that are in the dataset directory
-    stdin, stdout, stderr = ssh_client.exec_command('ls '+path_to_dir)
+    all_sys = download_sys_data(path_to_dir)
+    for file_path,sys_dict in all_sys_dicts.items():
+        expt_id = pp['sample_metadata']['experiment_id']
+        sample_id = pp['sample_metadata']['sample_id']
+        # make sure the experiment_id is not yet in the table
+        # NOTE: should we allow this function to add experiments for an existing experiment_id?
+        # NOTE 2: should we prevent this function from loading samples with redundant sample_id? 
+        if sys_dict['sample_metadata']['experiment_id'] not in exp_from_table: 
+            # add attributes and file path to the files table 
+            db.insert('files', sample_id=sample_id, experiment_id=expt_id,
+                yml_path=file_path, good_fit=sys_dict['fit_report']['good_fit'])
+        #print('FINISHED loading experiment {} to files table'.format(experiment))
 
-    for experiment in stdout:
-        experiment = experiment.strip('\n')
-        exp_data_dir = os.path.join(path_to_dir,experiment)
-        # make sure exp_data_dir is a directory, and that the experiment is not yet in the table 
-        if ssh_client.exec_command("os.path.isdir(exp_data_dir)") and experiment not in exp_from_table:
+
+def download_sys_data(path_to_dir):
+    """Download xrsdkit.system.System data from remote directory.
+
+    Parameters
+    ----------
+    path_to_dir : str
+        absolute path to the directory with the training set
+
+    Returns
+    -------
+    all_sys_dicts : OrderedDict
+        Dictionary mapping file paths (keys) to 
+        dicts (values) describing xrsdkit.system.System objects
+    """
+    # get the list of experiments that are in the dataset directory
+    all_sys_dicts = OrderedDict() 
+    stdin, stdout, stderr = storage_client.exec_command('ls '+path_to_dir)
+    for experiment_id in stdout:
+        experiment_id = experiment_id.strip('\n')
+        exp_data_dir = os.path.join(path_to_dir,experiment_id)
+        # make sure exp_data_dir is a directory
+        if storage_client.exec_command("os.path.isdir(exp_data_dir)"):
             # get the list of files in the experiment directory
-            stdin2, stdout2, stderr2 = ssh_client.exec_command('ls '+exp_data_dir)
+            stdin2, stdout2, stderr2 = storage_client.exec_command('ls '+exp_data_dir)
             for s_data_file in stdout2:
                 s_data_file = s_data_file.strip('\n')
-                # if the file is a .yml file, attempt to load it into the files table
+                # if the file is a .yml file, attempt to load it 
                 if s_data_file.endswith('.yml'):
+                    print('downloading sample data from {}'.format(s_data_file))
                     file_path = os.path.join(exp_data_dir, s_data_file)
                     # use cat to grab the file content and dump it to a stream
-                    stdin, stdout, stderr = ssh_client.exec_command('cat ' + file_path)
+                    stdin, stdout, stderr = storage_client.exec_command('cat ' + file_path)
                     net_dump = stdout.readlines()
                     str_d = "".join(net_dump)
                     # load the stream to data as yaml, grab key attributes
-                    pp = yaml.load(str_d)
-                    expt_id_yml = pp['sample_metadata']['experiment_id']
-                    sample_id_yml = pp['sample_metadata']['sample_id']
-                    fit = pp['fit_report']['good_fit']
-                    # add attributes and file path to the DB
-                    db.insert('files', sample_id=sample_id_yml, experiment_id = expt_id_yml,
-                                  yml_path=file_path, good_fit=fit)
-        print('FINISHED loading experiment {} to files table'.format(experiment))
+                    sys_dict = yaml.load(str_d)
+                    all_sys_dicts[file_path] = sys_dict
+    return all_sys_dicts
 
-def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
+
+def load_from_files_table_to_samples_table(db, drop_table=False):
     """Process the data from a the "files" table and insert corresponding rows into the "samples" table.
 
     Parameters
     ----------
     db : pg.DB 
         a database connector (DB object from PyGreSQL)
-    ssh_client : paramiko.SSHClient
-        ssh client connected with the database host machine
     drop_table : bool
         If True, the existing table will be dropped,
         and a new table will be created from scratch,
@@ -271,6 +292,7 @@ def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
                                                 "classification_labels JSON )")
 
     # get the list of the experiments that are not in the "samples" table
+    # NOTE: should we allow this function to add samples to an existing experiment_id?
     new_experiments = db.query("SELECT DISTINCT experiment_id "
                                " FROM files "
                                " WHERE experiment_id NOT IN ("
@@ -287,7 +309,7 @@ def load_from_files_table_to_samples_table(db, ssh_client, drop_table=False):
 
         for f in experiment_files:
             # get the content of this file
-            stdin, stdout, stderr = ssh_client.exec_command('cat ' + f)
+            stdin, stdout, stderr = storage_client.exec_command('cat ' + f)
             net_dump = stdout.readlines()
             str_d = "".join(net_dump)
             pp = yaml.load(str_d)
@@ -390,3 +412,13 @@ def get_training_dataframe(db):
     data = db.query('SELECT * FROM training').dictresult()
     df = pd.DataFrame(data)
     return df
+
+
+def gather_remote_dataset(dataset_dir,downsampling_distance=None):
+    # use storage_client to gather system dicts
+    sys_data = download_sys_data(dataset_dir)
+    all_sys_dicts = list(sys_data.values())
+    # build modeling dataframe from system dicts
+    df = create_modeling_dataset(all_sys_dicts,downsampling_distance=downsampling_distance)
+    return df
+
