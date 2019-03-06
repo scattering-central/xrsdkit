@@ -140,16 +140,15 @@ class Classifier(XRSDModel):
         params : dict
             dictionary of the parameters to get the best f1 score.
         """
-
         cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data[features], np.ravel(transformed_data[self.target]),
-                                                                  groups=transformed_data[group_by])
+            transformed_data[features], np.ravel(transformed_data[self.target]),
+            groups=transformed_data[group_by])
         test_model = self.build_model()
 
         # threaded scheduler with optimal number of threads
         # will be used by default for dask GridSearchCV
-        clf = GridSearchCV(test_model,
-                        self.grid_search_hyperparameters, cv=cv, scoring=scoring, n_jobs=-1)
+        clf = GridSearchCV(test_model, self.grid_search_hyperparameters, 
+            cv=cv, scoring=scoring, n_jobs=-1)
         clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
         params = clf.best_params_
         return params
