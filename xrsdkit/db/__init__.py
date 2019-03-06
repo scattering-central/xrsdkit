@@ -138,6 +138,7 @@ db_host_info_file = os.path.join(user_home_dir,'.xrsdkit_db_host')
 test_db_host_info_file = os.path.join(user_home_dir,'.xrsdkit_test_db_host')
 
 storage_client = None
+storage_path = None
 try:
     if os.path.exists(storage_host_info_file):
         storage_host_lines = open(storage_host_info_file,'r').readlines()
