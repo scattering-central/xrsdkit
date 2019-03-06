@@ -127,7 +127,11 @@ import warnings
 import yaml
 import pandas as pd
 import paramiko
-from pg import DB, connect
+use_pg = True
+try:
+    from pg import DB, connect
+except:
+    use_pg = False
 
 from ..tools.ymltools import unpack_sample, create_modeling_dataset
 from ..tools.profiler import profile_keys
