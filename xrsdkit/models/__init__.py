@@ -1,11 +1,9 @@
 import os
-import re
 from collections import OrderedDict
 
 from .. import definitions as xrsdefs 
 from .regressor import Regressor
 from .classifier import Classifier
-from ..system import System
 
 file_path = os.path.abspath(__file__)
 src_dir = os.path.dirname(os.path.dirname(file_path))
@@ -27,12 +25,22 @@ def load_classification_models(model_root_dir=classification_models_dir):
     if not os.path.exists(model_root_dir):
         return model_dict
     all_sys_cls = os.listdir(model_root_dir)
- 
-    yml_path = os.path.join(model_root_dir,'system_class.yml')
-    if os.path.exists(yml_path):
-        model_dict['system_class'] = Classifier('system_class',yml_path)
-        all_sys_cls.pop(all_sys_cls.index('system_class.yml'))
-        all_sys_cls.pop(all_sys_cls.index('system_class.txt'))
+
+    # the top-level classifier is a collection of classifiers;
+    # their cumulative effect is to find the number of distinct populations
+    # for each structure
+    if 'main_classifiers' in all_sys_cls:
+        all_sys_cls.remove('main_classifiers')
+
+    main_cls_path =  os.path.join(model_root_dir, 'main_classifiers')
+    model_dict['main_classifiers'] = {}
+    if os.path.exists(main_cls_path):
+        all_main_cls = os.listdir(main_cls_path)
+        all_main_cls = [cl for cl in all_main_cls if cl.endswith('.yml')]
+        for cl in all_main_cls:
+            cl_name = cl.split(".")[0]
+            yml_path = os.path.join(main_cls_path, cl)
+            model_dict['main_classifiers'][cl_name] = Classifier(cl_name, yml_path)
 
     for sys_cls in all_sys_cls:
         model_dict[sys_cls] = {}

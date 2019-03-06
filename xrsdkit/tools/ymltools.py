@@ -22,7 +22,7 @@ def load_sys_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(**sd)
 
-def read_all_experiments(dataset_dir):
+def read_local_dataset(dataset_dir,downsampling_distance=None):
     """Load xrsdkit data from a directory.
 
     The directory should contain subdirectories,
@@ -37,44 +37,36 @@ def read_all_experiments(dataset_dir):
 
     Returns
     -------
-    sys_dicts : list
-        list of dictionaries loaded from any .yml files 
-        that were found in the experiment subdirectories
+    df : pandas.DataFrame 
+        modeling DataFrame built from dataset files
     """
-    sys_dicts = []
+    sys_dicts = OrderedDict() 
     for experiment in os.listdir(dataset_dir):
         exp_data_dir = os.path.join(dataset_dir,experiment)
         if os.path.isdir(exp_data_dir):
             for s_data_file in os.listdir(exp_data_dir):
                 if s_data_file.endswith('.yml'):
+                    print('loading data from {}'.format(s_data_file))
                     file_path = os.path.join(exp_data_dir, s_data_file)
-                    sys = load_sys_from_yaml(file_path)
+                    #sys = load_sys_from_yaml(file_path)
                     #if bool(int(sys.fit_report['good_fit'])):
-                    sys_dicts.append(sys.to_dict())
-    return sys_dicts
+                    sys_dicts[s_data_file] = yaml.load(open(file_path,'r')) 
+    df = create_modeling_dataset(list(sys_dicts.values()),downsampling_distance=downsampling_distance)
+    return df 
 
 
-def gather_dataset(dataset_dir,downsampling_distance=None,output_csv=False):
-    """Build a DataFrame for a dataset saved in a local directory.
+def create_modeling_dataset(xrsd_system_dicts,downsampling_distance=None):
+    """Build a modeling DataFrame from xrsdkit.system.System objects.
 
-    The data directory should contain one or more subdirectories,
-    where each subdirectory contains the .yml files for an experiment,
-    where each .yml file describes one sample,
-    as created by save_sys_to_yaml().
-    If `downsampling_distance` is not None,
-    the dataset will be downsampled with downsample_by_group().
-    If `output_csv` is True,
-    the dataset is saved to dataset.csv in `dataset_dir`.
+    If `downsampling_distance` is not None, the dataset will be 
+    downsampled with downsample_by_group(downsampling_distance).
 
     Parameters
     ----------
-    dataset_dir : str
-        absolute path to the folder with the training set
-        Precondition: dataset directory includes subdirectories 
-        for each of the experiments in the dataset; 
-        each experiment directory contains the .yml files
-        describing xrsdkit.system.System objects that were fit 
-        to scattering data from the experiment. 
+    xrsd_system_dicts: list of dict
+        Dicts describing all xrsdkit.system.System 
+        objects in the dataset. Each of these dicts should be 
+        similar to the output of xrsdkit.system.System.to_dict().
 
     Returns
     -------
@@ -89,9 +81,7 @@ def gather_dataset(dataset_dir,downsampling_distance=None,output_csv=False):
     all_reg_labels = set()
     all_cls_labels = set()
 
-    all_sys = read_all_experiments(dataset_dir)
-
-    for sys in all_sys:
+    for sys in xrsd_system_dicts:
         expt_id, sample_id, feature_labels, classification_labels, regression_outputs = \
             unpack_sample(sys)
 
@@ -131,8 +121,6 @@ def gather_dataset(dataset_dir,downsampling_distance=None,output_csv=False):
     df_work = pd.DataFrame(data=data, columns=colnames)
     if downsampling_distance:
         df_work = downsample_by_group(df_work,downsampling_distance)
-    if output_csv:
-        df_work.to_csv(os.path.join(dataset_dir,'dataset.csv'))
     return df_work
 
 

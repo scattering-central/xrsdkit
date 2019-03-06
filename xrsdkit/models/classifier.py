@@ -16,9 +16,8 @@ class Classifier(XRSDModel):
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
         self.grid_search_hyperparameters = dict(
-            alpha = [0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
+            alpha = [0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
             l1_ratio = [0.15, 0.5, 0.85, 1.0] # default 0.15
-            #C = [ 0.1, 1.0]
             )
 
     def minimization_score(self,true_labels,pred_labels):
@@ -31,13 +30,14 @@ class Classifier(XRSDModel):
                     loss='log',
                     penalty='elasticnet',
                     l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000000, class_weight='balanced', tol=1e-10#, eta0 = 0.001, learning_rate='adaptive'
+                    max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
                     )
         else:
             new_model = linear_model.SGDClassifier(
                 loss='log', penalty='elasticnet',
-                max_iter=1000000, class_weight='balanced', tol=1e-10#, eta0 = 0.001, learning_rate='adaptive'
+                max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
                 )
+
         return new_model
 
     def classify(self, sample_features):
@@ -51,7 +51,7 @@ class Classifier(XRSDModel):
 
         Returns
         -------
-        sys_cls : object 
+        cls : object 
             Predicted classification value for self.target, given `sample_features`
         cert : float or None
             the certainty of the prediction
@@ -60,9 +60,9 @@ class Classifier(XRSDModel):
         feature_array = np.array(list(sample_features.values())).reshape(1,-1)
         feature_idx = [k in self.features for k in sample_features.keys()]
         x = self.scaler.transform(feature_array)[:, feature_idx]
-        sys_cls = self.model.predict(x)[0]
+        cls = self.model.predict(x)[0]
         cert = max(self.model.predict_proba(x)[0])
-        return sys_cls, cert
+        return cls, cert
 
     def run_cross_validation(self, model, df, feature_names):
         """Cross-validate a model by LeaveOneGroupOut. 
@@ -107,8 +107,6 @@ class Classifier(XRSDModel):
                         number_of_experiments = len(experiments),
                         experiments = str(experiments),
                         confusion_matrix = str(cm),
-                        F1_score_by_classes = f1_score(true_labels, pred_labels,
-                                    labels=all_classes, average=None).tolist(),
                         F1_score_averaged_not_weighted = f1_score(true_labels,
                                     pred_labels, labels=all_classes, average='macro'),
                         accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None),
@@ -142,16 +140,15 @@ class Classifier(XRSDModel):
         params : dict
             dictionary of the parameters to get the best f1 score.
         """
-
         cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data[features], np.ravel(transformed_data[self.target]),
-                                                                  groups=transformed_data[group_by])
+            transformed_data[features], np.ravel(transformed_data[self.target]),
+            groups=transformed_data[group_by])
         test_model = self.build_model()
 
         # threaded scheduler with optimal number of threads
         # will be used by default for dask GridSearchCV
-        clf = GridSearchCV(test_model,
-                        self.grid_search_hyperparameters, cv=cv, scoring=scoring, n_jobs=-1)
+        clf = GridSearchCV(test_model, self.grid_search_hyperparameters, 
+            cv=cv, scoring=scoring, n_jobs=-1)
         clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
         params = clf.best_params_
         return params
@@ -310,26 +307,16 @@ class Classifier(XRSDModel):
             matrix = self.cross_valid_results['confusion_matrix'].split('\n')
             for i in range(len(self.cross_valid_results['all_classes'])):
                 result += (matrix[i] + "  " +
-                        self.cross_valid_results['all_classes'][i] + '\n')
+                        str(self.cross_valid_results['all_classes'][i]) + '\n')
             return result
         else:
             return "Confusion matrix was not created"
-
-    def print_F1_scores(self):
-        result = ''
-        for i in range(len(self.cross_valid_results['F1_score_by_classes'])):
-            result += (self.cross_valid_results['all_classes'][i] +
-                       " : " + str(self.cross_valid_results['F1_score_by_classes'][i]) + '\n')
-        return result
 
     def print_accuracy(self):
         if self.cross_valid_results['accuracy']:
             return str(self.cross_valid_results['accuracy'])
         else:
             return "Mean accuracies by classes were not calculated"
-
-    def average_F1(self):
-        return str(self.cross_valid_results['F1_score_averaged_not_weighted'])
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
@@ -344,9 +331,8 @@ class Classifier(XRSDModel):
             str(self.cross_valid_results['number_of_experiments'])) + \
             'Confusion matrix:\n' + \
             self.print_confusion_matrix()+'\n\n' + \
-            'F1 scores by label:\n' + \
-            self.print_F1_scores() + '\n'\
-            'Label-averaged unweighted F1 score: {}\n\n'.format(self.average_F1()) + \
+            'F1 score (for multi class: label-averaged unweighted): {}\n\n'.format(
+            self.cross_valid_results['F1_score_averaged_not_weighted']) + \
             'Accuracy:\n' + \
             self.print_accuracy() + '\n'+\
             "Test/training split: " + self.cross_valid_results['test_training_split']

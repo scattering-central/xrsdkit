@@ -144,15 +144,17 @@ class XRSDModel(object):
                 else:
                     new_model = self.model
                 optimization_obj, ind = self.validate_feature_set(new_model,valid_data,features)
-                score_features.append((optimization_obj, list(features)))
+                score_features.append((optimization_obj, list(features), new_model))
                 del features[ind]
             # NOTE: features are selected solely for the best cross-validation score
             score_features.sort()
             best_features = score_features[0][1]
+            new_model = score_features[0][2]
             # NOTE: after cross-validation for parameter selection,
             # the entire dataset is used for final training,
             self.cross_valid_results = self.run_cross_validation(new_model,valid_data,best_features)
             new_model.fit(valid_data[best_features], valid_data[self.target])
+
             self.model = new_model
             self.features = best_features
             self.trained = True

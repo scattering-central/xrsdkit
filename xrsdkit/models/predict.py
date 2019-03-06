@@ -1,5 +1,3 @@
-import re
-
 import numpy as np
 
 from . import regression_models, classification_models, test_regression_models, test_classification_models
@@ -32,15 +30,37 @@ def predict(features,test=False):
         regressors=test_regression_models
     results = {}
 
-    # evaluate the system class
-    sys_cls = classifiers['system_class'].classify(features)
-    results['system_class'] = sys_cls 
+    # use the main classifiers to evaluate the system class
+    main_cls = classifiers['main_classifiers']
+    sys_cls = ''
+    certainties = {}
+    for struct_nm in xrsdefs.structure_names:
+        if struct_nm in main_cls:
+            if main_cls[struct_nm].trained:
+                struct_result = main_cls[struct_nm].classify(features)
+            else:
+                struct_result = (main_cls[struct_nm].default_val, 0.0) 
+            certainties[struct_nm] = struct_result[1]
+            if struct_result[0]:
+                n_pops_model_id = 'n_'+struct_nm
+                if n_pops_model_id in main_cls:
+                    if main_cls[n_pops_model_id].trained:
+                        n_pops_result = main_cls[n_pops_model_id].classify(features) 
+                    else:
+                        n_pops_result = (main_cls[n_pops_model_id].default_val, 0.0) 
+                    certainties[n_pops_model_id] = n_pops_result[1]
+                    for ipop in range(n_pops_result[0]):
+                        sys_cls += struct_nm+'__'
+    if not sys_cls:
+        sys_cls = 'unidentified'
+    sys_cls=sys_cls.strip("__")
+    results['system_class'] = (sys_cls, certainties)
 
-    if sys_cls[0] == 'unidentified':
+    if sys_cls == 'unidentified':
         return results
 
-    cl_models_to_use = classifiers[sys_cls[0]]
-    reg_models_to_use = regressors[sys_cls[0]]
+    cl_models_to_use = classifiers[sys_cls]
+    reg_models_to_use = regressors[sys_cls]
 
     # evaluate the noise model
     if cl_models_to_use['noise_model'].trained:
@@ -65,7 +85,7 @@ def predict(features,test=False):
         if reg_models_to_use[pop_id]['I0_fraction'].trained:
             results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
         else:
-            results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
+            results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].default_val
         if cl_models_to_use[pop_id]['form'].trained:
             results[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].classify(features)
         else:
