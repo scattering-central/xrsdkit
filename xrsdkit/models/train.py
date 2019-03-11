@@ -32,7 +32,7 @@ def save_model_data(model,yml_path,txt_path):
             model=dict(hyper_parameters=dict(), trained_par=dict()),
             cross_valid_results=primitives(model.cross_valid_results),
             trained=model.trained,
-            default_val = model.default_val,
+            default_val = primitives(model.default_val),
             features = model.features
             )
         if model.trained:
@@ -95,7 +95,7 @@ def train_classification_models(data,hyper_parameters_search=False):
 
     data_copy = data.copy()
     for struct_nm in xrsdefs.structure_names:
-        print(os.linesep+'Training binary classifier for '+struct_nm+' structures')
+        print('Training binary classifier for '+struct_nm+' structures')
         model = Classifier(struct_nm, None)
         labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
         data_copy.loc[:,struct_nm] = labels 
@@ -105,9 +105,11 @@ def train_classification_models(data,hyper_parameters_search=False):
             old_pars = classification_models['main_classifiers'][struct_nm].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(data_copy, hyper_parameters_search=hyper_parameters_search)
+        if not model.trained:
+            print('--> {} untrainable- default value: {}'.format(struct_nm,model.default_val))
         cls_models['main_classifiers'][struct_nm] = model
 
-        print(os.linesep+'Training population count classifier for '+struct_nm+' structures')
+        print('Training population count classifier for '+struct_nm+' structures')
         n_pops_model_id = 'n_'+struct_nm
         model = Classifier(n_pops_model_id, None)
         n_pops_data = data_copy.loc[data_copy[struct_nm]==True].copy()
@@ -119,6 +121,8 @@ def train_classification_models(data,hyper_parameters_search=False):
             old_pars = classification_models['main_classifiers'][n_pops_model_id].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(n_pops_data, hyper_parameters_search=hyper_parameters_search)
+        if not model.trained:
+            print('--> {} untrainable- default value: {}'.format(n_pops_model_id,model.default_val))
         cls_models['main_classifiers'][n_pops_model_id] = model
 
     sys_cls_labels = list(data['system_class'].unique())
@@ -140,6 +144,8 @@ def train_classification_models(data,hyper_parameters_search=False):
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
+        if not model.trained:
+            print('    --> {} untrainable- default value: {}'.format('noise_model',model.default_val))
         cls_models[sys_cls]['noise_model'] = model
 
         # each population has some classifiers for form factor and settings
@@ -159,6 +165,8 @@ def train_classification_models(data,hyper_parameters_search=False):
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
             model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
+            if not model.trained:
+                print('    --> {} untrainable- default value: {}'.format('noise_model',model.default_val))
             cls_models[sys_cls][pop_id]['form'] = model
 
             # add classifiers for any model-able structure settings 
@@ -173,6 +181,8 @@ def train_classification_models(data,hyper_parameters_search=False):
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
                     model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
                 model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
+                if not model.trained:
+                    print('    --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                 cls_models[sys_cls][pop_id][stg_nm] = model
 
             # add classifiers for any model-able form factor settings
@@ -180,7 +190,7 @@ def train_classification_models(data,hyper_parameters_search=False):
             for ff in all_ff_labels:
                 form_data = sys_cls_data.loc[sys_cls_data[form_header]==ff].copy()
                 cls_models[sys_cls][pop_id][ff] = {}
-                print('    Training classifiers for {} form factors'.format(ff))
+                print('    Training classifiers for {} with {} form factors'.format(pop_id,ff))
                 for stg_nm in xrsdefs.modelable_form_factor_settings[ff]:
                     stg_header = pop_id+'_'+stg_nm
                     print('        Training: {}'.format(stg_header))
@@ -193,6 +203,8 @@ def train_classification_models(data,hyper_parameters_search=False):
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
                     model.train(form_data, hyper_parameters_search=hyper_parameters_search)
+                    if not model.trained:
+                        print('        --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                     cls_models[sys_cls][pop_id][ff][stg_nm] = model
 
     return cls_models
@@ -306,20 +318,22 @@ def train_regression_models(data,hyper_parameters_search=False):
             reg_models[sys_cls]['noise'][modnm] = {}
             noise_model_data = sys_cls_data.loc[sys_cls_data['noise_model']==modnm].copy()
             for pnm in list(xrsdefs.noise_params[modnm].keys())+['I0_fraction']:
-                param_header = 'noise_'+pnm
-                model = Regressor(param_header,None)
-                print('        training {}'.format(param_header))
-                if (sys_cls in regression_models) \
-                and ('noise' in regression_models[sys_cls]) \
-                and (modnm in regression_models[sys_cls]['noise']) \
-                and (pnm in regression_models[sys_cls]['noise'][modnm]) \
-                and (regression_models[sys_cls]['noise'][modnm][pnm].trained): 
-                    old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
-                    model.model.set_params(alpha=old_pars['alpha'],
-                    l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
                 if not pnm == 'I0':
-                    model.train(noise_model_data, hyper_parameters_search)
-                    reg_models[sys_cls]['noise'][modnm][pnm] = model 
+                    param_header = 'noise_'+pnm
+                    model = Regressor(param_header,None)
+                    print('        training {}'.format(param_header))
+                    if (sys_cls in regression_models) \
+                    and ('noise' in regression_models[sys_cls]) \
+                    and (modnm in regression_models[sys_cls]['noise']) \
+                    and (pnm in regression_models[sys_cls]['noise'][modnm]) \
+                    and (regression_models[sys_cls]['noise'][modnm][pnm].trained): 
+                        old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
+                        model.model.set_params(alpha=old_pars['alpha'],
+                        l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
+                        model.train(noise_model_data, hyper_parameters_search)
+                        if not model.trained:
+                            print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
+                        reg_models[sys_cls]['noise'][modnm][pnm] = model 
 
         # use the sys_cls to identify the populations and their structures
         for ipop,struct in enumerate(sys_cls.split('__')):
@@ -329,6 +343,7 @@ def train_regression_models(data,hyper_parameters_search=False):
             param_header = pop_id+'_I0_fraction'
             model = Regressor(param_header,None)
             print('    training regressors for population {}'.format(pop_id))
+            print('        training {}'.format(param_header))
             if (sys_cls in regression_models) \
             and (pop_id in regression_models[sys_cls]) \
             and ('I0_fraction' in regression_models[sys_cls][pop_id]) \
@@ -337,6 +352,8 @@ def train_regression_models(data,hyper_parameters_search=False):
                 model.model.set_params(alpha=old_pars['alpha'],
                 l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
             model.train(sys_cls_data, hyper_parameters_search)
+            if not model.trained:
+                print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
             reg_models[sys_cls][pop_id]['I0_fraction'] = model 
                 
             # add regressors for any modelable structure params 
@@ -362,6 +379,8 @@ def train_regression_models(data,hyper_parameters_search=False):
                             model.model.set_params(alpha=old_pars['alpha'],
                             l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
                         model.train(stg_label_data, hyper_parameters_search)
+                        if not model.trained:
+                            print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
                         reg_models[sys_cls][pop_id][stg_nm][stg_label][pnm] = model 
 
             # get all unique form factors for this population
@@ -372,7 +391,7 @@ def train_regression_models(data,hyper_parameters_search=False):
             for form_id in form_specifiers:
                 form_data = sys_cls_data.loc[data[form_header]==form_id].copy()
                 reg_models[sys_cls][pop_id][form_id] = {}
-                print('    training regressors for {} form factors'.format(form_id))
+                print('    training regressors for {} with {} form factors'.format(pop_id,form_id))
                 for pnm in xrsdefs.form_factor_params[form_id]:
                     param_header = pop_id+'_'+pnm
                     model = Regressor(param_header,None)
@@ -386,6 +405,8 @@ def train_regression_models(data,hyper_parameters_search=False):
                         model.model.set_params(alpha=old_pars['alpha'],
                         l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
                     model.train(form_data, hyper_parameters_search)
+                    if not model.trained:
+                        print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
                     reg_models[sys_cls][pop_id][form_id][pnm] = model 
 
                 # add regressors for any modelable form factor params 
@@ -396,7 +417,7 @@ def train_regression_models(data,hyper_parameters_search=False):
                     for stg_label in stg_labels:
                         reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label] = {}
                         stg_label_data = form_data.loc[form_data[stg_header]==stg_label].copy()
-                        print('    training regressors for {} form factors with {}=={}'.format(form_id,stg_nm,stg_label))
+                        print('    training regressors for {} with {} form factors with {}=={}'.format(pop_id,form_id,stg_nm,stg_label))
                         for pnm in xrsdefs.additional_form_factor_params(form_id,{stg_nm:stg_label}):
                             param_header = pop_id+'_'+pnm
                             model = Regressor(param_header,None)
@@ -413,6 +434,8 @@ def train_regression_models(data,hyper_parameters_search=False):
                                 model.model.set_params(alpha=old_pars['alpha'],
                                 l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
                             model.train(stg_label_data, hyper_parameters_search)
+                            if not model.trained:
+                                print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
                             reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm] = model 
 
     return reg_models
