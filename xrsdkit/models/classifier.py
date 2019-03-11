@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 import numpy as np
 from sklearn import linear_model, model_selection
-from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
+from sklearn.metrics import f1_score, confusion_matrix, accuracy_score, precision_score, recall_score
 from sklearn.cluster import KMeans
 from dask_ml.model_selection import GridSearchCV
 
@@ -109,6 +109,8 @@ class Classifier(XRSDModel):
                         confusion_matrix = str(cm),
                         F1_score_averaged_not_weighted = f1_score(true_labels,
                                     pred_labels, labels=all_classes, average='macro'),
+                        precision = precision_score(true_labels, pred_labels, average='macro'),
+                        recall = recall_score(true_labels, pred_labels, average='macro'),
                         accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None),
                         test_training_split = 'for classes with samples from 3 or more experiment_ids, \n'\
                                             'the data are split according to experiment_id; \n'\
@@ -333,6 +335,10 @@ class Classifier(XRSDModel):
             self.print_confusion_matrix()+'\n\n' + \
             'F1 score (for multi class: label-averaged unweighted): {}\n\n'.format(
             self.cross_valid_results['F1_score_averaged_not_weighted']) + \
+            'Precision(for multi class: label-averaged unweighted): {}\n\n'.format(
+            self.cross_valid_results['precision']) + \
+            'Recall (for multi class: label-averaged unweighted): {}\n\n'.format(
+            self.cross_valid_results['recall']) + \
             'Accuracy:\n' + \
             self.print_accuracy() + '\n'+\
             "Test/training split: " + self.cross_valid_results['test_training_split']
