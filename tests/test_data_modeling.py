@@ -47,4 +47,5 @@ def test_predict_spheres():
         xrsdyml.save_sys_to_yaml(sysfpath,sys)
         if 'DISPLAY' in os.environ:
             fit_sys = run_fit_gui({datapath:sysfpath})
+        os.remove(sysfpath)
 
