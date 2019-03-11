@@ -625,13 +625,13 @@ class XRSDFitGUI(object):
     def _repack_noise_frame(self):
         nmdl = self.sys.noise_model.model
         for par_nm,frm in self._frames['parameters']['noise'].items(): frm.grid_forget() 
+        #self.fit_gui.update_idletasks()
         new_par_frms = OrderedDict()
-        # save the relevant frames, create new ones as needed 
+        # NOTE: it is tempting to "keep" some frames that need not be renewed,
+        # but if so, the widgets for the bounds, constraints, etc. would still need to be updated 
+        # create new frames for all params
         for par_nm in xrsdefs.noise_params[nmdl]: 
-            if par_nm in self._frames['parameters']['noise']:
-                new_par_frms[par_nm] = self._frames['parameters']['noise'][par_nm]
-            else:
-                new_par_frms[par_nm] = self._create_param_frame('noise',par_nm)
+            new_par_frms[par_nm] = self._create_param_frame('noise',par_nm)
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['parameters']['noise'].keys())
         for par_nm in par_frm_nms: 
@@ -736,7 +736,7 @@ class XRSDFitGUI(object):
         #
         # PARAMETERS: 
         for par_nm,frm in self._frames['parameters'][pop_nm].items(): frm.grid_forget() 
-        self.fit_gui.update_idletasks()
+        #self.fit_gui.update_idletasks()
         new_par_frms = OrderedDict()
         # NOTE: it is tempting to "keep" some frames that need not be renewed,
         # but if so, the widgets for the bounds, constraints, etc. would still need to be updated 
@@ -1089,13 +1089,11 @@ class XRSDFitGUI(object):
     def _estimate(self):
         feats = profiler.profile_pattern(self.q,self.I)
         pred = xrsdpred.predict(feats)
-        sys_est = xrsdpred.system_from_prediction(pred,self.q,self.I)
-        # replace self.sys
-        sys_est.update_from_dict(dict(
+        sys_est = xrsdpred.system_from_prediction(pred,self.q,self.I,
             features = self.sys.features,
             sample_metadata = self.sys.sample_metadata,
             fit_report = self.sys.fit_report
-            ))
+            )
         self._set_system(sys_est)
 
     def _set_system(self,new_sys):
@@ -1111,12 +1109,13 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
         if any([pp.structure=='crystalline' for pp in new_sys.populations.values()]):
             if new_sys.sample_metadata['source_wavelength'] == 0.:
+                # TODO: put this warning in a pop-up
                 warnings.warn('Diffraction computations require a nonzero wavelength: setting default 1.5406')
                 # NOTE: setting this var will also set the corresponding system attribute
                 self._vars['fit_control']['wavelength'].set(1.5406)
         # repack everything 
-        self._repack_pop_frames()
         self._repack_noise_frame()
+        self._repack_pop_frames()
         for pop_nm in self.sys.populations.keys():
             self._repack_pop_frame(pop_nm)
         # draw plots and update fit objective
