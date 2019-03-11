@@ -35,6 +35,7 @@ datapath = os.path.join(os.path.dirname(__file__),
     'test_data','solution_saxs','peaks','peaks_0.dat')
 sysfpath = os.path.splitext(datapath)[0]+'.yml'
 xrsdyml.save_sys_to_yaml(sysfpath,np_sl_sys)
+os.remove(sysfpath)
 
 def test_fit_gui():
     if 'DISPLAY' in os.environ:

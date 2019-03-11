@@ -28,7 +28,9 @@ class System(object):
             )
         self.features = dict.fromkeys(profile_keys) 
         src_wl = 0.
-        if 'source_wavelength' in kwargs: src_wl = kwargs['source_wavelength'] 
+        kwargs = copy.deepcopy(kwargs)
+        if 'source_wavelength' in kwargs: src_wl = kwargs.pop('source_wavelength')
+        # TODO: any other sample metadata items that should be handled from kwargs?
         self.sample_metadata = dict(
             experiment_id='',
             sample_id='',
@@ -211,7 +213,7 @@ class System(object):
         return pd
 
 def fit(sys,q,I,dI=None,
-    error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
+    error_weighted=None,logI_weighted=None,q_range=None):
     """Fit the I(q) pattern and return a System with optimized parameters. 
 
     Parameters
@@ -241,11 +243,14 @@ def fit(sys,q,I,dI=None,
 
     # the System to optimize starts as a copy of the input System
     sys_opt = System.from_dict(sys.to_dict())
-    sys_opt.fit_report.update(
-        error_weighted=error_weighted,
-        logI_weighted=logI_weighted,
-        q_range=q_range
-        )
+    # if inputs were given to control the fit objective,
+    # update sys_opt.fit_report with the new settings
+    if error_weighted is not None:
+        sys_opt.fit_report.update(error_weighted=error_weighted)
+    if logI_weighted is not None:
+        sys_opt.fit_report.update(logI_weighted=error_weighted)
+    if q_range is not None:
+        sys_opt.fit_report.update(q_range=q_range)
 
     obj_init = sys_opt.evaluate_residual(q,I,dI)
     lmf_params = sys_opt.pack_lmfit_params() 

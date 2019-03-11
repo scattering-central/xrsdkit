@@ -74,8 +74,9 @@ form_settings = dict(
     )
 
 # top-level parameters, along with default definitions:
-# these parameters must exist for the corresponding
-# form factors and noise models
+# these parameters are always valid for the corresponding
+# form factors and noise models, 
+# regardless of settings, etc.
 form_factor_params = dict(
     atomic = {},
     polyatomic = {},
@@ -182,7 +183,7 @@ def setting_datatypes(stg_nm):
     if stg_nm in ['q_min','q_max','sampling_width','sampling_step']:
         return float
     if stg_nm == 'n_atoms': return int
-    if 'symbol_' in stg_nm: return str
+    if 'symbol' in stg_nm: return str
 
 # all possible options for all settings (empty list if not enumerable)
 def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
@@ -205,7 +206,7 @@ def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
             return ['single','r_normal']
     if stg_nm in ['q_min','q_max','sampling_width','sampling_step']: return []
     if stg_nm == 'n_atoms': return []
-    if 'symbol_' in stg_nm: return list(atomic_params.keys())
+    if 'symbol' in stg_nm: return list(atomic_params.keys())
 
 # generate any additional parameters that depend on setting selections
 def structure_params(structure,prior_settings):

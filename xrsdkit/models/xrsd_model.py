@@ -117,19 +117,20 @@ class XRSDModel(object):
             If true, grid-search model hyperparameters
             to seek high cross-validation accuracy.
         """
-        # copy the model dataframe: this avoids pandas SettingWithCopyWarning
-        # TODO: find a more elegant solution to the SettingWithCopyWarning
-        model_data = model_data.copy()
-        model_data = self.standardize(model_data)
         training_possible = self.assign_groups(model_data)
         if not training_possible:
-            # not enough samples, or all have identical labels
+            # not enough samples, or all have identical labels-
+            # take a non-standardized default value
             self.default_val = model_data[self.target].unique()[0]
             self.trained = False
             return
         else:
+            # copy the model dataframe: this avoids pandas SettingWithCopyWarning
+            # TODO: find a more elegant solution to the SettingWithCopyWarning
+            s_model_data = model_data.copy()
+            s_model_data = self.standardize(s_model_data)
             # NOTE: SGD models train more efficiently on shuffled data
-            d = utils.shuffle(model_data)
+            d = utils.shuffle(s_model_data)
             data = d[d[self.target].isnull() == False]
             # NOTE: exclude samples with group_id==0
             valid_data = data[data.group_id>0]
