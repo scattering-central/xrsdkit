@@ -105,7 +105,11 @@ def train_classification_models(data,hyper_parameters_search=False):
             old_pars = classification_models['main_classifiers'][struct_nm].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(data_copy, hyper_parameters_search=hyper_parameters_search)
-        if not model.trained:
+        if model.trained:
+            f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+            acc = model.cross_valid_results['accuracy']
+            print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+        else:
             print('--> {} untrainable- default value: {}'.format(struct_nm,model.default_val))
         cls_models['main_classifiers'][struct_nm] = model
 
@@ -121,7 +125,11 @@ def train_classification_models(data,hyper_parameters_search=False):
             old_pars = classification_models['main_classifiers'][n_pops_model_id].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(n_pops_data, hyper_parameters_search=hyper_parameters_search)
-        if not model.trained:
+        if model.trained:
+            f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+            acc = model.cross_valid_results['accuracy']
+            print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+        else: 
             print('--> {} untrainable- default value: {}'.format(n_pops_model_id,model.default_val))
         cls_models['main_classifiers'][n_pops_model_id] = model
 
@@ -144,7 +152,11 @@ def train_classification_models(data,hyper_parameters_search=False):
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
-        if not model.trained:
+        if model.trained:
+            f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+            acc = model.cross_valid_results['accuracy']
+            print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+        else: 
             print('    --> {} untrainable- default value: {}'.format('noise_model',model.default_val))
         cls_models[sys_cls]['noise_model'] = model
 
@@ -165,8 +177,12 @@ def train_classification_models(data,hyper_parameters_search=False):
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
             model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
-            if not model.trained:
-                print('    --> {} untrainable- default value: {}'.format('noise_model',model.default_val))
+            if model.trained:
+                f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+                acc = model.cross_valid_results['accuracy']
+                print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+            else: 
+                print('    --> {} untrainable- default value: {}'.format(form_header,model.default_val))
             cls_models[sys_cls][pop_id]['form'] = model
 
             # add classifiers for any model-able structure settings 
@@ -181,7 +197,11 @@ def train_classification_models(data,hyper_parameters_search=False):
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
                     model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
                 model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
-                if not model.trained:
+                if model.trained:
+                    f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+                    acc = model.cross_valid_results['accuracy']
+                    print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                else: 
                     print('    --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                 cls_models[sys_cls][pop_id][stg_nm] = model
 
@@ -203,7 +223,11 @@ def train_classification_models(data,hyper_parameters_search=False):
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
                     model.train(form_data, hyper_parameters_search=hyper_parameters_search)
-                    if not model.trained:
+                    if model.trained:
+                        f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+                        acc = model.cross_valid_results['accuracy']
+                        print('        --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                    else: 
                         print('        --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                     cls_models[sys_cls][pop_id][ff][stg_nm] = model
 
@@ -330,10 +354,13 @@ def train_regression_models(data,hyper_parameters_search=False):
                         old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'],
                         l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                        model.train(noise_model_data, hyper_parameters_search)
-                        if not model.trained:
-                            print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                        reg_models[sys_cls]['noise'][modnm][pnm] = model 
+                    model.train(noise_model_data, hyper_parameters_search)
+                    if model.trained:
+                        grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                        print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
+                    else: 
+                        print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
+                    reg_models[sys_cls]['noise'][modnm][pnm] = model 
 
         # use the sys_cls to identify the populations and their structures
         for ipop,struct in enumerate(sys_cls.split('__')):
@@ -352,7 +379,10 @@ def train_regression_models(data,hyper_parameters_search=False):
                 model.model.set_params(alpha=old_pars['alpha'],
                 l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
             model.train(sys_cls_data, hyper_parameters_search)
-            if not model.trained:
+            if model.trained:
+                grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
+            else: 
                 print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
             reg_models[sys_cls][pop_id]['I0_fraction'] = model 
                 
@@ -379,7 +409,10 @@ def train_regression_models(data,hyper_parameters_search=False):
                             model.model.set_params(alpha=old_pars['alpha'],
                             l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
                         model.train(stg_label_data, hyper_parameters_search)
-                        if not model.trained:
+                        if model.trained:
+                            grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                            print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
+                        else: 
                             print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
                         reg_models[sys_cls][pop_id][stg_nm][stg_label][pnm] = model 
 
@@ -405,7 +438,10 @@ def train_regression_models(data,hyper_parameters_search=False):
                         model.model.set_params(alpha=old_pars['alpha'],
                         l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
                     model.train(form_data, hyper_parameters_search)
-                    if not model.trained:
+                    if model.trained:
+                        grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                        print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
+                    else: 
                         print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
                     reg_models[sys_cls][pop_id][form_id][pnm] = model 
 
@@ -434,7 +470,10 @@ def train_regression_models(data,hyper_parameters_search=False):
                                 model.model.set_params(alpha=old_pars['alpha'],
                                 l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
                             model.train(stg_label_data, hyper_parameters_search)
-                            if not model.trained:
+                            if model.trained:
+                                grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                                print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
+                            else: 
                                 print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
                             reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm] = model 
 
