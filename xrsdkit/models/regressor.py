@@ -72,10 +72,13 @@ class Regressor(XRSDModel):
         prediction : float
             predicted parameter value
         """
-        feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-        feature_idx = [k in self.features for k in sample_features.keys()]
-        x = self.scaler.transform(feature_array)[:, feature_idx]
-        return float(self.scaler_y.inverse_transform(self.model.predict(x))[0])
+        if self.trained:
+            feature_array = np.array(list(sample_features.values())).reshape(1,-1)
+            feature_idx = [k in self.features for k in sample_features.keys()]
+            x = self.scaler.transform(feature_array)[:, feature_idx]
+            return float(self.scaler_y.inverse_transform(self.model.predict(x))[0])
+        else:
+            return self.default_val
 
     def print_mean_abs_errors(self):
         result = ''
