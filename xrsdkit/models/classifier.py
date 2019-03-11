@@ -57,12 +57,15 @@ class Classifier(XRSDModel):
             the certainty of the prediction
             (For models that are not trained, cert=None)
         """
-        feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-        feature_idx = [k in self.features for k in sample_features.keys()]
-        x = self.scaler.transform(feature_array)[:, feature_idx]
-        cls = self.model.predict(x)[0]
-        cert = max(self.model.predict_proba(x)[0])
-        return cls, cert
+        if self.trained:
+            feature_array = np.array(list(sample_features.values())).reshape(1,-1)
+            feature_idx = [k in self.features for k in sample_features.keys()]
+            x = self.scaler.transform(feature_array)[:, feature_idx]
+            cls = self.model.predict(x)[0]
+            cert = max(self.model.predict_proba(x)[0])
+            return cls, cert
+        else:
+            return (self.default_val,0.)
 
     def run_cross_validation(self, model, df, feature_names):
         """Cross-validate a model by LeaveOneGroupOut. 
