@@ -111,11 +111,7 @@ class Classifier(XRSDModel):
                                     pred_labels, labels=all_classes, average='macro'),
                         precision = precision_score(true_labels, pred_labels, average='macro'),
                         recall = recall_score(true_labels, pred_labels, average='macro'),
-                        accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None),
-                        test_training_split = 'for classes with samples from 3 or more experiment_ids, \n'\
-                                            'the data are split according to experiment_id; \n'\
-                                            'for classes with samples from 2 or fewer experiment_ids, \n'\
-                                            'the data are randomly shuffled and split into three groups'
+                        accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None)
                         )
         return result
 
@@ -154,20 +150,6 @@ class Classifier(XRSDModel):
         clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
         params = clf.best_params_
         return params
-
-    def print_labels(self, all=True):
-        if all:
-            labels = self.cross_valid_results['all_classes']
-        else:
-            labels = self.cross_valid_results['model_was_NOT_tested_for']
-        if labels:
-            result = ''
-            for l in labels:
-                result += l
-                result += '\n'
-            return result
-        else:
-            return "The model was tested for all labels"
 
     def assign_groups(self, dataframe, min_groups=5):
         """Assign train/test groups to `dataframe`.
@@ -304,21 +286,12 @@ class Classifier(XRSDModel):
         return trainable 
 
     def print_confusion_matrix(self):
-        if self.cross_valid_results['confusion_matrix']:
-            result = ''
-            matrix = self.cross_valid_results['confusion_matrix'].split('\n')
-            for i in range(len(self.cross_valid_results['all_classes'])):
-                result += (matrix[i] + "  " +
-                        str(self.cross_valid_results['all_classes'][i]) + '\n')
-            return result
-        else:
-            return "Confusion matrix was not created"
-
-    def print_accuracy(self):
-        if self.cross_valid_results['accuracy']:
-            return str(self.cross_valid_results['accuracy'])
-        else:
-            return "Mean accuracies by classes were not calculated"
+        result = ''
+        matrix = self.cross_valid_results['confusion_matrix'].split('\n')
+        for i in range(len(self.cross_valid_results['all_classes'])):
+            result += (matrix[i] + "  " +
+                    str(self.cross_valid_results['all_classes'][i]) + '\n')
+        return result
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
@@ -326,20 +299,19 @@ class Classifier(XRSDModel):
         Returns
         -------
         CV_report : str
-            string with formated results of cross validatin.
+            string with formatted results of cross validation.
         """
+        # TODO: document the computation of these metrics
+        # TODO: add sample_ids and groupings to this report 
         CV_report = 'Cross validation results for {} Classifier\n\n'.format(self.target) + \
-            'Data from {} experiments was used\n\n'.format(
-            str(self.cross_valid_results['number_of_experiments'])) + \
             'Confusion matrix:\n' + \
             self.print_confusion_matrix()+'\n\n' + \
-            'F1 score (for multi class: label-averaged unweighted): {}\n\n'.format(
+            'F1 score: {}\n\n'.format(
             self.cross_valid_results['F1_score_averaged_not_weighted']) + \
-            'Precision(for multi class: label-averaged unweighted): {}\n\n'.format(
+            'Precision: {}\n\n'.format(
             self.cross_valid_results['precision']) + \
-            'Recall (for multi class: label-averaged unweighted): {}\n\n'.format(
+            'Recall: {}\n\n'.format(
             self.cross_valid_results['recall']) + \
-            'Accuracy:\n' + \
-            self.print_accuracy() + '\n'+\
-            "Test/training split: " + self.cross_valid_results['test_training_split']
+            'Accuracy: {}\n\n'.format(
+            self.cross_valid_results['accuracy']) 
         return CV_report
