@@ -114,7 +114,7 @@ def train_classification_models(data,hyper_parameters_search=False):
             print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
         else:
             print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
-        cls_models['main_classifiers'][struct_nm] = model
+        cls_models['main_classifiers'][model_id] = model
 
     # There are 2**n possible outcomes for n binary classifiers.
     # For the (2**n)-1 non-null outcomes, a second classifier is used,
