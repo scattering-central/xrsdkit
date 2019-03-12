@@ -32,7 +32,9 @@ noise_models.update(
 
 # load parameters for all atomic scattering form factors
 fpath = os.path.join(os.path.dirname(__file__),'scattering','atomic_scattering_params.yml')
-atomic_params = yaml.load(open(fpath,'r'))
+f = open(fpath,'r')
+atomic_params = yaml.load(f)
+f.close()
 
 def validate(structure,form,settings):
     if structure in ['diffuse','disordered']:

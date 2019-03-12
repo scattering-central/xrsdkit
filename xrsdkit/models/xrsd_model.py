@@ -22,7 +22,9 @@ class XRSDModel(object):
         self.features = []
 
         if yml_file:
-            content = yaml.load(open(yml_file,'rb'))
+            ymlf = open(yml_file,'rb')
+            content = yaml.load(ymlf)
+            ymlf.close()
             self.load_model_data(content)
         else:
             self.set_model()
