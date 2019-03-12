@@ -8,11 +8,11 @@ from xrsdkit.db import storage_client, storage_path, test_db_connector
 
 def test_load_yml_to_file_table():
     if test_db_connector and storage_client and storage_path:
-        load_yml_to_file_table(test_db_connector, storage_client, storage_path)
+        load_yml_to_file_table(test_db_connector, storage_path)
 
 def test_load_from_files_table_to_samples_table():
     if test_db_connector and storage_client:
-        load_from_files_table_to_samples_table(test_db_connector, storage_client)
+        load_from_files_table_to_samples_table(test_db_connector)
 
 def test_load_from_samples_to_training_table():
     if test_db_connector:

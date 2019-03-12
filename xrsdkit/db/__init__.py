@@ -222,10 +222,10 @@ def load_yml_to_file_table(db, path_to_dir, drop_table=False):
     exp_from_table = db.query('SELECT DISTINCT experiment_id FROM files').getresult()
     exp_from_table = [row[0] for row in exp_from_table]
 
-    all_sys = download_sys_data(path_to_dir)
+    all_sys_dicts = download_sys_data(path_to_dir)
     for file_path,sys_dict in all_sys_dicts.items():
-        expt_id = pp['sample_metadata']['experiment_id']
-        sample_id = pp['sample_metadata']['sample_id']
+        expt_id = sys_dict['sample_metadata']['experiment_id']
+        sample_id = sys_dict['sample_metadata']['sample_id']
         # make sure the experiment_id is not yet in the table
         # NOTE: should we allow this function to add experiments for an existing experiment_id?
         # NOTE 2: should we prevent this function from loading samples with redundant sample_id? 
