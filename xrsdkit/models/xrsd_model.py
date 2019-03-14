@@ -127,10 +127,7 @@ class XRSDModel(object):
             self.trained = False
             return
         else:
-            # copy the model dataframe: this avoids pandas SettingWithCopyWarning
-            # TODO: find a more elegant solution to the SettingWithCopyWarning
-            s_model_data = model_data.copy()
-            s_model_data = self.standardize(s_model_data)
+            s_model_data = self.standardize(model_data)
             # NOTE: SGD models train more efficiently on shuffled data
             d = utils.shuffle(s_model_data)
             data = d[d[self.target].isnull() == False]
@@ -164,6 +161,7 @@ class XRSDModel(object):
 
     def standardize(self,data):
         """Standardize the columns of data that are used as model inputs"""
+        data = data.copy()
         self.scaler = preprocessing.StandardScaler()
         self.scaler.fit(data[profiler.profile_keys])
         data[profiler.profile_keys] = self.scaler.transform(data[profiler.profile_keys])

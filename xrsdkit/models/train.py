@@ -133,7 +133,7 @@ def train_classification_models(data,hyper_parameters_search=False):
                     model_id += struct_nm
             print('Training system classifier for '+model_id)
             # get all samples whose system_class matches the flags
-            flag_data = data.loc[flag_idx,:]
+            flag_data = data.loc[flag_idx,:].copy()
             labels = flag_data['system_class'].unique()
             # train the classifier
             model = Classifier('system_class', None)
