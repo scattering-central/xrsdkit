@@ -31,27 +31,29 @@ def predict(features,test=False):
     results = {}
 
     # use the main classifiers to evaluate the system class
-    main_cls = classifiers['main_classifiers']
-    sys_cls = ''
-    flagged_structures = ''
-    certainties = {}
-    for struct_nm in xrsdefs.structure_names:
-        model_id = struct_nm+'_binary'
-        #if model_id in main_cls:
-        struct_result = main_cls[model_id].classify(features)
-        certainties[model_id] = struct_result[1]
-        if struct_result[0]:
-            if flagged_structures: flagged_structures += '__'
-            flagged_structures += struct_nm
-    #if flagged_structures in main_cls:
-    sys_cls_result = main_cls[flagged_structures].classify(features)
-    sys_cls = sys_cls_result[0]
-    certainties['system_class'] = sys_cls_result[1]
+    if 'main_classifiers' in classifiers:
+        main_cls = classifiers['main_classifiers']
+        sys_cls = ''
+        flagged_structures = ''
+        certainties = {}
+        for struct_nm in xrsdefs.structure_names:
+            model_id = struct_nm+'_binary'
+            #if model_id in main_cls:
+            struct_result = main_cls[model_id].classify(features)
+            certainties[model_id] = struct_result[1]
+            if struct_result[0]:
+                if flagged_structures: flagged_structures += '__'
+                flagged_structures += struct_nm
+    else:
+        raise RuntimeError('attempted to predict() before creating models') 
 
-    if not sys_cls:
+    if flagged_structures:
+        sys_cls_result = main_cls[flagged_structures].classify(features)
+        sys_cls = sys_cls_result[0]
+        certainties['system_class'] = sys_cls_result[1]
+    else:
         sys_cls = 'unidentified'
     results['system_class'] = (sys_cls, certainties)
-
     if sys_cls == 'unidentified':
         return results
 
