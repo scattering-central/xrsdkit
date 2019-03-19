@@ -115,7 +115,7 @@ class Classifier(XRSDModel):
             ldata_pc = pc1.fit_transform(ldata).ravel()
             pc_rank = np.argsort(ldata_pc)
             lgroups = np.zeros(ldata.shape[0])
-            gp_size = round(ldata.shape[0]/n_groups)
+            gp_size = int(round(ldata.shape[0]/n_groups))
             for igid,gid in enumerate(group_ids):
                 lgroups[pc_rank[igid*gp_size:(igid+1)*gp_size]] = int(gid)
             dataframe.loc[lidx,'group_id'] = lgroups

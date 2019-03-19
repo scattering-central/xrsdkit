@@ -126,7 +126,7 @@ class Regressor(XRSDModel):
         pc1 = PCA(n_components=1)
         data_pc = pc1.fit_transform(dataframe[feature_names]).ravel()
         pc_rank = np.argsort(data_pc)
-        gp_size = round(dataframe.shape[0]/n_groups)
+        gp_size = int(round(dataframe.shape[0]/n_groups))
         groups = np.zeros(dataframe.shape[0])
         for igid,gid in enumerate(group_ids):
             groups[pc_rank[igid*gp_size:(igid+1)*gp_size]] = int(gid)
