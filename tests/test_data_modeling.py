@@ -62,7 +62,7 @@ def test_predict_1():
         pred = predict(feats,test=True)
         sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],source_wavelength=0.8265617)
         xrsdyml.save_sys_to_yaml(sysfpath,sys)
-        if 'DISPLAY' in os.environ:
-            fit_sys = run_fit_gui({datapath:sysfpath})
+        #if 'DISPLAY' in os.environ:
+        #    fit_sys = run_fit_gui({datapath:sysfpath})
         os.remove(sysfpath)
 
