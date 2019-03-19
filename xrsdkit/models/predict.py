@@ -33,21 +33,23 @@ def predict(features,test=False):
     # use the main classifiers to evaluate the system class
     main_cls = classifiers['main_classifiers']
     sys_cls = ''
+    flagged_structures = ''
     certainties = {}
     for struct_nm in xrsdefs.structure_names:
-        if struct_nm in main_cls:
-            struct_result = main_cls[struct_nm].classify(features)
-            certainties[struct_nm] = struct_result[1]
-            if struct_result[0]:
-                n_pops_model_id = 'n_'+struct_nm
-                if n_pops_model_id in main_cls:
-                    n_pops_result = main_cls[n_pops_model_id].classify(features) 
-                    certainties[n_pops_model_id] = n_pops_result[1]
-                    for ipop in range(n_pops_result[0]):
-                        sys_cls += struct_nm+'__'
+        model_id = struct_nm+'_binary'
+        #if model_id in main_cls:
+        struct_result = main_cls[model_id].classify(features)
+        certainties[model_id] = struct_result[1]
+        if struct_result[0]:
+            if flagged_structures: flagged_structures += '__'
+            flagged_structures += struct_nm
+    #if flagged_structures in main_cls:
+    sys_cls_result = main_cls[flagged_structures].classify(features)
+    sys_cls = sys_cls_result[0]
+    certainties['system_class'] = sys_cls_result[1]
+
     if not sys_cls:
         sys_cls = 'unidentified'
-    sys_cls=sys_cls.strip("__")
     results['system_class'] = (sys_cls, certainties)
 
     if sys_cls == 'unidentified':

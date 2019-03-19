@@ -1,6 +1,8 @@
 import os
+import itertools
 
 import yaml
+import numpy as np
 
 from . import regression_models_dir, classification_models_dir
 from . import test_regression_models_dir, test_classification_models_dir
@@ -96,13 +98,14 @@ def train_classification_models(data,hyper_parameters_search=False):
     data_copy = data.copy()
     for struct_nm in xrsdefs.structure_names:
         print('Training binary classifier for '+struct_nm+' structures')
-        model = Classifier(struct_nm, None)
+        model_id = struct_nm+'_binary'
+        model = Classifier(model_id, None)
         labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
-        data_copy.loc[:,struct_nm] = labels 
+        data_copy.loc[:,model_id] = labels 
         if 'main_classifiers' in classification_models.keys() \
-        and struct_nm in classification_models['main_classifiers'] \
-        and classification_models['main_classifiers'][struct_nm].trained:
-            old_pars = classification_models['main_classifiers'][struct_nm].model.get_params()
+        and model_id in classification_models['main_classifiers'] \
+        and classification_models['main_classifiers'][model_id].trained:
+            old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
         model.train(data_copy, hyper_parameters_search=hyper_parameters_search)
         if model.trained:
@@ -110,32 +113,49 @@ def train_classification_models(data,hyper_parameters_search=False):
             acc = model.cross_valid_results['accuracy']
             print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
         else:
-            print('--> {} untrainable- default value: {}'.format(struct_nm,model.default_val))
-        cls_models['main_classifiers'][struct_nm] = model
+            print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
+        cls_models['main_classifiers'][model_id] = model
 
-        print('Training population count classifier for '+struct_nm+' structures')
-        n_pops_model_id = 'n_'+struct_nm
-        model = Classifier(n_pops_model_id, None)
-        n_pops_data = data_copy.loc[data_copy[struct_nm]==True].copy()
-        n_pops_labels = [sys_cls.count(struct_nm) for sys_cls in n_pops_data['system_class']]
-        n_pops_data.loc[:,n_pops_model_id] = n_pops_labels
-        if 'main_classifiers' in classification_models.keys() \
-        and n_pops_model_id in classification_models['main_classifiers'] \
-        and classification_models['main_classifiers'][n_pops_model_id].trained:
-            old_pars = classification_models['main_classifiers'][n_pops_model_id].model.get_params()
-            model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-        model.train(n_pops_data, hyper_parameters_search=hyper_parameters_search)
-        if model.trained:
-            f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
-            acc = model.cross_valid_results['accuracy']
-            print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
-        else: 
-            print('--> {} untrainable- default value: {}'.format(n_pops_model_id,model.default_val))
-        cls_models['main_classifiers'][n_pops_model_id] = model
+    # There are 2**n possible outcomes for n binary classifiers.
+    # For the (2**n)-1 non-null outcomes, a second classifier is used,
+    # to count the number of populations of each structural type.
+
+    all_flag_combs = itertools.product([True,False],repeat=len(xrsdefs.structure_names))
+    for flags in all_flag_combs:
+        if sum(flags) > 0:
+            flag_idx = np.ones(data.shape[0],dtype=bool)
+            model_id = ''
+            for struct_nm, flag in zip(xrsdefs.structure_names,flags):
+                struct_flag_idx = np.array([(struct_nm in sys_cls) == flag for sys_cls in all_sys_cls])
+                flag_idx = flag_idx & struct_flag_idx
+                if flag:
+                    if model_id: model_id += '__'
+                    model_id += struct_nm
+            print('Training system classifier for '+model_id)
+            # get all samples whose system_class matches the flags
+            flag_data = data.loc[flag_idx,:].copy()
+            labels = flag_data['system_class'].unique()
+            # train the classifier
+            model = Classifier('system_class', None)
+            if 'main_classifiers' in classification_models.keys() \
+            and model_id in classification_models['main_classifiers'] \
+            and classification_models['main_classifiers'][model_id].trained:
+                old_pars = classification_models['main_classifiers'][model_id].model.get_params()
+                model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+            model.train(flag_data, hyper_parameters_search=hyper_parameters_search)
+            if model.trained:
+                f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+                acc = model.cross_valid_results['accuracy']
+                print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+            else:
+                print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
+            # save the classifier
+            cls_models['main_classifiers'][model_id] = model
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers; drop this label up front 
     if 'unidentified' in sys_cls_labels: sys_cls_labels.remove('unidentified')
+
     for sys_cls in sys_cls_labels:
         print('Training classifiers for system class {}'.format(sys_cls))
         cls_models[sys_cls] = {}
