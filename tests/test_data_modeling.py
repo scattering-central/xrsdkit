@@ -29,11 +29,28 @@ def downsample_df():
 
 df_ds = downsample_df()
 
+# test prediction on loaded models
+def test_predict_0():
+    datapath = os.path.join(os.path.dirname(__file__),
+        'test_data','solution_saxs','spheres','spheres_0.dat')
+    sysfpath = os.path.splitext(datapath)[0]+'.yml'
+    f = open(datapath,'r')
+    q_I = np.loadtxt(f,dtype=float)
+    feats = profiler.profile_pattern(q_I[:,0],q_I[:,1])
+    try:
+        pred = predict(feats,test=True)
+        sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],source_wavelength=0.8265617)
+    except RuntimeError:
+        pass
+
+# train new models
 def test_training():
     if df_ds is not None:
-        train_from_dataframe(df_ds,train_hyperparameters=False,save_models=True,test=True)
+        #train_from_dataframe(df_ds,train_hyperparameters=True,select_features=True,save_models=True,test=True)
+        train_from_dataframe(df_ds,train_hyperparameters=False,select_features=False,save_models=True,test=True)
 
-def test_predict_spheres():
+# test prediction on newly trained models
+def test_predict_1():
     datapath = os.path.join(os.path.dirname(__file__),
         'test_data','solution_saxs','spheres','spheres_0.dat')
     sysfpath = os.path.splitext(datapath)[0]+'.yml'
