@@ -16,10 +16,9 @@ class Regressor(XRSDModel):
     def __init__(self,label,yml_file):
         self.scaler_y = preprocessing.StandardScaler() 
         super(Regressor,self).__init__(label, yml_file)
-        self.scoring = 'neg_mean_absolute_error'
         self.hyperparam_grid = dict(
-            alpha = np.logspace(-2,2,num=20,endpoint=True,base=10.),
-            l1_ratio = np.linspace(0,1.,num=10,endpoint=True) 
+            alpha = np.logspace(0,2,num=5,endpoint=True,base=10.),
+            #l1_ratio = np.linspace(0,1.,num=7,endpoint=True) 
             )
         self.sgd_hyperparam_grid = dict(
             epsilon = [1, 0.1, 0.01],
@@ -48,8 +47,8 @@ class Regressor(XRSDModel):
         if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
         l1_ratio = 0.5 
         if 'l1_ratio' in model_hyperparams: l1_ratio = model_hyperparams['l1_ratio']
-        #new_model = linear_model.Ridge(alpha=alpha, max_iter=10000, tol=1e-5)
-        new_model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000, tol=1e-5)
+        new_model = linear_model.Ridge(alpha=alpha, max_iter=10000, tol=1e-5)
+        #new_model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000)
         return new_model
 
     def build_sgd_model(self, model_hyperparams={}):

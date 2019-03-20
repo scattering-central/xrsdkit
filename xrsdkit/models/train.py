@@ -15,16 +15,16 @@ from .classifier import Classifier
 
 
 def train_from_dataframe(data,train_hyperparameters=False,select_features=False,save_models=False,test=False):
-    # classification models: 
-    cls_models = train_classification_models(data, train_hyperparameters, select_features)
     # regression models:
     reg_models = train_regression_models(data, train_hyperparameters, select_features)
+    # classification models: 
+    cls_models = train_classification_models(data, train_hyperparameters, select_features)
     # optionally, save the models:
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
     if save_models:
-        save_classification_models(cls_models, test=test)
         save_regression_models(reg_models, test=test)
+        save_classification_models(cls_models, test=test)
 
 def train_classification_models(data,train_hyperparameters=False,select_features=False):
     """Train all classifiers that are trainable from `data`.
@@ -66,7 +66,9 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         and classification_models['main_classifiers'][model_id].trained:
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-        model.train(data_copy, train_hyperparameters, select_features)
+        # binary classifiers should be trained to avoid false positives:
+        # use 'precision' as the scoring function
+        model.train(data_copy, 'precision', train_hyperparameters, select_features)
         if model.trained:
             f1_score = model.cross_valid_results['f1_macro']
             acc = model.cross_valid_results['accuracy']
@@ -101,7 +103,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             and classification_models['main_classifiers'][model_id].trained:
                 old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-            model.train(flag_data, train_hyperparameters, select_features)
+            # system classifiers should use f1_macro or accuracy
+            model.train(flag_data, 'accuracy', train_hyperparameters, select_features)
             if model.trained:
                 f1_score = model.cross_valid_results['f1_macro']
                 acc = model.cross_valid_results['accuracy']
@@ -130,7 +133,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         and (classification_models[sys_cls]['noise_model'].trained): 
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-        model.train(sys_cls_data, train_hyperparameters, select_features)
+        model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
         if model.trained:
             f1_score = model.cross_valid_results['f1_macro']
             acc = model.cross_valid_results['accuracy']
@@ -155,7 +158,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             and (classification_models[sys_cls][pop_id]['form'].trained): 
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-            model.train(sys_cls_data, train_hyperparameters, select_features)
+            model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
             if model.trained:
                 f1_score = model.cross_valid_results['f1_macro']
                 acc = model.cross_valid_results['accuracy']
@@ -175,7 +178,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 and (classification_models[sys_cls][pop_id][stg_nm].trained): 
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
                     model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-                model.train(sys_cls_data, train_hyperparameters, select_features)
+                model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
                 if model.trained:
                     f1_score = model.cross_valid_results['f1_macro']
                     acc = model.cross_valid_results['accuracy']
@@ -201,7 +204,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                     and (classification_models[sys_cls][pop_id][ff][stg_nm].trained): 
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-                    model.train(form_data, train_hyperparameters, select_features)
+                    model.train(form_data, 'accuracy', train_hyperparameters, select_features)
                     if model.trained:
                         f1_score = model.cross_valid_results['f1_macro']
                         acc = model.cross_valid_results['accuracy']
@@ -333,7 +336,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'],
                         l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                    model.train(noise_model_data, train_hyperparameters, select_features)
+                    model.train(noise_model_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                         print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
@@ -357,7 +360,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                 old_pars = regression_models[sys_cls][pop_id]['I0_fraction'].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'],
                 l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-            model.train(sys_cls_data, train_hyperparameters, select_features)
+            model.train(sys_cls_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
             if model.trained:
                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                 print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
@@ -387,7 +390,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                             old_pars = regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model.get_params()
                             model.model.set_params(alpha=old_pars['alpha'],
                             l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                        model.train(stg_label_data, train_hyperparameters, select_features)
+                        model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                         if model.trained:
                             grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                             print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
@@ -416,7 +419,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         old_pars = regression_models[sys_cls][pop_id][form_id][pnm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'],
                         l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                    model.train(form_data, train_hyperparameters, select_features)
+                    model.train(form_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                         print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
@@ -448,7 +451,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                                 model.get_params()
                                 model.model.set_params(alpha=old_pars['alpha'],
                                 l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                            model.train(stg_label_data, train_hyperparameters, select_features)
+                            model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                             if model.trained:
                                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                                 print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))

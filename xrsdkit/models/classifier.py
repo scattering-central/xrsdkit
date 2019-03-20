@@ -15,15 +15,14 @@ class Classifier(XRSDModel):
 
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
-        self.scoring = 'f1_macro'
         self.hyperparam_grid = dict(
-            C = np.logspace(-2,2,num=20,endpoint=True,base=10.)
+            C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
             )
         self.sgd_hyperparam_grid = dict(
             #alpha = [1.E-5,1.E-4,1.E-3,1.E-2,1.E-1],
             #l1_ratio = [0., 0.15, 0.5, 0.85, 1.0]
-            alpha = np.logspace(-2,2,num=20,endpoint=True,base=10.),
-            l1_ratio = np.linspace(0.,1.,num=10,endpoint=True) 
+            alpha = np.logspace(-1,2,num=9,endpoint=True,base=10.),
+            l1_ratio = np.linspace(0.,1.,num=7,endpoint=True) 
             )
 
     def build_model(self,model_hyperparams={}):
