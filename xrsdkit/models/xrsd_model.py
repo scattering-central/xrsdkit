@@ -75,7 +75,10 @@ class XRSDModel(object):
             tr_par_ints = ['n_iter_']
             for p in tr_par_ints:
                 if p in self.model.__dict__:
-                    model_data['model']['trained_par'][p] = int(self.model.__dict__[p])
+                    try:
+                        model_data['model']['trained_par'][p] = int(self.model.__dict__[p])
+                    except TypeError:
+                        model_data['model']['trained_par'][p] = self.model.__dict__[p]
             model_data['scaler']['mean_'] = self.scaler.__dict__['mean_'].tolist()
             model_data['scaler']['scale_'] = self.scaler.__dict__['scale_'].tolist()
         return model_data
