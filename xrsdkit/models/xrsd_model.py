@@ -151,8 +151,8 @@ class XRSDModel(object):
             # the entire dataset is used for final training,
             #new_model = self.build_sgd_model(model_hyperparams)
             new_model = self.build_model(model_hyperparams)
-            new_model.fit(valid_data[model_feats], valid_data[self.target])
             self.cross_valid_results = self.run_cross_validation(new_model,valid_data,model_feats)
+            new_model.fit(valid_data[model_feats], valid_data[self.target])
             self.model = new_model
             self.features = model_feats 
             self.trained = True
