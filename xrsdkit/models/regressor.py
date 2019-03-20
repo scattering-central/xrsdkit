@@ -16,7 +16,7 @@ class Regressor(XRSDModel):
     def __init__(self,label,yml_file):
         self.scaler_y = preprocessing.StandardScaler() 
         super(Regressor,self).__init__(label, yml_file)
-        self.scoring = 'MAE'
+        self.scoring = 'neg_mean_absolute_error'
         self.hyperparam_grid = dict(
             alpha = np.logspace(-2,2,num=20,endpoint=True,base=10.),
             l1_ratio = np.linspace(0,1.,num=10,endpoint=True) 
