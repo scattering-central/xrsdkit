@@ -72,7 +72,9 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         if model.trained:
             f1_score = model.cross_valid_results['f1_macro']
             acc = model.cross_valid_results['accuracy']
-            print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+            prec = model.cross_valid_results['precision']
+            rec = model.cross_valid_results['recall']
+            print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
         else:
             print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
         cls_models['main_classifiers'][model_id] = model
@@ -108,7 +110,9 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             if model.trained:
                 f1_score = model.cross_valid_results['f1_macro']
                 acc = model.cross_valid_results['accuracy']
-                print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                prec = model.cross_valid_results['precision']
+                rec = model.cross_valid_results['recall']
+                print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
             else:
                 print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
             # save the classifier
@@ -137,7 +141,9 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         if model.trained:
             f1_score = model.cross_valid_results['f1_macro']
             acc = model.cross_valid_results['accuracy']
-            print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+            prec = model.cross_valid_results['precision']
+            rec = model.cross_valid_results['recall']
+            print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
         else: 
             print('    --> {} untrainable- default value: {}'.format('noise_model',model.default_val))
         cls_models[sys_cls]['noise_model'] = model
@@ -162,7 +168,9 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             if model.trained:
                 f1_score = model.cross_valid_results['f1_macro']
                 acc = model.cross_valid_results['accuracy']
-                print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                prec = model.cross_valid_results['precision']
+                rec = model.cross_valid_results['recall']
+                print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
             else: 
                 print('    --> {} untrainable- default value: {}'.format(form_header,model.default_val))
             cls_models[sys_cls][pop_id]['form'] = model
@@ -182,7 +190,9 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 if model.trained:
                     f1_score = model.cross_valid_results['f1_macro']
                     acc = model.cross_valid_results['accuracy']
-                    print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                    prec = model.cross_valid_results['precision']
+                    rec = model.cross_valid_results['recall']
+                    print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                 else: 
                     print('    --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                 cls_models[sys_cls][pop_id][stg_nm] = model
@@ -208,7 +218,9 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                     if model.trained:
                         f1_score = model.cross_valid_results['f1_macro']
                         acc = model.cross_valid_results['accuracy']
-                        print('        --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                        prec = model.cross_valid_results['precision']
+                        rec = model.cross_valid_results['recall']
+                        print('        --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                     else: 
                         print('        --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                     cls_models[sys_cls][pop_id][ff][stg_nm] = model
