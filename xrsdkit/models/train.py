@@ -14,11 +14,11 @@ from .regressor import Regressor
 from .classifier import Classifier
 
 
-def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test=False):
-    # classification models: 
-    cls_models = train_classification_models(data, hyper_parameters_search=train_hyperparameters)
+def train_from_dataframe(data,train_hyperparameters=False,select_features=False,save_models=False,test=False):
     # regression models:
-    reg_models = train_regression_models(data, hyper_parameters_search=train_hyperparameters)
+    reg_models = train_regression_models(data, train_hyperparameters, select_features)
+    # classification models: 
+    cls_models = train_classification_models(data, train_hyperparameters, select_features)
     # optionally, save the models:
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
@@ -26,56 +26,15 @@ def train_from_dataframe(data,train_hyperparameters=False,save_models=False,test
         save_regression_models(reg_models, test=test)
         save_classification_models(cls_models, test=test)
 
-
-def save_model_data(model,yml_path,txt_path):
-    with open(yml_path,'w') as yml_file:
-        model_data = dict(
-            scaler=dict(),
-            model=dict(hyper_parameters=dict(), trained_par=dict()),
-            cross_valid_results=primitives(model.cross_valid_results),
-            trained=model.trained,
-            default_val = primitives(model.default_val),
-            features = model.features
-            )
-        if model.trained:
-            hyper_par = list(model.grid_search_hyperparameters.keys())
-            for p in hyper_par:
-                if p in model.model.__dict__:
-                    model_data['model']['hyper_parameters'][p] = model.model.__dict__[p]
-            # only "fitted" models can be used for prediction
-            # a model is "fitted" when is has
-            # "coef_", "intercept_", and "t_"(iteration count)
-            tr_par_arrays = ['coef_', 'intercept_', 'classes_']
-            for p in tr_par_arrays:
-                if p in model.model.__dict__:
-                    model_data['model']['trained_par'][p] = model.model.__dict__[p].tolist()
-            model_data['model']['trained_par']['t_'] = model.model.__dict__['t_']
-            model_data['scaler']['mean_'] = model.scaler.__dict__['mean_'].tolist()
-            model_data['scaler']['scale_'] = model.scaler.__dict__['scale_'].tolist()
-            if hasattr(model, 'scaler_y'): # only regression models have it
-                model_data['scaler_y'] = dict(
-                    mean_ = model.scaler_y.__dict__['mean_'].tolist(),
-                    scale_ = model.scaler_y.__dict__['scale_'].tolist()
-                    )
-        yaml.dump(model_data,yml_file)
-    with open(txt_path,'w') as txt_file:
-        if model.trained:
-            res_str = model.print_CV_report()
-        else:
-            res_str = 'The model was not trained'
-        txt_file.write(res_str)
-
-
-def train_classification_models(data,hyper_parameters_search=False):
+def train_classification_models(data,train_hyperparameters=False,select_features=False):
     """Train all classifiers that are trainable from `data`.
 
     Parameters
     ----------
     data : pandas.DataFrame
         dataframe containing features and labels
-    hyper_parameters_search : bool
-        if True, the models will be optimized
-        over a grid of hyperparameters during training
+    train_hyperparameters : bool
+        if True, cross-validation metrics are used to select model hyperparameters 
 
     Returns
     -------
@@ -107,11 +66,15 @@ def train_classification_models(data,hyper_parameters_search=False):
         and classification_models['main_classifiers'][model_id].trained:
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-        model.train(data_copy, hyper_parameters_search=hyper_parameters_search)
+        # binary classifiers should be trained to avoid false positives:
+        # use 'precision' as the scoring function
+        model.train(data_copy, 'precision', train_hyperparameters, select_features)
         if model.trained:
-            f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+            f1_score = model.cross_valid_results['f1_macro']
             acc = model.cross_valid_results['accuracy']
-            print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+            prec = model.cross_valid_results['precision']
+            rec = model.cross_valid_results['recall']
+            print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
         else:
             print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
         cls_models['main_classifiers'][model_id] = model
@@ -142,11 +105,14 @@ def train_classification_models(data,hyper_parameters_search=False):
             and classification_models['main_classifiers'][model_id].trained:
                 old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-            model.train(flag_data, hyper_parameters_search=hyper_parameters_search)
+            # system classifiers should use f1_macro or accuracy
+            model.train(flag_data, 'accuracy', train_hyperparameters, select_features)
             if model.trained:
-                f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+                f1_score = model.cross_valid_results['f1_macro']
                 acc = model.cross_valid_results['accuracy']
-                print('--> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                prec = model.cross_valid_results['precision']
+                rec = model.cross_valid_results['recall']
+                print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
             else:
                 print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
             # save the classifier
@@ -171,11 +137,13 @@ def train_classification_models(data,hyper_parameters_search=False):
         and (classification_models[sys_cls]['noise_model'].trained): 
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
             model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-        model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
+        model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
         if model.trained:
-            f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+            f1_score = model.cross_valid_results['f1_macro']
             acc = model.cross_valid_results['accuracy']
-            print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+            prec = model.cross_valid_results['precision']
+            rec = model.cross_valid_results['recall']
+            print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
         else: 
             print('    --> {} untrainable- default value: {}'.format('noise_model',model.default_val))
         cls_models[sys_cls]['noise_model'] = model
@@ -196,11 +164,13 @@ def train_classification_models(data,hyper_parameters_search=False):
             and (classification_models[sys_cls][pop_id]['form'].trained): 
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-            model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
+            model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
             if model.trained:
-                f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+                f1_score = model.cross_valid_results['f1_macro']
                 acc = model.cross_valid_results['accuracy']
-                print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                prec = model.cross_valid_results['precision']
+                rec = model.cross_valid_results['recall']
+                print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
             else: 
                 print('    --> {} untrainable- default value: {}'.format(form_header,model.default_val))
             cls_models[sys_cls][pop_id]['form'] = model
@@ -216,11 +186,13 @@ def train_classification_models(data,hyper_parameters_search=False):
                 and (classification_models[sys_cls][pop_id][stg_nm].trained): 
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
                     model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-                model.train(sys_cls_data, hyper_parameters_search=hyper_parameters_search)
+                model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
                 if model.trained:
-                    f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+                    f1_score = model.cross_valid_results['f1_macro']
                     acc = model.cross_valid_results['accuracy']
-                    print('    --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                    prec = model.cross_valid_results['precision']
+                    rec = model.cross_valid_results['recall']
+                    print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                 else: 
                     print('    --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                 cls_models[sys_cls][pop_id][stg_nm] = model
@@ -242,11 +214,13 @@ def train_classification_models(data,hyper_parameters_search=False):
                     and (classification_models[sys_cls][pop_id][ff][stg_nm].trained): 
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-                    model.train(form_data, hyper_parameters_search=hyper_parameters_search)
+                    model.train(form_data, 'accuracy', train_hyperparameters, select_features)
                     if model.trained:
-                        f1_score = model.cross_valid_results['F1_score_averaged_not_weighted']
+                        f1_score = model.cross_valid_results['f1_macro']
                         acc = model.cross_valid_results['accuracy']
-                        print('        --> average unweighted f1: {}, accuracy: {}'.format(f1_score,acc))
+                        prec = model.cross_valid_results['precision']
+                        rec = model.cross_valid_results['recall']
+                        print('        --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                     else: 
                         print('        --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                     cls_models[sys_cls][pop_id][ff][stg_nm] = model
@@ -282,7 +256,7 @@ def save_classification_models(models=classification_models, test=False):
         for model_name, mod in model_dict['main_classifiers'].items():
             yml_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.yml')
             txt_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.txt')
-            save_model_data(mod,yml_path,txt_path)
+            mod.save_model_data(yml_path,txt_path)
 
     all_sys_cls = list(models.keys())
     all_sys_cls.remove('main_classifiers')
@@ -294,7 +268,7 @@ def save_classification_models(models=classification_models, test=False):
             model_dict[sys_cls]['noise_model'] = models[sys_cls]['noise_model']
             yml_path = os.path.join(sys_cls_dir,'noise_model.yml')
             txt_path = os.path.join(sys_cls_dir,'noise_model.txt')
-            save_model_data(models[sys_cls]['noise_model'],yml_path,txt_path)
+            models[sys_cls]['noise_model'].save_model_data(yml_path,txt_path)
 
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
@@ -306,14 +280,14 @@ def save_classification_models(models=classification_models, test=False):
                 model_dict[sys_cls][pop_id]['form'] = models[sys_cls][pop_id]['form']
                 yml_path = os.path.join(pop_dir,'form.yml')
                 txt_path = os.path.join(pop_dir,'form.txt')
-                save_model_data(models[sys_cls][pop_id]['form'],yml_path,txt_path)
+                models[sys_cls][pop_id]['form'].save_model_data(yml_path,txt_path)
                
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 if stg_nm in models[sys_cls][pop_id]:
                     model_dict[sys_cls][pop_id][stg_nm] = models[sys_cls][pop_id][stg_nm]
                     yml_path = os.path.join(pop_dir,stg_nm+'.yml')
                     txt_path = os.path.join(pop_dir,stg_nm+'.txt')
-                    save_model_data(models[sys_cls][pop_id][stg_nm],yml_path,txt_path)
+                    models[sys_cls][pop_id][stg_nm].save_model_data(yml_path,txt_path)
 
             for ff_id in xrsdefs.form_factor_names:
                 if ff_id in models[sys_cls][pop_id]:
@@ -324,17 +298,17 @@ def save_classification_models(models=classification_models, test=False):
                         model_dict[sys_cls][pop_id][ff_id][stg_nm] = models[sys_cls][pop_id][ff_id][stg_nm]
                         yml_path = os.path.join(form_dir,stg_nm+'.yml')
                         txt_path = os.path.join(form_dir,stg_nm+'.txt')
-                        save_model_data(models[sys_cls][pop_id][ff_id][stg_nm],yml_path,txt_path)
+                        models[sys_cls][pop_id][ff_id][stg_nm].save_model_data(yml_path,txt_path)
 
 
-def train_regression_models(data,hyper_parameters_search=False):
+def train_regression_models(data,train_hyperparameters=False,select_features=False):
     """Train all regression models trainable from `data`. 
 
     Parameters
     ----------
     data : pandas.DataFrame
         dataframe containing features and labels
-    hyper_parameters_search : bool
+    train_hyperparameters : bool
         if True, the models will be optimized
         over a grid of hyperparameters during training
 
@@ -374,9 +348,9 @@ def train_regression_models(data,hyper_parameters_search=False):
                         old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'],
                         l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                    model.train(noise_model_data, hyper_parameters_search)
+                    model.train(noise_model_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                     if model.trained:
-                        grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                        grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                         print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                     else: 
                         print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
@@ -398,9 +372,9 @@ def train_regression_models(data,hyper_parameters_search=False):
                 old_pars = regression_models[sys_cls][pop_id]['I0_fraction'].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'],
                 l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-            model.train(sys_cls_data, hyper_parameters_search)
+            model.train(sys_cls_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
             if model.trained:
-                grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                 print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
             else: 
                 print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
@@ -428,9 +402,9 @@ def train_regression_models(data,hyper_parameters_search=False):
                             old_pars = regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model.get_params()
                             model.model.set_params(alpha=old_pars['alpha'],
                             l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                        model.train(stg_label_data, hyper_parameters_search)
+                        model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                         if model.trained:
-                            grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                            grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                             print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                         else: 
                             print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
@@ -457,9 +431,9 @@ def train_regression_models(data,hyper_parameters_search=False):
                         old_pars = regression_models[sys_cls][pop_id][form_id][pnm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'],
                         l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                    model.train(form_data, hyper_parameters_search)
+                    model.train(form_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                     if model.trained:
-                        grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                        grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                         print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                     else: 
                         print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
@@ -489,9 +463,9 @@ def train_regression_models(data,hyper_parameters_search=False):
                                 model.get_params()
                                 model.model.set_params(alpha=old_pars['alpha'],
                                 l1_ratio=old_pars['l1_ratio'],epsilon=old_pars['epsilon'])
-                            model.train(stg_label_data, hyper_parameters_search)
+                            model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                             if model.trained:
-                                grpsz_wtd_mean_MAE = model.cross_valid_results['weighted_av_mean_abs_error']
+                                grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                                 print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                             else: 
                                 print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
@@ -536,7 +510,7 @@ def save_regression_models(models=regression_models, test=False):
                     model_dict[sys_cls]['noise'][modnm][pnm] = model 
                     yml_path = os.path.join(noise_model_dir,pnm+'.yml')
                     txt_path = os.path.join(noise_model_dir,pnm+'.txt')
-                    save_model_data(models[sys_cls]['noise'][modnm][pnm],yml_path,txt_path)
+                    models[sys_cls]['noise'][modnm][pnm].save_model_data(yml_path,txt_path)
 
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
@@ -548,7 +522,7 @@ def save_regression_models(models=regression_models, test=False):
                 model_dict[sys_cls][pop_id]['I0_fraction'] = models[sys_cls][pop_id]['I0_fraction']
                 yml_path = os.path.join(pop_dir,'I0_fraction.yml')
                 txt_path = os.path.join(pop_dir,'I0_fraction.txt')
-                save_model_data(models[sys_cls][pop_id]['I0_fraction'],yml_path,txt_path)
+                models[sys_cls][pop_id]['I0_fraction'].save_model_data(yml_path,txt_path)
                
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 if stg_nm in models[sys_cls][pop_id]:
@@ -566,7 +540,7 @@ def save_regression_models(models=regression_models, test=False):
                                 models[sys_cls][pop_id][stg_nm][stg_label][pnm]
                                 yml_path = os.path.join(stg_label_dir,pnm+'.yml')
                                 txt_path = os.path.join(stg_label_dir,pnm+'.txt')
-                                save_model_data(models[sys_cls][pop_id][stg_nm][stg_label][pnm],yml_path,txt_path)
+                                models[sys_cls][pop_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path)
             
             for form_id in xrsdefs.form_factor_names:
                 if form_id in models[sys_cls][pop_id]:
@@ -578,7 +552,7 @@ def save_regression_models(models=regression_models, test=False):
                             model_dict[sys_cls][pop_id][form_id][pnm] = models[sys_cls][pop_id][form_id][pnm]
                             yml_path = os.path.join(form_dir,pnm+'.yml')
                             txt_path = os.path.join(form_dir,pnm+'.txt')
-                            save_model_data(models[sys_cls][pop_id][form_id][pnm],yml_path,txt_path)
+                            models[sys_cls][pop_id][form_id][pnm].save_model_data(yml_path,txt_path)
 
                     for stg_nm in xrsdefs.modelable_form_factor_settings[form_id]:
                         if stg_nm in models[sys_cls][pop_id][form_id]:
@@ -595,5 +569,5 @@ def save_regression_models(models=regression_models, test=False):
                                     models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm]
                                     yml_path = os.path.join(stg_label_dir,pnm+'.yml')
                                     txt_path = os.path.join(stg_label_dir,pnm+'.txt')
-                                    save_model_data(models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm],
-                                    yml_path,txt_path)
+                                    models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path)
+

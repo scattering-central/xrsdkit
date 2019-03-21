@@ -1,10 +1,10 @@
 from collections import OrderedDict
 
 import numpy as np
-from sklearn import linear_model, model_selection
+from sklearn import linear_model
+from sklearn.decomposition import PCA
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score, precision_score, recall_score
 from sklearn.cluster import KMeans
-from dask_ml.model_selection import GridSearchCV
 
 from .xrsd_model import XRSDModel
 from ..tools import profiler
@@ -15,29 +15,34 @@ class Classifier(XRSDModel):
 
     def __init__(self,label,yml_file):
         super(Classifier,self).__init__(label, yml_file)
-        self.grid_search_hyperparameters = dict(
-            alpha = [0.0001, 0.001, 0.01], # regularisation coef, default 0.0001
-            l1_ratio = [0.15, 0.5, 0.85, 1.0] # default 0.15
+        self.hyperparam_grid = dict(
+            C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+            )
+        self.sgd_hyperparam_grid = dict(
+            #alpha = [1.E-5,1.E-4,1.E-3,1.E-2,1.E-1],
+            #l1_ratio = [0., 0.15, 0.5, 0.85, 1.0]
+            alpha = np.logspace(-1,2,num=9,endpoint=True,base=10.),
+            l1_ratio = np.linspace(0.,1.,num=7,endpoint=True) 
             )
 
-    def minimization_score(self,true_labels,pred_labels):
-        return -1*f1_score(true_labels, pred_labels, average='macro')
-
     def build_model(self,model_hyperparams={}):
-        if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
-            new_model = linear_model.SGDClassifier(
-                    alpha=model_hyperparams['alpha'], 
-                    loss='log',
-                    penalty='elasticnet',
-                    l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
-                    )
-        else:
-            new_model = linear_model.SGDClassifier(
-                loss='log', penalty='elasticnet',
-                max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive'
-                )
+        penalty='l2'
+        if 'penalty' in model_hyperparams: penalty = model_hyperparams['penalty']
+        C = 1.
+        if 'C' in model_hyperparams: C = model_hyperparams['C']
+        solver = 'lbfgs'
+        if 'solver' in model_hyperparams: solver = model_hyperparams['solver']
+        new_model = linear_model.LogisticRegression(penalty=penalty, C=C, 
+            class_weight='balanced', solver=solver, max_iter=100000)
+        return new_model
 
+    def build_sgd_model(self,model_hyperparams={}):
+        alpha = 1.E-4
+        if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
+        l1_ratio = 0.15 
+        if 'l1_ratio' in model_hyperparams: l1_ratio = model_hyperparams['l1_ratio']
+        new_model = linear_model.SGDClassifier(alpha=alpha, loss='log', penalty='elasticnet', l1_ratio=l1_ratio,
+                max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive')
         return new_model
 
     def classify(self, sample_features):
@@ -67,233 +72,59 @@ class Classifier(XRSDModel):
         else:
             return (self.default_val,0.)
 
-    def run_cross_validation(self, model, df, feature_names):
-        """Cross-validate a model by LeaveOneGroupOut. 
-
-        The train/test groupings are defined by the 'group_id' labels,
-        which are added to the dataframe during self.assign_groups().
-
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            pandas dataframe of features and labels,
-            including at least three distinct experiment_id labels 
-        model : sklearn.linear_model.SGDClassifier
-            an sklearn classifier instance trained on some dataset
-            with some choice of hyperparameters
-        feature_names : list of str
-            list of feature names (column headers) used for training.
-
-        Returns
-        -------
-        result : dict
-            list of all labels from df,
-            number of experiments,
-            list of all experiments,
-            F1_macro, accuracy, confusion matrix,
-            and testing-training splits.
-        """
-        group_ids = df.group_id.unique()
-        all_classes = df[self.target].unique().tolist()
-        true_labels = []
-        pred_labels = []
-        for gid in group_ids:
-            tr = df[(df['group_id'] != gid)]
-            test = df[(df['group_id'] == gid)]
-            model.fit(tr[feature_names], tr[self.target])
-            y_pred = model.predict(test[feature_names])
-            pred_labels.extend(y_pred)
-            true_labels.extend(test[self.target])
-        cm = confusion_matrix(true_labels, pred_labels, all_classes)
-        experiments = df.experiment_id.unique() 
-        result = dict(all_classes = all_classes,
-                        number_of_experiments = len(experiments),
-                        experiments = str(experiments),
-                        confusion_matrix = str(cm),
-                        F1_score_averaged_not_weighted = f1_score(true_labels,
-                                    pred_labels, labels=all_classes, average='macro'),
-                        precision = precision_score(true_labels, pred_labels, average='macro'),
-                        recall = recall_score(true_labels, pred_labels, average='macro'),
-                        accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None)
-                        )
+    def cv_report(self,data,y_true,y_pred):
+        all_labels = data[self.target].unique().tolist()
+        y_true_all = []
+        y_pred_all = []
+        for gid,yt in y_true.items():
+            y_true_all.extend(yt)
+        for gid,yp in y_pred.items():
+            y_pred_all.extend(yp)
+        cm = confusion_matrix(y_true_all, y_pred_all, all_labels)
+        result = dict(
+            all_labels = all_labels,
+            confusion_matrix = str(cm),
+            f1_macro = f1_score(y_true_all,y_pred_all,labels=all_labels,average='macro'),
+            precision = precision_score(y_true_all, y_pred_all, average='macro'),
+            recall = recall_score(y_true_all, y_pred_all, average='macro'),
+            accuracy = accuracy_score(y_true_all, y_pred_all, sample_weight=None)
+            )
+        #print('f1: {}'.format(result['f1_score']))
+        result['minimization_score'] = -1*result['f1_macro']
+        #result['minimization_score'] = -1*result['accuracy']
         return result
 
-    def hyperparameters_search(self,transformed_data,features,group_by='group_id',n_leave_out=1,scoring='f1_macro'):
-        """Grid search for optimal alpha and l1 ratio hyperparameters.
+    def group_by_pc1(self,dataframe,feature_names,n_groups=5):
+        label_cts = dataframe[self.target].value_counts()
+        if len(label_cts) < 2: return False
+        labels = list(label_cts.keys())
+        for l in labels:
+            if label_cts[l] < n_groups:
+                # this label cannot be spread across the groups:
+                # remove it from the model entirely 
+                label_cts.pop(l)
+        groups_possible = self._diverse_groups_possible(dataframe,n_groups,len(label_cts.keys()))
+        if not groups_possible: return False
 
-        Parameters
-        ----------
-        transformed_data : pandas.DataFrame
-            dataframe containing features and labels;
-            note that the features should be transformed/standardized beforehand
-        features : list of str
-            list of features to use
-        group_by: string
-            DataFrame column header for LeavePGroupsOut(groups=group_by)
-        n_leave_out: integer
-            number of groups to leave out, if group_by is specified
-        scoring : str
-            Selection of scoring function.
-            if None, the default scoring function of the model will be used
-
-        Returns
-        -------
-        params : dict
-            dictionary of the parameters to get the best f1 score.
-        """
-        cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-            transformed_data[features], np.ravel(transformed_data[self.target]),
-            groups=transformed_data[group_by])
-        test_model = self.build_model()
-
-        # threaded scheduler with optimal number of threads
-        # will be used by default for dask GridSearchCV
-        clf = GridSearchCV(test_model, self.grid_search_hyperparameters, 
-            cv=cv, scoring=scoring, n_jobs=-1)
-        clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
-        params = clf.best_params_
-        return params
-
-    def assign_groups(self, dataframe, min_groups=5):
-        """Assign train/test groups to `dataframe`.
-
-        This reimplementation invokes the base class method, 
-        and then updates the groups if necessary
-        to balance the representation of classes among the groups. 
-
-        Parameters
-        ----------
-        dataframe : pandas.DataFrame
-            dataframe of sample features and corresponding labels
-        min_groups : int
-            minimum number of groups to create
-
-        Returns
-        -------
-        trainable : bool
-            indicates whether or not training is possible
-        """
-        trainable = super(Classifier,self).assign_groups(dataframe)
-        if trainable:
-            cl_counts = dataframe.loc[dataframe['group_id']>0,self.target].value_counts()
-
-            # if any labels do not have at least `min_groups` representative samples,
-            # the label should not be trained-
-            # ignore these samples by setting their group_id to 0
-            for cl,count in cl_counts.items():
-                if count<min_groups:
-                    dataframe.loc[dataframe[self.target]==cl,'group_id']=0
-
-            # if this leaves us with only one distinct label, 
-            # return False (not trainable).
-            cl_counts = dataframe.loc[dataframe['group_id']>0,self.target].value_counts()
-            n_cl_total = len(cl_counts.keys())
-            if n_cl_total < 2: return False
-
-            # count the number of samples for each label in each group,
-            # and take note of any underrepresented groups
-            group_ids = dataframe.loc[dataframe['group_id']>0,'group_id'].unique()
-            #group_ids.sort()
-            cl_counts_by_group = OrderedDict.fromkeys(group_ids)
-            underrep_gids = [] 
-            for gid in group_ids:
-                cl_counts_by_group[gid] = dataframe.loc[dataframe['group_id']==gid,self.target].value_counts()
-                if len(cl_counts_by_group[gid].keys()) < n_cl_total:
-                    underrep_gids.append(gid)
-
-            # merge groups to eliminate underrepresentation
-            while len(underrep_gids) > 0:
-                gid = underrep_gids.pop(0)
-                cl_in_group = set(cl_counts_by_group[gid].keys())
-                n_cl_in_pair = OrderedDict.fromkeys(cl_counts_by_group.keys())
-                pairing_scores = OrderedDict.fromkeys(cl_counts_by_group.keys())
-                #pairing_scores[0] = float('inf')
-
-                # evaluate best pairing
-                for pair_gid in cl_counts_by_group.keys():
-                    if pair_gid == gid: 
-                        pairing_scores[pair_gid] = float('inf')
-                        n_cl_in_pair[pair_gid] = cl_counts_by_group[gid] 
-                    else:
-                        cl_in_pair = cl_in_group.union(set(cl_counts_by_group[pair_gid].keys()))
-                        n_cl_in_pair[pair_gid] = len(cl_in_pair)
-                        if n_cl_in_pair[pair_gid] == n_cl_total:
-                            pair_cl_counts = dict([(cl_label,0) for cl_label in cl_counts.keys()])
-                            for cl_label, cl_count in cl_counts_by_group[gid].items():
-                                pair_cl_counts[cl_label] += cl_count
-                            for cl_label, cl_count in cl_counts_by_group[pair_gid].items():
-                                pair_cl_counts[cl_label] += cl_count
-                            #pairing_scores[pair_gid] = np.min(pair_cl_counts.values())
-                            pairing_scores[pair_gid] = np.std(list(pair_cl_counts.values()))
-                        else:
-                            pairing_scores[pair_gid] = float('inf')
-
-                # assign the best pairing
-                underrep_pair_scores = [pairing_scores[ugid] for ugid in underrep_gids] 
-                underrep_pair_n_cl = [n_cl_in_pair[ugid] for ugid in underrep_gids] 
-                if not underrep_pair_scores and not underrep_pair_n_cl:
-                    # there are no underrepresented groups that are valid pairing candidates- 
-                    # pair with the fully represented group that gives the best pairing score
-                    best_pairing_gid = list(pairing_scores.keys())[np.argmin(list(pairing_scores.values()))]
-                    # if `gid` is the only remaining underrepresented group, 
-                    # we have the possibility of `best_pairing_gid` == `gid`-
-                    # use np.argmax to select a fully represented group
-                    if best_pairing_gid == gid:
-                        best_pairing_gid = list(n_cl_in_pair.keys())[np.argmax(list(n_cl_in_pair.values()))]
-                else:
-                    # if possible, get full representation by pairing 
-                    # with another underrepresented group
-                    if any([ps<float('inf') for ps in underrep_pair_scores]):
-                        best_pairing_gid = underrep_gids[np.argmin(underrep_pair_scores)] 
-                        underrep_gids.pop(underrep_gids.index(best_pairing_gid))
-                    else:
-                        # else, take underrepresented pair with the best partial representation 
-                        best_pairing_gid = underrep_gids[np.argmax(underrep_pair_n_cl)]
-                dataframe.loc[dataframe['group_id']==gid,'group_id'] = best_pairing_gid 
-
-                # update cl_counts_by_group
-                cl_counts_by_group.pop(gid)
-                cl_counts_by_group[best_pairing_gid] = dataframe.loc[dataframe['group_id']==best_pairing_gid,self.target].value_counts()
-
-            # if we are left with fewer than min_groups,
-            # split the groups with k-means,
-            # until we are up to min_groups
-            while len(cl_counts_by_group) < min_groups:
-                group_ids = cl_counts_by_group.keys()
-                new_gid = 1
-                while new_gid in group_ids: new_gid += 1
-                # perform split for each class to preserve full representation
-                for cl in cl_counts.keys():
-                    # get the fully-represented group with the greatest sample count-
-                    # NOTE that this condition should enforce full representation in all groups
-                    sample_counts = [cl_counts_by_group[gid][cl] for gid in cl_counts_by_group.keys()]
-                    gid_to_split = list(cl_counts_by_group.keys())[np.argmax(sample_counts)]
-
-                    # TODO: come up with a more balanced clustering mechanism
-                    km = KMeans(2,n_init=10)
-                    new_grps = km.fit_predict(
-                    dataframe.loc[(dataframe['group_id']==gid_to_split)&(dataframe[self.target]==cl),
-                    profiler.profile_keys]
-                    )
-                    idx_gp0 = new_grps==0
-                    idx_gp1 = new_grps==1
-                    new_grps[idx_gp0] = gid_to_split
-                    new_grps[idx_gp1] = new_gid
-                    dataframe.loc[(dataframe['group_id']==gid_to_split)&(dataframe[self.target]==cl),'group_id'] = new_grps 
-
-                # re-count all groups
-                for gid in group_ids:
-                    cl_counts_by_group[gid] = dataframe.loc[dataframe['group_id']==gid,self.target].value_counts()
-                cl_counts_by_group[new_gid] = dataframe.loc[dataframe['group_id']==new_gid,self.target].value_counts()
-
-        return trainable 
+        group_ids = range(1,n_groups+1)
+        for label in label_cts.keys():
+            lidx = dataframe.loc[:,self.target]==label
+            ldata = dataframe.loc[lidx,feature_names]
+            pc1 = PCA(n_components=1)
+            ldata_pc = pc1.fit_transform(ldata).ravel()
+            pc_rank = np.argsort(ldata_pc)
+            lgroups = np.zeros(ldata.shape[0])
+            gp_size = int(round(ldata.shape[0]/n_groups))
+            for igid,gid in enumerate(group_ids):
+                lgroups[pc_rank[igid*gp_size:(igid+1)*gp_size]] = int(gid)
+            dataframe.loc[lidx,'group_id'] = lgroups
+        return True
 
     def print_confusion_matrix(self):
         result = ''
         matrix = self.cross_valid_results['confusion_matrix'].split('\n')
-        for i in range(len(self.cross_valid_results['all_classes'])):
-            result += (matrix[i] + "  " +
-                    str(self.cross_valid_results['all_classes'][i]) + '\n')
+        for ilabel,label in enumerate(self.cross_valid_results['all_labels']):
+            result += (matrix[ilabel]+"  "+str(label)+'\n')
         return result
 
     def print_CV_report(self):
@@ -304,13 +135,15 @@ class Classifier(XRSDModel):
         CV_report : str
             string with formatted results of cross validation.
         """
-        # TODO: document the computation of these metrics
+        # TODO: document the computation of these metrics, 
+        # then refer to documentation in this report
         # TODO: add sample_ids and groupings to this report 
+        # TODO: add feature names to this report
         CV_report = 'Cross validation results for {} Classifier\n\n'.format(self.target) + \
             'Confusion matrix:\n' + \
             self.print_confusion_matrix()+'\n\n' + \
             'F1 score: {}\n\n'.format(
-            self.cross_valid_results['F1_score_averaged_not_weighted']) + \
+            self.cross_valid_results['f1_macro']) + \
             'Precision: {}\n\n'.format(
             self.cross_valid_results['precision']) + \
             'Recall: {}\n\n'.format(
@@ -318,3 +151,4 @@ class Classifier(XRSDModel):
             'Accuracy: {}\n\n'.format(
             self.cross_valid_results['accuracy']) 
         return CV_report
+

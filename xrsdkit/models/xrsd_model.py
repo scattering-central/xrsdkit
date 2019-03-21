@@ -3,11 +3,12 @@ import copy
 
 import numpy as np
 import yaml
+from sklearn.decomposition import PCA
 from sklearn import preprocessing, utils
 from sklearn.model_selection import LeavePGroupsOut
 from dask_ml.model_selection import GridSearchCV 
 
-from ..tools import profiler
+from ..tools import primitives, profiler
 
 class XRSDModel(object):
 
@@ -20,143 +21,149 @@ class XRSDModel(object):
         self.model_file = yml_file
         self.default_val = None
         self.features = []
-
         if yml_file:
             ymlf = open(yml_file,'rb')
             content = yaml.load(ymlf)
             ymlf.close()
             self.load_model_data(content)
         else:
-            self.set_model()
+            self.model = self.build_model()
 
     def load_model_data(self,model_data):
         self.trained = model_data['trained']
         self.default_val = model_data['default_val']
+        self.features = model_data['features']
         if self.trained:
-            self.features = model_data['features']
-            self.set_model(model_data['model']['hyper_parameters'])
+            self.model = self.build_model(model_data['model']['hyper_parameters'])
             for k,v in model_data['model']['trained_par'].items():
                 setattr(self.model, k, np.array(v))
             setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
             setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
             self.cross_valid_results = model_data['cross_valid_results']
 
-    def set_model(self, model_hyperparams={}):
-        self.model = self.build_model(model_hyperparams)
+    def save_model_data(self,yml_path,txt_path):
+        with open(yml_path,'w') as yml_file:
+            yaml.dump(self.collect_model_data(),yml_file)
+        with open(txt_path,'w') as txt_file:
+            if self.trained:
+                res_str = self.print_CV_report()
+            else:
+                res_str = 'The model was not trained'
+            txt_file.write(res_str)
+
+    def collect_model_data(self):
+        model_data = dict(
+            scaler = dict(),
+            model = dict(hyper_parameters=dict(), trained_par=dict()),
+            cross_valid_results = primitives(self.cross_valid_results),
+            trained = self.trained,
+            default_val = primitives(self.default_val),
+            features = self.features
+            )
+        if self.trained:
+            hyper_par = list(self.hyperparam_grid.keys())
+            for p in hyper_par:
+                if p in self.model.__dict__:
+                    model_data['model']['hyper_parameters'][p] = self.model.__dict__[p]
+            # models are checked for several attributes before being used for predictions.
+            # those attributes are listed here- if the model has any of them,
+            # they must be saved so that they can be re-set when the model is loaded. 
+            tr_par_arrays = ['coef_', 'intercept_', 'classes_','t_']
+            for p in tr_par_arrays:
+                if p in self.model.__dict__:
+                    model_data['model']['trained_par'][p] = self.model.__dict__[p].tolist()
+            tr_par_ints = ['n_iter_']
+            for p in tr_par_ints:
+                if p in self.model.__dict__:
+                    try:
+                        model_data['model']['trained_par'][p] = int(self.model.__dict__[p])
+                    except TypeError:
+                        model_data['model']['trained_par'][p] = self.model.__dict__[p]
+            model_data['scaler']['mean_'] = self.scaler.__dict__['mean_'].tolist()
+            model_data['scaler']['scale_'] = self.scaler.__dict__['scale_'].tolist()
+        return model_data
 
     def build_model(self,model_hyperparams):
         # TODO: add a docstring that describes the interface
         msg = 'subclasses of XRSDModel must implement build_model()'
         raise NotImplementedError(msg)
 
-    def run_cross_validation(self,model,data,feature_names):
-        # TODO: add a docstring that describes the interface
-        msg = 'subclasses of XRSDModel must implement run_cross_validation()'
-        raise NotImplementedError(msg)
-
-    def minimization_score(self, true_values, pred_values):
-        # TODO: add a docstring that describes the interface
-        msg = 'subclasses of XRSDModel must implement minimization_score()'
-        raise NotImplementedError(msg)
-
-    def validate_feature_set(self, model, df, feature_names):
-        """Use cross-validation to determine the model's least significant feature.
-
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            pandas dataframe of features and labels,
-            including at least three distinct experiment_id labels
-        model : sklearn.linear_model
-            an sklearn model instance trained on some dataset
-            with some choice of hyperparameters
-        feature_names : list of str
-            list of feature names (column headers) used for training.
-
-        Returns
-        -------
-        score : float
-            mean absolute error;
-        ind_of_least_important_f : int
-            index of the feature with the smallest coef
-        """
-        groups = df.group_id.unique()
-        true_labels = []
-        pred_labels = []
-        coef = []
-        for i in range(len(groups)):
-            tr = df[(df['group_id'] != groups[i])]
-            test = df[(df['group_id'] == groups[i])]
-            model.fit(tr[feature_names], tr[self.target])
-            # if this is a classifier, there is a coef_ matrix,
-            # where each row gives the coef_ values for each binary sub-classifier;
-            # take the column sum to get the overall coef_ importance
-            if len(model.coef_.shape)>1:
-                coef.append(np.abs(model.coef_).sum(axis=0))
-            else:
-                # else, the coef_ array will be one-dimensional- use it as is
-                coef.append(np.abs(model.coef_))
-            y_pred = model.predict(test[feature_names])
-            pred_labels.extend(y_pred)
-            true_labels.extend(test[self.target])
-        # rows of `coef` are the feature coefficients for a given train-test split.
-        # the column sum of `coef` is used as a measure of relative feature importance
-        # averaged across all train-test splits
-        coef = np.array(coef)
-        coef_sum_by_features = coef.sum(axis=0).tolist()
-        ind_of_least_important_f = np.argmin(coef_sum_by_features)
-        score = self.minimization_score(true_labels, pred_labels)
-        return score, ind_of_least_important_f
-
-    def train(self, model_data, hyper_parameters_search=False):
+    def train(self, model_data, scoring, train_hyperparameters=False, select_features=False):
         """Train the model, optionally searching for optimal hyperparameters.
 
         Parameters
         ----------
         model_data : pandas.DataFrame
-            dataframe containing features and labels for this model.
-        hyper_parameters_search : bool
-            If true, grid-search model hyperparameters
-            to seek high cross-validation accuracy.
+            DataFrame containing features and labels for this model
+        scoring : str
+            Specification of scoring function to use:
+            must be in sklearn.metrics.SCORERS.keys()
+        train_hyperparameters : bool
+            If true, cross-validation metrics are used to select model hyperparameters 
+        select_features : bool
+            If true, before cross-validation, the model's default hyperparameters
+            are used to recursively eliminate features
+            based on best cross-validation metrics
         """
-        training_possible = self.assign_groups(model_data)
+        # TODO: clean up and finish
+        training_possible = self.group_by_pc1(model_data,profiler.profile_keys)
+        #training_possible = self.assign_groups(model_data)
+        #gp_counts = model_data['group_id'].value_counts()
         if not training_possible:
             # not enough samples, or all have identical labels-
             # take a non-standardized default value
             self.default_val = model_data[self.target].unique()[0]
+            self.model = None
+            self.features = []
             self.trained = False
             return
         else:
             s_model_data = self.standardize(model_data)
             # NOTE: SGD models train more efficiently on shuffled data
-            d = utils.shuffle(s_model_data)
-            data = d[d[self.target].isnull() == False]
+            #s_model_data = utils.shuffle(s_model_data)
+            s_model_data = s_model_data[s_model_data[self.target].isnull() == False]
             # NOTE: exclude samples with group_id==0
-            valid_data = data[data.group_id>0]
+            valid_data = s_model_data[s_model_data.group_id>0]
 
-            # features selection
-            features = copy.deepcopy(profiler.profile_keys)
-            score_features = []
-            while len(features) > 2:
-                if hyper_parameters_search:
-                    new_parameters = self.hyperparameters_search(valid_data, features, n_leave_out=1)
-                    new_model = self.build_model(new_parameters)
-                else:
-                    new_model = self.model
-                optimization_obj, ind = self.validate_feature_set(new_model,valid_data,features)
-                score_features.append((optimization_obj, list(features), new_model))
-                del features[ind]
-            # NOTE: features are selected solely for the best cross-validation score
-            score_features.sort()
-            best_features = score_features[0][1]
-            new_model = score_features[0][2]
-            # NOTE: after cross-validation for parameter selection,
+            # begin by recursively eliminating features on a simple model
+            model_feats = copy.deepcopy(profiler.profile_keys)
+            if select_features:
+                model_feats = self.cross_validation_rfe(valid_data,model_feats)
+                test_model = self.build_model()
+                test_model.fit(valid_data[model_feats], valid_data[self.target])
+                cv = self.run_cross_validation(test_model,valid_data,model_feats)
+                #print('model feats:')
+                #print(model_feats)
+                #print('after rfe:')
+                #print(cv)
+
+            # use model_feats to grid-search hyperparameters
+            model_hyperparams = {}
+            if train_hyperparameters:
+                test_model = self.build_model()
+                param_grid = self.hyperparam_grid
+                #test_model = self.build_sgd_model()
+                #param_grid = self.sgd_hyperparam_grid
+                model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid,scoring)
+                test_model = self.build_model(model_hyperparams)
+                #test_model = self.build_sgd_model(model_hyperparams)
+                test_model.fit(valid_data[model_feats], valid_data[self.target])
+                cv = self.run_cross_validation(test_model,valid_data,model_feats)
+                #print('hyperparam grid:')
+                #print(param_grid)
+                #print('selected hyperparams:')
+                #print(model_hyperparams)
+                #print('after hyperparam selection:')
+                #print(cv)
+
+            # after parameter and feature selection,
             # the entire dataset is used for final training,
-            self.cross_valid_results = self.run_cross_validation(new_model,valid_data,best_features)
-            new_model.fit(valid_data[best_features], valid_data[self.target])
-
+            #new_model = self.build_sgd_model(model_hyperparams)
+            new_model = self.build_model(model_hyperparams)
+            self.cross_valid_results = self.run_cross_validation(new_model,valid_data,model_feats)
+            new_model.fit(valid_data[model_feats], valid_data[self.target])
             self.model = new_model
-            self.features = best_features
+            self.features = model_feats 
             self.trained = True
 
     def standardize(self,data):
@@ -167,94 +174,131 @@ class XRSDModel(object):
         data[profiler.profile_keys] = self.scaler.transform(data[profiler.profile_keys])
         return data
 
-    def hyperparameters_search(self,transformed_data,features,group_by='group_id',n_leave_out=1,scoring=None):
-        """Grid search for optimal alpha, penalty, and l1 ratio hyperparameters.
-
-        Parameters
-        ----------
-        transformed_data : pandas.DataFrame
-            dataframe containing features and labels;
-            note that the features should be transformed/standardized beforehand
-        features : list of str
-            list of features to use
-        group_by: string
-            DataFrame column header for LeavePGroupsOut(groups=group_by)
-        n_leave_out: integer
-            number of groups to leave out, if group_by is specified 
-        scoring : str
-            Selection of scoring function.
-            If None, the default scoring function of the model will be used
-
-        Returns
-        -------
-        clf.best_params_ : dict
-            Dictionary of the best found hyperparameters.
-        """
-        if n_leave_out:
-            cv = LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data[features],
-                np.ravel(transformed_data[self.target]),
-                groups=transformed_data[group_by]
-                )
-        else:
-            cv = 3 # number of folds for cross validation
+    def cross_validation_rfe(self,data,model_feats):
+        model_outputs = np.ravel(data[self.target])
+        cv_metrics = []
+        rfe_feats = []
         test_model = self.build_model()
-        # threaded scheduler with optimal number of threads
-        # will be used by default for dask GridSearchCV
-        clf = GridSearchCV(test_model,self.grid_search_hyperparameters,cv=cv,scoring=scoring,n_jobs=-1)
-        clf.fit(transformed_data[features], np.ravel(transformed_data[self.target]))
-        return clf.best_params_
+        cv = self.run_cross_validation(test_model,data,model_feats)
+        cv_metrics.append(cv['minimization_score'])
+        rfe_feats.append(copy.deepcopy(model_feats))
+        nfeats = len(model_feats)
+        for ifeat in range(1,nfeats):
+            # removal based on coef_
+            #test_model.fit(valid_data[model_feats], model_outputs)
+            #lowest_coef_idx = np.argmin(np.abs(test_model.coef_))
+            #worst_feat = model_feats[lowest_coef_idx]
+            #model_feats.remove(worst_feat)
+            feat_cv_metrics = []
+            for feat in model_feats:
+                trial_feats = copy.deepcopy(model_feats)
+                trial_feats.remove(feat)
+                cv = self.run_cross_validation(test_model,data,trial_feats)
+                feat_cv_metrics.append(cv['minimization_score'])
+            best_cv_idx = np.argmin(feat_cv_metrics)
+            cv_metrics.append(feat_cv_metrics[best_cv_idx])
+            worst_feat = model_feats.pop(best_cv_idx)
+            rfe_feats.append(copy.deepcopy(model_feats))
+        best_feats_idx = np.argmin(cv_metrics)
+        best_feats = rfe_feats[best_feats_idx]
+        #print(best_feats)
+        #from matplotlib import pyplot as plt
+        #plt.plot(range(1,nfeats+1),cv_metrics[::-1])
+        #plt.xlabel('remaining features')
+        #plt.ylabel('minimization score')
+        #plt.show()
+        return best_feats
 
-    def assign_groups(self, dataframe):
-        """Assign cross-validation groups to all samples in input `dataframe`.
- 
-        A `group_id` column is added to `dataframe` for cross-validation grouping.
-        All rows of `dataframe` are assumed to have valid target values-
-        unlabeled samples should be filtered out before calling this.
-        The base class implementation simply assigns the groups 
-        based on the `experiment_id` labels.
-        A sample missing an `experiment_id` label gets a `group_id` of 0. 
-        Returns False if the data are insufficient for model training,
-        i.e., if the target values are all identical.
-        This does NOT return False if there is only one group-
-        the splitting of a monolithic group should occur in subclasses, 
-        based on the grouping requirements of the subclass.
+    def group_by_pc1(self,dataframe,feature_names,n_groups=5):
+        """Group samples by dividing them along the first principal component.
+
+        For regressors, this grouping should be applied once to the whole dataset.        
+        For classifiers, this grouping should be applied once for each possible label.
 
         Parameters
         ----------
         dataframe : pandas.DataFrame
-            dataframe of sample features and corresponding labels
+            DataFrame containing modeling dataset
+        feature_names : list
+            Column headers that are used as input features
+        n_groups : int
+            Number of groups to create
+        """
+        raise NotImplementedError('XRSDModel subclasses must implement group_by_pc1()')
+
+    def cv_report(self,data,y_true,y_pred):
+        """Yield key cross-validation metrics.
+
+        Parameters
+        ----------
+        data : pandas.DataFrame
+            DataFrame containing modeling dataset
+        y_true : dict of np.array 
+            Keys are group_ids, values are arrays of y-values for the group 
+        y_pred : dict of np.array 
+            Keys are group_ids, values are predictions corresponding to `y_true` 
+        """
+        raise NotImplementedError('XRSDModel subclasses must implement cv_report()')
+
+    def _diverse_groups_possible(self,dataframe,n_groups,n_distinct):
+        # check for at least n_groups sets of n_distinct distinct values:
+        val_counts = dataframe.loc[:,self.target].value_counts()
+        if len(val_counts)<n_distinct: 
+            return False
+        distinct_value_counts = np.zeros(n_groups)
+        for val,ct in val_counts.items(): 
+            if ct >= n_groups: 
+                distinct_value_counts += 1
+            else:
+                # add to the emptiest buckets first
+                gp_order = np.argsort(distinct_value_counts)
+                for ict in range(ct):
+                    distinct_value_counts[gp_order[ict]] += 1
+        if any([ct<n_distinct for ct in distinct_value_counts]): return False
+        return True
+
+    def run_cross_validation(self,model,data,feature_names):
+        """Cross-validate a model by LeaveOneGroupOut. 
+
+        The train/test groupings are defined by the 'group_id' labels,
+        which are added to the dataframe during self.assign_groups().
+
+        Parameters
+        ----------
+        model : object 
+            scikit-learn model to be cross-validated
+        data : pandas.DataFrame
+            pandas dataframe of features and labels
+        feature_names : list of str
+            list of feature names (column headers) used for training
 
         Returns
         -------
-        trainable : bool
-            indicates whether or not training is possible
+        result : dict
+            dictionary of cross validation metrics.
         """
-        all_exp_ids = dataframe['experiment_id'].unique()
-        all_labels = dataframe[self.target].unique()
-        trainable = len(all_labels)>1
-        group_ids = np.zeros(dataframe.shape[0],dtype=int)
-        gid = 1
-        for exp_id in all_exp_ids:
-            # all samples without an experiment_id get stuck with group_id==0
-            if exp_id:
-                group_ids[dataframe['experiment_id']==exp_id] = gid
-                gid += 1 
-        dataframe.loc[:,'group_id'] = group_ids
-        return trainable
+        y_true = {} 
+        y_pred = {} 
+        group_ids = data.group_id.unique()
+        for gid in group_ids:
+            tr = data[(data['group_id'] != gid)]
+            test = data[(data['group_id'] == gid)]
+            model.fit(tr[feature_names], tr[self.target])
+            yp = model.predict(test[feature_names])
+            yt = test[self.target] 
+            y_pred[gid] = yp
+            y_true[gid] = yt
+        return self.cv_report(data,y_true,y_pred)
 
-    @staticmethod
-    def shuffle_split_3fold(nsamp):
-        group_ids = np.zeros(nsamp,dtype=int)
-        nsamp1 = nsamp//3
-        nsamp2 = (nsamp-nsamp1)//2
-        all_idx = range(nsamp)
-        idx_group1 = random.sample(all_idx,nsamp1)
-        all_idx = [idx for idx in all_idx if not idx in idx_group1]
-        idx_group2 = random.sample(all_idx,nsamp2)
-        idx_group3 = [idx for idx in all_idx if not idx in idx_group2]
-        group_ids[idx_group1] = 1
-        group_ids[idx_group2] = 2
-        group_ids[idx_group3] = 3
-        return group_ids
+    def grid_search_hyperparams(self,model,data,feature_names,hyperparam_grid,scoring,n_leave_out=1):
+        cv_splits = LeavePGroupsOut(n_groups=n_leave_out).split(
+            data[feature_names],
+            np.ravel(data[self.target]),
+            groups=data['group_id']
+            )
+        gs_models = GridSearchCV(model,hyperparam_grid,cv=cv_splits,scoring=scoring,n_jobs=-1)
+        gs_models.fit(data[feature_names], np.ravel(data[self.target]))
+        best_model = self.build_sgd_model(gs_models.best_params_)
+        cv = self.run_cross_validation(best_model,data,feature_names) 
+        return gs_models.best_params_
 
