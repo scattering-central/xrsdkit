@@ -1,4 +1,5 @@
 import os
+import yaml
 from collections import OrderedDict
 
 import yaml
@@ -37,6 +38,14 @@ def load_regressor_from_yml(yml_file):
     reg = Regressor(content['model_type'],content['model_target'])
     reg.load_model_data(content)
     return reg
+
+# find directory containing training summary
+dir_path = os.path.dirname(file_path)
+training_summary_yml = os.path.join(dir_path,'training_summary.yml')
+training_summary_yml_old = os.path.join(dir_path,'training_summary_old.yml')
+
+# find directory containing test training summary
+training_summary_yml_test = os.path.join(testing_data_dir,'training_summary.yml')
 
 def load_classification_models(model_root_dir=classification_models_dir):  
     model_dict = OrderedDict()

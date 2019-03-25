@@ -3,11 +3,13 @@ import itertools
 
 import yaml
 import numpy as np
+from collections import OrderedDict
 
 from . import regression_models_dir, classification_models_dir
 from . import test_regression_models_dir, test_classification_models_dir
 from . import regression_models, classification_models
 from . import test_regression_models, test_classification_models
+from . import training_summary_yml, training_summary_yml_test, training_summary_yml_old
 from .. import definitions as xrsdefs
 from ..tools import primitives
 from .regressor import Regressor
@@ -15,6 +17,7 @@ from .classifier import Classifier
 
 
 def train_from_dataframe(data,train_hyperparameters=False,select_features=False,save_models=False,test=False):
+    old_results = load_old_results(test)
     # classification models: 
     cls_models = train_classification_models(data, train_hyperparameters, select_features)
     # regression models:
@@ -23,8 +26,10 @@ def train_from_dataframe(data,train_hyperparameters=False,select_features=False,
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
     if save_models:
-        save_classification_models(cls_models, test=test)
-        save_regression_models(reg_models, test=test)
+        results_reg = save_regression_models(reg_models, test=test)
+        results_cl, summary_main = save_classification_models(cls_models, test=test)
+        summary = get_models_summary(old_results, results_reg, results_cl, summary_main)
+        save_summary(summary, test=test)
 
 def train_classification_models(data,train_hyperparameters=False,select_features=False):
     """Train all classifiers that are trainable from `data`.
@@ -260,7 +265,9 @@ def save_classification_models(models=classification_models, test=False):
         if True, the models will be saved in the testing dir.
     """
     cl_root_dir = classification_models_dir
-    model_dict = classification_models 
+    model_dict = classification_models
+    summary = {}
+    summary_main = {}
     if test: 
         cl_root_dir = test_classification_models_dir
         model_dict = test_classification_models
@@ -274,6 +281,7 @@ def save_classification_models(models=classification_models, test=False):
             yml_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.yml')
             txt_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.txt')
             mod.save_model_data(yml_path,txt_path)
+            summary_main[model_name] = primitives(select_cl(mod.cross_valid_results))
 
     all_sys_cls = list(models.keys())
     all_sys_cls.remove('main_classifiers')
@@ -286,6 +294,8 @@ def save_classification_models(models=classification_models, test=False):
             yml_path = os.path.join(sys_cls_dir,'noise_model.yml')
             txt_path = os.path.join(sys_cls_dir,'noise_model.txt')
             models[sys_cls]['noise_model'].save_model_data(yml_path,txt_path)
+            model_name = sys_cls + '_noise_model_'
+            summary[model_name] = primitives(select_cl(models[sys_cls]['noise_model'].cross_valid_results))
 
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
@@ -298,6 +308,8 @@ def save_classification_models(models=classification_models, test=False):
                 yml_path = os.path.join(pop_dir,'form.yml')
                 txt_path = os.path.join(pop_dir,'form.txt')
                 models[sys_cls][pop_id]['form'].save_model_data(yml_path,txt_path)
+                model_name = sys_cls + '_' + pop_id +'_form'
+                summary[model_name] = primitives(select_cl(models[sys_cls][pop_id]['form'].cross_valid_results))
                
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 if stg_nm in models[sys_cls][pop_id]:
@@ -305,6 +317,8 @@ def save_classification_models(models=classification_models, test=False):
                     yml_path = os.path.join(pop_dir,stg_nm+'.yml')
                     txt_path = os.path.join(pop_dir,stg_nm+'.txt')
                     models[sys_cls][pop_id][stg_nm].save_model_data(yml_path,txt_path)
+                    model_name = sys_cls + '_' + pop_id + '_' + stg_nm
+                    summary[model_name] = primitives(select_cl(models[sys_cls][pop_id][stg_nm].cross_valid_results))
 
             for ff_id in xrsdefs.form_factor_names:
                 if ff_id in models[sys_cls][pop_id]:
@@ -316,6 +330,9 @@ def save_classification_models(models=classification_models, test=False):
                         yml_path = os.path.join(form_dir,stg_nm+'.yml')
                         txt_path = os.path.join(form_dir,stg_nm+'.txt')
                         models[sys_cls][pop_id][ff_id][stg_nm].save_model_data(yml_path,txt_path)
+                        model_name = sys_cls + '_' + pop_id + '_' + ff_id + '_' + stg_nm
+                        summary[model_name] = primitives(select_cl(models[sys_cls][pop_id][ff_id][stg_nm].cross_valid_results))
+    return summary, summary_main
 
 
 def train_regression_models(data,train_hyperparameters=False,select_features=False):
@@ -511,6 +528,7 @@ def save_regression_models(models=regression_models, test=False):
     """
     rg_root_dir = regression_models_dir
     model_dict = regression_models
+    summary = {}
     if test: 
         rg_root_dir = test_regression_models_dir 
         model_dict = test_regression_models
@@ -532,6 +550,8 @@ def save_regression_models(models=regression_models, test=False):
                     yml_path = os.path.join(noise_model_dir,pnm+'.yml')
                     txt_path = os.path.join(noise_model_dir,pnm+'.txt')
                     models[sys_cls]['noise'][modnm][pnm].save_model_data(yml_path,txt_path)
+                    model_name = sys_cls + '_noise_' + modnm + "_" + pnm
+                    summary[model_name] = primitives(select_reg(models[sys_cls]['noise'][modnm][pnm].cross_valid_results))
 
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
@@ -544,6 +564,8 @@ def save_regression_models(models=regression_models, test=False):
                 yml_path = os.path.join(pop_dir,'I0_fraction.yml')
                 txt_path = os.path.join(pop_dir,'I0_fraction.txt')
                 models[sys_cls][pop_id]['I0_fraction'].save_model_data(yml_path,txt_path)
+                model_name = sys_cls + "_" + pop_id + '_I0_fraction'
+                summary[model_name] = primitives(select_reg(models[sys_cls][pop_id]['I0_fraction'].cross_valid_results))
                
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 if stg_nm in models[sys_cls][pop_id]:
@@ -562,6 +584,8 @@ def save_regression_models(models=regression_models, test=False):
                                 yml_path = os.path.join(stg_label_dir,pnm+'.yml')
                                 txt_path = os.path.join(stg_label_dir,pnm+'.txt')
                                 models[sys_cls][pop_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path)
+                                model_name = sys_cls + "_" + pop_id + "_" + stg_nm + "_"+ stg_label + "_" + pnm
+                                summary[model_name] = primitives(select_reg(models[sys_cls][pop_id][stg_nm][stg_label][pnm].cross_valid_results))
             
             for form_id in xrsdefs.form_factor_names:
                 if form_id in models[sys_cls][pop_id]:
@@ -574,6 +598,8 @@ def save_regression_models(models=regression_models, test=False):
                             yml_path = os.path.join(form_dir,pnm+'.yml')
                             txt_path = os.path.join(form_dir,pnm+'.txt')
                             models[sys_cls][pop_id][form_id][pnm].save_model_data(yml_path,txt_path)
+                            model_name = sys_cls + "_" + pop_id + "_" + form_id + "_"+ pnm
+                            summary[model_name] = primitives(select_reg(models[sys_cls][pop_id][form_id][pnm].cross_valid_results))
 
                     for stg_nm in xrsdefs.modelable_form_factor_settings[form_id]:
                         if stg_nm in models[sys_cls][pop_id][form_id]:
@@ -591,4 +617,80 @@ def save_regression_models(models=regression_models, test=False):
                                     yml_path = os.path.join(stg_label_dir,pnm+'.yml')
                                     txt_path = os.path.join(stg_label_dir,pnm+'.txt')
                                     models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path)
+                                    model_name = sys_cls + "_" + pop_id + "_" + form_id + "_"+ stg_nm + "_" + stg_label + "_" + pnm
+                                    summary[model_name] = primitives(select_reg(models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].cross_valid_results))
+    return summary
 
+
+def get_models_summary(old_results, results_reg, results_cl, summary_main):
+    summary = OrderedDict.fromkeys(['DESCRIPTION','MAIN_CLASSIFIERS','CLASSIFIERS','REEGRESSORS'])
+    summary['DESCRIPTION'] = "The first value of each metric is its actula value, the second value is the delta comparing with " \
+                             "the previouse training"
+    summary['MAIN_CLASSIFIERS'] = {}
+    for k, v in summary_main.items():
+        summary['MAIN_CLASSIFIERS'][k] = {}
+        if v:
+            for metric, value in v.items():
+                try:
+                    diff = value-old_results['MAIN_CLASSIFIERS'][k][metric][0]
+                except:
+                    diff = None
+                summary['MAIN_CLASSIFIERS'][k][metric] = [value, diff]
+    summary['REEGRESSORS'] = {}
+    for k, v in results_reg.items():
+        if v:
+            summary['REEGRESSORS'][k] = {}
+            for metric, value in v.items():
+                try:
+                    diff = value-old_results['REEGRESSORS'][k][metric][0]
+                except:
+                    diff = None
+                summary['REEGRESSORS'][k][metric] = [value, diff]
+    summary['CLASSIFIERS'] = {}
+    for k, v in results_cl.items():
+        summary['CLASSIFIERS'][k] = {}
+        if v:
+            for metric, value in v.items():
+                try:
+                    diff = value-old_results['CLASSIFIERS'][k][metric][0]
+                except:
+                    diff = None
+                summary['CLASSIFIERS'][k][metric] = [value, diff]
+    return summary
+
+
+def save_summary(summary, test = False):
+    if test:
+        yml_f = training_summary_yml_test
+    else:
+        yml_f = training_summary_yml
+    with open(yml_f,'w') as yml_file:
+        yaml.dump(summary,yml_file)
+
+def select_cl(cross_valid_results):
+    if cross_valid_results:
+        selected = OrderedDict.fromkeys(['accuracy', 'f1_macro', 'precision', 'recall'])
+        for k,v in selected.items():
+            selected[k] = cross_valid_results[k]
+    else:
+        selected = {}
+    return selected
+
+def select_reg(cross_valid_results):
+    if cross_valid_results:
+        selected = OrderedDict.fromkeys(['MAE', 'coef_of_determination'])
+        for k,v in selected.items():
+            selected[k] = cross_valid_results[k]
+    else:
+        selected = {}
+    return selected
+
+def load_old_results(test = False):
+    old_results = None
+    if os.path.isfile(training_summary_yml): # we have results from previous training
+        ymlf = open(training_summary_yml,'rb')
+        old_results = yaml.load(ymlf)
+        ymlf.close()
+        if test == False:
+            os.rename(training_summary_yml,training_summary_yml_old)
+    return old_results
