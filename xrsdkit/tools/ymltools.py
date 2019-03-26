@@ -82,19 +82,19 @@ def create_modeling_dataset(xrsd_system_dicts,downsampling_distance=None):
     all_cls_labels = set()
 
     for sys in xrsd_system_dicts:
-        expt_id, sample_id, feature_labels, classification_labels, regression_outputs = \
-            unpack_sample(sys)
+        expt_id, sample_id, good_fit, feature_labels, \
+            classification_labels, regression_outputs = unpack_sample(sys)
+        if good_fit:
+            for k,v in regression_outputs.items():
+                all_reg_labels.add(k)
+            reg_labels.append(regression_outputs)
 
-        for k,v in regression_outputs.items():
-            all_reg_labels.add(k)
-        reg_labels.append(regression_outputs)
+            for k,v in classification_labels.items():
+                all_cls_labels.add(k)
+            cls_labels.append(classification_labels)
 
-        for k,v in classification_labels.items():
-            all_cls_labels.add(k)
-        cls_labels.append(classification_labels)
-
-        feat_labels.append(feature_labels)
-        data.append([expt_id,sample_id])
+            feat_labels.append(feature_labels)
+            data.append([expt_id,sample_id])
 
     reg_labels_list = list(all_reg_labels)
     reg_labels_list.sort()
@@ -137,7 +137,11 @@ def unpack_sample(sys_dict):
     Returns
     -------
     expt_id : str
-        name of the experiment (must be unique for a training set)
+        id of the experiment (should be unique across all experiments)
+    sample_id : str
+        id of the sample (must be unique across all samples)
+    good_fit : bool 
+        True if this sample's fit is good enough to train models on it
     features : dict 
         dict of features with their values,
         similar to output of xrsdkit.tools.profiler.profile_pattern()
@@ -145,12 +149,11 @@ def unpack_sample(sys_dict):
         dict of all classification labels with their values for given sample
     regression_labels : dict
         dict of all regression labels with their values for given sample
-    sample_id : str
-        uinque sample id (includes experiment id)
     """
     expt_id = sys_dict['sample_metadata']['experiment_id']
     sample_id = sys_dict['sample_metadata']['sample_id']
     features = sys_dict['features']
+    good_fit = bool(sys_dict['fit_report']['good_fit'])
     sys = System(**sys_dict)
 
     regression_labels = {}
@@ -199,7 +202,7 @@ def unpack_sample(sys_dict):
     if sys_cls == '':
         sys_cls = 'unidentified'
     classification_labels['system_class'] = sys_cls
-    return expt_id, sample_id, features, classification_labels, regression_labels
+    return expt_id, sample_id, good_fit, features, classification_labels, regression_labels
 
 
 def sort_populations(struct_nm,pops_dict):

@@ -318,8 +318,8 @@ def load_from_files_table_to_samples_table(db, drop_table=False):
             net_dump = stdout.readlines()
             str_d = "".join(net_dump)
             pp = yaml.load(str_d)
-            expt_id, sample_id, features, classification_labels, \
-                    regression_labels = unpack_sample(pp)
+            expt_id, sample_id, good_fit, features, \
+                classification_labels, regression_labels = unpack_sample(pp)
             # add a new row to the table "samples"
             db.insert('samples', sample_id=sample_id, experiment_id = expt_id,
                                   features=features, regression_labels=regression_labels,
