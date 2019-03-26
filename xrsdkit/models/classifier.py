@@ -96,6 +96,7 @@ class Classifier(XRSDModel):
 
     def group_by_pc1(self,dataframe,feature_names,n_groups=5):
         label_cts = dataframe[self.target].value_counts()
+        # to check if we have at least 2 different labels:
         if len(label_cts) < 2: return False
         labels = list(label_cts.keys())
         for l in labels:
@@ -103,6 +104,8 @@ class Classifier(XRSDModel):
                 # this label cannot be spread across the groups:
                 # remove it from the model entirely 
                 label_cts.pop(l)
+        # to check if we still have at least 2 different labels:
+        if len(label_cts) < 2: return False
         groups_possible = self._diverse_groups_possible(dataframe,n_groups,len(label_cts.keys()))
         if not groups_possible: return False
 

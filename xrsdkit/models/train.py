@@ -97,26 +97,26 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             print('Training system classifier for '+model_id)
             # get all samples whose system_class matches the flags
             flag_data = data.loc[flag_idx,:].copy()
-            labels = flag_data['system_class'].unique()
-            # train the classifier
-            model = Classifier('system_class', None)
-            if 'main_classifiers' in classification_models.keys() \
-            and model_id in classification_models['main_classifiers'] \
-            and classification_models['main_classifiers'][model_id].trained:
-                old_pars = classification_models['main_classifiers'][model_id].model.get_params()
-                model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
-            # system classifiers should use f1_macro or accuracy
-            model.train(flag_data, 'accuracy', train_hyperparameters, select_features)
-            if model.trained:
-                f1_score = model.cross_valid_results['f1_macro']
-                acc = model.cross_valid_results['accuracy']
-                prec = model.cross_valid_results['precision']
-                rec = model.cross_valid_results['recall']
-                print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
-            else:
-                print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
-            # save the classifier
-            cls_models['main_classifiers'][model_id] = model
+            if flag_data.shape[0] > 0: # we have the data with this system class in the training set
+                # train the classifier
+                model = Classifier('system_class', None)
+                if 'main_classifiers' in classification_models.keys() \
+                and model_id in classification_models['main_classifiers'] \
+                and classification_models['main_classifiers'][model_id].trained:
+                    old_pars = classification_models['main_classifiers'][model_id].model.get_params()
+                    model.model.set_params(alpha=old_pars['alpha'], l1_ratio=old_pars['l1_ratio'])
+                # system classifiers should use f1_macro or accuracy
+                model.train(flag_data, 'accuracy', train_hyperparameters, select_features)
+                if model.trained:
+                    f1_score = model.cross_valid_results['f1_macro']
+                    acc = model.cross_valid_results['accuracy']
+                    prec = model.cross_valid_results['precision']
+                    rec = model.cross_valid_results['recall']
+                    print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
+                else:
+                    print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
+                # save the classifier
+                cls_models['main_classifiers'][model_id] = model
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers; drop this label up front 
