@@ -12,34 +12,32 @@ from ..tools import primitives, profiler
 
 class XRSDModel(object):
 
-    def __init__(self, label, yml_file=None):
+    def __init__(self, model_type, label):
+        self.model_type = model_type 
+        self.models_and_params = {}
         self.model = None
         self.scaler = preprocessing.StandardScaler()
         self.cross_valid_results = None
         self.target = label
         self.trained = False
-        self.model_file = yml_file
         self.default_val = None
         self.features = []
-        if yml_file:
-            ymlf = open(yml_file,'rb')
-            content = yaml.load(ymlf)
-            ymlf.close()
-            self.load_model_data(content)
-        else:
-            self.model = self.build_model()
 
     def load_model_data(self,model_data):
-        self.trained = model_data['trained']
-        self.default_val = model_data['default_val']
-        self.features = model_data['features']
-        if self.trained:
-            self.model = self.build_model(model_data['model']['hyper_parameters'])
-            for k,v in model_data['model']['trained_par'].items():
-                setattr(self.model, k, np.array(v))
-            setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
-            setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
-            self.cross_valid_results = model_data['cross_valid_results']
+        if self.model_type == model_data['model_type'] \
+        and self.target == model_data['model_target']:
+            self.default_val = model_data['default_val']
+            self.features = model_data['features']
+            if model_data['trained']:
+                self.trained = True 
+                self.model = self.build_model(model_data['model']['hyper_parameters'])
+                for k,v in model_data['model']['trained_par'].items():
+                    setattr(self.model, k, np.array(v))
+                setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
+                setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
+                self.cross_valid_results = model_data['cross_valid_results']
+        else:
+            raise ValueError('Tried to load modeling data with non-matching target or model type')
 
     def save_model_data(self,yml_path,txt_path):
         with open(yml_path,'w') as yml_file:
@@ -53,6 +51,8 @@ class XRSDModel(object):
 
     def collect_model_data(self):
         model_data = dict(
+            model_type = self.model_type, 
+            model_target = self.target,
             scaler = dict(),
             model = dict(hyper_parameters=dict(), trained_par=dict()),
             cross_valid_results = primitives(self.cross_valid_results),
@@ -61,18 +61,18 @@ class XRSDModel(object):
             features = self.features
             )
         if self.trained:
-            hyper_par = list(self.hyperparam_grid.keys())
+            hyper_par = list(self.models_and_params[self.model_type].keys())
             for p in hyper_par:
                 if p in self.model.__dict__:
                     model_data['model']['hyper_parameters'][p] = self.model.__dict__[p]
             # models are checked for several attributes before being used for predictions.
             # those attributes are listed here- if the model has any of them,
             # they must be saved so that they can be re-set when the model is loaded. 
-            tr_par_arrays = ['coef_', 'intercept_', 'classes_','t_']
+            tr_par_arrays = ['coef_', 'intercept_', 'classes_']
             for p in tr_par_arrays:
                 if p in self.model.__dict__:
                     model_data['model']['trained_par'][p] = self.model.__dict__[p].tolist()
-            tr_par_ints = ['n_iter_']
+            tr_par_ints = ['n_iter_','t_']
             for p in tr_par_ints:
                 if p in self.model.__dict__:
                     try:
@@ -83,7 +83,7 @@ class XRSDModel(object):
             model_data['scaler']['scale_'] = self.scaler.__dict__['scale_'].tolist()
         return model_data
 
-    def build_model(self,model_hyperparams):
+    def build_model(self,model_type,model_hyperparams):
         # TODO: add a docstring that describes the interface
         msg = 'subclasses of XRSDModel must implement build_model()'
         raise NotImplementedError(msg)
@@ -128,7 +128,7 @@ class XRSDModel(object):
             # begin by recursively eliminating features on a simple model
             model_feats = copy.deepcopy(profiler.profile_keys)
             if select_features:
-                model_feats = self.cross_validation_rfe(valid_data,model_feats)
+                model_feats = self.cross_validation_rfe(model_type,valid_data,model_feats)
                 test_model = self.build_model()
                 test_model.fit(valid_data[model_feats], valid_data[self.target])
                 cv = self.run_cross_validation(test_model,valid_data,model_feats)
@@ -141,7 +141,7 @@ class XRSDModel(object):
             model_hyperparams = {}
             if train_hyperparameters:
                 test_model = self.build_model()
-                param_grid = self.hyperparam_grid
+                param_grid = self.models_and_params[model_type]
                 #test_model = self.build_sgd_model()
                 #param_grid = self.sgd_hyperparam_grid
                 model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid,scoring)

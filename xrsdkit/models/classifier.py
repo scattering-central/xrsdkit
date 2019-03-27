@@ -13,27 +13,32 @@ from ..tools import profiler
 class Classifier(XRSDModel):
     """Class for models that classify attributes of material systems."""
 
-    def __init__(self,label,yml_file):
-        super(Classifier,self).__init__(label, yml_file)
-        self.hyperparam_grid = dict(
-            C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
-            )
-        self.sgd_hyperparam_grid = dict(
-            #alpha = [1.E-5,1.E-4,1.E-3,1.E-2,1.E-1],
-            #l1_ratio = [0., 0.15, 0.5, 0.85, 1.0]
-            alpha = np.logspace(-1,2,num=9,endpoint=True,base=10.),
-            l1_ratio = np.linspace(0.,1.,num=7,endpoint=True) 
-            )
+    def __init__(self,model_type,label):
+        super(Classifier,self).__init__(model_type, label)
+        self.models_and_params = dict(
+            logistic_regressor = dict(
+                C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+                ),
+            sgd_classifier = dict(
+                alpha = np.logspace(-1,2,num=4,endpoint=True,base=10.),
+                l1_ratio = np.linspace(0.,1.,num=5,endpoint=True) 
+                )
+            )        
 
-    def build_model(self,model_hyperparams={}):
-        penalty='l2'
-        if 'penalty' in model_hyperparams: penalty = model_hyperparams['penalty']
-        C = 1.
-        if 'C' in model_hyperparams: C = model_hyperparams['C']
-        solver = 'lbfgs'
-        if 'solver' in model_hyperparams: solver = model_hyperparams['solver']
-        new_model = linear_model.LogisticRegression(penalty=penalty, C=C, 
-            class_weight='balanced', solver=solver, max_iter=100000)
+    def build_model(self,model_type='logistic_regressor',model_hyperparams={}):
+        if self.model_type ==  'logistic_regressor':
+            penalty='l2'
+            if 'penalty' in model_hyperparams: penalty = model_hyperparams['penalty']
+            C = 1.
+            if 'C' in model_hyperparams: C = model_hyperparams['C']
+            solver = 'lbfgs'
+            if 'solver' in model_hyperparams: solver = model_hyperparams['solver']
+            new_model = linear_model.LogisticRegression(penalty=penalty, C=C, 
+                class_weight='balanced', solver=solver, max_iter=100000)
+        elif self.model_type == 'sgd_classifier':
+            new_model = self.build_sgd_model(model_hyperparams)
+        else:
+            raise ValueError('Unrecognized model type: {}'.format(self.model_type))
         return new_model
 
     def build_sgd_model(self,model_hyperparams={}):
@@ -41,8 +46,9 @@ class Classifier(XRSDModel):
         if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
         l1_ratio = 0.15 
         if 'l1_ratio' in model_hyperparams: l1_ratio = model_hyperparams['l1_ratio']
-        new_model = linear_model.SGDClassifier(alpha=alpha, loss='log', penalty='elasticnet', l1_ratio=l1_ratio,
-                max_iter=1000000, class_weight='balanced', tol=1e-10, eta0 = 0.001, learning_rate='adaptive')
+        new_model = linear_model.SGDClassifier(
+                alpha=alpha, loss='log', penalty='elasticnet', l1_ratio=l1_ratio,
+                max_iter=1000, tol=1.E-3, class_weight='balanced')
         return new_model
 
     def classify(self, sample_features):

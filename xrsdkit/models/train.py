@@ -15,16 +15,16 @@ from .classifier import Classifier
 
 
 def train_from_dataframe(data,train_hyperparameters=False,select_features=False,save_models=False,test=False):
-    # regression models:
-    reg_models = train_regression_models(data, train_hyperparameters, select_features)
     # classification models: 
     cls_models = train_classification_models(data, train_hyperparameters, select_features)
+    # regression models:
+    reg_models = train_regression_models(data, train_hyperparameters, select_features)
     # optionally, save the models:
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
     if save_models:
-        save_regression_models(reg_models, test=test)
         save_classification_models(cls_models, test=test)
+        save_regression_models(reg_models, test=test)
 
 def train_classification_models(data,train_hyperparameters=False,select_features=False):
     """Train all classifiers that are trainable from `data`.
@@ -58,12 +58,19 @@ def train_classification_models(data,train_hyperparameters=False,select_features
     for struct_nm in xrsdefs.structure_names:
         print('Training binary classifier for '+struct_nm+' structures')
         model_id = struct_nm+'_binary'
-        model = Classifier(model_id, None)
+        #
+        # binary classifier model type is specified here!
+        # we __should__ be able to try various models just by changing this.
+        #
+        #new_model_type = 'sgd_classifier'
+        new_model_type = 'logistic_regressor'
+        model = Classifier(new_model_type, model_id)
         labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
-        data_copy.loc[:,model_id] = labels 
-        if 'main_classifiers' in classification_models.keys() \
-        and model_id in classification_models['main_classifiers'] \
-        and classification_models['main_classifiers'][model_id].trained:
+        data_copy.loc[:,model_id] = labels
+        if ('main_classifiers' in classification_models) \
+        and (model_id in classification_models['main_classifiers']) \
+        and (classification_models['main_classifiers'][model_id].trained) \
+        and (classification_models['main_classifiers'][model_id].model_type == new_model_type):
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             model.model.set_params(C=old_pars['C'])
         # binary classifiers should be trained to avoid false positives:
@@ -99,10 +106,12 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             flag_data = data.loc[flag_idx,:].copy()
             if flag_data.shape[0] > 0: # we have the data with this system class in the training set
                 # train the classifier
-                model = Classifier('system_class', None)
-                if 'main_classifiers' in classification_models.keys() \
-                and model_id in classification_models['main_classifiers'] \
-                and classification_models['main_classifiers'][model_id].trained:
+                new_model_type = 'logistic_regressor'
+                model = Classifier(new_model_type, 'system_class')
+                if ('main_classifiers' in classification_models) \
+                and (model_id in classification_models['main_classifiers']) \
+                and (classification_models['main_classifiers'][model_id].trained) \
+                and (classification_models['main_classifiers'][model_id].model_type == new_model_type):
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                     model.model.set_params(C=old_pars['C'])
                 # system classifiers should use f1_macro or accuracy
@@ -131,10 +140,12 @@ def train_classification_models(data,train_hyperparameters=False,select_features
 
         # every system class must have a noise classifier
         print('    Training noise classifier for system class {}'.format(sys_cls))
-        model = Classifier('noise_model',None)
+        new_model_type = 'logistic_regressor'
+        model = Classifier(new_model_type, 'noise_model')
         if (sys_cls in classification_models) \
         and ('noise_model' in classification_models[sys_cls]) \
-        and (classification_models[sys_cls]['noise_model'].trained): 
+        and (classification_models[sys_cls]['noise_model'].trained) \
+        and (classification_models[sys_cls]['noise_model'].model_type == new_model_type):
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
             model.model.set_params(C=old_pars['C'])
         model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
@@ -157,11 +168,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             # every population must have a form classifier
             form_header = pop_id+'_form'
             print('    Training: {}'.format(form_header))
-            model = Classifier(form_header,None)
+            new_model_type = 'logistic_regressor'
+            model = Classifier(new_model_type, form_header)
             if (sys_cls in classification_models) \
             and (pop_id in classification_models[sys_cls]) \
             and ('form' in classification_models[sys_cls][pop_id]) \
-            and (classification_models[sys_cls][pop_id]['form'].trained): 
+            and (classification_models[sys_cls][pop_id]['form'].trained) \
+            and (classification_models[sys_cls][pop_id]['form'].model_type == new_model_type):
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
                 model.model.set_params(C=old_pars['C'])
             model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
@@ -179,11 +192,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 stg_header = pop_id+'_'+stg_nm
                 print('    Training: {}'.format(stg_header))
-                model = Classifier(stg_header,None)
+                new_model_type = 'logistic_regressor'
+                model = Classifier(new_model_type, stg_header)
                 if (sys_cls in classification_models) \
                 and (pop_id in classification_models[sys_cls]) \
                 and (stg_nm in classification_models[sys_cls][pop_id]) \
-                and (classification_models[sys_cls][pop_id][stg_nm].trained): 
+                and (classification_models[sys_cls][pop_id][stg_nm].trained) \
+                and (classification_models[sys_cls][pop_id][stg_nm].model_type == new_model_type):
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
                     model.model.set_params(C=old_pars['C'])
                 model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
@@ -206,12 +221,14 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 for stg_nm in xrsdefs.modelable_form_factor_settings[ff]:
                     stg_header = pop_id+'_'+stg_nm
                     print('        Training: {}'.format(stg_header))
-                    model = Classifier(stg_header,None)
+                    new_model_type = 'logistic_regressor'
+                    model = Classifier(new_model_type, stg_header)
                     if (sys_cls in classification_models) \
                     and (pop_id in classification_models[sys_cls]) \
                     and (ff in classification_models[sys_cls][pop_id]) \
                     and (stg_nm in classification_models[sys_cls][pop_id][ff]) \
-                    and (classification_models[sys_cls][pop_id][ff][stg_nm].trained): 
+                    and (classification_models[sys_cls][pop_id][ff][stg_nm].trained) \
+                    and (classification_models[sys_cls][pop_id][ff][stg_nm].model_type == new_model_type):
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
                         model.model.set_params(C=old_pars['C'])
                     model.train(form_data, 'accuracy', train_hyperparameters, select_features)
@@ -338,13 +355,15 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
             for pnm in list(xrsdefs.noise_params[modnm].keys())+['I0_fraction']:
                 if not pnm == 'I0':
                     param_header = 'noise_'+pnm
-                    model = Regressor(param_header,None)
+                    new_model_type = 'ridge_regressor'
+                    model = Regressor(new_model_type, param_header)
                     print('        training {}'.format(param_header))
                     if (sys_cls in regression_models) \
                     and ('noise' in regression_models[sys_cls]) \
                     and (modnm in regression_models[sys_cls]['noise']) \
                     and (pnm in regression_models[sys_cls]['noise'][modnm]) \
-                    and (regression_models[sys_cls]['noise'][modnm][pnm].trained): 
+                    and (regression_models[sys_cls]['noise'][modnm][pnm].trained) \
+                    and (regression_models[sys_cls]['noise'][modnm][pnm].model_type == new_model_type): 
                         old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'])
                     model.train(noise_model_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
@@ -361,13 +380,15 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
             reg_models[sys_cls][pop_id] = {}
             # every population must have a model for I0_fraction
             param_header = pop_id+'_I0_fraction'
-            model = Regressor(param_header,None)
+            new_model_type = 'ridge_regressor'
+            model = Regressor(new_model_type, param_header)
             print('    training regressors for population {}'.format(pop_id))
             print('        training {}'.format(param_header))
             if (sys_cls in regression_models) \
             and (pop_id in regression_models[sys_cls]) \
             and ('I0_fraction' in regression_models[sys_cls][pop_id]) \
-            and (regression_models[sys_cls][pop_id]['I0_fraction'].trained): 
+            and (regression_models[sys_cls][pop_id]['I0_fraction'].trained) \
+            and (regression_models[sys_cls][pop_id]['I0_fraction'].model_type == new_model_type): 
                 old_pars = regression_models[sys_cls][pop_id]['I0_fraction'].model.get_params()
                 model.model.set_params(alpha=old_pars['alpha'])
             model.train(sys_cls_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
@@ -389,14 +410,16 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                     print('    training regressors for {} with {}=={}'.format(pop_id,stg_nm,stg_label))
                     for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                         param_header = pop_id+'_'+pnm
-                        model = Regressor(param_header,None)
+                        new_model_type = 'ridge_regressor'
+                        model = Regressor(new_model_type, param_header)
                         print('        training {}'.format(param_header))
                         if (sys_cls in regression_models) \
                         and (pop_id in regression_models[sys_cls]) \
                         and (stg_nm in regression_models[sys_cls][pop_id]) \
                         and (stg_label in regression_models[sys_cls][pop_id][stg_nm]) \
                         and (pnm in regression_models[sys_cls][pop_id][stg_nm][stg_label]) \
-                        and (regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].trained):
+                        and (regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].trained) \
+                        and (regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model_type == new_model_type):
                             old_pars = regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model.get_params()
                             model.model.set_params(alpha=old_pars['alpha'])
                         model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
@@ -418,13 +441,15 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                 print('    training regressors for {} with {} form factors'.format(pop_id,form_id))
                 for pnm in xrsdefs.form_factor_params[form_id]:
                     param_header = pop_id+'_'+pnm
-                    model = Regressor(param_header,None)
+                    new_model_type = 'ridge_regressor'
+                    model = Regressor(new_model_type, param_header)
                     print('        training {}'.format(param_header))
                     if (sys_cls in regression_models) \
                     and (pop_id in regression_models[sys_cls]) \
                     and (form_id in regression_models[sys_cls][pop_id]) \
                     and (pnm in regression_models[sys_cls][pop_id][form_id]) \
-                    and (regression_models[sys_cls][pop_id][form_id][pnm].trained):
+                    and (regression_models[sys_cls][pop_id][form_id][pnm].trained) \
+                    and (regression_models[sys_cls][pop_id][form_id][pnm].model_type == new_model_type):
                         old_pars = regression_models[sys_cls][pop_id][form_id][pnm].model.get_params()
                         model.model.set_params(alpha=old_pars['alpha'])
                     model.train(form_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
@@ -446,7 +471,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         print('    training regressors for {} with {} form factors with {}=={}'.format(pop_id,form_id,stg_nm,stg_label))
                         for pnm in xrsdefs.additional_form_factor_params(form_id,{stg_nm:stg_label}):
                             param_header = pop_id+'_'+pnm
-                            model = Regressor(param_header,None)
+                            new_model_type = 'ridge_regressor'
+                            model = Regressor(new_model_type, param_header)
                             print('        training {}'.format(param_header))
                             if (sys_cls in regression_models) \
                             and (pop_id in regression_models[sys_cls]) \
@@ -454,9 +480,9 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                             and (stg_nm in regression_models[sys_cls][pop_id][form_id]) \
                             and (stg_label in regression_models[sys_cls][pop_id][form_id][stg_nm]) \
                             and (pnm in regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label]) \
-                            and (regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].trained):
-                                old_pars = regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].\
-                                model.get_params()
+                            and (regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].trained) \
+                            and (regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model_type == new_model_type):
+                                old_pars = regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model.get_params()
                                 model.model.set_params(alpha=old_pars['alpha'])
                             model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                             if model.trained:
