@@ -128,7 +128,7 @@ class XRSDModel(object):
             # begin by recursively eliminating features on a simple model
             model_feats = copy.deepcopy(profiler.profile_keys)
             if select_features:
-                model_feats = self.cross_validation_rfe(model_type,valid_data,model_feats)
+                model_feats = self.cross_validation_rfe(valid_data,model_feats)
                 test_model = self.build_model()
                 test_model.fit(valid_data[model_feats], valid_data[self.target])
                 cv = self.run_cross_validation(test_model,valid_data,model_feats)
@@ -141,7 +141,7 @@ class XRSDModel(object):
             model_hyperparams = {}
             if train_hyperparameters:
                 test_model = self.build_model()
-                param_grid = self.models_and_params[model_type]
+                param_grid = self.models_and_params[self.model_type]
                 #test_model = self.build_sgd_model()
                 #param_grid = self.sgd_hyperparam_grid
                 model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid,scoring)
