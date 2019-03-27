@@ -1,10 +1,10 @@
 import numpy as np
 
-from . import regression_models, classification_models, test_regression_models, test_classification_models
+from . import regression_models, classification_models#, test_regression_models, test_classification_models
 from ..system import System
 from .. import definitions as xrsdefs
 
-def predict(features,test=False):
+def predict(features):
     """Estimate system identity and physical parameters, given a feature vector.
 
     Evaluates classifiers and regression models to
@@ -25,9 +25,6 @@ def predict(features,test=False):
     """
     classifiers=classification_models
     regressors=regression_models
-    if test:
-        classifiers=test_classification_models
-        regressors=test_regression_models
     results = {}
 
     # use the main classifiers to evaluate the system class

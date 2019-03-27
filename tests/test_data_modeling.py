@@ -12,6 +12,11 @@ from xrsdkit.visualization.gui import run_fit_gui
 
 datapath = os.path.join(os.path.dirname(__file__),
         'test_data','dataset.csv')
+
+src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+testing_data_dir = os.path.join(src_dir,'xrsdkit','models','modeling_data', 'test')
+if not os.path.exists(testing_data_dir): os.mkdir(testing_data_dir)
+
 df = None
 if os.path.exists(datapath):
     print('loading cached dataset from {}'.format(datapath))
@@ -38,7 +43,7 @@ def test_predict_0():
     q_I = np.loadtxt(f,dtype=float)
     feats = profiler.profile_pattern(q_I[:,0],q_I[:,1])
     try:
-        pred = predict(feats,test=True)
+        pred = predict(feats)
         sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],source_wavelength=0.8265617)
     except RuntimeError:
         pass
@@ -47,7 +52,7 @@ def test_predict_0():
 def test_training():
     if df_ds is not None:
         #train_from_dataframe(df_ds,train_hyperparameters=True,select_features=True,save_models=True,test=True)
-        train_from_dataframe(df_ds,train_hyperparameters=False,select_features=False,save_models=True,test=True)
+        train_from_dataframe(df_ds,testing_data_dir, train_hyperparameters=False,select_features=False,save_models=True)
 
 # test prediction on newly trained models
 def test_predict_1():
@@ -59,7 +64,7 @@ def test_predict_1():
     feats = profiler.profile_pattern(q_I[:,0],q_I[:,1])
     # models will only be trained if a dataframe was downloaded
     if df_ds is not None:
-        pred = predict(feats,test=True)
+        pred = predict(feats)
         sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],source_wavelength=0.8265617)
         xrsdyml.save_sys_to_yaml(sysfpath,sys)
         #if 'DISPLAY' in os.environ:

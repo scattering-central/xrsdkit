@@ -1,13 +1,14 @@
 import os
 from matplotlib import pyplot as plt
-#from matplotlib.figure import Figure
-from matplotlib import pyplot as plt
 
 from ..tools.visualization_tools import doPCA, plot_2d
-from ..models import src_dir, testing_data_dir
 from ..tools import profiler
 
 default_targets=['system_class','experiment_id']
+
+file_path = os.path.abspath(__file__)
+src_dir = os.path.dirname(os.path.dirname(file_path))
+saving_dir  = os.path.join(src_dir,'models','modeling_data','test')
 
 def plot_xrsd_fit(sys=None,q=None,I=None,dI=None,show_plot=False):
     mpl_fig = plt.figure() 
@@ -48,7 +49,7 @@ def visualize_dataframe(data,
     pca_comp_to_use = [0,1],
     show_plots = False,
     save_plots = False,
-    saving_dir = testing_data_dir):
+    saving_dir = saving_dir):
     """Makes a labeled scatterplot of data. 
 
     If use_pca is True,

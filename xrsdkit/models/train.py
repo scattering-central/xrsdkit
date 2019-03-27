@@ -5,19 +5,18 @@ import yaml
 import numpy as np
 from collections import OrderedDict
 
-from . import regression_models_dir, classification_models_dir
-from . import test_regression_models_dir, test_classification_models_dir
 from . import regression_models, classification_models
-from . import test_regression_models, test_classification_models
-from . import training_summary_yml, training_summary_yml_test, training_summary_yml_old
+from . import training_summary_yml
 from .. import definitions as xrsdefs
 from ..tools import primitives
 from .regressor import Regressor
 from .classifier import Classifier
 
 
-def train_from_dataframe(data,train_hyperparameters=False,select_features=False,save_models=False,test=False):
-    old_results = load_old_results(test)
+def train_from_dataframe(data, output_dir, train_hyperparameters=False,select_features=False,save_models=False):
+    old_results = load_old_results()
+    # regression models:
+    reg_models = train_regression_models(data, train_hyperparameters, select_features)
     # classification models: 
     cls_models = train_classification_models(data, train_hyperparameters, select_features)
     # regression models:
@@ -26,10 +25,14 @@ def train_from_dataframe(data,train_hyperparameters=False,select_features=False,
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
     if save_models:
-        results_reg = save_regression_models(reg_models, test=test)
-        results_cl, summary_main = save_classification_models(cls_models, test=test)
+        cl_dir = os.path.join(output_dir,'classifiers')
+        if not os.path.exists(cl_dir): os.mkdir(cl_dir)
+        reg_dir = os.path.join(output_dir,'regressors')
+        if not os.path.exists(reg_dir): os.mkdir(reg_dir)
+        results_reg = save_regression_models(reg_dir, reg_models)
+        results_cl, summary_main = save_classification_models(cl_dir, cls_models)
         summary = get_models_summary(old_results, results_reg, results_cl, summary_main)
-        save_summary(summary, test=test)
+        save_summary(summary, output_dir)
 
 def train_classification_models(data,train_hyperparameters=False,select_features=False):
     """Train all classifiers that are trainable from `data`.
@@ -250,7 +253,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
     return cls_models
 
 
-def save_classification_models(models=classification_models, test=False):
+def save_classification_models(output_dir, models):
     """Serialize `models` to .yml files, and also save them as module attributes.
 
     The models and scalers are saved to .yml,
@@ -264,13 +267,10 @@ def save_classification_models(models=classification_models, test=False):
     test : bool (optional)
         if True, the models will be saved in the testing dir.
     """
-    cl_root_dir = classification_models_dir
+    cl_root_dir = output_dir
     model_dict = classification_models
     summary = {}
     summary_main = {}
-    if test: 
-        cl_root_dir = test_classification_models_dir
-        model_dict = test_classification_models
     if not os.path.exists(cl_root_dir): os.mkdir(cl_root_dir)
 
     if 'main_classifiers' in models:
@@ -512,7 +512,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
     return reg_models
 
 
-def save_regression_models(models=regression_models, test=False):
+def save_regression_models(output_dir, models):
     """Serialize `models` to .yml files, and also save them as module attributes.
 
     The models and scalers are saved to .yml,
@@ -526,12 +526,9 @@ def save_regression_models(models=regression_models, test=False):
     test : bool (optional)
         if True, the models will be saved in the testing dir.
     """
-    rg_root_dir = regression_models_dir
+    rg_root_dir = output_dir
     model_dict = regression_models
     summary = {}
-    if test: 
-        rg_root_dir = test_regression_models_dir 
-        model_dict = test_regression_models
     if not os.path.exists(rg_root_dir): os.mkdir(rg_root_dir)
     for sys_cls in models.keys():
         sys_cls_dir = os.path.join(rg_root_dir,sys_cls)
@@ -659,11 +656,8 @@ def get_models_summary(old_results, results_reg, results_cl, summary_main):
     return summary
 
 
-def save_summary(summary, test = False):
-    if test:
-        yml_f = training_summary_yml_test
-    else:
-        yml_f = training_summary_yml
+def save_summary(summary, output_dir):
+    yml_f = os.path.join(output_dir,'training_summary.yml')
     with open(yml_f,'w') as yml_file:
         yaml.dump(summary,yml_file)
 
@@ -685,12 +679,10 @@ def select_reg(cross_valid_results):
         selected = {}
     return selected
 
-def load_old_results(test = False):
+def load_old_results():
     old_results = None
     if os.path.isfile(training_summary_yml): # we have results from previous training
         ymlf = open(training_summary_yml,'rb')
         old_results = yaml.load(ymlf)
         ymlf.close()
-        if test == False:
-            os.rename(training_summary_yml,training_summary_yml_old)
     return old_results
