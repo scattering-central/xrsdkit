@@ -54,6 +54,8 @@ def predict(features,test=False):
     else:
         raise RuntimeError('attempted to predict() before creating main classifiers') 
 
+    # TODO: unidentified systems should still have models
+    # for predicting the noise model and parameters
     results['system_class'] = (sys_cls, certainties)
     if sys_cls == 'unidentified':
         return results
@@ -130,7 +132,7 @@ def system_from_prediction(prediction,q,I,**kwargs):
     # create System object
     sys_cls = prediction['system_class'][0]
     if sys_cls == 'unidentified':
-        return System()
+        return System(**kwargs)
 
     # create noise model
     nmodl = prediction['noise_model'][0]
