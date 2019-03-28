@@ -25,7 +25,7 @@ class Classifier(XRSDModel):
                 )
             )        
 
-    def build_model(self,model_type='logistic_regressor',model_hyperparams={}):
+    def build_model(self,model_hyperparams={}):
         if self.model_type ==  'logistic_regressor':
             penalty='l2'
             if 'penalty' in model_hyperparams: penalty = model_hyperparams['penalty']

@@ -83,7 +83,7 @@ class XRSDModel(object):
             model_data['scaler']['scale_'] = self.scaler.__dict__['scale_'].tolist()
         return model_data
 
-    def build_model(self,model_type,model_hyperparams):
+    def build_model(self,model_hyperparams):
         # TODO: add a docstring that describes the interface
         msg = 'subclasses of XRSDModel must implement build_model()'
         raise NotImplementedError(msg)
@@ -105,10 +105,8 @@ class XRSDModel(object):
             are used to recursively eliminate features
             based on best cross-validation metrics
         """
-        # TODO: clean up and finish
         training_possible = self.group_by_pc1(model_data,profiler.profile_keys)
         #training_possible = self.assign_groups(model_data)
-        #gp_counts = model_data['group_id'].value_counts()
         if not training_possible:
             # not enough samples, or all have identical labels-
             # take a non-standardized default value
@@ -119,46 +117,34 @@ class XRSDModel(object):
             return
         else:
             s_model_data = self.standardize(model_data)
-            # NOTE: SGD models train more efficiently on shuffled data
-            #s_model_data = utils.shuffle(s_model_data)
+            # remove unlabeled samples
             s_model_data = s_model_data[s_model_data[self.target].isnull() == False]
-            # NOTE: exclude samples with group_id==0
+            # maybe shuffle: SGD models train more efficiently on shuffled data
+            if self.model_type in ['sgd_regressor','sgd_classifier']:
+                s_model_data = utils.shuffle(s_model_data)
+            # exclude samples with group_id==0
             valid_data = s_model_data[s_model_data.group_id>0]
 
-            # begin by recursively eliminating features on a simple model
+            # begin by recursively eliminating features on a simple model (default parameters)
             model_feats = copy.deepcopy(profiler.profile_keys)
             if select_features:
                 model_feats = self.cross_validation_rfe(valid_data,model_feats)
                 test_model = self.build_model()
                 test_model.fit(valid_data[model_feats], valid_data[self.target])
                 cv = self.run_cross_validation(test_model,valid_data,model_feats)
-                #print('model feats:')
-                #print(model_feats)
-                #print('after rfe:')
-                #print(cv)
 
             # use model_feats to grid-search hyperparameters
             model_hyperparams = {}
             if train_hyperparameters:
                 test_model = self.build_model()
                 param_grid = self.models_and_params[self.model_type]
-                #test_model = self.build_sgd_model()
-                #param_grid = self.sgd_hyperparam_grid
                 model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid,scoring)
                 test_model = self.build_model(model_hyperparams)
-                #test_model = self.build_sgd_model(model_hyperparams)
                 test_model.fit(valid_data[model_feats], valid_data[self.target])
                 cv = self.run_cross_validation(test_model,valid_data,model_feats)
-                #print('hyperparam grid:')
-                #print(param_grid)
-                #print('selected hyperparams:')
-                #print(model_hyperparams)
-                #print('after hyperparam selection:')
-                #print(cv)
 
             # after parameter and feature selection,
             # the entire dataset is used for final training,
-            #new_model = self.build_sgd_model(model_hyperparams)
             new_model = self.build_model(model_hyperparams)
             self.cross_valid_results = self.run_cross_validation(new_model,valid_data,model_feats)
             new_model.fit(valid_data[model_feats], valid_data[self.target])
