@@ -1,6 +1,5 @@
 import os
-from distutils.dir_util import copy_tree
-from .ymltools import read_local_dataset, create_modeling_dataset
+from .ymltools import read_local_dataset, load_models
 from ..db import gather_remote_dataset
 from ..models.train import train_from_dataframe
 from ..models import modeling_data_dir
@@ -19,7 +18,5 @@ def dataset_to_csv(dataset_dir,downsampling_distance=1.):
     df.to_csv(output_path)
 
 def update_models(models_dir):
-    print(models_dir)
-    print(modeling_data_dir)
-    copy_tree(models_dir, modeling_data_dir)
+    load_models(models_dir, modeling_data_dir)
 
