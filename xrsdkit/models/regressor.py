@@ -13,18 +13,51 @@ from ..tools import profiler, Rsquared
 class Regressor(XRSDModel):
     """Class for generating models to predict real-valued parameters."""
 
-    def __init__(self,label,yml_file):
+    def __init__(self, model_type, label):
+        super(Regressor,self).__init__(model_type, label)
         self.scaler_y = preprocessing.StandardScaler() 
-        super(Regressor,self).__init__(label, yml_file)
-        self.hyperparam_grid = dict(
-            alpha = np.logspace(0,2,num=5,endpoint=True,base=10.),
-            #l1_ratio = np.linspace(0,1.,num=7,endpoint=True) 
-            )
-        self.sgd_hyperparam_grid = dict(
-            epsilon = [1, 0.1, 0.01],
-            alpha = [0.0001, 0.001, 0.01],
-            l1_ratio = [0., 0.15, 0.5, 0.85, 1.0]
-            )
+        self.models_and_params = dict(
+            ridge_regressor = dict(
+                alpha = np.logspace(0,2,num=5,endpoint=True,base=10.)
+                ),
+            elastic_net = dict(
+                alpha = np.logspace(0,2,num=5,endpoint=True,base=10.),
+                l1_ratio = np.linspace(0,1,num=5,endpoint=True)
+                ),
+            sgd_regressor = dict(
+                epsilon = [1, 0.1, 0.01],
+                alpha = [0.0001, 0.001, 0.01],
+                l1_ratio = [0., 0.15, 0.5, 0.85, 1.0]
+                )
+            ) 
+
+    def build_model(self, model_hyperparams={}):
+        if self.model_type == 'ridge_regressor':
+            alpha = 1.
+            if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
+            new_model = linear_model.Ridge(alpha=alpha, max_iter=10000)
+        elif self.model_type == 'elastic_net':
+            alpha = 1.
+            if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
+            l1_ratio = 0.5 
+            if 'l1_ratio' in model_hyperparams: l1_ratio = model_hyperparams['l1_ratio']
+            new_model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000)
+        elif self.model_type == 'sgd_regressor':
+            new_model = self.build_sgd_model(model_hyperparams)
+        else:
+            raise ValueError('Unrecognized model type: {}'.format(self.model_type))
+        return new_model
+
+    def build_sgd_model(self, model_hyperparams={}):
+        alpha = 1.E-4
+        if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
+        l1_ratio = 0.15 
+        if 'l1_ratio' in model_hyperparams: l1_ratio = model_hyperparams['l1_ratio']
+        epsilon = 0.15 
+        if 'epsilon' in model_hyperparams: epsilon = model_hyperparams['epsilon']
+        new_model = linear_model.SGDRegressor(alpha=alpha, l1_ratio=l1_ratio, epsilon=epsilon,
+            loss='huber', penalty='elasticnet', max_iter=10000)
+        return new_model
 
     def load_model_data(self,model_data):
         super(Regressor,self).load_model_data(model_data)
@@ -41,26 +74,6 @@ class Regressor(XRSDModel):
                 scale_ = self.scaler_y.__dict__['scale_'].tolist()
                 )
         return model_data
-
-    def build_model(self, model_hyperparams={}):
-        alpha = 1.
-        if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
-        l1_ratio = 0.5 
-        if 'l1_ratio' in model_hyperparams: l1_ratio = model_hyperparams['l1_ratio']
-        new_model = linear_model.Ridge(alpha=alpha, max_iter=10000, tol=1e-5)
-        #new_model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000)
-        return new_model
-
-    def build_sgd_model(self, model_hyperparams={}):
-        alpha = 1.E-4
-        if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
-        l1_ratio = 0.15 
-        if 'l1_ratio' in model_hyperparams: l1_ratio = model_hyperparams['l1_ratio']
-        epsilon = 0.15 
-        if 'epsilon' in model_hyperparams: epsilon = model_hyperparams['epsilon']
-        new_model = linear_model.SGDRegressor(alpha=alpha, l1_ratio=l1_ratio, epsilon=epsilon,
-            loss='huber', penalty='elasticnet', max_iter=10000, tol=1e-5)
-        return new_model
 
     def standardize(self,data):
         """Standardize the columns that are used as inputs and outputs.

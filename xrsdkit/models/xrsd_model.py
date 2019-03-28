@@ -12,34 +12,32 @@ from ..tools import primitives, profiler
 
 class XRSDModel(object):
 
-    def __init__(self, label, yml_file=None):
+    def __init__(self, model_type, label):
+        self.model_type = model_type 
+        self.models_and_params = {}
         self.model = None
         self.scaler = preprocessing.StandardScaler()
         self.cross_valid_results = None
         self.target = label
         self.trained = False
-        self.model_file = yml_file
         self.default_val = None
         self.features = []
-        if yml_file:
-            ymlf = open(yml_file,'rb')
-            content = yaml.load(ymlf)
-            ymlf.close()
-            self.load_model_data(content)
-        else:
-            self.model = self.build_model()
 
     def load_model_data(self,model_data):
-        self.trained = model_data['trained']
-        self.default_val = model_data['default_val']
-        self.features = model_data['features']
-        if self.trained:
-            self.model = self.build_model(model_data['model']['hyper_parameters'])
-            for k,v in model_data['model']['trained_par'].items():
-                setattr(self.model, k, np.array(v))
-            setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
-            setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
-            self.cross_valid_results = model_data['cross_valid_results']
+        if self.model_type == model_data['model_type'] \
+        and self.target == model_data['model_target']:
+            self.default_val = model_data['default_val']
+            self.features = model_data['features']
+            if model_data['trained']:
+                self.trained = True 
+                self.model = self.build_model(model_data['model']['hyper_parameters'])
+                for k,v in model_data['model']['trained_par'].items():
+                    setattr(self.model, k, np.array(v))
+                setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
+                setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
+                self.cross_valid_results = model_data['cross_valid_results']
+        else:
+            raise ValueError('Tried to load modeling data with non-matching target or model type')
 
     def save_model_data(self,yml_path,txt_path):
         with open(yml_path,'w') as yml_file:
@@ -53,6 +51,8 @@ class XRSDModel(object):
 
     def collect_model_data(self):
         model_data = dict(
+            model_type = self.model_type, 
+            model_target = self.target,
             scaler = dict(),
             model = dict(hyper_parameters=dict(), trained_par=dict()),
             cross_valid_results = primitives(self.cross_valid_results),
@@ -61,18 +61,18 @@ class XRSDModel(object):
             features = self.features
             )
         if self.trained:
-            hyper_par = list(self.hyperparam_grid.keys())
+            hyper_par = list(self.models_and_params[self.model_type].keys())
             for p in hyper_par:
                 if p in self.model.__dict__:
                     model_data['model']['hyper_parameters'][p] = self.model.__dict__[p]
             # models are checked for several attributes before being used for predictions.
             # those attributes are listed here- if the model has any of them,
             # they must be saved so that they can be re-set when the model is loaded. 
-            tr_par_arrays = ['coef_', 'intercept_', 'classes_','t_']
+            tr_par_arrays = ['coef_', 'intercept_', 'classes_']
             for p in tr_par_arrays:
                 if p in self.model.__dict__:
                     model_data['model']['trained_par'][p] = self.model.__dict__[p].tolist()
-            tr_par_ints = ['n_iter_']
+            tr_par_ints = ['n_iter_','t_']
             for p in tr_par_ints:
                 if p in self.model.__dict__:
                     try:
@@ -105,10 +105,8 @@ class XRSDModel(object):
             are used to recursively eliminate features
             based on best cross-validation metrics
         """
-        # TODO: clean up and finish
         training_possible = self.group_by_pc1(model_data,profiler.profile_keys)
         #training_possible = self.assign_groups(model_data)
-        #gp_counts = model_data['group_id'].value_counts()
         if not training_possible:
             # not enough samples, or all have identical labels-
             # take a non-standardized default value
@@ -119,46 +117,34 @@ class XRSDModel(object):
             return
         else:
             s_model_data = self.standardize(model_data)
-            # NOTE: SGD models train more efficiently on shuffled data
-            #s_model_data = utils.shuffle(s_model_data)
+            # remove unlabeled samples
             s_model_data = s_model_data[s_model_data[self.target].isnull() == False]
-            # NOTE: exclude samples with group_id==0
+            # maybe shuffle: SGD models train more efficiently on shuffled data
+            if self.model_type in ['sgd_regressor','sgd_classifier']:
+                s_model_data = utils.shuffle(s_model_data)
+            # exclude samples with group_id==0
             valid_data = s_model_data[s_model_data.group_id>0]
 
-            # begin by recursively eliminating features on a simple model
+            # begin by recursively eliminating features on a simple model (default parameters)
             model_feats = copy.deepcopy(profiler.profile_keys)
             if select_features:
                 model_feats = self.cross_validation_rfe(valid_data,model_feats)
                 test_model = self.build_model()
                 test_model.fit(valid_data[model_feats], valid_data[self.target])
                 cv = self.run_cross_validation(test_model,valid_data,model_feats)
-                #print('model feats:')
-                #print(model_feats)
-                #print('after rfe:')
-                #print(cv)
 
             # use model_feats to grid-search hyperparameters
             model_hyperparams = {}
             if train_hyperparameters:
                 test_model = self.build_model()
-                param_grid = self.hyperparam_grid
-                #test_model = self.build_sgd_model()
-                #param_grid = self.sgd_hyperparam_grid
+                param_grid = self.models_and_params[self.model_type]
                 model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid,scoring)
                 test_model = self.build_model(model_hyperparams)
-                #test_model = self.build_sgd_model(model_hyperparams)
                 test_model.fit(valid_data[model_feats], valid_data[self.target])
                 cv = self.run_cross_validation(test_model,valid_data,model_feats)
-                #print('hyperparam grid:')
-                #print(param_grid)
-                #print('selected hyperparams:')
-                #print(model_hyperparams)
-                #print('after hyperparam selection:')
-                #print(cv)
 
             # after parameter and feature selection,
             # the entire dataset is used for final training,
-            #new_model = self.build_sgd_model(model_hyperparams)
             new_model = self.build_model(model_hyperparams)
             self.cross_valid_results = self.run_cross_validation(new_model,valid_data,model_feats)
             new_model.fit(valid_data[model_feats], valid_data[self.target])
