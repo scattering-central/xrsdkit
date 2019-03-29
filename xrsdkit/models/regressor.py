@@ -111,6 +111,9 @@ class Regressor(XRSDModel):
         else:
             return self.default_val
 
+    def get_cv_summary(self):
+        return {k:self.cross_valid_results.get(k,None) for k in ['MAE','coef_of_determination']} 
+
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
 

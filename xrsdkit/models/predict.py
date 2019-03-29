@@ -1,6 +1,6 @@
 import numpy as np
 
-from . import regression_models, classification_models#, test_regression_models, test_classification_models
+from . import regression_models, classification_models
 from ..system import System
 from .. import definitions as xrsdefs
 
