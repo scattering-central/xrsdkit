@@ -2,12 +2,7 @@ import os
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
-def plot_2d(data,
-    axis_cols,
-    label,
-    show_plot=True,
-    save_plot=False,
-    saving_dir=None):
+def plot_2d(data, axis_cols, label, show_plot=True):
     """Make a labeled scatterplot of any two columns of the data.
 
     Optionally, the plot can be shown on the display 
