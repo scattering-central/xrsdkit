@@ -136,6 +136,9 @@ class Classifier(XRSDModel):
             result += (matrix[ilabel]+"  "+str(label)+'\n')
         return result
 
+    def get_cv_summary(self):
+        return {k:self.cross_valid_results.get(k,None) for k in ['f1_macro','accuracy','precision','recall']} 
+
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
 

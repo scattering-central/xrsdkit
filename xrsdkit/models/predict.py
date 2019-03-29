@@ -1,6 +1,6 @@
 import numpy as np
 
-from . import regression_models, classification_models#, test_regression_models, test_classification_models
+from . import regression_models, classification_models
 from ..system import System
 from .. import definitions as xrsdefs
 
@@ -42,7 +42,7 @@ def predict(features):
             if struct_result[0]:
                 if flagged_structures: flagged_structures += '__'
                 flagged_structures += struct_nm
-        if flagged_structures:
+        if flagged_structures in main_cls:
             sys_cls_result = main_cls[flagged_structures].classify(features)
             sys_cls = sys_cls_result[0]
             certainties['system_class'] = sys_cls_result[1]
