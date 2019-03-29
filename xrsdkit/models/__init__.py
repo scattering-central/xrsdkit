@@ -8,19 +8,17 @@ from .regressor import Regressor
 from .classifier import Classifier
 
 file_path = os.path.abspath(__file__)
-src_dir = os.path.dirname(os.path.dirname(file_path))
-root_dir = os.path.dirname(src_dir)
+models_dir = os.path.dirname(file_path)
+package_dir = os.path.dirname(models_dir)
+root_dir = os.path.dirname(package_dir)
 
 # find directory containing packaged modeling data
-modeling_data_dir = os.path.join(src_dir,'models','modeling_data')
+modeling_data_dir = os.path.join(package_dir,'models','modeling_data')
 regression_models_dir = os.path.join(modeling_data_dir,'regressors')
 classification_models_dir = os.path.join(modeling_data_dir,'classifiers')
 
-# find directory containing test modeling data
-testing_data_dir = os.path.join(src_dir,'models','modeling_data','test')
-if not os.path.exists(testing_data_dir): os.mkdir(testing_data_dir)
-test_regression_models_dir = os.path.join(testing_data_dir,'regressors')
-test_classification_models_dir = os.path.join(testing_data_dir,'classifiers')
+# find directory containing training summary
+training_summary_yml = os.path.join(models_dir,'training_summary.yml')
 
 def load_classifier_from_yml(yml_file):
     ymlf = open(yml_file,'rb')
@@ -43,6 +41,8 @@ def load_classification_models(model_root_dir=classification_models_dir):
     if not os.path.exists(model_root_dir):
         return model_dict
     all_sys_cls = os.listdir(model_root_dir)
+    # this next line filters out hidden files
+    all_sys_cls = [i for i in all_sys_cls if not i[0]=='.']
 
     # the top-level classifier is a collection of classifiers;
     # their cumulative effect is to find the number of distinct populations
@@ -51,6 +51,8 @@ def load_classification_models(model_root_dir=classification_models_dir):
     model_dict['main_classifiers'] = {}
     if os.path.exists(main_cls_path):
         all_main_cls = os.listdir(main_cls_path)
+        # this next line filters out hidden files
+        all_main_cls = [i for i in all_main_cls if not i[0]=='.']
         all_main_cls = [cl for cl in all_main_cls if cl.endswith('.yml')]
         for cl in all_main_cls:
             cl_name = os.path.splitext(cl)[0]
@@ -97,8 +99,11 @@ def load_regression_models(model_root_dir=regression_models_dir):
     model_dict = OrderedDict()
     if not os.path.exists(model_root_dir):
         return model_dict
- 
-    for sys_cls in os.listdir(model_root_dir):
+
+    all_sys_cls = os.listdir(model_root_dir)
+    # this next line filters out hidden files
+    all_sys_cls = [i for i in all_sys_cls if not i[0]=='.']
+    for sys_cls in all_sys_cls:
         model_dict[sys_cls] = {}
         sys_cls_dir = os.path.join(model_root_dir,sys_cls)
 
@@ -130,7 +135,10 @@ def load_regression_models(model_root_dir=regression_models_dir):
                 stg_dir = os.path.join(pop_dir,stg_nm)
                 if os.path.exists(stg_dir):
                     model_dict[sys_cls][pop_id][stg_nm] = {}
-                    for stg_label in os.listdir(stg_dir):
+                    all_stg_labels = os.listdir(stg_dir)
+                    # this next line filters out hidden files
+                    all_stg_labels = [i for i in all_stg_labels if not i[0]=='.']
+                    for stg_label in all_stg_labels:
                         stg_label_dir = os.path.join(stg_dir,stg_label)
                         if os.path.exists(stg_label_dir):
                             model_dict[sys_cls][pop_id][stg_nm][stg_label] = {}
@@ -153,7 +161,10 @@ def load_regression_models(model_root_dir=regression_models_dir):
                     stg_dir = os.path.join(ff_dir,stg_nm)
                     if os.path.exists(stg_dir): 
                         model_dict[sys_cls][pop_id][ff_nm][stg_nm] = {}
-                        for stg_label in os.listdir(stg_dir):
+                        all_stg_labels = os.listdir(stg_dir)
+                        # this next line filters out hidden files
+                        all_stg_labels = [i for i in all_stg_labels if not i[0]=='.']
+                        for stg_label in all_stg_labels:
                             stg_label_dir = os.path.join(stg_dir,stg_label)
                             if os.path.exists(stg_label_dir):
                                 model_dict[sys_cls][pop_id][ff_nm][stg_nm][stg_label] = {}
@@ -163,7 +174,4 @@ def load_regression_models(model_root_dir=regression_models_dir):
     return model_dict
 
 regression_models = load_regression_models(regression_models_dir)
-classification_models = load_classification_models(classification_models_dir) 
-test_regression_models = load_regression_models(test_regression_models_dir) 
-test_classification_models = load_classification_models(test_classification_models_dir)
-
+classification_models = load_classification_models(classification_models_dir)

@@ -1,20 +1,22 @@
 import os
 import itertools
+from collections import OrderedDict
 
 import yaml
 import numpy as np
 
-from . import regression_models_dir, classification_models_dir
-from . import test_regression_models_dir, test_classification_models_dir
 from . import regression_models, classification_models
-from . import test_regression_models, test_classification_models
+from . import training_summary_yml
 from .. import definitions as xrsdefs
 from ..tools import primitives
 from .regressor import Regressor
 from .classifier import Classifier
 
-
-def train_from_dataframe(data,train_hyperparameters=False,select_features=False,save_models=False,test=False):
+def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_features=False, save_models=False):
+    old_summary = {}
+    if os.path.isfile(training_summary_yml): 
+        with open(training_summary_yml,'rb') as yml_file:
+            old_summary = yaml.load(yml_file)
     # classification models: 
     cls_models = train_classification_models(data, train_hyperparameters, select_features)
     # regression models:
@@ -23,8 +25,16 @@ def train_from_dataframe(data,train_hyperparameters=False,select_features=False,
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
     if save_models:
-        save_classification_models(cls_models, test=test)
-        save_regression_models(reg_models, test=test)
+        cl_dir = os.path.join(output_dir,'classifiers')
+        if not os.path.exists(cl_dir): os.mkdir(cl_dir)
+        reg_dir = os.path.join(output_dir,'regressors')
+        if not os.path.exists(reg_dir): os.mkdir(reg_dir)
+        summary_reg = save_regression_models(reg_dir, reg_models)
+        summary_cl = save_classification_models(cl_dir, cls_models)
+        summary = collect_summary(old_summary, summary_reg, summary_cl)
+        yml_f = os.path.join(output_dir,'training_summary.yml')
+        with open(yml_f,'w') as yml_file:
+            yaml.dump(summary,yml_file)
 
 def train_classification_models(data,train_hyperparameters=False,select_features=False):
     """Train all classifiers that are trainable from `data`.
@@ -48,11 +58,6 @@ def train_classification_models(data,train_hyperparameters=False,select_features
 
     # find all existing types of populations in training data:
     all_sys_cls = data['system_class'].tolist()
-    #pops = [p.split("__") for p in pops]
-    #flat_list = [item for sublist in pops for item in sublist]
-    #all_pops = set(flat_list)
-    #all_pops.discard('unidentified')
-    #all_sys_cls = data['system_class'].tolist()
 
     data_copy = data.copy()
     for struct_nm in xrsdefs.structure_names:
@@ -72,7 +77,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         and (classification_models['main_classifiers'][model_id].trained) \
         and (classification_models['main_classifiers'][model_id].model_type == new_model_type):
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
-            model.model.set_params(C=old_pars['C'])
+            for param_nm in model.models_and_params[new_model_type]:
+                model.model.set_params(**{param_nm:old_pars[param_nm]})
         # binary classifiers should be trained to avoid false positives:
         # use 'precision' as the scoring function
         model.train(data_copy, 'precision', train_hyperparameters, select_features)
@@ -113,7 +119,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 and (classification_models['main_classifiers'][model_id].trained) \
                 and (classification_models['main_classifiers'][model_id].model_type == new_model_type):
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
-                    model.model.set_params(C=old_pars['C'])
+                    for param_nm in model.models_and_params[new_model_type]:
+                        model.model.set_params(**{param_nm:old_pars[param_nm]})
                 # system classifiers should use f1_macro or accuracy
                 model.train(flag_data, 'accuracy', train_hyperparameters, select_features)
                 if model.trained:
@@ -147,7 +154,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         and (classification_models[sys_cls]['noise_model'].trained) \
         and (classification_models[sys_cls]['noise_model'].model_type == new_model_type):
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
-            model.model.set_params(C=old_pars['C'])
+            for param_nm in model.models_and_params[new_model_type]:
+                model.model.set_params(**{param_nm:old_pars[param_nm]})
         model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
         if model.trained:
             f1_score = model.cross_valid_results['f1_macro']
@@ -176,7 +184,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             and (classification_models[sys_cls][pop_id]['form'].trained) \
             and (classification_models[sys_cls][pop_id]['form'].model_type == new_model_type):
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
-                model.model.set_params(C=old_pars['C'])
+                for param_nm in model.models_and_params[new_model_type]:
+                    model.model.set_params(**{param_nm:old_pars[param_nm]})
             model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
             if model.trained:
                 f1_score = model.cross_valid_results['f1_macro']
@@ -200,7 +209,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 and (classification_models[sys_cls][pop_id][stg_nm].trained) \
                 and (classification_models[sys_cls][pop_id][stg_nm].model_type == new_model_type):
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
-                    model.model.set_params(C=old_pars['C'])
+                    for param_nm in model.models_and_params[new_model_type]:
+                        model.model.set_params(**{param_nm:old_pars[param_nm]})
                 model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
                 if model.trained:
                     f1_score = model.cross_valid_results['f1_macro']
@@ -230,7 +240,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                     and (classification_models[sys_cls][pop_id][ff][stg_nm].trained) \
                     and (classification_models[sys_cls][pop_id][ff][stg_nm].model_type == new_model_type):
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
-                        model.model.set_params(C=old_pars['C'])
+                        for param_nm in model.models_and_params[new_model_type]:
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(form_data, 'accuracy', train_hyperparameters, select_features)
                     if model.trained:
                         f1_score = model.cross_valid_results['f1_macro']
@@ -245,7 +256,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
     return cls_models
 
 
-def save_classification_models(models=classification_models, test=False):
+def save_classification_models(output_dir, models):
     """Serialize `models` to .yml files, and also save them as module attributes.
 
     The models and scalers are saved to .yml,
@@ -256,14 +267,10 @@ def save_classification_models(models=classification_models, test=False):
     ----------
     models : dict
         embedded dict of models, similar to output of train_regression_models().
-    test : bool (optional)
-        if True, the models will be saved in the testing dir.
     """
-    cl_root_dir = classification_models_dir
-    model_dict = classification_models 
-    if test: 
-        cl_root_dir = test_classification_models_dir
-        model_dict = test_classification_models
+    cl_root_dir = output_dir
+    model_dict = classification_models
+    summary = {}
     if not os.path.exists(cl_root_dir): os.mkdir(cl_root_dir)
 
     if 'main_classifiers' in models:
@@ -274,6 +281,7 @@ def save_classification_models(models=classification_models, test=False):
             yml_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.yml')
             txt_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.txt')
             mod.save_model_data(yml_path,txt_path)
+            summary[model_name] = primitives(mod.get_cv_summary())
 
     all_sys_cls = list(models.keys())
     all_sys_cls.remove('main_classifiers')
@@ -286,6 +294,8 @@ def save_classification_models(models=classification_models, test=False):
             yml_path = os.path.join(sys_cls_dir,'noise_model.yml')
             txt_path = os.path.join(sys_cls_dir,'noise_model.txt')
             models[sys_cls]['noise_model'].save_model_data(yml_path,txt_path)
+            model_name = sys_cls + '_noise_model'
+            summary[model_name] = primitives(models[sys_cls]['noise_model'].get_cv_summary())
 
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
@@ -298,6 +308,8 @@ def save_classification_models(models=classification_models, test=False):
                 yml_path = os.path.join(pop_dir,'form.yml')
                 txt_path = os.path.join(pop_dir,'form.txt')
                 models[sys_cls][pop_id]['form'].save_model_data(yml_path,txt_path)
+                model_name = sys_cls + '_' + pop_id +'_form'
+                summary[model_name] = primitives(models[sys_cls][pop_id]['form'].get_cv_summary())
                
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 if stg_nm in models[sys_cls][pop_id]:
@@ -305,6 +317,8 @@ def save_classification_models(models=classification_models, test=False):
                     yml_path = os.path.join(pop_dir,stg_nm+'.yml')
                     txt_path = os.path.join(pop_dir,stg_nm+'.txt')
                     models[sys_cls][pop_id][stg_nm].save_model_data(yml_path,txt_path)
+                    model_name = sys_cls + '_' + pop_id + '_' + stg_nm
+                    summary[model_name] = primitives(models[sys_cls][pop_id][stg_nm].get_cv_summary())
 
             for ff_id in xrsdefs.form_factor_names:
                 if ff_id in models[sys_cls][pop_id]:
@@ -316,6 +330,9 @@ def save_classification_models(models=classification_models, test=False):
                         yml_path = os.path.join(form_dir,stg_nm+'.yml')
                         txt_path = os.path.join(form_dir,stg_nm+'.txt')
                         models[sys_cls][pop_id][ff_id][stg_nm].save_model_data(yml_path,txt_path)
+                        model_name = sys_cls + '_' + pop_id + '_' + ff_id + '_' + stg_nm
+                        summary[model_name] = primitives(models[sys_cls][pop_id][ff_id][stg_nm].get_cv_summary())
+    return summary
 
 
 def train_regression_models(data,train_hyperparameters=False,select_features=False):
@@ -365,7 +382,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                     and (regression_models[sys_cls]['noise'][modnm][pnm].trained) \
                     and (regression_models[sys_cls]['noise'][modnm][pnm].model_type == new_model_type): 
                         old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
-                        model.model.set_params(alpha=old_pars['alpha'])
+                        for param_nm in model.models_and_params[new_model_type]:
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(noise_model_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -390,7 +408,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
             and (regression_models[sys_cls][pop_id]['I0_fraction'].trained) \
             and (regression_models[sys_cls][pop_id]['I0_fraction'].model_type == new_model_type): 
                 old_pars = regression_models[sys_cls][pop_id]['I0_fraction'].model.get_params()
-                model.model.set_params(alpha=old_pars['alpha'])
+                for param_nm in model.models_and_params[new_model_type]:
+                    model.model.set_params(**{param_nm:old_pars[param_nm]})
             model.train(sys_cls_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
             if model.trained:
                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -421,7 +440,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         and (regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].trained) \
                         and (regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model_type == new_model_type):
                             old_pars = regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model.get_params()
-                            model.model.set_params(alpha=old_pars['alpha'])
+                            for param_nm in model.models_and_params[new_model_type]:
+                                model.model.set_params(**{param_nm:old_pars[param_nm]})
                         model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                         if model.trained:
                             grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -451,7 +471,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                     and (regression_models[sys_cls][pop_id][form_id][pnm].trained) \
                     and (regression_models[sys_cls][pop_id][form_id][pnm].model_type == new_model_type):
                         old_pars = regression_models[sys_cls][pop_id][form_id][pnm].model.get_params()
-                        model.model.set_params(alpha=old_pars['alpha'])
+                        for param_nm in model.models_and_params[new_model_type]:
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(form_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -483,7 +504,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                             and (regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].trained) \
                             and (regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model_type == new_model_type):
                                 old_pars = regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model.get_params()
-                                model.model.set_params(alpha=old_pars['alpha'])
+                                for param_nm in model.models_and_params[new_model_type]:
+                                    model.model.set_params(**{param_nm:old_pars[param_nm]})
                             model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                             if model.trained:
                                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -495,7 +517,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
     return reg_models
 
 
-def save_regression_models(models=regression_models, test=False):
+def save_regression_models(output_dir, models):
     """Serialize `models` to .yml files, and also save them as module attributes.
 
     The models and scalers are saved to .yml,
@@ -506,14 +528,10 @@ def save_regression_models(models=regression_models, test=False):
     ----------
     models : dict
         embedded dict of models, similar to output of train_regression_models().
-    test : bool (optional)
-        if True, the models will be saved in the testing dir.
     """
-    rg_root_dir = regression_models_dir
+    rg_root_dir = output_dir
     model_dict = regression_models
-    if test: 
-        rg_root_dir = test_regression_models_dir 
-        model_dict = test_regression_models
+    summary = {}
     if not os.path.exists(rg_root_dir): os.mkdir(rg_root_dir)
     for sys_cls in models.keys():
         sys_cls_dir = os.path.join(rg_root_dir,sys_cls)
@@ -532,6 +550,8 @@ def save_regression_models(models=regression_models, test=False):
                     yml_path = os.path.join(noise_model_dir,pnm+'.yml')
                     txt_path = os.path.join(noise_model_dir,pnm+'.txt')
                     models[sys_cls]['noise'][modnm][pnm].save_model_data(yml_path,txt_path)
+                    model_name = sys_cls + '_noise_' + modnm + "_" + pnm
+                    summary[model_name] = primitives(models[sys_cls]['noise'][modnm][pnm].get_cv_summary())
 
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
@@ -544,6 +564,8 @@ def save_regression_models(models=regression_models, test=False):
                 yml_path = os.path.join(pop_dir,'I0_fraction.yml')
                 txt_path = os.path.join(pop_dir,'I0_fraction.txt')
                 models[sys_cls][pop_id]['I0_fraction'].save_model_data(yml_path,txt_path)
+                model_name = sys_cls + "_" + pop_id + '_I0_fraction'
+                summary[model_name] = primitives(models[sys_cls][pop_id]['I0_fraction'].get_cv_summary())
                
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 if stg_nm in models[sys_cls][pop_id]:
@@ -562,6 +584,8 @@ def save_regression_models(models=regression_models, test=False):
                                 yml_path = os.path.join(stg_label_dir,pnm+'.yml')
                                 txt_path = os.path.join(stg_label_dir,pnm+'.txt')
                                 models[sys_cls][pop_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path)
+                                model_name = sys_cls + "_" + pop_id + "_" + stg_nm + "_"+ stg_label + "_" + pnm
+                                summary[model_name] = primitives(models[sys_cls][pop_id][stg_nm][stg_label][pnm].get_cv_summary())
             
             for form_id in xrsdefs.form_factor_names:
                 if form_id in models[sys_cls][pop_id]:
@@ -574,6 +598,8 @@ def save_regression_models(models=regression_models, test=False):
                             yml_path = os.path.join(form_dir,pnm+'.yml')
                             txt_path = os.path.join(form_dir,pnm+'.txt')
                             models[sys_cls][pop_id][form_id][pnm].save_model_data(yml_path,txt_path)
+                            model_name = sys_cls + "_" + pop_id + "_" + form_id + "_"+ pnm
+                            summary[model_name] = primitives(models[sys_cls][pop_id][form_id][pnm].get_cv_summary())
 
                     for stg_nm in xrsdefs.modelable_form_factor_settings[form_id]:
                         if stg_nm in models[sys_cls][pop_id][form_id]:
@@ -591,4 +617,37 @@ def save_regression_models(models=regression_models, test=False):
                                     yml_path = os.path.join(stg_label_dir,pnm+'.yml')
                                     txt_path = os.path.join(stg_label_dir,pnm+'.txt')
                                     models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path)
+                                    model_name = sys_cls + "_" + pop_id + "_" + form_id + "_"+ stg_nm + "_" + stg_label + "_" + pnm
+                                    summary[model_name] = primitives(models[sys_cls][pop_id]\
+                                        [form_id][stg_nm][stg_label][pnm].get_cv_summary())
+    return summary
+
+
+def collect_summary(old_summary, summary_reg, summary_cl):
+    summary = OrderedDict.fromkeys(['DESCRIPTION','CLASSIFIERS','REGRESSORS'])
+    summary['DESCRIPTION'] = 'Each metric is reported with two values: '\
+        'The first value of each metric is the value of the metric, '\
+        'and the second value is the delta relative to the currently loaded models'
+    summary['REGRESSORS'] = {}
+    for k, v in summary_reg.items():
+        if v:
+            summary['REGRESSORS'][k] = {}
+            for metric, value in v.items():
+                try:
+                    diff = value-old_summary['REGRESSORS'][k][metric][0]
+                except:
+                    diff = None
+                summary['REGRESSORS'][k][metric] = [value, diff]
+    summary['CLASSIFIERS'] = {}
+    for k, v in summary_cl.items():
+        summary['CLASSIFIERS'][k] = {}
+        if v:
+            for metric, value in v.items():
+                try:
+                    diff = value-old_summary['CLASSIFIERS'][k][metric][0]
+                except:
+                    diff = None
+                summary['CLASSIFIERS'][k][metric] = [value, diff]
+    return summary
+
 
