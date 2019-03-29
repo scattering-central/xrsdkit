@@ -16,9 +16,7 @@ def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_f
     old_summary = {}
     if os.path.isfile(training_summary_yml): 
         with open(training_summary_yml,'rb') as yml_file:
-            old_results = yaml.load(yml_file)
-    # regression models:
-    reg_models = train_regression_models(data, train_hyperparameters, select_features)
+            old_summary = yaml.load(yml_file)
     # classification models: 
     cls_models = train_classification_models(data, train_hyperparameters, select_features)
     # regression models:
@@ -33,7 +31,7 @@ def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_f
         if not os.path.exists(reg_dir): os.mkdir(reg_dir)
         summary_reg = save_regression_models(reg_dir, reg_models)
         summary_cl = save_classification_models(cl_dir, cls_models)
-        summary = collect_summary(old_results, summary_reg, summary_cl)
+        summary = collect_summary(old_summary, summary_reg, summary_cl)
         yml_f = os.path.join(output_dir,'training_summary.yml')
         with open(yml_f,'w') as yml_file:
             yaml.dump(summary,yml_file)
@@ -79,8 +77,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         and (classification_models['main_classifiers'][model_id].trained) \
         and (classification_models['main_classifiers'][model_id].model_type == new_model_type):
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
-            # TODO: this must respect new_model_type!!!
-            model.model.set_params(C=old_pars['C'])
+            for param_nm in model.models_and_params[new_model_type]:
+                model.model.set_params(**{param_nm:old_pars[param_nm]})
         # binary classifiers should be trained to avoid false positives:
         # use 'precision' as the scoring function
         model.train(data_copy, 'precision', train_hyperparameters, select_features)
@@ -121,8 +119,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 and (classification_models['main_classifiers'][model_id].trained) \
                 and (classification_models['main_classifiers'][model_id].model_type == new_model_type):
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
-                    # TODO: this must respect new_model_type!!!
-                    model.model.set_params(C=old_pars['C'])
+                    for param_nm in model.models_and_params[new_model_type]:
+                        model.model.set_params(**{param_nm:old_pars[param_nm]})
                 # system classifiers should use f1_macro or accuracy
                 model.train(flag_data, 'accuracy', train_hyperparameters, select_features)
                 if model.trained:
@@ -156,8 +154,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         and (classification_models[sys_cls]['noise_model'].trained) \
         and (classification_models[sys_cls]['noise_model'].model_type == new_model_type):
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
-            # TODO: this must respect new_model_type!!!
-            model.model.set_params(C=old_pars['C'])
+            for param_nm in model.models_and_params[new_model_type]:
+                model.model.set_params(**{param_nm:old_pars[param_nm]})
         model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
         if model.trained:
             f1_score = model.cross_valid_results['f1_macro']
@@ -186,8 +184,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             and (classification_models[sys_cls][pop_id]['form'].trained) \
             and (classification_models[sys_cls][pop_id]['form'].model_type == new_model_type):
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
-                # TODO: this must respect new_model_type!!!
-                model.model.set_params(C=old_pars['C'])
+                for param_nm in model.models_and_params[new_model_type]:
+                    model.model.set_params(**{param_nm:old_pars[param_nm]})
             model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
             if model.trained:
                 f1_score = model.cross_valid_results['f1_macro']
@@ -211,8 +209,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 and (classification_models[sys_cls][pop_id][stg_nm].trained) \
                 and (classification_models[sys_cls][pop_id][stg_nm].model_type == new_model_type):
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
-                    # TODO: this must respect new_model_type!!!
-                    model.model.set_params(C=old_pars['C'])
+                    for param_nm in model.models_and_params[new_model_type]:
+                        model.model.set_params(**{param_nm:old_pars[param_nm]})
                 model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
                 if model.trained:
                     f1_score = model.cross_valid_results['f1_macro']
@@ -242,8 +240,8 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                     and (classification_models[sys_cls][pop_id][ff][stg_nm].trained) \
                     and (classification_models[sys_cls][pop_id][ff][stg_nm].model_type == new_model_type):
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
-                        # TODO: this must respect new_model_type!!!
-                        model.model.set_params(C=old_pars['C'])
+                        for param_nm in model.models_and_params[new_model_type]:
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(form_data, 'accuracy', train_hyperparameters, select_features)
                     if model.trained:
                         f1_score = model.cross_valid_results['f1_macro']
@@ -384,8 +382,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                     and (regression_models[sys_cls]['noise'][modnm][pnm].trained) \
                     and (regression_models[sys_cls]['noise'][modnm][pnm].model_type == new_model_type): 
                         old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
-                        # TODO: this must respect new_model_type!!!
-                        model.model.set_params(alpha=old_pars['alpha'])
+                        for param_nm in model.models_and_params[new_model_type]:
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(noise_model_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -410,8 +408,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
             and (regression_models[sys_cls][pop_id]['I0_fraction'].trained) \
             and (regression_models[sys_cls][pop_id]['I0_fraction'].model_type == new_model_type): 
                 old_pars = regression_models[sys_cls][pop_id]['I0_fraction'].model.get_params()
-                # TODO: this must respect new_model_type!!!
-                model.model.set_params(alpha=old_pars['alpha'])
+                for param_nm in model.models_and_params[new_model_type]:
+                    model.model.set_params(**{param_nm:old_pars[param_nm]})
             model.train(sys_cls_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
             if model.trained:
                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -442,8 +440,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         and (regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].trained) \
                         and (regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model_type == new_model_type):
                             old_pars = regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model.get_params()
-                            # TODO: this must respect new_model_type!!!
-                            model.model.set_params(alpha=old_pars['alpha'])
+                            for param_nm in model.models_and_params[new_model_type]:
+                                model.model.set_params(**{param_nm:old_pars[param_nm]})
                         model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                         if model.trained:
                             grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -473,8 +471,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                     and (regression_models[sys_cls][pop_id][form_id][pnm].trained) \
                     and (regression_models[sys_cls][pop_id][form_id][pnm].model_type == new_model_type):
                         old_pars = regression_models[sys_cls][pop_id][form_id][pnm].model.get_params()
-                        # TODO: this must respect new_model_type!!!
-                        model.model.set_params(alpha=old_pars['alpha'])
+                        for param_nm in model.models_and_params[new_model_type]:
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(form_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -506,8 +504,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                             and (regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].trained) \
                             and (regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model_type == new_model_type):
                                 old_pars = regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model.get_params()
-                                # TODO: this must respect new_model_type!!!
-                                model.model.set_params(alpha=old_pars['alpha'])
+                                for param_nm in model.models_and_params[new_model_type]:
+                                    model.model.set_params(**{param_nm:old_pars[param_nm]})
                             model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
                             if model.trained:
                                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -636,7 +634,7 @@ def collect_summary(old_summary, summary_reg, summary_cl):
             summary['REGRESSORS'][k] = {}
             for metric, value in v.items():
                 try:
-                    diff = value-old_results['REGRESSORS'][k][metric][0]
+                    diff = value-old_summary['REGRESSORS'][k][metric][0]
                 except:
                     diff = None
                 summary['REGRESSORS'][k][metric] = [value, diff]
@@ -646,7 +644,7 @@ def collect_summary(old_summary, summary_reg, summary_cl):
         if v:
             for metric, value in v.items():
                 try:
-                    diff = value-old_results['CLASSIFIERS'][k][metric][0]
+                    diff = value-old_summary['CLASSIFIERS'][k][metric][0]
                 except:
                     diff = None
                 summary['CLASSIFIERS'][k][metric] = [value, diff]
