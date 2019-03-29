@@ -18,11 +18,6 @@ def plot_2d(data, axis_cols, label, show_plot=True):
         column name to use for plot labeling
     show_plot : bool
         whether or not to show the plot on the display
-    save_plot : bool
-        If True, plot will be saved to
-        `saving_dir`/`label`_wrt_`axis_cols[0]`_by_`axis_cols[1]`.png
-    saving_dir : str
-        directory to save the plot
     """
     groups = data.groupby(label)
 
@@ -38,13 +33,8 @@ def plot_2d(data, axis_cols, label, show_plot=True):
     ax.set_title('By ' + label)
     ax.legend(bbox_to_anchor=(1.05, 1), loc=2,
            ncol=1,  borderaxespad=0.)
-
     if show_plot:
         plt.show(block=False)
-
-    if save_plot:
-        file_name=label+'_wrt_'+axis_cols[0]+'_by_'+axis_cols[1]+'.png'
-        fig.savefig(os.path.join(saving_dir,file_name))
 
 def doPCA(data, n_dimensions):
     """Perform principal component analysis on DataFrame `data`.

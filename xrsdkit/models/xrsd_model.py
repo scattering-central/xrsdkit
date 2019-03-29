@@ -17,7 +17,7 @@ class XRSDModel(object):
         self.models_and_params = {}
         self.model = None
         self.scaler = preprocessing.StandardScaler()
-        self.cross_valid_results = None
+        self.cross_valid_results = {} 
         self.target = label
         self.trained = False
         self.default_val = None

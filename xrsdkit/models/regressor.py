@@ -56,7 +56,7 @@ class Regressor(XRSDModel):
         epsilon = 0.15 
         if 'epsilon' in model_hyperparams: epsilon = model_hyperparams['epsilon']
         new_model = linear_model.SGDRegressor(alpha=alpha, l1_ratio=l1_ratio, epsilon=epsilon,
-            loss='huber', penalty='elasticnet', max_iter=10000)
+            loss='huber', penalty='elasticnet', max_iter=10000, tol=1.E-3)
         return new_model
 
     def load_model_data(self,model_data):

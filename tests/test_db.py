@@ -6,6 +6,7 @@ from xrsdkit.db import load_yml_to_file_table, load_from_files_table_to_samples_
 from xrsdkit.db import load_from_samples_to_training_table, get_training_dataframe
 from xrsdkit.db import storage_client, storage_path, test_db_connector
 
+data_dir = os.path.join(os.path.dirname(__file__),'test_data')
 test_models_dir = os.path.join(data_dir,'modeling_data')
 if not os.path.exists(test_models_dir): os.mkdir(test_models_dir)
 

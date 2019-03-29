@@ -10,7 +10,7 @@ from .classifier import Classifier
 file_path = os.path.abspath(__file__)
 models_dir = os.path.dirname(file_path)
 package_dir = os.path.dirname(models_dir)
-#root_dir = os.path.dirname(package_dir)
+root_dir = os.path.dirname(package_dir)
 
 # find directory containing packaged modeling data
 modeling_data_dir = os.path.join(package_dir,'models','modeling_data')
