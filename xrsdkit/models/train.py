@@ -25,6 +25,7 @@ def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_f
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
     if save_models:
+        if not os.path.exists(output_dir): os.mkdir(output_dir)
         cl_dir = os.path.join(output_dir,'classifiers')
         if not os.path.exists(cl_dir): os.mkdir(cl_dir)
         reg_dir = os.path.join(output_dir,'regressors')
