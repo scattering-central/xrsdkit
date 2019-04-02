@@ -1,6 +1,6 @@
 import numpy as np
 
-from . import regression_models, classification_models
+from . import get_regression_models, get_classification_models
 from ..system import System
 from .. import definitions as xrsdefs
 
@@ -23,8 +23,8 @@ def predict(features):
     results : dict
         dictionary with predicted classifications and parameters
     """
-    classifiers=classification_models
-    regressors=regression_models
+    classifiers = get_classification_models()
+    regressors = get_regression_models()
     results = {}
 
     # use the main classifiers to evaluate the system class

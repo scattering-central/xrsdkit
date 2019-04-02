@@ -5,14 +5,17 @@ from collections import OrderedDict
 import yaml
 import numpy as np
 
-from . import regression_models, classification_models
+from . import get_regression_models, get_classification_models
 from . import training_summary_yml
 from .. import definitions as xrsdefs
 from ..tools import primitives
 from .regressor import Regressor
 from .classifier import Classifier
 
-def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_features=False, save_models=False):
+regression_models = get_regression_models()
+classification_models = get_classification_models()
+
+def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_features=False, save_models=False, model_types= {}):
     old_summary = {}
     if os.path.isfile(training_summary_yml): 
         with open(training_summary_yml,'rb') as yml_file:
@@ -67,8 +70,14 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         # binary classifier model type is specified here!
         # we __should__ be able to try various models just by changing this.
         #
+        new_model_type ='knn'
+        #new_model_type ='d_tree'
+        #new_model_type ='linear_svm_hinge'
+        #new_model_type ='random_forest'
+        #new_model_type = 'linear_svm'
+        #new_model_type = 'non_linear_svm'
         #new_model_type = 'sgd_classifier'
-        new_model_type = 'logistic_regressor'
+        #new_model_type = 'logistic_regressor'
         model = Classifier(new_model_type, model_id)
         labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
         data_copy.loc[:,model_id] = labels
@@ -112,7 +121,17 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             flag_data = data.loc[flag_idx,:].copy()
             if flag_data.shape[0] > 0: # we have the data with this system class in the training set
                 # train the classifier
-                new_model_type = 'logistic_regressor'
+                #new_model_type = 'logistic_regressor'
+                #new_model_type = 'sgd_classifier'
+                #new_model_type = 'non_linear_svm'
+                #new_model_type = 'linear_svm'
+                #new_model_type ='random_forest'
+                #new_model_type ='linear_svm_hinge'
+                #new_model_type ='d_tree'
+                new_model_type ='knn'
+                if model_id == "diffuse__disordered":
+                    new_model_type = 'linear_svm'
+
                 model = Classifier(new_model_type, 'system_class')
                 if ('main_classifiers' in classification_models) \
                 and (model_id in classification_models['main_classifiers']) \
@@ -148,6 +167,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         # every system class must have a noise classifier
         print('    Training noise classifier for system class {}'.format(sys_cls))
         new_model_type = 'logistic_regressor'
+        #new_model_type = 'non_linear_svm'
+        #new_model_type = 'linear_svm'
+        #new_model_type ='random_forest'
+        #new_model_type ='linear_svm_hinge'
+        #new_model_type ='d_tree'
+        #new_model_type ='knn'
+
         model = Classifier(new_model_type, 'noise_model')
         if (sys_cls in classification_models) \
         and ('noise_model' in classification_models[sys_cls]) \
@@ -176,7 +202,14 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             # every population must have a form classifier
             form_header = pop_id+'_form'
             print('    Training: {}'.format(form_header))
-            new_model_type = 'logistic_regressor'
+            #new_model_type = 'logistic_regressor'
+            #new_model_type = 'non_linear_svm'
+            #new_model_type = 'linear_svm'
+            #new_model_type ='random_forest'
+            new_model_type ='linear_svm_hinge'
+            #new_model_type ='d_tree'
+            #new_model_type ='knn'
+            #new_model_type ='knn'
             model = Classifier(new_model_type, form_header)
             if (sys_cls in classification_models) \
             and (pop_id in classification_models[sys_cls]) \
@@ -280,7 +313,8 @@ def save_classification_models(output_dir, models):
         for model_name, mod in model_dict['main_classifiers'].items():
             yml_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.yml')
             txt_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.txt')
-            mod.save_model_data(yml_path,txt_path)
+            pickle_path = os.path.join(cl_root_dir,'main_classifiers', model_name + '.pickle')
+            mod.save_model_data(yml_path,txt_path, pickle_path)
             summary[model_name] = primitives(mod.get_cv_summary())
 
     all_sys_cls = list(models.keys())
@@ -293,7 +327,8 @@ def save_classification_models(output_dir, models):
             model_dict[sys_cls]['noise_model'] = models[sys_cls]['noise_model']
             yml_path = os.path.join(sys_cls_dir,'noise_model.yml')
             txt_path = os.path.join(sys_cls_dir,'noise_model.txt')
-            models[sys_cls]['noise_model'].save_model_data(yml_path,txt_path)
+            pickle_path = os.path.join(sys_cls_dir, 'noise_model.pickle')
+            models[sys_cls]['noise_model'].save_model_data(yml_path,txt_path, pickle_path)
             model_name = sys_cls + '_noise_model'
             summary[model_name] = primitives(models[sys_cls]['noise_model'].get_cv_summary())
 
@@ -307,7 +342,8 @@ def save_classification_models(output_dir, models):
                 model_dict[sys_cls][pop_id]['form'] = models[sys_cls][pop_id]['form']
                 yml_path = os.path.join(pop_dir,'form.yml')
                 txt_path = os.path.join(pop_dir,'form.txt')
-                models[sys_cls][pop_id]['form'].save_model_data(yml_path,txt_path)
+                pickle_path = os.path.join(pop_dir, 'form.pickle')
+                models[sys_cls][pop_id]['form'].save_model_data(yml_path,txt_path, pickle_path)
                 model_name = sys_cls + '_' + pop_id +'_form'
                 summary[model_name] = primitives(models[sys_cls][pop_id]['form'].get_cv_summary())
                
@@ -316,7 +352,8 @@ def save_classification_models(output_dir, models):
                     model_dict[sys_cls][pop_id][stg_nm] = models[sys_cls][pop_id][stg_nm]
                     yml_path = os.path.join(pop_dir,stg_nm+'.yml')
                     txt_path = os.path.join(pop_dir,stg_nm+'.txt')
-                    models[sys_cls][pop_id][stg_nm].save_model_data(yml_path,txt_path)
+                    pickle_path = os.path.join(pop_dir,stg_nm+ '.pickle')
+                    models[sys_cls][pop_id][stg_nm].save_model_data(yml_path,txt_path, pickle_path)
                     model_name = sys_cls + '_' + pop_id + '_' + stg_nm
                     summary[model_name] = primitives(models[sys_cls][pop_id][stg_nm].get_cv_summary())
 
@@ -329,7 +366,8 @@ def save_classification_models(output_dir, models):
                         model_dict[sys_cls][pop_id][ff_id][stg_nm] = models[sys_cls][pop_id][ff_id][stg_nm]
                         yml_path = os.path.join(form_dir,stg_nm+'.yml')
                         txt_path = os.path.join(form_dir,stg_nm+'.txt')
-                        models[sys_cls][pop_id][ff_id][stg_nm].save_model_data(yml_path,txt_path)
+                        pickle_path = os.path.join(form_dir,stg_nm+'.pickle')
+                        models[sys_cls][pop_id][ff_id][stg_nm].save_model_data(yml_path,txt_path, pickle_path)
                         model_name = sys_cls + '_' + pop_id + '_' + ff_id + '_' + stg_nm
                         summary[model_name] = primitives(models[sys_cls][pop_id][ff_id][stg_nm].get_cv_summary())
     return summary
@@ -549,7 +587,8 @@ def save_regression_models(output_dir, models):
                     model_dict[sys_cls]['noise'][modnm][pnm] = model 
                     yml_path = os.path.join(noise_model_dir,pnm+'.yml')
                     txt_path = os.path.join(noise_model_dir,pnm+'.txt')
-                    models[sys_cls]['noise'][modnm][pnm].save_model_data(yml_path,txt_path)
+                    pickle_path = os.path.join(noise_model_dir,pnm+'.pickle')
+                    models[sys_cls]['noise'][modnm][pnm].save_model_data(yml_path,txt_path, pickle_path)
                     model_name = sys_cls + '_noise_' + modnm + "_" + pnm
                     summary[model_name] = primitives(models[sys_cls]['noise'][modnm][pnm].get_cv_summary())
 
@@ -563,7 +602,8 @@ def save_regression_models(output_dir, models):
                 model_dict[sys_cls][pop_id]['I0_fraction'] = models[sys_cls][pop_id]['I0_fraction']
                 yml_path = os.path.join(pop_dir,'I0_fraction.yml')
                 txt_path = os.path.join(pop_dir,'I0_fraction.txt')
-                models[sys_cls][pop_id]['I0_fraction'].save_model_data(yml_path,txt_path)
+                pickle_path = os.path.join(pop_dir,'I0_fraction.pickle')
+                models[sys_cls][pop_id]['I0_fraction'].save_model_data(yml_path,txt_path, pickle_path)
                 model_name = sys_cls + "_" + pop_id + '_I0_fraction'
                 summary[model_name] = primitives(models[sys_cls][pop_id]['I0_fraction'].get_cv_summary())
                
@@ -583,7 +623,8 @@ def save_regression_models(output_dir, models):
                                 models[sys_cls][pop_id][stg_nm][stg_label][pnm]
                                 yml_path = os.path.join(stg_label_dir,pnm+'.yml')
                                 txt_path = os.path.join(stg_label_dir,pnm+'.txt')
-                                models[sys_cls][pop_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path)
+                                pickle_path = os.path.join(stg_label_dir,pnm+'.pickle')
+                                models[sys_cls][pop_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path, pickle_path)
                                 model_name = sys_cls + "_" + pop_id + "_" + stg_nm + "_"+ stg_label + "_" + pnm
                                 summary[model_name] = primitives(models[sys_cls][pop_id][stg_nm][stg_label][pnm].get_cv_summary())
             
@@ -597,7 +638,8 @@ def save_regression_models(output_dir, models):
                             model_dict[sys_cls][pop_id][form_id][pnm] = models[sys_cls][pop_id][form_id][pnm]
                             yml_path = os.path.join(form_dir,pnm+'.yml')
                             txt_path = os.path.join(form_dir,pnm+'.txt')
-                            models[sys_cls][pop_id][form_id][pnm].save_model_data(yml_path,txt_path)
+                            pickle_path = os.path.join(form_dir,pnm+'.pickle')
+                            models[sys_cls][pop_id][form_id][pnm].save_model_data(yml_path,txt_path, pickle_path)
                             model_name = sys_cls + "_" + pop_id + "_" + form_id + "_"+ pnm
                             summary[model_name] = primitives(models[sys_cls][pop_id][form_id][pnm].get_cv_summary())
 
@@ -616,7 +658,8 @@ def save_regression_models(output_dir, models):
                                     models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm]
                                     yml_path = os.path.join(stg_label_dir,pnm+'.yml')
                                     txt_path = os.path.join(stg_label_dir,pnm+'.txt')
-                                    models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path)
+                                    pickle_path = os.path.join(stg_label_dir,pnm+'.pickle')
+                                    models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].save_model_data(yml_path,txt_path, pickle_path)
                                     model_name = sys_cls + "_" + pop_id + "_" + form_id + "_"+ stg_nm + "_" + stg_label + "_" + pnm
                                     summary[model_name] = primitives(models[sys_cls][pop_id]\
                                         [form_id][stg_nm][stg_label][pnm].get_cv_summary())
@@ -632,22 +675,27 @@ def collect_summary(old_summary, summary_reg, summary_cl):
     for k, v in summary_reg.items():
         if v:
             summary['REGRESSORS'][k] = {}
-            for metric, value in v.items():
+            summary['REGRESSORS'][k]['model_type'] = v['model_type']
+            summary['REGRESSORS'][k]['scores'] = {}
+            for metric, value in v['scores'].items():
                 try:
-                    diff = value-old_summary['REGRESSORS'][k][metric][0]
+                    diff = value-old_summary['REGRESSORS'][k]['scores'][metric][0]
                 except:
                     diff = None
-                summary['REGRESSORS'][k][metric] = [value, diff]
+                summary['REGRESSORS'][k]['scores'][metric] = [value, diff]
     summary['CLASSIFIERS'] = {}
     for k, v in summary_cl.items():
-        summary['CLASSIFIERS'][k] = {}
         if v:
-            for metric, value in v.items():
+            summary['CLASSIFIERS'][k] = {}
+            summary['CLASSIFIERS'][k]['model_type'] = v['model_type']
+            summary['CLASSIFIERS'][k]['scores'] = {}
+            for key, value in v['scores'].items():
                 try:
-                    diff = value-old_summary['CLASSIFIERS'][k][metric][0]
+                    diff = value-old_summary['CLASSIFIERS'][k]['scores'][key][0]
                 except:
                     diff = None
-                summary['CLASSIFIERS'][k][metric] = [value, diff]
+
+                summary['CLASSIFIERS'][k]['scores'][key] = [value, diff]
     return summary
 
 

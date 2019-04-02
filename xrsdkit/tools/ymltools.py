@@ -1,9 +1,6 @@
 from collections import OrderedDict
 import os
-import sys
 import copy
-from distutils.dir_util import copy_tree
-import shutil
 
 from sklearn import preprocessing
 import pandas as pd
@@ -364,14 +361,3 @@ def downsample(df, min_distance):
 
         sample = sample.append(df.iloc[sample_order])
     return sample
-
-def load_models(models_dir, modeling_data_dir):
-    print('Loading models from '+models_dir)
-    cl_dir = os.path.join(modeling_data_dir,'classifiers')
-    reg_dir = os.path.join(modeling_data_dir,'regressors')
-    summary = os.path.join(modeling_data_dir,'training_summary.yml')
-    shutil.rmtree(cl_dir)
-    shutil.rmtree(reg_dir)
-    os.remove(summary)
-    copy_tree(models_dir, modeling_data_dir)
-    print("Done!")

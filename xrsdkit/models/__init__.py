@@ -1,7 +1,8 @@
 import os
 from collections import OrderedDict
-
 import yaml
+from distutils.dir_util import copy_tree
+import shutil
 
 from .. import definitions as xrsdefs 
 from .regressor import Regressor
@@ -18,22 +19,22 @@ regression_models_dir = os.path.join(modeling_data_dir,'regressors')
 classification_models_dir = os.path.join(modeling_data_dir,'classifiers')
 
 # find directory containing training summary
-training_summary_yml = os.path.join(models_dir,'training_summary.yml')
+training_summary_yml = os.path.join(models_dir, 'modeling_data','training_summary.yml')
 
-def load_classifier_from_yml(yml_file):
+def load_classifier_from_yml(yml_file, pickle_file):
     ymlf = open(yml_file,'rb')
     content = yaml.load(ymlf)
     ymlf.close()
     cl = Classifier(content['model_type'],content['model_target'])
-    cl.load_model_data(content)
+    cl.load_model_data(content, pickle_file)
     return cl
 
-def load_regressor_from_yml(yml_file):
+def load_regressor_from_yml(yml_file, pickle_file):
     ymlf = open(yml_file,'rb')
     content = yaml.load(ymlf)
     ymlf.close()
     reg = Regressor(content['model_type'],content['model_target'])
-    reg.load_model_data(content)
+    reg.load_model_data(content, pickle_file)
     return reg
 
 def load_classification_models(model_root_dir=classification_models_dir):  
@@ -57,7 +58,8 @@ def load_classification_models(model_root_dir=classification_models_dir):
         for cl in all_main_cls:
             cl_name = os.path.splitext(cl)[0]
             yml_path = os.path.join(main_cls_path, cl)
-            model_dict['main_classifiers'][cl_name] = load_classifier_from_yml(yml_path)
+            pickle_path =  os.path.join(main_cls_path, cl_name + '.pickle')
+            model_dict['main_classifiers'][cl_name] = load_classifier_from_yml(yml_path, pickle_path)
 
     if 'main_classifiers' in all_sys_cls: all_sys_cls.remove('main_classifiers')
     for sys_cls in all_sys_cls:
@@ -65,7 +67,8 @@ def load_classification_models(model_root_dir=classification_models_dir):
         sys_cls_dir = os.path.join(model_root_dir,sys_cls)
         noise_yml_path = os.path.join(sys_cls_dir,'noise_model.yml')
         if os.path.exists(noise_yml_path):
-            model_dict[sys_cls]['noise_model'] = load_classifier_from_yml(noise_yml_path)
+            pickle_path = os.path.join(sys_cls_dir,'noise_model.pickle')
+            model_dict[sys_cls]['noise_model'] = load_classifier_from_yml(noise_yml_path, pickle_path)
 
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
@@ -75,13 +78,15 @@ def load_classification_models(model_root_dir=classification_models_dir):
             # each population must have a form classifier
             form_yml_path = os.path.join(pop_dir,'form.yml')
             if os.path.exists(form_yml_path):
-                model_dict[sys_cls][pop_id]['form'] = load_classifier_from_yml(form_yml_path) 
+                pickle_path = os.path.join(pop_dir,'form.pickle')
+                model_dict[sys_cls][pop_id]['form'] = load_classifier_from_yml(form_yml_path, pickle_path)
 
             # other classifiers in this directory are for structure settings
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 stg_yml_path = os.path.join(pop_dir,stg_nm+'.yml')
                 if os.path.exists(stg_yml_path):
-                    model_dict[sys_cls][pop_id][stg_nm] = load_classifier_from_yml(stg_yml_path) 
+                    pickle_path = os.path.join(pop_dir,stg_nm+'.pickle')
+                    model_dict[sys_cls][pop_id][stg_nm] = load_classifier_from_yml(stg_yml_path, pickle_path)
 
             # some additional directories may exist for form factor settings-
             # these would be named according to their form factors
@@ -92,7 +97,8 @@ def load_classification_models(model_root_dir=classification_models_dir):
                     for stg_nm in xrsdefs.modelable_form_factor_settings[ffnm]:
                         stg_yml_path = os.path.join(ff_dir,stg_nm+'.yml')
                         if os.path.exists(stg_yml_path):
-                            model_dict[sys_cls][pop_id][ffnm][stg_nm] = load_classifier_from_yml(stg_yml_path) 
+                            pickle_path = os.path.join(ff_dir,stg_nm+'.pickle')
+                            model_dict[sys_cls][pop_id][ffnm][stg_nm] = load_classifier_from_yml(stg_yml_path, pickle_path)
     return model_dict
 
 def load_regression_models(model_root_dir=regression_models_dir):
@@ -117,7 +123,8 @@ def load_regression_models(model_root_dir=regression_models_dir):
                 for pnm in list(xrsdefs.noise_params[modnm].keys())+['I0_fraction']:
                     param_yml_file = os.path.join(noise_model_dir,pnm+'.yml')
                     if os.path.exists(param_yml_file):
-                        model_dict[sys_cls]['noise'][modnm][pnm] = load_regressor_from_yml(param_yml_file)
+                        pickle_path = os.path.join(noise_model_dir,pnm+'.pickle')
+                        model_dict[sys_cls]['noise'][modnm][pnm] = load_regressor_from_yml(param_yml_file, pickle_path)
 
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
@@ -126,8 +133,9 @@ def load_regression_models(model_root_dir=regression_models_dir):
 
             # each population must have a model for its I0_fraction 
             I0_fraction_yml = os.path.join(pop_dir,'I0_fraction.yml')
-            if os.path.exists(I0_fraction_yml): 
-                model_dict[sys_cls][pop_id]['I0_fraction'] = load_regressor_from_yml(I0_fraction_yml)
+            if os.path.exists(I0_fraction_yml):
+                pickle_path = os.path.join(pop_dir,'I0_fraction.pickle')
+                model_dict[sys_cls][pop_id]['I0_fraction'] = load_regressor_from_yml(I0_fraction_yml, pickle_path)
 
             # each population may have additional parameters,
             # depending on settings
@@ -144,7 +152,8 @@ def load_regression_models(model_root_dir=regression_models_dir):
                             model_dict[sys_cls][pop_id][stg_nm][stg_label] = {}
                             for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                                 param_yml = os.path.join(stg_label_dir,pnm+'.yml')
-                                model_dict[sys_cls][pop_id][stg_nm][stg_label][pnm] = load_regressor_from_yml(param_yml)
+                                pickle_path = os.path.join(stg_label_dir,pnm+'.pickle')
+                                model_dict[sys_cls][pop_id][stg_nm][stg_label][pnm] = load_regressor_from_yml(param_yml, pickle_path)
 
             # each population may have still more parameters,
             # depending on the form factor selection
@@ -154,7 +163,8 @@ def load_regression_models(model_root_dir=regression_models_dir):
                     model_dict[sys_cls][pop_id][ff_nm] = {}
                     for pnm in xrsdefs.form_factor_params[ff_nm]:
                         param_yml = os.path.join(ff_dir,pnm+'.yml')
-                        model_dict[sys_cls][pop_id][ff_nm][pnm] = load_regressor_from_yml(param_yml)
+                        pickle_path = os.path.join(ff_dir,pnm+'.pickle')
+                        model_dict[sys_cls][pop_id][ff_nm][pnm] = load_regressor_from_yml(param_yml, pickle_path)
 
                 # the final layer of parameters depends on form factor settings
                 for stg_nm in xrsdefs.modelable_form_factor_settings[ff_nm]:
@@ -170,8 +180,35 @@ def load_regression_models(model_root_dir=regression_models_dir):
                                 model_dict[sys_cls][pop_id][ff_nm][stg_nm][stg_label] = {}
                                 for pnm in xrsdefs.additional_form_factor_params(ff_nm,{stg_nm:stg_label}):
                                     param_yml = os.path.join(stg_label_dir,pnm+'.yml')
-                                    model_dict[sys_cls][pop_id][ff_nm][stg_nm][stg_label][pnm] = load_regressor_from_yml(param_yml)
+                                    pickle_path = os.path.join(stg_label_dir,pnm+'.pickle')
+                                    model_dict[sys_cls][pop_id][ff_nm][stg_nm][stg_label][pnm] = load_regressor_from_yml(param_yml, pickle_path)
     return model_dict
 
-regression_models = load_regression_models(regression_models_dir)
-classification_models = load_classification_models(classification_models_dir)
+_regression_models = load_regression_models(regression_models_dir)
+_classification_models = load_classification_models(classification_models_dir)
+
+def get_regression_models():
+    return _regression_models
+
+def get_classification_models():
+    return _classification_models
+
+def load_models(models_dir, modeling_data_dir):
+   print('Loading models from '+models_dir)
+   cl_dir = os.path.join(modeling_data_dir,'classifiers')
+   reg_dir = os.path.join(modeling_data_dir,'regressors')
+   summary = os.path.join(modeling_data_dir,'training_summary.yml')
+   if os.path.isfile(cl_dir):
+       shutil.rmtree(cl_dir)
+   if os.path.isfile(reg_dir):
+       shutil.rmtree(reg_dir)
+   if os.path.isfile(summary):
+       os.remove(summary)
+   copy_tree(models_dir, modeling_data_dir)
+
+   global _regression_models
+   _regression_models = load_regression_models(reg_dir)
+   global _classification_models
+   _classification_models = load_classification_models(cl_dir)
+
+   print("Done!")

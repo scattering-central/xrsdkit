@@ -1,9 +1,8 @@
-import random
+import pickle
 import copy
 
 import numpy as np
 import yaml
-from sklearn.decomposition import PCA
 from sklearn import preprocessing, utils
 from sklearn.model_selection import LeavePGroupsOut
 from dask_ml.model_selection import GridSearchCV 
@@ -22,26 +21,32 @@ class XRSDModel(object):
         self.trained = False
         self.default_val = None
         self.features = []
+        self.model = self.build_model()
 
-    def load_model_data(self,model_data):
+    def load_model_data(self,model_data, pickle_file):
         if self.model_type == model_data['model_type'] \
         and self.target == model_data['model_target']:
             self.default_val = model_data['default_val']
             self.features = model_data['features']
             if model_data['trained']:
-                self.trained = True 
+                self.trained = True
+                '''
                 self.model = self.build_model(model_data['model']['hyper_parameters'])
                 for k,v in model_data['model']['trained_par'].items():
                     setattr(self.model, k, np.array(v))
+                '''
                 setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
                 setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
+                self.model = pickle.load(open(pickle_file, 'rb'))
                 self.cross_valid_results = model_data['cross_valid_results']
         else:
             raise ValueError('Tried to load modeling data with non-matching target or model type')
 
-    def save_model_data(self,yml_path,txt_path):
+    def save_model_data(self,yml_path,txt_path, pickle_path):
         with open(yml_path,'w') as yml_file:
             yaml.dump(self.collect_model_data(),yml_file)
+        with open(pickle_path,'wb') as pickle_file:
+            pickle.dump(self.model, pickle_file)
         with open(txt_path,'w') as txt_file:
             if self.trained:
                 res_str = self.print_CV_report()
@@ -64,7 +69,10 @@ class XRSDModel(object):
             hyper_par = list(self.models_and_params[self.model_type].keys())
             for p in hyper_par:
                 if p in self.model.__dict__:
-                    model_data['model']['hyper_parameters'][p] = self.model.__dict__[p]
+                    try:
+                        model_data['model']['hyper_parameters'][p] = self.model.__dict__[p].tolist()
+                    except:
+                        model_data['model']['hyper_parameters'][p] = self.model.__dict__[p]
             # models are checked for several attributes before being used for predictions.
             # those attributes are listed here- if the model has any of them,
             # they must be saved so that they can be re-set when the model is loaded. 
