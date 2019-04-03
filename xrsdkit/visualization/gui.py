@@ -37,6 +37,10 @@ def run_fit_gui(data_files={}):
     gui = XRSDFitGUI(data_files)
     gui.start()
 
+# TODO (high): update IO - assume yml and dat files are in same directory
+# TODO (high): update IO - create minimal yml file if nonexistent, with same name as dat file 
+# TODO (high): update IO - assign the sample_metadata['data_file'] attribute if empty or incorrect
+
 # TODO (low): when a selection is rejected (raises an Exception),
 #   get the associated combobox re-painted-
 #   currently the value does get reset, 
