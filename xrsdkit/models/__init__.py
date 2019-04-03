@@ -23,7 +23,7 @@ classification_models_dir = os.path.join(modeling_data_dir,'classifiers')
 training_summary_yml = os.path.join(models_dir,'modeling_data','training_summary.yml')
 
 def load_model_from_files(yml_file, pickle_file, model_class):
-    """Build a xrsdkit Classifier from serialized model data.
+    """Build a xrsdkit.models.xrsd_model.XRSDModel from serialized model data.
 
     Parameters
     ----------
