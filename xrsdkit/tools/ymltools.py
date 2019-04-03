@@ -1,6 +1,9 @@
 from collections import OrderedDict
 import os
+import sys
 import copy
+from distutils.dir_util import copy_tree
+import shutil
 
 from sklearn import preprocessing
 import pandas as pd
@@ -75,8 +78,7 @@ def migrate_features(data_dir):
             sys = load_sys_from_yaml(file_path)
             q_I = np.loadtxt(os.path.join(data_dir,sys.sample_metadata['data_file']))
             sys.features = profiler.profile_pattern(q_I[:,0],q_I[:,1])
-            #save_sys_to_yaml(file_path,sys)
-            #if bool(int(sys.fit_report['good_fit'])):
+            save_sys_to_yaml(file_path,sys)
     print('FINISHED FEATURE MIGRATION')
 
 
@@ -387,3 +389,14 @@ def downsample(df, min_distance):
 
         sample = sample.append(df.iloc[sample_order])
     return sample
+
+def load_models(models_dir, modeling_data_dir):
+    print('Loading models from '+models_dir)
+    cl_dir = os.path.join(modeling_data_dir,'classifiers')
+    reg_dir = os.path.join(modeling_data_dir,'regressors')
+    summary = os.path.join(modeling_data_dir,'training_summary.yml')
+    shutil.rmtree(cl_dir)
+    shutil.rmtree(reg_dir)
+    os.remove(summary)
+    copy_tree(models_dir, modeling_data_dir)
+    print("Done!")
