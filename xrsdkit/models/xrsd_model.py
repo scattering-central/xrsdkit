@@ -23,18 +23,13 @@ class XRSDModel(object):
         self.features = []
         self.model = self.build_model()
 
-    def load_model_data(self,model_data, pickle_file):
+    def load_model_data(self, model_data, pickle_file):
         if self.model_type == model_data['model_type'] \
         and self.target == model_data['model_target']:
             self.default_val = model_data['default_val']
             self.features = model_data['features']
             if model_data['trained']:
                 self.trained = True
-                '''
-                self.model = self.build_model(model_data['model']['hyper_parameters'])
-                for k,v in model_data['model']['trained_par'].items():
-                    setattr(self.model, k, np.array(v))
-                '''
                 setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
                 setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
                 self.model = pickle.load(open(pickle_file, 'rb'))
@@ -42,7 +37,7 @@ class XRSDModel(object):
         else:
             raise ValueError('Tried to load modeling data with non-matching target or model type')
 
-    def save_model_data(self,yml_path,txt_path, pickle_path):
+    def save_model_data(self, yml_path, txt_path, pickle_path):
         with open(yml_path,'w') as yml_file:
             yaml.dump(self.collect_model_data(),yml_file)
         with open(pickle_path,'wb') as pickle_file:

@@ -187,11 +187,8 @@ class Classifier(XRSDModel):
         return result
 
     def get_cv_summary(self):
-        #return {k:self.cross_valid_results.get(k,None) for k in ['f1_macro','accuracy','precision','recall']}
-        s = {}
-        s['scores'] = {k:self.cross_valid_results.get(k,None) for k in ['f1_macro','accuracy','precision','recall']}
-        s['model_type'] = self.model_type
-        return s
+        return dict(model_type=self.model_type,
+                    scores={k:self.cross_valid_results.get(k,None) for k in ['f1_macro','accuracy','precision','recall']})
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
