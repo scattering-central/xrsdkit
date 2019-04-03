@@ -1,7 +1,7 @@
 import os
 
 from .ymltools import read_local_dataset, load_models
-from .ymltools import update_features_for_local_dataset
+from .ymltools import migrate_features
 from ..db import gather_remote_dataset
 from ..models.train import train_from_dataframe
 from ..models import modeling_data_dir, load_models
@@ -21,7 +21,4 @@ def dataset_to_csv(dataset_dir,downsampling_distance=1.):
 
 def update_models(models_dir):
     load_models(models_dir, modeling_data_dir)
-
-def update_features(dataset_dir):
-    update_features_for_local_dataset(dataset_dir) 
 

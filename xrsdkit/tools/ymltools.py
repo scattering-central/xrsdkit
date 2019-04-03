@@ -59,32 +59,25 @@ def read_local_dataset(dataset_dir,downsampling_distance=None):
     df = create_modeling_dataset(list(sys_dicts.values()),downsampling_distance=downsampling_distance)
     return df 
 
-def migrate_features_for_local_dataset(dataset_dir):
-    """Update features for all samples in a local dataset.
-
-    TODO: refer to dataset description in main docs
-    (see docstring for read_local_datset())
+def migrate_features(data_dir):
+    """Update features for all yml files in a local directory.
 
     Parameters
     ----------
-    dataset_dir : str
-        absolute path to the root directory of the dataset
+    data_dir : str
+        absolute path to the directory containing yml data 
     """
-    print('BEGINNING FEATURE MIGRATION FOR DATASET AT {}'.format(dataset_dir))
-    for experiment in os.listdir(dataset_dir):
-        exp_data_dir = os.path.join(dataset_dir,experiment)
-        if os.path.isdir(exp_data_dir):
-            for s_data_file in os.listdir(exp_data_dir):
-                if s_data_file.endswith('.yml'):
-                    print('loading data from {}'.format(s_data_file))
-                    file_path = os.path.join(exp_data_dir, s_data_file)
-                    sys = load_sys_from_yaml(file_path)
-                    q_I = np.loadtxt(os.path.join(exp_data_dir,sys.sample_metadata['data_file']))
-                    sys.features = profiler.profile_pattern(q_I[:,0],q_I[:,1])
-                    save_sys_to_yaml(file_path,sys)
-                    #if bool(int(sys.fit_report['good_fit'])):
+    print('BEGINNING FEATURE MIGRATION FOR DIRECTORY: {}'.format(data_dir))
+    for s_data_file in os.listdir(data_dir):
+        if s_data_file.endswith('.yml'):
+            print('loading data from {}'.format(s_data_file))
+            file_path = os.path.join(data_dir, s_data_file)
+            sys = load_sys_from_yaml(file_path)
+            q_I = np.loadtxt(os.path.join(data_dir,sys.sample_metadata['data_file']))
+            sys.features = profiler.profile_pattern(q_I[:,0],q_I[:,1])
+            #save_sys_to_yaml(file_path,sys)
+            #if bool(int(sys.fit_report['good_fit'])):
     print('FINISHED FEATURE MIGRATION')
-    
 
 
 def create_modeling_dataset(xrsd_system_dicts,downsampling_distance=None):
