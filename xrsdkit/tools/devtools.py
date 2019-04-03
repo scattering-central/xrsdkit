@@ -1,9 +1,9 @@
 import os
 
-from .ymltools import read_local_dataset, load_models
+from .ymltools import read_local_dataset
 from ..db import gather_remote_dataset
 from ..models.train import train_from_dataframe
-from ..models import modeling_data_dir
+from ..models import modeling_data_dir, load_models
 
 def train_models_from_local_dataset(dataset_dir, output_dir, downsampling_distance=1.):
     df = read_local_dataset(dataset_dir,downsampling_distance=downsampling_distance) 

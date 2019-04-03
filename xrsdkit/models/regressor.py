@@ -29,7 +29,7 @@ class Regressor(XRSDModel):
                 alpha = [0.0001, 0.001, 0.01],
                 l1_ratio = [0., 0.15, 0.5, 0.85, 1.0]
                 )
-            ) 
+            )
 
     def build_model(self, model_hyperparams={}):
         if self.model_type == 'ridge_regressor':
@@ -59,8 +59,8 @@ class Regressor(XRSDModel):
             loss='huber', penalty='elasticnet', max_iter=10000, tol=1.E-3)
         return new_model
 
-    def load_model_data(self,model_data):
-        super(Regressor,self).load_model_data(model_data)
+    def load_model_data(self,model_data, pickle_file):
+        super(Regressor,self).load_model_data(model_data, pickle_file)
         self.scaler_y = preprocessing.StandardScaler()
         if self.trained:
             setattr(self.scaler_y, 'mean_', np.array(model_data['scaler_y']['mean_']))
@@ -112,7 +112,8 @@ class Regressor(XRSDModel):
             return self.default_val
 
     def get_cv_summary(self):
-        return {k:self.cross_valid_results.get(k,None) for k in ['MAE','coef_of_determination']} 
+        return dict(model_type=self.model_type,
+                    scores={k:self.cross_valid_results.get(k,None) for k in ['MAE','coef_of_determination']})
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
@@ -194,4 +195,3 @@ class Regressor(XRSDModel):
         #result['minimization_score'] = result['MAE']
         result['minimization_score'] = -1*result['coef_of_determination']
         return result
-

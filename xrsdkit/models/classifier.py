@@ -4,11 +4,12 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.decomposition import PCA
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score, precision_score, recall_score
-from sklearn.cluster import KMeans
+from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import tree
+from sklearn.neighbors import KNeighborsClassifier
 
 from .xrsd_model import XRSDModel
-from ..tools import profiler
-
 
 class Classifier(XRSDModel):
     """Class for models that classify attributes of material systems."""
@@ -22,8 +23,27 @@ class Classifier(XRSDModel):
             sgd_classifier = dict(
                 alpha = np.logspace(-1,2,num=4,endpoint=True,base=10.),
                 l1_ratio = np.linspace(0.,1.,num=5,endpoint=True) 
+                ),
+            non_linear_svm = dict(
+               C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+               ),
+            linear_svm = dict(
+               penalty = ['l1', 'l2'],
+               C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+               ),
+            linear_svm_hinge = dict(
+               C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+               ),
+            random_forest = dict(
+               n_estimators = [1, 5, 10, 50]
+               ),
+            d_tree = dict(),
+            knn = dict(
+                n_neighbors = [1,3,5,7],
+                weights = ['uniform', 'distance']
                 )
-            )        
+            )
+
 
     def build_model(self,model_hyperparams={}):
         if self.model_type ==  'logistic_regressor':
@@ -37,6 +57,33 @@ class Classifier(XRSDModel):
                 class_weight='balanced', solver=solver, max_iter=100000)
         elif self.model_type == 'sgd_classifier':
             new_model = self.build_sgd_model(model_hyperparams)
+        elif self.model_type == 'non_linear_svm':
+            C = 1.
+            if 'C' in model_hyperparams: C = model_hyperparams['C']
+            new_model = svm.SVC(C=C, kernel = 'poly', class_weight='balanced', probability=True, gamma='scale')
+        elif self.model_type == 'linear_svm':
+            C = 1.
+            if 'C' in model_hyperparams: C = model_hyperparams['C']
+            penalty = 'l2'
+            if 'penalty' in model_hyperparams: penalty = model_hyperparams['penalty']
+            new_model = svm.LinearSVC(C=C, penalty = penalty, class_weight='balanced', loss = 'squared_hinge', dual=False,  max_iter=1000, tol=1.E-3)
+        elif self.model_type == 'linear_svm_hinge':
+            C = 1.
+            if 'C' in model_hyperparams: C = model_hyperparams['C']
+            penalty = 'l2'
+            new_model = svm.LinearSVC(C=C, penalty = penalty, class_weight='balanced', loss = 'hinge', dual=True,  max_iter=1000, tol=1.E-3)
+        elif self.model_type == 'random_forest':
+            n_estimators = 10
+            if 'n_estimators' in model_hyperparams: C = model_hyperparams['n_estimators']
+            new_model = RandomForestClassifier(n_estimators=n_estimators, max_features=None)
+        elif self.model_type == 'd_tree':
+            new_model = tree.DecisionTreeClassifier()
+        elif self.model_type == 'knn':
+            n_neighbors=5
+            weights = 'distance'
+            if 'n_neighbors' in model_hyperparams: n_neighbors = model_hyperparams['n_neighbors']
+            if 'weights' in model_hyperparams: weights = model_hyperparams['weights']
+            new_model = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, n_jobs=-1)
         else:
             raise ValueError('Unrecognized model type: {}'.format(self.model_type))
         return new_model
@@ -73,7 +120,10 @@ class Classifier(XRSDModel):
             feature_idx = [k in self.features for k in sample_features.keys()]
             x = self.scaler.transform(feature_array)[:, feature_idx]
             cls = self.model.predict(x)[0]
-            cert = max(self.model.predict_proba(x)[0])
+            try:
+                cert = max(self.model.predict_proba(x)[0])
+            except:
+                cert = None  # the model has no attribute 'predict_proba'
             return cls, cert
         else:
             return (self.default_val,0.)
@@ -137,7 +187,8 @@ class Classifier(XRSDModel):
         return result
 
     def get_cv_summary(self):
-        return {k:self.cross_valid_results.get(k,None) for k in ['f1_macro','accuracy','precision','recall']} 
+        return dict(model_type=self.model_type,
+                    scores={k:self.cross_valid_results.get(k,None) for k in ['f1_macro','accuracy','precision','recall']})
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
