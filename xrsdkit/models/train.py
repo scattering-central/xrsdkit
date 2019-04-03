@@ -12,9 +12,6 @@ from ..tools import primitives
 from .regressor import Regressor
 from .classifier import Classifier
 
-regression_models = get_regression_models()
-classification_models = get_classification_models()
-
 def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_features=False, save_models=False, model_types= {}):
     old_summary = {}
     if os.path.isfile(training_summary_yml): 
@@ -28,6 +25,7 @@ def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_f
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
     if save_models:
+        if not os.path.exists(output_dir): os.mkdir(output_dir)
         cl_dir = os.path.join(output_dir,'classifiers')
         if not os.path.exists(cl_dir): os.mkdir(cl_dir)
         reg_dir = os.path.join(output_dir,'regressors')
@@ -55,9 +53,11 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         Embedded dicts containing all possible classification models
         trained on the given dataset `data`.
     """
+    # get a reference to the currently-loaded classification models dict
+    classification_models = get_classification_models()
     
-    cls_models = {}
-    cls_models['main_classifiers'] = {}
+    new_cls_models = {}
+    new_cls_models['main_classifiers'] = {}
 
     # find all existing types of populations in training data:
     all_sys_cls = data['system_class'].tolist()
@@ -99,7 +99,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
         else:
             print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
-        cls_models['main_classifiers'][model_id] = model
+        new_cls_models['main_classifiers'][model_id] = model
 
     # There are 2**n possible outcomes for n binary classifiers.
     # For the (2**n)-1 non-null outcomes, a second classifier is used,
@@ -151,7 +151,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 else:
                     print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
                 # save the classifier
-                cls_models['main_classifiers'][model_id] = model
+                new_cls_models['main_classifiers'][model_id] = model
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers; drop this label up front 
@@ -159,7 +159,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
 
     for sys_cls in sys_cls_labels:
         print('Training classifiers for system class {}'.format(sys_cls))
-        cls_models[sys_cls] = {}
+        new_cls_models[sys_cls] = {}
         sys_cls_data = data.loc[data['system_class']==sys_cls].copy()
         # drop the columns where all values are None:
         #sys_cls_data.dropna(axis=1,how='all',inplace=True)
@@ -191,12 +191,12 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
         else: 
             print('    --> {} untrainable- default value: {}'.format('noise_model',model.default_val))
-        cls_models[sys_cls]['noise_model'] = model
+        new_cls_models[sys_cls]['noise_model'] = model
 
         # each population has some classifiers for form factor and settings
         for ipop, struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
-            cls_models[sys_cls][pop_id] = {}
+            new_cls_models[sys_cls][pop_id] = {}
             print('    Training classifiers for population {}'.format(pop_id))
 
             # every population must have a form classifier
@@ -228,7 +228,7 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
             else: 
                 print('    --> {} untrainable- default value: {}'.format(form_header,model.default_val))
-            cls_models[sys_cls][pop_id]['form'] = model
+            new_cls_models[sys_cls][pop_id]['form'] = model
 
             # add classifiers for any model-able structure settings 
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
@@ -253,13 +253,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                     print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                 else: 
                     print('    --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
-                cls_models[sys_cls][pop_id][stg_nm] = model
+                new_cls_models[sys_cls][pop_id][stg_nm] = model
 
             # add classifiers for any model-able form factor settings
             all_ff_labels = list(sys_cls_data[form_header].unique())
             for ff in all_ff_labels:
                 form_data = sys_cls_data.loc[sys_cls_data[form_header]==ff].copy()
-                cls_models[sys_cls][pop_id][ff] = {}
+                new_cls_models[sys_cls][pop_id][ff] = {}
                 print('    Training classifiers for {} with {} form factors'.format(pop_id,ff))
                 for stg_nm in xrsdefs.modelable_form_factor_settings[ff]:
                     stg_header = pop_id+'_'+stg_nm
@@ -284,9 +284,9 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                         print('        --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                     else: 
                         print('        --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
-                    cls_models[sys_cls][pop_id][ff][stg_nm] = model
+                    new_cls_models[sys_cls][pop_id][ff][stg_nm] = model
 
-    return cls_models
+    return new_cls_models
 
 
 def save_classification_models(output_dir, models):
@@ -302,7 +302,8 @@ def save_classification_models(output_dir, models):
         embedded dict of models, similar to output of train_regression_models().
     """
     cl_root_dir = output_dir
-    model_dict = classification_models
+    # get a reference to the currently-loaded classification models dict
+    model_dict = get_classification_models()
     summary = {}
     if not os.path.exists(cl_root_dir): os.mkdir(cl_root_dir)
 
@@ -389,23 +390,25 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
     reg_models : dict
         embedded dictionary with blank spaces for all trainable regression models 
     """
-    reg_models = {} 
+    # get a reference to the currently-loaded regression models dict
+    regression_models = get_regression_models()
+    new_reg_models = {} 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no regression models:
     if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
     for sys_cls in sys_cls_labels:
         print('training regressors for system class {}'.format(sys_cls))
-        reg_models[sys_cls] = {}
+        new_reg_models[sys_cls] = {}
         sys_cls_data = data.loc[data['system_class']==sys_cls].copy()
         # drop the columns where all values are None:
         #sys_cls_data.dropna(axis=1,how='all',inplace=True)
 
         # every system class has regressors for one or more noise models 
-        reg_models[sys_cls]['noise'] = {}
+        new_reg_models[sys_cls]['noise'] = {}
         all_noise_models = list(sys_cls_data['noise_model'].unique())
         for modnm in all_noise_models:
             print('    training regressors for noise model {}'.format(modnm))
-            reg_models[sys_cls]['noise'][modnm] = {}
+            new_reg_models[sys_cls]['noise'][modnm] = {}
             noise_model_data = sys_cls_data.loc[sys_cls_data['noise_model']==modnm].copy()
             for pnm in list(xrsdefs.noise_params[modnm].keys())+['I0_fraction']:
                 if not pnm == 'I0':
@@ -428,12 +431,12 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                     else: 
                         print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                    reg_models[sys_cls]['noise'][modnm][pnm] = model 
+                    new_reg_models[sys_cls]['noise'][modnm][pnm] = model 
 
         # use the sys_cls to identify the populations and their structures
         for ipop,struct in enumerate(sys_cls.split('__')):
             pop_id = 'pop{}'.format(ipop)
-            reg_models[sys_cls][pop_id] = {}
+            new_reg_models[sys_cls][pop_id] = {}
             # every population must have a model for I0_fraction
             param_header = pop_id+'_I0_fraction'
             new_model_type = 'ridge_regressor'
@@ -454,15 +457,15 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                 print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
             else: 
                 print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-            reg_models[sys_cls][pop_id]['I0_fraction'] = model 
+            new_reg_models[sys_cls][pop_id]['I0_fraction'] = model 
                 
             # add regressors for any modelable structure params 
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 stg_header = pop_id+'_'+stg_nm
-                reg_models[sys_cls][pop_id][stg_nm] = {}
+                new_reg_models[sys_cls][pop_id][stg_nm] = {}
                 stg_labels = list(sys_cls_data[stg_header].unique())
                 for stg_label in stg_labels:
-                    reg_models[sys_cls][pop_id][stg_nm][stg_label] = {}
+                    new_reg_models[sys_cls][pop_id][stg_nm][stg_label] = {}
                     stg_label_data = sys_cls_data.loc[sys_cls_data[stg_header]==stg_label].copy()
                     print('    training regressors for {} with {}=={}'.format(pop_id,stg_nm,stg_label))
                     for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
@@ -486,7 +489,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                             print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                         else: 
                             print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                        reg_models[sys_cls][pop_id][stg_nm][stg_label][pnm] = model 
+                        new_reg_models[sys_cls][pop_id][stg_nm][stg_label][pnm] = model 
 
             # get all unique form factors for this population
             form_header = pop_id+'_form'
@@ -495,7 +498,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
             # for each form, make additional regression models
             for form_id in form_specifiers:
                 form_data = sys_cls_data.loc[data[form_header]==form_id].copy()
-                reg_models[sys_cls][pop_id][form_id] = {}
+                new_reg_models[sys_cls][pop_id][form_id] = {}
                 print('    training regressors for {} with {} form factors'.format(pop_id,form_id))
                 for pnm in xrsdefs.form_factor_params[form_id]:
                     param_header = pop_id+'_'+pnm
@@ -517,15 +520,15 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                     else: 
                         print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                    reg_models[sys_cls][pop_id][form_id][pnm] = model 
+                    new_reg_models[sys_cls][pop_id][form_id][pnm] = model 
 
                 # add regressors for any modelable form factor params 
                 for stg_nm in xrsdefs.modelable_form_factor_settings[form_id]:
                     stg_header = pop_id+'_'+stg_nm
                     stg_labels = list(form_data[stg_header].unique())
-                    reg_models[sys_cls][pop_id][form_id][stg_nm] = {}
+                    new_reg_models[sys_cls][pop_id][form_id][stg_nm] = {}
                     for stg_label in stg_labels:
-                        reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label] = {}
+                        new_reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label] = {}
                         stg_label_data = form_data.loc[form_data[stg_header]==stg_label].copy()
                         print('    training regressors for {} with {} form factors with {}=={}'.format(pop_id,form_id,stg_nm,stg_label))
                         for pnm in xrsdefs.additional_form_factor_params(form_id,{stg_nm:stg_label}):
@@ -550,9 +553,9 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                                 print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                             else: 
                                 print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                            reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm] = model 
+                            new_reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm] = model 
 
-    return reg_models
+    return new_reg_models
 
 
 def save_regression_models(output_dir, models):
@@ -568,7 +571,8 @@ def save_regression_models(output_dir, models):
         embedded dict of models, similar to output of train_regression_models().
     """
     rg_root_dir = output_dir
-    model_dict = regression_models
+    # get a reference to the currently-loaded regression models dict
+    model_dict = get_regression_models()
     summary = {}
     if not os.path.exists(rg_root_dir): os.mkdir(rg_root_dir)
     for sys_cls in models.keys():
