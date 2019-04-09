@@ -1,6 +1,9 @@
 from collections import OrderedDict
 import os
+import sys
 import copy
+from distutils.dir_util import copy_tree
+import shutil
 
 from sklearn import preprocessing
 import pandas as pd
@@ -28,6 +31,12 @@ def read_local_dataset(dataset_dir,downsampling_distance=None):
     one for each experiment in the dataset.
     Each subdirectory should contain .yml files describing 
     the xrsdkit.system.System objects from the experiment.
+    Each .yml file should have a corresponding .dat file in the same directory,
+    where the .dat file contains the integrated scattering pattern.
+    The name of the .dat file should be specified in the .yml file,
+    as the 'data_file' from the sample_metadata dictionary.
+    TODO: move this dataset description to the main documentation,  
+    then refer to it from here.
 
     Parameters
     ----------
@@ -52,6 +61,25 @@ def read_local_dataset(dataset_dir,downsampling_distance=None):
                     sys_dicts[s_data_file] = yaml.load(open(file_path,'r')) 
     df = create_modeling_dataset(list(sys_dicts.values()),downsampling_distance=downsampling_distance)
     return df 
+
+def migrate_features(data_dir):
+    """Update features for all yml files in a local directory.
+
+    Parameters
+    ----------
+    data_dir : str
+        absolute path to the directory containing yml data 
+    """
+    print('BEGINNING FEATURE MIGRATION FOR DIRECTORY: {}'.format(data_dir))
+    for s_data_file in os.listdir(data_dir):
+        if s_data_file.endswith('.yml'):
+            print('loading data from {}'.format(s_data_file))
+            file_path = os.path.join(data_dir, s_data_file)
+            sys = load_sys_from_yaml(file_path)
+            q_I = np.loadtxt(os.path.join(data_dir,sys.sample_metadata['data_file']))
+            sys.features = profiler.profile_pattern(q_I[:,0],q_I[:,1])
+            save_sys_to_yaml(file_path,sys)
+    print('FINISHED FEATURE MIGRATION')
 
 
 def create_modeling_dataset(xrsd_system_dicts,downsampling_distance=None):
@@ -361,3 +389,4 @@ def downsample(df, min_distance):
 
         sample = sample.append(df.iloc[sample_order])
     return sample
+
