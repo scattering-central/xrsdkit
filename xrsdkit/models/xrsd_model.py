@@ -42,7 +42,7 @@ class XRSDModel(object):
         with open(yml_path,'w') as yml_file:
             yaml.dump(self.collect_model_data(),yml_file)
         with open(pickle_path,'wb') as pickle_file:
-            pickle.dump(self.model, pickle_file)
+            pickle.dump(self.model, pickle_file, protocol=2)
         with open(txt_path,'w') as txt_file:
             if self.trained:
                 res_str = self.print_CV_report()
@@ -52,8 +52,8 @@ class XRSDModel(object):
 
     def collect_model_data(self):
         model_data = dict(
-            model_type = self.model_type, 
-            metric = self.metric, 
+            model_type = self.model_type,
+            metric = self.metric,
             model_target = self.target,
             scaler = dict(),
             model = dict(hyper_parameters=dict(), trained_par=dict()),
@@ -283,7 +283,5 @@ class XRSDModel(object):
             )
         gs_models = GridSearchCV(model,hyperparam_grid,cv=cv_splits,scoring=self.metric,n_jobs=-1)
         gs_models.fit(data[feature_names], np.ravel(data[self.target]))
-        best_model = self.build_sgd_model(gs_models.best_params_)
-        cv = self.run_cross_validation(best_model,data,feature_names) 
         return gs_models.best_params_
 
