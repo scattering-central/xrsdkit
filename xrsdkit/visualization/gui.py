@@ -103,6 +103,9 @@ class XRSDFitGUI(object):
         # the main widget will be a frame,
         # displayed as a window item on the main canvas:
         self.main_frame = tkinter.Frame(main_canvas,bd=4,relief=tkinter.SUNKEN)
+        self.main_frame.grid_columnconfigure(0,weight=1)
+        self.main_frame.grid_columnconfigure(1,weight=0)
+        self.main_frame.grid_rowconfigure(0,weight=1)
         main_frame_window = main_canvas.create_window(0,0,window=self.main_frame,anchor='nw')
         # _canvas_configure() ensures that the window item and scrollbar
         # remain the correct size for the underlying widget
@@ -128,7 +131,7 @@ class XRSDFitGUI(object):
         # which displays a view on a plot widget 
         # built from FigureCanvasTkAgg.get_tk_widget()
         plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
-        plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
+        plot_frame.grid(row=0,column=0,sticky='nesw',padx=2,pady=2)
         self.fig,I_comp = plot_xrsd_fit(sys=self.sys,show_plot=False)
         plot_frame_canvas = tkinter.Canvas(plot_frame)
         yscr = tkinter.Scrollbar(plot_frame)
@@ -152,7 +155,7 @@ class XRSDFitGUI(object):
         # which displays a view on a frame full of entry widgets and labels, 
         # which are used to control parameters, settings, etc. 
         control_frame = tkinter.Frame(self.main_frame)
-        control_frame.pack(side=tkinter.RIGHT,fill='y')
+        control_frame.grid(row=0,column=1,sticky='nesw',padx=2,pady=2)
         control_frame_canvas = tkinter.Canvas(control_frame)
         control_frame.bind_all("<MouseWheel>", partial(self.on_mousewheel,control_frame_canvas))
         control_frame.bind_all("<Button-4>", partial(self.on_trackpad,control_frame_canvas))
@@ -162,9 +165,8 @@ class XRSDFitGUI(object):
         control_frame_canvas.pack(fill='both',expand=True)
         control_frame_canvas.config(yscrollcommand=yscr.set)
         yscr.config(command=control_frame_canvas.yview)
-        # TODO (low): figure out a way to set or control the width of the control widget
-        # NOTE: currently it takes on the net width of the entry widgets
         self.control_widget = tkinter.Frame(control_frame_canvas)
+        self.control_widget.grid_columnconfigure(0,weight=1)
         control_canvas_window = control_frame_canvas.create_window((0,0),window=self.control_widget,anchor='nw')
         self.control_canvas_configure = partial(self._canvas_configure,
             control_frame_canvas,self.control_widget,control_canvas_window)
@@ -470,6 +472,7 @@ class XRSDFitGUI(object):
 
     def _create_fit_control_frame(self):
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        cf.grid_columnconfigure(0,weight=0)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
         self._frames['fit_control'] = cf
@@ -604,6 +607,7 @@ class XRSDFitGUI(object):
 
     def _create_noise_frame(self):
         nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        nf.grid_columnconfigure(0,weight=1)
         self._frames['noise_model'] = nf
         nmf = tkinter.Frame(nf,bd=0) 
         #nmf.grid_columnconfigure(0,weight=1)
@@ -658,6 +662,7 @@ class XRSDFitGUI(object):
     def _create_pop_frame(self,pop_nm):
         pop = self.sys.populations[pop_nm]
         pf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        pf.grid_columnconfigure(0,weight=1)
         self._frames['populations'][pop_nm] = pf
         pop_struct = self.sys.populations[pop_nm].structure
         pop_form = self.sys.populations[pop_nm].form
@@ -824,10 +829,10 @@ class XRSDFitGUI(object):
         if stg_sel:
             stgcb = tkinter.OptionMenu(stgf,stgv,*stg_sel)
             stgv.trace('w',partial(self._update_setting,pop_nm,stg_nm))
-            stgcb.grid(row=0,column=1,sticky='ew')
+            stgcb.grid(row=0,column=1,sticky='w')
         else:
             stge = self.connected_entry(stgf,stgv,partial(self._update_setting,pop_nm,stg_nm))
-            stge.grid(row=0,column=1,sticky='ew')
+            stge.grid(row=0,column=1,sticky='w')
         return stgf
 
     def _create_param_frame(self,pop_nm,param_nm):
