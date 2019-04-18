@@ -5,22 +5,31 @@ from collections import OrderedDict
 import yaml
 import numpy as np
 
-from . import get_regression_models, get_classification_models
-from . import training_summary_yml
+from . import get_regression_models, get_classification_models, get_reg_conf, get_cl_conf
+from . import modeling_data_dir, training_summary_yml, create_conf_file
 from .. import definitions as xrsdefs
 from ..tools import primitives
 from .regressor import Regressor
 from .classifier import Classifier
 
-def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_features=False, save_models=False, model_types= {}):
+def train_from_dataframe(data, output_dir, conf_file=None, train_hyperparameters=False, select_features=False, save_models=False):
     old_summary = {}
     if os.path.isfile(training_summary_yml): 
         with open(training_summary_yml,'rb') as yml_file:
             old_summary = yaml.load(yml_file)
+    try:
+        with open(conf_file,'rb') as yml_file:
+            model_configs = yaml.load(yml_file)
+            model_configs_cl = model_configs['CLASSIFIERS']
+            model_configs_reg = model_configs['REGRESSORS']
+    except:
+        model_configs_cl = get_cl_conf()
+        model_configs_reg = get_reg_conf()
+
     # classification models: 
-    cls_models = train_classification_models(data, train_hyperparameters, select_features)
+    cls_models = train_classification_models(data, train_hyperparameters, select_features, model_configs_cl)
     # regression models:
-    reg_models = train_regression_models(data, train_hyperparameters, select_features)
+    reg_models = train_regression_models(data, train_hyperparameters, select_features, model_configs_reg)
     # optionally, save the models:
     # this adds/updates yml files and also adds the models
     # to the regression_models and classification_models dicts.
@@ -37,7 +46,7 @@ def train_from_dataframe(data, output_dir, train_hyperparameters=False, select_f
         with open(yml_f,'w') as yml_file:
             yaml.dump(summary,yml_file)
 
-def train_classification_models(data,train_hyperparameters=False,select_features=False):
+def train_classification_models(data, train_hyperparameters=False, select_features=False, model_configs={}):
     """Train all classifiers that are trainable from `data`.
 
     Parameters
@@ -46,6 +55,11 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         dataframe containing features and labels
     train_hyperparameters : bool
         if True, cross-validation metrics are used to select model hyperparameters 
+    select_features : bool
+        if True, recursive feature elimination is used to select model input space
+    model_configs : dict
+        dict of dicts containing model types and training metrics-
+        generally this should be read in from a model config file
 
     Returns
     -------
@@ -59,26 +73,21 @@ def train_classification_models(data,train_hyperparameters=False,select_features
     new_cls_models = {}
     new_cls_models['main_classifiers'] = {}
 
-    # find all existing types of populations in training data:
+    # find all system_class labels represented in `data`:
     all_sys_cls = data['system_class'].tolist()
 
     data_copy = data.copy()
     for struct_nm in xrsdefs.structure_names:
         print('Training binary classifier for '+struct_nm+' structures')
         model_id = struct_nm+'_binary'
-        #
-        # binary classifier model type is specified here!
-        # we __should__ be able to try various models just by changing this.
-        #
-        new_model_type ='knn'
-        #new_model_type ='d_tree'
-        #new_model_type ='linear_svm_hinge'
-        #new_model_type ='random_forest'
-        #new_model_type = 'linear_svm'
-        #new_model_type = 'non_linear_svm'
-        #new_model_type = 'sgd_classifier'
-        #new_model_type = 'logistic_regressor'
-        model = Classifier(new_model_type, model_id)
+        try:
+            new_model_type = model_configs['main_classifiers'][model_id]['type']
+            metric = model_configs['main_classifiers'][model_id]['metric']
+        except:
+            new_model_type = 'logistic_regressor'
+            metric = 'precision' # use 'precision' as the scoring function to avoid false positives
+
+        model = Classifier(new_model_type, metric, model_id)
         labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
         data_copy.loc[:,model_id] = labels
         if ('main_classifiers' in classification_models) \
@@ -88,15 +97,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             for param_nm in model.models_and_params[new_model_type]:
                 model.model.set_params(**{param_nm:old_pars[param_nm]})
-        # binary classifiers should be trained to avoid false positives:
-        # use 'precision' as the scoring function
-        model.train(data_copy, 'precision', train_hyperparameters, select_features)
+        model.train(data_copy, train_hyperparameters, select_features)
         if model.trained:
-            f1_score = model.cross_valid_results['f1_macro']
+            f1_score = model.cross_valid_results['f1']
             acc = model.cross_valid_results['accuracy']
             prec = model.cross_valid_results['precision']
             rec = model.cross_valid_results['recall']
-            print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
+            print('--> f1: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
         else:
             print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
         new_cls_models['main_classifiers'][model_id] = model
@@ -119,20 +126,14 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             print('Training system classifier for '+model_id)
             # get all samples whose system_class matches the flags
             flag_data = data.loc[flag_idx,:].copy()
-            if flag_data.shape[0] > 0: # we have the data with this system class in the training set
-                # train the classifier
-                #new_model_type = 'logistic_regressor'
-                #new_model_type = 'sgd_classifier'
-                #new_model_type = 'non_linear_svm'
-                #new_model_type = 'linear_svm'
-                #new_model_type ='random_forest'
-                #new_model_type ='linear_svm_hinge'
-                #new_model_type ='d_tree'
-                new_model_type ='knn'
-                if model_id == "diffuse__disordered":
-                    new_model_type = 'linear_svm'
-
-                model = Classifier(new_model_type, 'system_class')
+            if flag_data.shape[0] > 0: # we have data with these structure flags in the training set
+                try:
+                    new_model_type = model_configs['main_classifiers'][model_id]['type']
+                    metric = model_configs['main_classifiers'][model_id]['metric']
+                except:
+                    new_model_type = 'logistic_regressor'
+                    metric = 'accuracy'
+                model = Classifier(new_model_type, metric, 'system_class')
                 if ('main_classifiers' in classification_models) \
                 and (model_id in classification_models['main_classifiers']) \
                 and (classification_models['main_classifiers'][model_id].trained) \
@@ -140,14 +141,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                     for param_nm in model.models_and_params[new_model_type]:
                         model.model.set_params(**{param_nm:old_pars[param_nm]})
-                # system classifiers should use f1_macro or accuracy
-                model.train(flag_data, 'accuracy', train_hyperparameters, select_features)
+                model.train(flag_data, train_hyperparameters, select_features)
                 if model.trained:
-                    f1_score = model.cross_valid_results['f1_macro']
+                    f1_score = model.cross_valid_results['f1']
                     acc = model.cross_valid_results['accuracy']
                     prec = model.cross_valid_results['precision']
                     rec = model.cross_valid_results['recall']
-                    print('--> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
+                    print('--> f1: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                 else:
                     print('--> {} untrainable- default value: {}'.format(model_id,model.default_val))
                 # save the classifier
@@ -161,20 +161,16 @@ def train_classification_models(data,train_hyperparameters=False,select_features
         print('Training classifiers for system class {}'.format(sys_cls))
         new_cls_models[sys_cls] = {}
         sys_cls_data = data.loc[data['system_class']==sys_cls].copy()
-        # drop the columns where all values are None:
-        #sys_cls_data.dropna(axis=1,how='all',inplace=True)
 
         # every system class must have a noise classifier
         print('    Training noise classifier for system class {}'.format(sys_cls))
-        new_model_type = 'logistic_regressor'
-        #new_model_type = 'non_linear_svm'
-        #new_model_type = 'linear_svm'
-        #new_model_type ='random_forest'
-        #new_model_type ='linear_svm_hinge'
-        #new_model_type ='d_tree'
-        #new_model_type ='knn'
-
-        model = Classifier(new_model_type, 'noise_model')
+        try:
+            new_model_type = model_configs[sys_cls]['noise_model']['type']
+            metric = model_configs[sys_cls]['noise_model']['metric']
+        except:
+            new_model_type = 'logistic_regressor'
+            metric = 'accuracy'
+        model = Classifier(new_model_type, metric, 'noise_model')
         if (sys_cls in classification_models) \
         and ('noise_model' in classification_models[sys_cls]) \
         and (classification_models[sys_cls]['noise_model'].trained) \
@@ -182,13 +178,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
             for param_nm in model.models_and_params[new_model_type]:
                 model.model.set_params(**{param_nm:old_pars[param_nm]})
-        model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
+        model.train(sys_cls_data, train_hyperparameters, select_features)
         if model.trained:
-            f1_score = model.cross_valid_results['f1_macro']
+            f1_score = model.cross_valid_results['f1']
             acc = model.cross_valid_results['accuracy']
             prec = model.cross_valid_results['precision']
             rec = model.cross_valid_results['recall']
-            print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
+            print('    --> f1: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
         else: 
             print('    --> {} untrainable- default value: {}'.format('noise_model',model.default_val))
         new_cls_models[sys_cls]['noise_model'] = model
@@ -202,15 +198,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             # every population must have a form classifier
             form_header = pop_id+'_form'
             print('    Training: {}'.format(form_header))
-            #new_model_type = 'logistic_regressor'
-            #new_model_type = 'non_linear_svm'
-            #new_model_type = 'linear_svm'
-            #new_model_type ='random_forest'
-            new_model_type ='linear_svm_hinge'
-            #new_model_type ='d_tree'
-            #new_model_type ='knn'
-            #new_model_type ='knn'
-            model = Classifier(new_model_type, form_header)
+            try:
+                new_model_type = model_configs[sys_cls][pop_id]['form']['type']
+                metric = model_configs[sys_cls][pop_id]['form']['metric']
+            except:
+                new_model_type = 'logistic_regressor'
+                metric = 'accuracy'
+            model = Classifier(new_model_type, metric, form_header)
             if (sys_cls in classification_models) \
             and (pop_id in classification_models[sys_cls]) \
             and ('form' in classification_models[sys_cls][pop_id]) \
@@ -219,13 +213,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
                 for param_nm in model.models_and_params[new_model_type]:
                     model.model.set_params(**{param_nm:old_pars[param_nm]})
-            model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
+            model.train(sys_cls_data, train_hyperparameters, select_features)
             if model.trained:
-                f1_score = model.cross_valid_results['f1_macro']
+                f1_score = model.cross_valid_results['f1']
                 acc = model.cross_valid_results['accuracy']
                 prec = model.cross_valid_results['precision']
                 rec = model.cross_valid_results['recall']
-                print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
+                print('    --> f1: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
             else: 
                 print('    --> {} untrainable- default value: {}'.format(form_header,model.default_val))
             new_cls_models[sys_cls][pop_id]['form'] = model
@@ -234,8 +228,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 stg_header = pop_id+'_'+stg_nm
                 print('    Training: {}'.format(stg_header))
-                new_model_type = 'logistic_regressor'
-                model = Classifier(new_model_type, stg_header)
+                try:
+                    new_model_type = model_configs[sys_cls][pop_id][stg_nm]['type']
+                    metric = model_configs[sys_cls][pop_id][stg_nm]['metric']
+                except:
+                    new_model_type = 'logistic_regressor'
+                    metric = 'accuracy'
+                model = Classifier(new_model_type, metric, stg_header)
                 if (sys_cls in classification_models) \
                 and (pop_id in classification_models[sys_cls]) \
                 and (stg_nm in classification_models[sys_cls][pop_id]) \
@@ -244,13 +243,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
                     for param_nm in model.models_and_params[new_model_type]:
                         model.model.set_params(**{param_nm:old_pars[param_nm]})
-                model.train(sys_cls_data, 'accuracy', train_hyperparameters, select_features)
+                model.train(sys_cls_data, train_hyperparameters, select_features)
                 if model.trained:
-                    f1_score = model.cross_valid_results['f1_macro']
+                    f1_score = model.cross_valid_results['f1']
                     acc = model.cross_valid_results['accuracy']
                     prec = model.cross_valid_results['precision']
                     rec = model.cross_valid_results['recall']
-                    print('    --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
+                    print('    --> f1: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                 else: 
                     print('    --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                 new_cls_models[sys_cls][pop_id][stg_nm] = model
@@ -264,8 +263,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                 for stg_nm in xrsdefs.modelable_form_factor_settings[ff]:
                     stg_header = pop_id+'_'+stg_nm
                     print('        Training: {}'.format(stg_header))
-                    new_model_type = 'logistic_regressor'
-                    model = Classifier(new_model_type, stg_header)
+                    try:
+                        new_model_type = model_configs[sys_cls][pop_id][ff][stg_nm]['type']
+                        metric = model_configs[sys_cls][pop_id][ff][stg_nm]['metric']
+                    except:
+                        new_model_type = 'logistic_regressor'
+                        metric = 'accuracy'
+                    model = Classifier(new_model_type, metric, stg_header)
                     if (sys_cls in classification_models) \
                     and (pop_id in classification_models[sys_cls]) \
                     and (ff in classification_models[sys_cls][pop_id]) \
@@ -275,13 +279,13 @@ def train_classification_models(data,train_hyperparameters=False,select_features
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
                         for param_nm in model.models_and_params[new_model_type]:
                             model.model.set_params(**{param_nm:old_pars[param_nm]})
-                    model.train(form_data, 'accuracy', train_hyperparameters, select_features)
+                    model.train(form_data, train_hyperparameters, select_features)
                     if model.trained:
-                        f1_score = model.cross_valid_results['f1_macro']
+                        f1_score = model.cross_valid_results['f1']
                         acc = model.cross_valid_results['accuracy']
                         prec = model.cross_valid_results['precision']
                         rec = model.cross_valid_results['recall']
-                        print('        --> f1_macro: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
+                        print('        --> f1: {}, accuracy: {}, precision: {}, recall: {}'.format(f1_score,acc,prec,rec))
                     else: 
                         print('        --> {} untrainable- default value: {}'.format(stg_header,model.default_val))
                     new_cls_models[sys_cls][pop_id][ff][stg_nm] = model
@@ -374,7 +378,7 @@ def save_classification_models(output_dir, models):
     return summary
 
 
-def train_regression_models(data,train_hyperparameters=False,select_features=False):
+def train_regression_models(data, train_hyperparameters=False, select_features=False, model_configs={}):
     """Train all regression models trainable from `data`. 
 
     Parameters
@@ -384,6 +388,11 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
     train_hyperparameters : bool
         if True, the models will be optimized
         over a grid of hyperparameters during training
+    select_features : bool
+        if True, recursive feature elimination is used to select model input space
+    model_configs : dict
+        dict of dicts containing model types and training metrics-
+        generally this should be read in from a model config file
 
     Returns
     -------
@@ -392,7 +401,7 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
     """
     # get a reference to the currently-loaded regression models dict
     regression_models = get_regression_models()
-    new_reg_models = {} 
+    new_reg_models = {}
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no regression models:
     if 'unidentified' in sys_cls_labels: sys_cls_labels.pop(sys_cls_labels.index('unidentified'))
@@ -400,10 +409,8 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
         print('training regressors for system class {}'.format(sys_cls))
         new_reg_models[sys_cls] = {}
         sys_cls_data = data.loc[data['system_class']==sys_cls].copy()
-        # drop the columns where all values are None:
-        #sys_cls_data.dropna(axis=1,how='all',inplace=True)
 
-        # every system class has regressors for one or more noise models 
+        # every system class has regressors for one or more noise models
         new_reg_models[sys_cls]['noise'] = {}
         all_noise_models = list(sys_cls_data['noise_model'].unique())
         for modnm in all_noise_models:
@@ -413,8 +420,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
             for pnm in list(xrsdefs.noise_params[modnm].keys())+['I0_fraction']:
                 if not pnm == 'I0':
                     param_header = 'noise_'+pnm
-                    new_model_type = 'ridge_regressor'
-                    model = Regressor(new_model_type, param_header)
+                    try:
+                        new_model_type = model_configs[sys_cls]['noise'][modnm][pnm]['type']
+                        metric = model_configs[sys_cls]['noise'][modnm][pnm]['metric']
+                    except:
+                        new_model_type = 'ridge_regressor'
+                        metric = 'neg_mean_absolute_error'
+                    model = Regressor(new_model_type, metric, param_header)
                     print('        training {}'.format(param_header))
                     if (sys_cls in regression_models) \
                     and ('noise' in regression_models[sys_cls]) \
@@ -425,13 +437,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
                         for param_nm in model.models_and_params[new_model_type]:
                             model.model.set_params(**{param_nm:old_pars[param_nm]})
-                    model.train(noise_model_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
+                    model.train(noise_model_data, train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                         print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                     else: 
                         print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                    new_reg_models[sys_cls]['noise'][modnm][pnm] = model 
+                    new_reg_models[sys_cls]['noise'][modnm][pnm] = model
 
         # use the sys_cls to identify the populations and their structures
         for ipop,struct in enumerate(sys_cls.split('__')):
@@ -439,8 +451,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
             new_reg_models[sys_cls][pop_id] = {}
             # every population must have a model for I0_fraction
             param_header = pop_id+'_I0_fraction'
-            new_model_type = 'ridge_regressor'
-            model = Regressor(new_model_type, param_header)
+            try:
+                new_model_type = model_configs[sys_cls][pop_id]['I0_fraction']['type']
+                metric = model_configs[sys_cls][pop_id]['I0_fraction']['metric']
+            except:
+                new_model_type = 'ridge_regressor'
+                metric = 'neg_mean_absolute_error'
+            model = Regressor(new_model_type, metric, param_header)
             print('    training regressors for population {}'.format(pop_id))
             print('        training {}'.format(param_header))
             if (sys_cls in regression_models) \
@@ -451,14 +468,14 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                 old_pars = regression_models[sys_cls][pop_id]['I0_fraction'].model.get_params()
                 for param_nm in model.models_and_params[new_model_type]:
                     model.model.set_params(**{param_nm:old_pars[param_nm]})
-            model.train(sys_cls_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
+            model.train(sys_cls_data, train_hyperparameters, select_features)
             if model.trained:
                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                 print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
             else: 
                 print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-            new_reg_models[sys_cls][pop_id]['I0_fraction'] = model 
-                
+            new_reg_models[sys_cls][pop_id]['I0_fraction'] = model
+
             # add regressors for any modelable structure params 
             for stg_nm in xrsdefs.modelable_structure_settings[struct]:
                 stg_header = pop_id+'_'+stg_nm
@@ -470,8 +487,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                     print('    training regressors for {} with {}=={}'.format(pop_id,stg_nm,stg_label))
                     for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                         param_header = pop_id+'_'+pnm
-                        new_model_type = 'ridge_regressor'
-                        model = Regressor(new_model_type, param_header)
+                        try:
+                            new_model_type = model_configs[sys_cls][pop_id][stg_nm][stg_label][pnm]['type']
+                            metric = model_configs[sys_cls][pop_id][stg_nm][stg_label][pnm]['metric']
+                        except:
+                            new_model_type = 'ridge_regressor'
+                            metric = 'neg_mean_absolute_error'
+                        model = Regressor(new_model_type, metric, param_header)
                         print('        training {}'.format(param_header))
                         if (sys_cls in regression_models) \
                         and (pop_id in regression_models[sys_cls]) \
@@ -483,13 +505,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                             old_pars = regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model.get_params()
                             for param_nm in model.models_and_params[new_model_type]:
                                 model.model.set_params(**{param_nm:old_pars[param_nm]})
-                        model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
+                        model.train(stg_label_data, train_hyperparameters, select_features)
                         if model.trained:
                             grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                             print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                         else: 
                             print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                        new_reg_models[sys_cls][pop_id][stg_nm][stg_label][pnm] = model 
+                        new_reg_models[sys_cls][pop_id][stg_nm][stg_label][pnm] = model
 
             # get all unique form factors for this population
             form_header = pop_id+'_form'
@@ -502,8 +524,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                 print('    training regressors for {} with {} form factors'.format(pop_id,form_id))
                 for pnm in xrsdefs.form_factor_params[form_id]:
                     param_header = pop_id+'_'+pnm
-                    new_model_type = 'ridge_regressor'
-                    model = Regressor(new_model_type, param_header)
+                    try:
+                        new_model_type = model_configs[sys_cls][pop_id][form_id][pnm]['type']
+                        metric = model_configs[sys_cls][pop_id][form_id][pnm]['metric']
+                    except:
+                        new_model_type = 'ridge_regressor'
+                        metric = 'neg_mean_absolute_error'
+                    model = Regressor(new_model_type, metric, param_header)
                     print('        training {}'.format(param_header))
                     if (sys_cls in regression_models) \
                     and (pop_id in regression_models[sys_cls]) \
@@ -514,13 +541,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         old_pars = regression_models[sys_cls][pop_id][form_id][pnm].model.get_params()
                         for param_nm in model.models_and_params[new_model_type]:
                             model.model.set_params(**{param_nm:old_pars[param_nm]})
-                    model.train(form_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
+                    model.train(form_data, train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                         print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                     else: 
                         print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                    new_reg_models[sys_cls][pop_id][form_id][pnm] = model 
+                    new_reg_models[sys_cls][pop_id][form_id][pnm] = model
 
                 # add regressors for any modelable form factor params 
                 for stg_nm in xrsdefs.modelable_form_factor_settings[form_id]:
@@ -533,8 +560,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                         print('    training regressors for {} with {} form factors with {}=={}'.format(pop_id,form_id,stg_nm,stg_label))
                         for pnm in xrsdefs.additional_form_factor_params(form_id,{stg_nm:stg_label}):
                             param_header = pop_id+'_'+pnm
-                            new_model_type = 'ridge_regressor'
-                            model = Regressor(new_model_type, param_header)
+                            try:
+                                new_model_type = model_configs[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm]['type']
+                                metric = model_configs[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm]['metric']
+                            except:
+                                new_model_type = 'ridge_regressor'
+                                metric = 'neg_mean_absolute_error'
+                            model = Regressor(new_model_type, metric, param_header)
                             print('        training {}'.format(param_header))
                             if (sys_cls in regression_models) \
                             and (pop_id in regression_models[sys_cls]) \
@@ -547,13 +579,13 @@ def train_regression_models(data,train_hyperparameters=False,select_features=Fal
                                 old_pars = regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model.get_params()
                                 for param_nm in model.models_and_params[new_model_type]:
                                     model.model.set_params(**{param_nm:old_pars[param_nm]})
-                            model.train(stg_label_data, 'neg_mean_absolute_error', train_hyperparameters, select_features)
+                            model.train(stg_label_data, train_hyperparameters, select_features)
                             if model.trained:
                                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
                                 print('        --> weighted-average MAE: {}'.format(grpsz_wtd_mean_MAE))
                             else: 
                                 print('        --> {} untrainable- default result: {}'.format(param_header,model.default_val))
-                            new_reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm] = model 
+                            new_reg_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm] = model
 
     return new_reg_models
 
@@ -701,5 +733,3 @@ def collect_summary(old_summary, summary_reg, summary_cl):
 
                 summary['CLASSIFIERS'][k]['scores'][key] = [value, diff]
     return summary
-
-

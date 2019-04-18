@@ -14,8 +14,8 @@ from .xrsd_model import XRSDModel
 class Classifier(XRSDModel):
     """Class for models that classify attributes of material systems."""
 
-    def __init__(self,model_type,label):
-        super(Classifier,self).__init__(model_type, label)
+    def __init__(self, model_type, metric, label):
+        super(Classifier,self).__init__(model_type, metric, label)
         self.models_and_params = dict(
             logistic_regressor = dict(
                 C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
@@ -137,17 +137,22 @@ class Classifier(XRSDModel):
         for gid,yp in y_pred.items():
             y_pred_all.extend(yp)
         cm = confusion_matrix(y_true_all, y_pred_all, all_labels)
+
+        if len(all_labels) == 2 and isinstance(all_labels[0], bool): score_type = "binary"
+        else: score_type = "macro" #self.metric is f1_macro, so we cannot it use directly
         result = dict(
             all_labels = all_labels,
             confusion_matrix = str(cm),
-            f1_macro = f1_score(y_true_all,y_pred_all,labels=all_labels,average='macro'),
-            precision = precision_score(y_true_all, y_pred_all, average='macro'),
-            recall = recall_score(y_true_all, y_pred_all, average='macro'),
+            f1 = f1_score(y_true_all,y_pred_all,labels=all_labels,average=score_type),
+            precision = precision_score(y_true_all, y_pred_all, average=score_type),
+            recall = recall_score(y_true_all, y_pred_all, average=score_type),
             accuracy = accuracy_score(y_true_all, y_pred_all, sample_weight=None)
             )
         #print('f1: {}'.format(result['f1_score']))
-        result['minimization_score'] = -1*result['f1_macro']
-        #result['minimization_score'] = -1*result['accuracy']
+        if "f1" in self.metric: result['minimization_score'] = -1*result['f1']
+        elif "prec" in self.metric: result['minimization_score'] = -1*result['precision']
+        elif "rec" in self.metric: result['minimization_score'] = -1*result['recall']
+        else: result['minimization_score'] = -1*result['accuracy']
         return result
 
     def group_by_pc1(self,dataframe,feature_names,n_groups=5):
@@ -188,7 +193,7 @@ class Classifier(XRSDModel):
 
     def get_cv_summary(self):
         return dict(model_type=self.model_type,
-                    scores={k:self.cross_valid_results.get(k,None) for k in ['f1_macro','accuracy','precision','recall']})
+                    scores={k:self.cross_valid_results.get(k,None) for k in ['f1','accuracy','precision','recall']})
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
@@ -206,7 +211,7 @@ class Classifier(XRSDModel):
             'Confusion matrix:\n' + \
             self.print_confusion_matrix()+'\n\n' + \
             'F1 score: {}\n\n'.format(
-            self.cross_valid_results['f1_macro']) + \
+            self.cross_valid_results['f1']) + \
             'Precision: {}\n\n'.format(
             self.cross_valid_results['precision']) + \
             'Recall: {}\n\n'.format(
