@@ -96,7 +96,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         and (classification_models['main_classifiers'][model_id].model_type == new_model_type):
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             for param_nm in model.models_and_params[new_model_type]:
-                model.model.set_params(param_nm=old_pars[param_nm])
+                model.model.set_params(**{param_nm:old_pars[param_nm]})
         model.train(data_copy, train_hyperparameters, select_features)
         if model.trained:
             f1_score = model.cross_valid_results['f1']
@@ -140,7 +140,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                 and (classification_models['main_classifiers'][model_id].model_type == new_model_type):
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                     for param_nm in model.models_and_params[new_model_type]:
-                        model.model.set_params(param_nm=old_pars[param_nm])
+                        model.model.set_params(**{param_nm:old_pars[param_nm]})
                 model.train(flag_data, train_hyperparameters, select_features)
                 if model.trained:
                     f1_score = model.cross_valid_results['f1']
@@ -177,7 +177,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         and (classification_models[sys_cls]['noise_model'].model_type == new_model_type):
             old_pars = classification_models[sys_cls]['noise_model'].model.get_params()
             for param_nm in model.models_and_params[new_model_type]:
-                model.model.set_params(param_nm=old_pars[param_nm])
+                model.model.set_params(**{param_nm:old_pars[param_nm]})
         model.train(sys_cls_data, train_hyperparameters, select_features)
         if model.trained:
             f1_score = model.cross_valid_results['f1']
@@ -212,7 +212,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             and (classification_models[sys_cls][pop_id]['form'].model_type == new_model_type):
                 old_pars = classification_models[sys_cls][pop_id]['form'].model.get_params()
                 for param_nm in model.models_and_params[new_model_type]:
-                    model.model.set_params(param_nm=old_pars[param_nm])
+                    model.model.set_params(**{param_nm:old_pars[param_nm]})
             model.train(sys_cls_data, train_hyperparameters, select_features)
             if model.trained:
                 f1_score = model.cross_valid_results['f1']
@@ -242,7 +242,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                 and (classification_models[sys_cls][pop_id][stg_nm].model_type == new_model_type):
                     old_pars = classification_models[sys_cls][pop_id][stg_nm].model.get_params()
                     for param_nm in model.models_and_params[new_model_type]:
-                        model.model.set_params(param_nm=old_pars[param_nm])
+                        model.model.set_params(**{param_nm:old_pars[param_nm]})
                 model.train(sys_cls_data, train_hyperparameters, select_features)
                 if model.trained:
                     f1_score = model.cross_valid_results['f1']
@@ -278,7 +278,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     and (classification_models[sys_cls][pop_id][ff][stg_nm].model_type == new_model_type):
                         old_pars = classification_models[sys_cls][pop_id][ff][stg_nm].model.get_params()
                         for param_nm in model.models_and_params[new_model_type]:
-                            model.model.set_params(param_nm=old_pars[param_nm])
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(form_data, train_hyperparameters, select_features)
                     if model.trained:
                         f1_score = model.cross_valid_results['f1']
@@ -436,7 +436,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
                     and (regression_models[sys_cls]['noise'][modnm][pnm].model_type == new_model_type): 
                         old_pars = regression_models[sys_cls]['noise'][modnm][pnm].model.get_params()
                         for param_nm in model.models_and_params[new_model_type]:
-                            model.model.set_params(param_nm=old_pars[param_nm])
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(noise_model_data, train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -467,7 +467,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
             and (regression_models[sys_cls][pop_id]['I0_fraction'].model_type == new_model_type): 
                 old_pars = regression_models[sys_cls][pop_id]['I0_fraction'].model.get_params()
                 for param_nm in model.models_and_params[new_model_type]:
-                    model.model.set_params(param_nm=old_pars[param_nm])
+                    model.model.set_params(**{param_nm:old_pars[param_nm]})
             model.train(sys_cls_data, train_hyperparameters, select_features)
             if model.trained:
                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -504,7 +504,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
                         and (regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model_type == new_model_type):
                             old_pars = regression_models[sys_cls][pop_id][stg_nm][stg_label][pnm].model.get_params()
                             for param_nm in model.models_and_params[new_model_type]:
-                                model.model.set_params(param_nm=old_pars[param_nm])
+                                model.model.set_params(**{param_nm:old_pars[param_nm]})
                         model.train(stg_label_data, train_hyperparameters, select_features)
                         if model.trained:
                             grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -540,7 +540,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
                     and (regression_models[sys_cls][pop_id][form_id][pnm].model_type == new_model_type):
                         old_pars = regression_models[sys_cls][pop_id][form_id][pnm].model.get_params()
                         for param_nm in model.models_and_params[new_model_type]:
-                            model.model.set_params(param_nm=old_pars[param_nm])
+                            model.model.set_params(**{param_nm:old_pars[param_nm]})
                     model.train(form_data, train_hyperparameters, select_features)
                     if model.trained:
                         grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
@@ -578,7 +578,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
                             and (regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model_type == new_model_type):
                                 old_pars = regression_models[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm].model.get_params()
                                 for param_nm in model.models_and_params[new_model_type]:
-                                    model.model.set_params(param_nm=old_pars[param_nm])
+                                    model.model.set_params(**{param_nm:old_pars[param_nm]})
                             model.train(stg_label_data, train_hyperparameters, select_features)
                             if model.trained:
                                 grpsz_wtd_mean_MAE = model.cross_valid_results['groupsize_weighted_average_MAE']
