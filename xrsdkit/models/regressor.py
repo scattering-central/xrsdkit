@@ -13,8 +13,8 @@ from ..tools import profiler, Rsquared
 class Regressor(XRSDModel):
     """Class for generating models to predict real-valued parameters."""
 
-    def __init__(self, model_type, label):
-        super(Regressor,self).__init__(model_type, label)
+    def __init__(self, model_type, metric, label):
+        super(Regressor,self).__init__(model_type, metric, label)
         self.scaler_y = preprocessing.StandardScaler() 
         self.models_and_params = dict(
             ridge_regressor = dict(

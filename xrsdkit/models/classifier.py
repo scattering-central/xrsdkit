@@ -14,8 +14,8 @@ from .xrsd_model import XRSDModel
 class Classifier(XRSDModel):
     """Class for models that classify attributes of material systems."""
 
-    def __init__(self,model_type,label):
-        super(Classifier,self).__init__(model_type, label)
+    def __init__(self, model_type, metric, label):
+        super(Classifier,self).__init__(model_type, metric, label)
         self.models_and_params = dict(
             logistic_regressor = dict(
                 C = np.logspace(-1,3,num=15,endpoint=True,base=10.)

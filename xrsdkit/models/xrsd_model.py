@@ -11,8 +11,9 @@ from ..tools import primitives, profiler
 
 class XRSDModel(object):
 
-    def __init__(self, model_type, label):
+    def __init__(self, model_type, metric, label):
         self.model_type = model_type 
+        self.metric = metric
         self.models_and_params = {}
         self.model = None
         self.scaler = preprocessing.StandardScaler()
@@ -52,6 +53,7 @@ class XRSDModel(object):
     def collect_model_data(self):
         model_data = dict(
             model_type = self.model_type, 
+            metric = self.metric, 
             model_target = self.target,
             scaler = dict(),
             model = dict(hyper_parameters=dict(), trained_par=dict()),
@@ -91,16 +93,13 @@ class XRSDModel(object):
         msg = 'subclasses of XRSDModel must implement build_model()'
         raise NotImplementedError(msg)
 
-    def train(self, model_data, scoring, train_hyperparameters=False, select_features=False):
+    def train(self, model_data, train_hyperparameters=False, select_features=False):
         """Train the model, optionally searching for optimal hyperparameters.
 
         Parameters
         ----------
         model_data : pandas.DataFrame
             DataFrame containing features and labels for this model
-        scoring : str
-            Specification of scoring function to use:
-            must be in sklearn.metrics.SCORERS.keys()
         train_hyperparameters : bool
             If true, cross-validation metrics are used to select model hyperparameters 
         select_features : bool
@@ -141,10 +140,7 @@ class XRSDModel(object):
             if train_hyperparameters:
                 test_model = self.build_model()
                 param_grid = self.models_and_params[self.model_type]
-                model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid,scoring)
-                test_model = self.build_model(model_hyperparams)
-                test_model.fit(valid_data[model_feats], valid_data[self.target])
-                cv = self.run_cross_validation(test_model,valid_data,model_feats)
+                model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid)
 
             # after parameter and feature selection,
             # the entire dataset is used for final training,
@@ -279,13 +275,13 @@ class XRSDModel(object):
             y_true[gid] = yt
         return self.cv_report(data,y_true,y_pred)
 
-    def grid_search_hyperparams(self,model,data,feature_names,hyperparam_grid,scoring,n_leave_out=1):
+    def grid_search_hyperparams(self,model,data,feature_names,hyperparam_grid,n_leave_out=1):
         cv_splits = LeavePGroupsOut(n_groups=n_leave_out).split(
             data[feature_names],
             np.ravel(data[self.target]),
             groups=data['group_id']
             )
-        gs_models = GridSearchCV(model,hyperparam_grid,cv=cv_splits,scoring=scoring,n_jobs=-1)
+        gs_models = GridSearchCV(model,hyperparam_grid,cv=cv_splits,scoring=self.metric,n_jobs=-1)
         gs_models.fit(data[feature_names], np.ravel(data[self.target]))
         best_model = self.build_sgd_model(gs_models.best_params_)
         cv = self.run_cross_validation(best_model,data,feature_names) 
