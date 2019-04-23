@@ -1,18 +1,17 @@
 import os
-from xrsdkit.models import root_dir
 from xrsdkit.tools.ymltools import downsample_by_group
 from xrsdkit.models.train import train_from_dataframe
 from xrsdkit.db import load_yml_to_file_table, load_from_files_table_to_samples_table
 from xrsdkit.db import load_from_samples_to_training_table, get_training_dataframe
-from xrsdkit.db import storage_client, storage_path, test_db_connector
+from xrsdkit.db import storage_client, storage_path_test, test_db_connector
 
 data_dir = os.path.join(os.path.dirname(__file__),'test_data')
 test_models_dir = os.path.join(data_dir,'modeling_data')
 if not os.path.exists(test_models_dir): os.mkdir(test_models_dir)
 
 def test_load_yml_to_file_table():
-    if test_db_connector and storage_client and storage_path:
-        load_yml_to_file_table(test_db_connector, storage_path)
+    if test_db_connector and storage_client and storage_path_test:
+        load_yml_to_file_table(test_db_connector, storage_path_test)
 
 def test_load_from_files_table_to_samples_table():
     if test_db_connector and storage_client:
