@@ -33,7 +33,7 @@ clever_password
 .xrsdkit_storage_host:
     line 1: storage_host_name
     line 2: path to training dataset directory on storage host
-    line 3: path to test dataset directory on storage host (will be used by test_db.py only)
+    line 3: path to test dataset directory on storage host (used only for testing, may be left empty)
     line 4: username on storage host
     line 5: path to user's private ssh key file on local host
 
@@ -221,26 +221,25 @@ def load_yml_to_file_table(db, path_to_dir, drop_table=False):
     db.query("CREATE TABLE IF NOT EXISTS files(sample_id VARCHAR PRIMARY KEY, "
                                             "experiment_id VARCHAR, good_fit BOOLEAN, "
                                             "yml_path TEXT)")
-
     # get the list of experiments that are already in the table
     exp_from_table = db.query('SELECT DISTINCT experiment_id FROM files').getresult()
     exp_from_table = [row[0] for row in exp_from_table]
-
     all_sys_dicts = download_sys_data(path_to_dir)
-    ids = []
+    all_sample_ids = []
     for file_path,sys_dict in all_sys_dicts.items():
         expt_id = sys_dict['sample_metadata']['experiment_id']
         sample_id = sys_dict['sample_metadata']['sample_id']
-        if sys_dict['sample_metadata']['experiment_id'] not in exp_from_table:
-            # make sure the experiment_id is not yet in the table
-            if sample_id in ids:
-                print("Attention! We have dublicates in the sample ids: {}".format(sample_id))
-                continue # to skip the sample
-            ids.append(sample_id)
-            # add attributes and file path to the files table 
-            db.insert('files', sample_id=sample_id, experiment_id=expt_id,
-                yml_path=file_path, good_fit=sys_dict['fit_report']['good_fit'])
-        #print('FINISHED loading experiment {} to files table'.format(experiment))
+        # make sure the experiment_id is not yet in the table
+        if expt_id in exp_from_table:
+            warnings.warn('Skipping duplicate experiment id: {}'.format(expt_id))
+        else:
+            if sample_id in all_sample_ids:
+                warnings.warn('Skipping duplicate sample id: {}'.format(sample_id)) 
+            else: 
+                all_sample_ids.append(sample_id)
+                # add attributes and file path to the files table 
+                db.insert('files', sample_id=sample_id, experiment_id=expt_id,
+                    yml_path=file_path, good_fit=sys_dict['fit_report']['good_fit'])
 
 
 def download_sys_data(path_to_dir):
