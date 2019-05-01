@@ -32,12 +32,14 @@ clever_password
 
 .xrsdkit_storage_host:
     line 1: storage_host_name
-    line 2: path to dataset directory on storage host 
-    line 3: username on storage host
-    line 4: path to user's private ssh key file on local host
+    line 2: path to training dataset directory on storage host
+    line 3: path to test dataset directory on storage host (used only for testing, may be left empty)
+    line 4: username on storage host
+    line 5: path to user's private ssh key file on local host
 
 example:
 192.99.99.998
+/path/to/training/dataset
 /path/to/test/dataset
 storage_user
 /home/.ssh/id_rsa
@@ -143,13 +145,15 @@ test_db_host_info_file = os.path.join(user_home_dir,'.xrsdkit_test_db_host')
 
 storage_client = None
 storage_path = None
+storage_path_test = None
 try:
     if os.path.exists(storage_host_info_file):
         storage_host_lines = open(storage_host_info_file,'r').readlines()
         storage_host = storage_host_lines[0].strip()
         storage_path = storage_host_lines[1].strip()
-        storage_user = storage_host_lines[2].strip()
-        private_key_file = storage_host_lines[3].strip()
+        storage_path_test = storage_host_lines[2].strip()
+        storage_user = storage_host_lines[3].strip()
+        private_key_file = storage_host_lines[4].strip()
         storage_client = paramiko.SSHClient()
         storage_client.load_system_host_keys()
         storage_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -217,23 +221,25 @@ def load_yml_to_file_table(db, path_to_dir, drop_table=False):
     db.query("CREATE TABLE IF NOT EXISTS files(sample_id VARCHAR PRIMARY KEY, "
                                             "experiment_id VARCHAR, good_fit BOOLEAN, "
                                             "yml_path TEXT)")
-
     # get the list of experiments that are already in the table
     exp_from_table = db.query('SELECT DISTINCT experiment_id FROM files').getresult()
     exp_from_table = [row[0] for row in exp_from_table]
-
     all_sys_dicts = download_sys_data(path_to_dir)
+    all_sample_ids = []
     for file_path,sys_dict in all_sys_dicts.items():
         expt_id = sys_dict['sample_metadata']['experiment_id']
         sample_id = sys_dict['sample_metadata']['sample_id']
         # make sure the experiment_id is not yet in the table
-        # NOTE: should we allow this function to add experiments for an existing experiment_id?
-        # NOTE 2: should we prevent this function from loading samples with redundant sample_id? 
-        if sys_dict['sample_metadata']['experiment_id'] not in exp_from_table: 
-            # add attributes and file path to the files table 
-            db.insert('files', sample_id=sample_id, experiment_id=expt_id,
-                yml_path=file_path, good_fit=sys_dict['fit_report']['good_fit'])
-        #print('FINISHED loading experiment {} to files table'.format(experiment))
+        if expt_id in exp_from_table:
+            warnings.warn('Skipping duplicate experiment id: {}'.format(expt_id))
+        else:
+            if sample_id in all_sample_ids:
+                warnings.warn('Skipping duplicate sample id: {}'.format(sample_id)) 
+            else: 
+                all_sample_ids.append(sample_id)
+                # add attributes and file path to the files table 
+                db.insert('files', sample_id=sample_id, experiment_id=expt_id,
+                    yml_path=file_path, good_fit=sys_dict['fit_report']['good_fit'])
 
 
 def download_sys_data(path_to_dir):
