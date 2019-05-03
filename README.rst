@@ -1,34 +1,20 @@
-xrsdkit: Python modules for x-ray scattering and diffraction data analysis 
-==========================================================================
+xrsdkit: Statistical models for fast x-ray scattering and diffraction data analysis 
+===================================================================================
 
 
 Description
 -----------
 
-This package supports a data ecosystem for 
-X-ray scattering and diffraction patterns,
-notably including tools to curate datasets 
-and build statistical models for automated analysis.
-The package includes a set of models
-trained on data curated by the developers
-at Stanford Synchrotron Radiaton Lightsource (SSRL),
-a directorate of the Stanford Linear Accelerator (SLAC) laboratory.
-
-Data employed for the packaged models 
-are attributed to the following sources:
-
- - Wu, Liheng, et al. Nature 548, 197–201 (2017). doi: 10.1038/nature23308
-
-As more patterns are added to the curated set, 
-the models are expected to become more effective.
-If you have a data set that you would like to volunteer
-to add to the curated set, 
-please contact the development team at
-ssrl-citrination@slac.stanford.edu or paws-developers@slac.stanford.edu.
+This package provides the tools 
+for a X-ray scattering and diffraction data ecosystem,
+including tools to curate datasets 
+and train statistical models for fast and/or automated analysis.
 
 
 Example
 -------
+
+# TODO: add training of models from a dataset
 
 This example profiles, parameterizes, 
 and optimizes the fit of a scattering equation
@@ -47,7 +33,7 @@ to a measured saxs spectrum.
     q_I = np.loadtxt('my_data/sample_0.dat')
     q = q_I[:,0]
     I = q_I[:,1]
-    p = xrsdprof.profile_pattern(q,I)    
+    p = xrsdprof.profile_pattern(q,I)
 
 **Use statistical models to identify and parameterize the material system** ::
 
@@ -75,9 +61,11 @@ Contribution
 
 To contribute code, please feel free to submit a pull request on this repository.
 
-To contribute data for improving the models,
-please contact the development team at
-ssrl-citrination@slac.stanford.edu or paws-developers@slac.stanford.edu.
+If you have a dataset that you would like to use with xrsdkit,
+and you would like some help with it, please contact the development team at
+paws-developers@slac.stanford.edu.
+We cannot guarantee a solution, 
+but we will be very interested to hear about your use case.
 
 
 License
