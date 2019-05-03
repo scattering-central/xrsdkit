@@ -29,5 +29,5 @@ def test_get_training_dataframe():
 def test_if_the_result_is_trainable():
     if df:
         df_sample = downsample_by_group(df)
-        train_from_dataframe(df_sample,test_models_dir)
+        train_from_dataframe(df_sample,output_dir=test_models_dir)
 
