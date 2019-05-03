@@ -13,9 +13,6 @@ from xrsdkit.visualization.gui import run_fit_gui
 data_dir = os.path.join(os.path.dirname(__file__),'test_data')
 dataset_path = os.path.join(data_dir,'dataset.csv')
 
-test_models_dir = os.path.join(data_dir,'modeling_data')
-if not os.path.exists(test_models_dir): os.mkdir(test_models_dir)
-
 df = None
 if os.path.exists(dataset_path):
     print('loading cached dataset from {}'.format(dataset_path))
@@ -50,7 +47,7 @@ def test_predict_0():
 # train new models
 def test_training():
     if df_ds is not None:
-        train_from_dataframe(df_ds,test_models_dir,train_hyperparameters=False,select_features=False,save_models=True)
+        train_from_dataframe(df_ds,train_hyperparameters=False,select_features=False)
 
 # test prediction on newly trained models
 def test_predict_1():
