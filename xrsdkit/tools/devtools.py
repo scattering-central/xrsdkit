@@ -3,24 +3,22 @@ import os
 from .ymltools import read_local_dataset
 from ..db import gather_remote_dataset
 from ..models.train import train_from_dataframe
-from ..models import modeling_data_dir, load_models, create_conf_file
+from ..models import load_models
 
-def train_models_from_local_dataset(dataset_dir, output_dir, conf_file=None, downsampling_distance=1.):
+def train_on_local_dataset(dataset_dir, output_dir=None, model_config_path=None, downsampling_distance=1.):
     df = read_local_dataset(dataset_dir, downsampling_distance=downsampling_distance) 
-    train_from_dataframe(df, output_dir, conf_file, train_hyperparameters=True, select_features=True, save_models=True)
+    reg_models, cls_models = train_from_dataframe(df, 
+            train_hyperparameters=True, select_features=True, 
+            output_dir=output_dir, model_config_path=model_config_path)
+    return reg_models, cls_models
 
-def train_models_from_remote_dataset(dataset_dir, output_dir, conf_file=None, downsampling_distance=1.):
+def train_on_remote_dataset(dataset_dir, output_dir, conf_file=None, downsampling_distance=1.):
     df = gather_remote_dataset(dataset_dir, downsampling_distance=downsampling_distance)
-    train_from_dataframe(df, output_dir, conf_file, train_hyperparameters=True, select_features=True, save_models=True)
+    train_from_dataframe(df, train_hyperparameters=True, select_features=True, 
+            output_dir=output_dir, model_config_path=model_config_path)
 
 def dataset_to_csv(dataset_dir, downsampling_distance=1.):
     df = read_local_dataset(dataset_dir, downsampling_distance=downsampling_distance) 
     output_path = os.path.join(dataset_dir, 'dataset.csv')
     df.to_csv(output_path)
-
-def update_models(models_dir):
-    load_models(models_dir, modeling_data_dir)
-
-def make_conf_file(model_configs_yml=None):
-    create_conf_file(model_configs_yml)
 
