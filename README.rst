@@ -1,4 +1,4 @@
-xrsdkit: Statistical models for fast x-ray scattering and diffraction data analysis 
+xrsdkit: Machine learning models for fast x-ray scattering and diffraction data analysis
 ===================================================================================
 
 
@@ -8,15 +8,29 @@ Description
 This package provides the tools 
 for a X-ray scattering and diffraction data ecosystem,
 including tools to curate datasets 
-and train statistical models for fast and/or automated analysis.
+and train machine learning models for fast and/or automated analysis.
 
 
 Example
 -------
 
-# TODO: add training of models from a dataset
+**Example 1.** This example illustrates training using default and user defined settings.
 
-This example profiles, parameterizes, 
+**Import xrsdkit devtools** ::
+
+    import xrsdkit.tools.devtools as xrsdev
+
+**Train using default setting**
+
+If you have no configuration file, you can put the path where you want a new configuration file to be saved.
+The configuration with default setting will be created::
+
+    xrsdev.train_on_local_dataset("path_to_dataset", "models_directory", "configuration_file_path")
+
+Now you can manually update configuration file and train again (use the same command).
+
+
+**Example 2.** This example profiles, parameterizes,
 and optimizes the fit of a scattering equation
 to a measured saxs spectrum.
 
@@ -26,7 +40,13 @@ to a measured saxs spectrum.
     from xrsdkit.tools import profiler as xrsdprof
     from xrsdkit import models as xrsdmods
     from xrsdkit import system as xrsdsys
-    from xrsdkit import visualization as xrsdvis 
+    from xrsdkit import visualization as xrsdvis
+
+**Load machine learning models** ::
+
+    import xrsdkit
+    xrsdkit.models.load_models("models_directory")
+
 
 **Read and profile a scattering pattern** ::
 
@@ -35,7 +55,7 @@ to a measured saxs spectrum.
     I = q_I[:,1]
     p = xrsdprof.profile_pattern(q,I)
 
-**Use statistical models to identify and parameterize the material system** ::
+**Use machine learning models to identify and parameterize the material system** ::
 
     pred = xrsdmods.predict(p)
     source_wavelength = 0.8
