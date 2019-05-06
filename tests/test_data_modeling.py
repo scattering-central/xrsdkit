@@ -10,7 +10,6 @@ from xrsdkit import models as xrsdmods
 from xrsdkit.models.train import train_from_dataframe
 from xrsdkit.models.predict import predict, system_from_prediction 
 from xrsdkit.visualization import visualize_dataframe
-from xrsdkit.visualization.gui import run_fit_gui 
 
 data_dir = os.path.join(os.path.dirname(__file__),'test_data')
 temp_models_dir = os.path.join(data_dir,'modeling_data')
@@ -67,8 +66,6 @@ def test_predict_1():
         pred = predict(feats)
         sys = system_from_prediction(pred,q_I[:,0],q_I[:,1],source_wavelength=0.8265617)
         xrsdyml.save_sys_to_yaml(sysfpath,sys)
-        #if 'DISPLAY' in os.environ:
-        #    fit_sys = run_fit_gui({datapath:sysfpath})
         os.remove(sysfpath)
         # throw away the temporary modeling files
         shutil.rmtree(temp_models_dir)

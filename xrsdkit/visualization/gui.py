@@ -458,9 +458,6 @@ class XRSDFitGUI(object):
 
     def _set_data_files(self,data_files=[],yml_files=[]):
         all_data_files = OrderedDict()
-        print(data_files)
-        print(yml_files)
-        import pdb; pdb.set_trace()
         if data_files:
             for idf,df_path in enumerate(data_files):
                 if os.path.exists(df_path):
