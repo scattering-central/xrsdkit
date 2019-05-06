@@ -10,6 +10,7 @@ if sys.version_info[0] < 3:
 else:
     import tkinter
     from tkinter import filedialog
+import warnings
 
 import numpy as np
 import matplotlib
@@ -32,14 +33,27 @@ from ..models import predict as xrsdpred
 q_default = np.linspace(0.,1.,100)
 I_default = np.zeros(q_default.shape)
 
-def run_fit_gui(data_files={}):
-    # data_files dict: keys are q_I file paths, values are .yml file paths (or None)
-    gui = XRSDFitGUI(data_files)
+def run_gui_on_yaml_directory(yml_dir=None,yml_regex='*.yml'):
+    yml_files = glob.glob(os.path.join(yml_dir,yml_regex))
+    run_gui_on_files(yml_files=yml_files)
+
+def run_gui_on_data_directory(data_dir=None,data_regex='*.dat'):
+    data_files = glob.glob(os.path.join(data_dir,data_regex))
+    #for datf in data_files.keys():
+    #    df_name = os.path.split(datf)[1]
+    #    df_name_noext = os.path.splitext(df_name)[0]
+    #    ymlf = os.path.join(yml_dir,df_name_noext+'.yml')
+    #    if not os.path.exists(ymlf):
+    #        sys = xrsdsys.System(sample_metadata={'data_file':df_name})
+    #        save_sys_to_yaml(ymlf,sys)
+    #    data_files[datf] = ymlf
+    run_gui_on_files(data_files=data_files)
+
+def run_gui_on_files(data_files=[],yml_files=[]):
+    gui = XRSDFitGUI(data_files,yml_files)
     gui.start()
 
-# TODO (high): update IO - assume yml and dat files are in same directory
-# TODO (high): update IO - create minimal yml file if nonexistent, with same name as dat file 
-# TODO (high): update IO - assign the sample_metadata['data_file'] attribute if empty or incorrect
+# TODO: during IO, check the sample_metadata['data_file'] attribute- correct it if empty or inaccurate
 
 # TODO (low): when a selection is rejected (raises an Exception),
 #   get the associated combobox re-painted-
@@ -57,11 +71,55 @@ def run_fit_gui(data_files={}):
 # TODO (low): find a way to fix the errors 
 #   that sometimes occur when the gui is closed
 #   (_tkinter.TclError: invalid command name)
+#   NOTE: on Windows, the error message is more informative:
+#   it appears that this may have something to do with one of the scrollbars
 
 class XRSDFitGUI(object):
 
-    def __init__(self,data_files={}):
+    def __init__(self,data_files=[],yml_files=[]):
+        """Create an instance of the xrsdkit gui.
 
+        The data that are initially loaded in the GUI 
+        depend on the two input file lists, `data_files` and `yml_files`.
+
+        If data files exist but YAML files do not,
+        e.g. for scattering data that have not yet been fit by xrsdkit,
+        the `data_files` input alone is sufficient.
+        In this case, minimal YAML files will be created and placed 
+        in the same directory as the data files,
+        and will be given matching filenames.
+
+        If the data files exist and the YAML files also exist,
+        and they are in the same directory with matching filenames,
+        the `data_files` input alone is sufficient,
+        and the corresponding YAML files are detected automatically.
+
+        If the data files and YAML files should be in separate directories,
+        the `yml_files` input can be used to specify the YAML paths,
+        which should have one-to-one correspondence to the `data_files`.
+        This works whether or not the YAML files exist:
+        if they do not exist, minimal YAML files are created.
+
+        Finally, if the data files exist and the YAML files also exist,
+        and they are in the same directory,
+        and each YAML file sample_metadata correctly names its data file,
+        the `yml_files` input alone is sufficient.
+
+        Parameters
+        ----------
+        data_files : list of str 
+            List of paths to 1d-integrated scattering data files
+            (each file must have two columns, q and I(q)).
+        yml_files : list of str
+            List of paths to xrsdkit system data YAML files.
+            If YAML files do not exist (i.e. data have not been fit),
+            the `data_files` input must be provided.
+            If data files are in the same directory as YAML files,
+            and the YAML sample_metadata attribute gives the correct filename,
+            this input may be used alone (with `data_files`=[]).
+            If YAML and data files both exist in different directories,
+            both `yml_files` and `data_files` inputs must be used.
+        """
         super(XRSDFitGUI, self).__init__()
         # start with a default system definition, q, and I(q)
         self.sys = xrsdsys.System()
@@ -76,7 +134,7 @@ class XRSDFitGUI(object):
         self._build_control_widgets()
         # create the plots
         self._build_plot_widgets()
-        self._set_data_files(data_files)
+        self._set_data_files(data_files,yml_files)
         self.fit_gui.geometry('1100x700')
         self._draw_plots()
         #self._next_data_file()
@@ -245,26 +303,6 @@ class XRSDFitGUI(object):
 
         iof.grid(row=0,pady=2,padx=2,sticky='ew')
 
-    def _update_search_expression(self,*args):
-        new_dir = self._vars['io_control']['data_dir'].get()
-        new_file_expr = '*'+self._vars['io_control']['data_filename_suffix'].get()+'.'+self._vars['io_control']['data_file_extension'].get()
-        new_search_expr = os.path.join(new_dir,new_file_expr)
-        self._vars['io_control']['data_search_expression'].set(new_search_expr)
-
-    def _set_data_files(self,data_files={}):
-        self.data_files = data_files
-        df_options_dict = {'':None}
-        if data_files:
-            df_options_dict = OrderedDict.fromkeys(data_files.keys())
-        dfcb = tkinter.OptionMenu(self._frames['io_control'],self._vars['io_control']['data_file'],*df_options_dict)
-        dfcb.config(width=10,anchor='e')
-        if self._widgets['datafile_option_menu']: 
-            self._widgets['datafile_option_menu'].grid_forget()
-        dfcb.grid(row=1,column=0,columnspan=3,sticky='ew')
-        self._widgets['datafile_option_menu'] = dfcb
-        if self.data_files:
-            self._next_data_file()
-
     def _browse_data_files(self,*args):
         browser_popup = tkinter.Toplevel(master=self.fit_gui)
         browser_popup.geometry('500x800')
@@ -395,11 +433,19 @@ class XRSDFitGUI(object):
         data_file_listbox.insert(0,*data_file_list)
         system_file_listbox.insert(0,*sys_file_list)
 
+    def _update_search_expression(self,*args):
+        new_dir = self._vars['io_control']['data_dir'].get()
+        new_file_expr = '*'+self._vars['io_control']['data_filename_suffix'].get()+'.'+self._vars['io_control']['data_file_extension'].get()
+        new_search_expr = os.path.join(new_dir,new_file_expr)
+        self._vars['io_control']['data_search_expression'].set(new_search_expr)
+
     def _get_data_files_from_browser(self,data_file_listbox,system_file_listbox):
-        df_list = data_file_listbox.get(0,tkinter.END)
-        sf_list = system_file_listbox.get(0,tkinter.END)
-        data_files = OrderedDict((df,sf) for df,sf in zip(df_list,sf_list))
-        self._set_data_files(data_files)
+        pass
+        # TODO: update this
+        #df_list = data_file_listbox.get(0,tkinter.END)
+        #sf_list = system_file_listbox.get(0,tkinter.END)
+        #data_files = OrderedDict((df,sf) for df,sf in zip(df_list,sf_list))
+        #self._set_data_files(data_files)
 
     def _browse_for_directory(self,parent_widget,dir_entry_var,title=''):
         browser_root = os.getcwd()
@@ -409,6 +455,48 @@ class XRSDFitGUI(object):
             title=title
             )
         dir_entry_var.set(data_dir)
+
+    def _set_data_files(self,data_files=[],yml_files=[]):
+        all_data_files = OrderedDict()
+        print(data_files)
+        print(yml_files)
+        import pdb; pdb.set_trace()
+        if data_files:
+            for idf,df_path in enumerate(data_files):
+                if os.path.exists(df_path):
+                    df_name = os.path.split(df_path)[1]
+                    df_name_noext = os.path.splitext(df_name)[0]
+                    if yml_files: 
+                        ymlf = yml_files[idf]
+                    else:
+                        ymlf = os.path.join(os.path.split(df_path)[0],df_name_noext+'.yml')
+                    if not os.path.exists(ymlf):
+                        sys = xrsdsys.System(sample_metadata={'data_file':df_name})
+                        save_sys_to_yaml(ymlf,sys)
+                    all_data_files[df_path] = ymlf
+                else:
+                    warnings.warn('nonexistent data file {}- skipping'.format(df_path))
+        elif yml_files:
+            for ymlf in yml_files:
+                sys = load_sys_from_yaml(ymlf)
+                df = sys.sample_metadata['data_file']
+                df_path = os.path.join(os.path.split(ymlf)[0],df)
+                if os.path.exists(df_path):
+                    all_data_files[df_path] = ymlf
+                else:
+                    warnings.warn('yml file {} references nonexistent data file {}- skipping'.format(ymlf,df_path))
+        self.data_files = all_data_files
+        df_options_dict = {'':None}
+        if all_data_files:
+            df_options_dict = OrderedDict.fromkeys(all_data_files.keys())
+        dfcb = tkinter.OptionMenu(self._frames['io_control'],self._vars['io_control']['data_file'],*df_options_dict)
+        dfcb.config(width=10,anchor='e')
+        if self._widgets['datafile_option_menu']: 
+            self._widgets['datafile_option_menu'].grid_forget()
+        dfcb.grid(row=1,column=0,columnspan=3,sticky='ew')
+        self._widgets['datafile_option_menu'] = dfcb
+        if self.data_files:
+            self._next_data_file()
 
     def _next_data_file(self,*args):
         current_file = self._vars['io_control']['data_file'].get()
