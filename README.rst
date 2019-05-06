@@ -1,5 +1,5 @@
 xrsdkit: Machine learning models for fast x-ray scattering and diffraction data analysis
-===================================================================================
+========================================================================================
 
 
 Description
@@ -20,14 +20,16 @@ Example
 
     import xrsdkit.tools.devtools as xrsdev
 
-**Train using default setting**
+**Train using default model configurations**
 
-If you have no configuration file, you can put the path where you want a new configuration file to be saved.
-The configuration with default setting will be created::
+If you have no model configuration file, 
+you can provide the path where you want a new configuration file to be saved.
+The default model configuration will be created at the provided path ::
 
     xrsdev.train_on_local_dataset("path_to_dataset", "models_directory", "configuration_file_path")
 
-Now you can manually update configuration file and train again (use the same command).
+Now the configuration file can be updated (manually or programmatically),
+and the training can be executed again (use the same command).
 
 
 **Example 2.** This example profiles, parameterizes,
