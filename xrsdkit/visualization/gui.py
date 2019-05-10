@@ -35,7 +35,7 @@ I_default = np.zeros(q_default.shape)
 
 def run_gui_on_yaml_directory(yml_dir=None,yml_regex='*.yml'):
     yml_files = glob.glob(os.path.join(yml_dir,yml_regex))
-    run_gui_on_files(yml_files=yml_files)
+    run_gui(yml_files=yml_files)
 
 def run_gui_on_data_directory(data_dir=None,data_regex='*.dat'):
     data_files = glob.glob(os.path.join(data_dir,data_regex))
@@ -47,13 +47,20 @@ def run_gui_on_data_directory(data_dir=None,data_regex='*.dat'):
     #        sys = xrsdsys.System(sample_metadata={'data_file':df_name})
     #        save_sys_to_yaml(ymlf,sys)
     #    data_files[datf] = ymlf
-    run_gui_on_files(data_files=data_files)
+    run_gui(data_files=data_files)
 
-def run_gui_on_files(data_files=[],yml_files=[]):
+def run_gui(data_files=[],yml_files=[]):
     gui = XRSDFitGUI(data_files,yml_files)
     gui.start()
 
-# TODO: during IO, check the sample_metadata['data_file'] attribute- correct it if empty or inaccurate
+# TODO: mouse-over pop-up help windows
+
+# TODO: fix mousewheel scrolling behavior in Windows-
+# currently scrolling jumps between top and bottom, 
+# does not stop in between
+
+# TODO: fix mousewheel scrolling behavior for separate windows-
+# currently mousewheel always controls the main input canvas 
 
 # TODO (low): when a selection is rejected (raises an Exception),
 #   get the associated combobox re-painted-
@@ -88,9 +95,10 @@ class XRSDFitGUI(object):
         In this case, minimal YAML files will be created and placed 
         in the same directory as the data files,
         and will be given matching filenames.
+        Fitting results will be stored in these YAML files.
 
         If the data files exist and the YAML files also exist,
-        and they are in the same directory with matching filenames,
+        and they are in the same directories with matching filenames,
         the `data_files` input alone is sufficient,
         and the corresponding YAML files are detected automatically.
 
@@ -134,7 +142,8 @@ class XRSDFitGUI(object):
         self._build_control_widgets()
         # create the plots
         self._build_plot_widgets()
-        self._set_data_files(data_files,yml_files)
+        data_file_map = self._match_data_to_yml(data_files,yml_files)
+        self._set_data_files(data_file_map)
         self.fit_gui.geometry('1100x700')
         self._draw_plots()
         #self._next_data_file()
@@ -215,9 +224,14 @@ class XRSDFitGUI(object):
         control_frame = tkinter.Frame(self.main_frame)
         control_frame.grid(row=0,column=1,sticky='nesw',padx=2,pady=2)
         control_frame_canvas = tkinter.Canvas(control_frame)
+        # TODO: figure out how to make the mousewheel control the currently-focused frame-
+        # the current approach will always scroll control_frame regardless of focus-
+        # some research suggests the use of bind_class with a custom bindtag,
+        # but this has not yet been implemented successfully
         control_frame.bind_all("<MouseWheel>", partial(self.on_mousewheel,control_frame_canvas))
         control_frame.bind_all("<Button-4>", partial(self.on_trackpad,control_frame_canvas))
         control_frame.bind_all("<Button-5>", partial(self.on_trackpad,control_frame_canvas))
+        #self.fit_gui.bind_class("scrollable_controls","<MouseWheel>",partial(self.on_mousewheel,control_frame_canvas))
         yscr = tkinter.Scrollbar(control_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
         control_frame_canvas.pack(fill='both',expand=True)
@@ -279,14 +293,10 @@ class XRSDFitGUI(object):
         self._vars['io_control']['data_file'] = dfvar
 
         self._vars['io_control']['data_dir'] = tkinter.StringVar(iof)
-        self._vars['io_control']['data_file_extension'] = tkinter.StringVar(iof)
-        self._vars['io_control']['data_filename_suffix'] = tkinter.StringVar(iof)
-        self._vars['io_control']['data_search_expression'] = tkinter.StringVar(iof)
-        self._vars['io_control']['system_definition_dir'] = tkinter.StringVar(iof)
-        self._vars['io_control']['system_definition_filename_suffix'] = tkinter.StringVar(iof)
-        self._vars['io_control']['data_dir'].trace('w',self._update_search_expression)
-        self._vars['io_control']['data_file_extension'].trace('w',self._update_search_expression)
-        self._vars['io_control']['data_filename_suffix'].trace('w',self._update_search_expression)
+        self._vars['io_control']['data_regex'] = tkinter.StringVar(iof)
+        self._vars['io_control']['xrsdkit_data_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['xrsdkit_data_regex'] = tkinter.StringVar(iof)
+        self._vars['io_control']['same_dir_flag'] = tkinter.BooleanVar(iof)
 
         dfl = tkinter.Label(iof,text='scattering/diffraction data files:',anchor='w')
         dfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_data_files)
@@ -301,59 +311,40 @@ class XRSDFitGUI(object):
         prevb.grid(row=2,column=0,sticky='w')
         nxtb.grid(row=2,column=2,sticky='e')
 
+        # bind the mousewheel to scroll the parent frame
+        # NOTE: this was an attempt, it didn't seem to work
+        #self._bind_all_children(iof,"scrollable_controls")
+
         iof.grid(row=0,pady=2,padx=2,sticky='ew')
+
+    #def _bind_all_children(self,widg,tag):
+    #    widg.bindtags((tag,)+widg.bindtags())
+    #    for cwidg in widg.children.values():
+    #        self._bind_all_children(cwidg,tag)
 
     def _browse_data_files(self,*args):
         browser_popup = tkinter.Toplevel(master=self.fit_gui)
         browser_popup.geometry('500x800')
-        #browser_popup.wm_title('data file browser')
         browser_popup.title('data file browser')
-        scrollbar = tkinter.Scrollbar(browser_popup,orient='vertical')
         main_canvas = tkinter.Canvas(browser_popup)
-        scrollbar.pack(side=tkinter.RIGHT,fill=tkinter.Y)
         main_canvas.pack(fill=tkinter.BOTH,expand=tkinter.YES)
-        scrollbar.config(command=main_canvas.yview)
-        main_canvas.config(yscrollcommand=scrollbar.set)
         main_frame = tkinter.Frame(main_canvas,bd=4,padx=10,pady=10)
         main_frame_window = main_canvas.create_window(0,0,window=main_frame,anchor='nw')
         main_canvas_configure = partial(self._canvas_configure,main_canvas,main_frame,main_frame_window)  
         main_canvas.bind("<Configure>",main_canvas_configure)
 
-        #iof = self._frames['io_control']
-
-        display_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
-        display_frame.grid_columnconfigure(0,weight=1)
-        display_frame.grid_columnconfigure(1,weight=1)
-        display_frame.grid_rowconfigure(1,weight=1)
-        # widgets for displaying file lists:
-        dfl = tkinter.Label(display_frame,text='data files:',anchor='w')
-        sfl = tkinter.Label(display_frame,text='system definition files:',anchor='w')
-        dfl.grid(row=0,column=0,sticky='w')
-        sfl.grid(row=0,column=1,sticky='w')
-
-        # TODO: figure out how to right-justify the Listbox
-        dfl.config(justify=tkinter.RIGHT)
-        sfl.config(justify=tkinter.RIGHT)
-
-        dfplist = tkinter.Listbox(display_frame)
-        sfplist = tkinter.Listbox(display_frame)
-        dfplist.grid(row=1,column=0,sticky='nsew') 
-        sfplist.grid(row=1,column=1,sticky='nsew')
-        finbtn = tkinter.Button(display_frame,text='Finish / Load Files',
-            command=partial(self._get_data_files_from_browser,dfplist,sfplist))
-        finbtn.grid(row=2,column=0,columnspan=2,sticky='ew')
-
         entry_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
-        entry_frame.grid_columnconfigure(0,weight=3)
-        entry_frame.grid_columnconfigure(1,weight=1)
-        entry_frame.grid_rowconfigure(4,minsize=40)
-        entry_frame.grid_rowconfigure(8,minsize=30)
+        entry_frame.grid_columnconfigure(0,weight=2)
+        entry_frame.grid_columnconfigure(1,weight=2)
+        entry_frame.grid_columnconfigure(2,weight=1)
+        entry_frame.grid_rowconfigure(2,minsize=20)
+        entry_frame.grid_rowconfigure(6,minsize=20)
         # widgets for setting data files directory
-        ddirl = tkinter.Label(entry_frame,text='data files directory:',anchor='w')
-
+        ddirl = tkinter.Label(entry_frame,text='scattering data directory:',anchor='w')
+        drxl = tkinter.Label(entry_frame,text='filter:',anchor='w')
         ddirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['data_dir'])
-        #ddirent = self.connected_entry(entry_frame,self._vars['io_control']['data_dir'],self._update_search_expression)
-
+        drxent = tkinter.Entry(entry_frame,width=6,textvariable=self._vars['io_control']['data_regex'])
+        self._vars['io_control']['data_regex'].set('*.dat')
         ddirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
             self._browse_for_directory,browser_popup,
             self._vars['io_control']['data_dir'],
@@ -362,51 +353,63 @@ class XRSDFitGUI(object):
         ddirl.grid(row=0,column=0,sticky='sew')
         ddirbb.grid(row=0,column=1,sticky='sew')
         ddirent.grid(row=1,column=0,columnspan=2,sticky='ew')
-        # widgets for setting data file suffix and extension
-        dsfxl = tkinter.Label(entry_frame,text='file suffix:',anchor='e')
-        dsfxent = tkinter.Entry(entry_frame,width=8,textvariable=self._vars['io_control']['data_filename_suffix'])
-        dextl = tkinter.Label(entry_frame,text='file extension:',anchor='e')
-        dextent = tkinter.Entry(entry_frame,width=8,textvariable=self._vars['io_control']['data_file_extension']) 
-        dsfxl.grid(row=2,column=0,sticky='e')
-        dsfxent.grid(row=2,column=1,sticky='ew')
-        dextl.grid(row=3,column=0,sticky='e')
-        dextent.grid(row=3,column=1,sticky='ew')
-        # widgets for setting system definition files directory
-        sdirl = tkinter.Label(entry_frame,text='system definition files directory:',anchor='w')
-        sdirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['system_definition_dir'])
-        sdirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
-            self._browse_for_directory,browser_popup,
-            self._vars['io_control']['system_definition_dir'],
-            'Select directory for system definition files'
+        drxl.grid(row=0,column=2,sticky='w')
+        drxent.grid(row=1,column=2,sticky='ew')
+        # widgets for setting xrsdkit system definition files directory
+        sdirl = tkinter.Label(entry_frame,text='xrsdkit data directory:',anchor='w')
+        srxl = tkinter.Label(entry_frame,text='filter:',anchor='w')
+        sdirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['xrsdkit_data_dir'])
+        srxent = tkinter.Entry(entry_frame,width=6,textvariable=self._vars['io_control']['xrsdkit_data_regex'])
+        self._vars['io_control']['xrsdkit_data_regex'].set('*.yml')
+        sdirbb = tkinter.Button(entry_frame,text='Browse',
+            command=partial(self._browse_for_directory,browser_popup,
+            self._vars['io_control']['xrsdkit_data_dir'],
+            'Select xrsdkit data directory'
             ))
-        sdirl.grid(row=4,column=0,sticky='sew')
-        sdirbb.grid(row=4,column=1,sticky='sew')
-        sdirent.grid(row=5,column=0,columnspan=2,sticky='ew')
-        # widgets for setting system definition file suffix and extension
-        ssfxl = tkinter.Label(entry_frame,text='file suffix:',anchor='e')
-        ssfxent = tkinter.Entry(entry_frame,width=8,textvariable=self._vars['io_control']['system_definition_filename_suffix'])
-        sextl = tkinter.Label(entry_frame,text='file extension:',anchor='e')
-        # NOTE: hard-coded yml extension... could be updated to a variable
-        sextvar = tkinter.StringVar(entry_frame)
-        sextvar.set('yml')
-        sextent = tkinter.Entry(entry_frame,width=8,state='readonly',textvariable=sextvar) 
-        ssfxl.grid(row=6,column=0,sticky='e')
-        ssfxent.grid(row=6,column=1,sticky='ew')
-        sextl.grid(row=7,column=0,sticky='e')
-        sextent.grid(row=7,column=1,sticky='ew')
-        # widgets for displaying data file search expression
-        sexprl = tkinter.Label(entry_frame,text='data search expression:',anchor='w')
-        sexprent = tkinter.Entry(entry_frame,state='readonly',textvariable=self._vars['io_control']['data_search_expression'])
+        samedircb = self.connected_checkbutton(entry_frame,self._vars['io_control']['same_dir_flag'],
+            self._set_same_dir_flag,'same as scattering data directory')
+        sdirl.grid(row=3,column=0,sticky='sew')
+        sdirbb.grid(row=3,column=1,sticky='sew')
+        sdirent.grid(row=4,column=0,columnspan=2,sticky='ew')
+        srxl.grid(row=3,column=2,sticky='w')
+        srxent.grid(row=4,column=2,sticky='ew')
+        samedircb.grid(row=5,column=0,columnspan=2,sticky='w')
 
-        # TODO: figure out how to always see the end of the expression as it gets updated
-        #sexprent.config(justify=tkinter.RIGHT)
+        # TODO: put a scrollbar on the display frame, shorten the main window
+        #scrollbar = tkinter.Scrollbar(browser_popup,orient='vertical')
+        #scrollbar.pack(side=tkinter.RIGHT,fill=tkinter.Y)
+        #scrollbar.config(command=main_canvas.yview)
+        #main_canvas.config(yscrollcommand=scrollbar.set)
+        # TODO: make the scrollbar respond to the mouse wheel
+        # when the mouse is in this window. 
+        # Currently the mouse wheel always controls the main window.
+        display_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        display_frame.grid_columnconfigure(0,weight=1)
+        display_frame.grid_columnconfigure(1,weight=1)
+        display_frame.grid_rowconfigure(1,weight=1)
+        # widgets for displaying file lists:
+        dfl = tkinter.Label(display_frame,text='scattering data files:',anchor='w')
+        sfl = tkinter.Label(display_frame,text='xrsdkit data files:',anchor='w')
+        dfl.grid(row=0,column=0,sticky='w')
+        sfl.grid(row=0,column=1,sticky='w')
 
-        sexprl.grid(row=8,column=0,columnspan=2,sticky='sw')
-        sexprent.grid(row=9,column=0,columnspan=2,sticky='ew')
+        # TODO: figure out how to right-justify the Listbox
+        # so that the end of the file path is always visible
+        dfl.config(justify=tkinter.RIGHT)
+        sfl.config(justify=tkinter.RIGHT)
+
+        dfplist = tkinter.Listbox(display_frame)
+        sfplist = tkinter.Listbox(display_frame)
+        dfplist.grid(row=1,column=0,sticky='nsew') 
+        sfplist.grid(row=1,column=1,sticky='nsew')
+
         sexprb = tkinter.Button(entry_frame,text='Execute Search',command=partial(self._execute_search,dfplist,sfplist))
-        sexprb.grid(row=10,column=0,columnspan=2,sticky='ew')
+        sexprb.grid(row=7,column=0,columnspan=3,sticky='ew')
         canclb = tkinter.Button(entry_frame,text='Cancel / Exit',command=browser_popup.destroy)
-        canclb.grid(row=11,column=0,columnspan=2,sticky='ew')
+        canclb.grid(row=8,column=0,columnspan=3,sticky='ew')
+        finbtn = tkinter.Button(display_frame,text='Finish / Load Files',
+            command=partial(self._get_data_files_from_browser,dfplist,sfplist))
+        finbtn.grid(row=2,column=0,columnspan=2,sticky='ew')
 
         # finally, pack frames into the main widget
         entry_frame.pack(side=tkinter.TOP,fill=tkinter.X,expand=False,padx=2,pady=2)
@@ -415,37 +418,47 @@ class XRSDFitGUI(object):
         # wait for the browser to close before continuing main loop 
         self.fit_gui.wait_window(browser_popup)
 
+    # TODO
+    def _set_same_dir_flag(self):
+        flag = self._vars['io_control']['same_dir_flag'].get()
+        if flag:
+            pass
+            # make dir input read-only
+            # disable browse button
+            # set dir entry to same as data dir
+        else:
+            pass
+            # enable browse button
+            # make dir input writable
+        return True
+
     def _execute_search(self,data_file_listbox,system_file_listbox):
-        data_file_list = glob.glob(self._vars['io_control']['data_search_expression'].get())
+        data_dir = self._vars['io_control']['data_dir'].get()
+        data_rx = self._vars['io_control']['data_regex'].get()
+        xrsd_dir = self._vars['io_control']['xrsdkit_data_dir'].get()
+        xrsd_rx = self._vars['io_control']['xrsdkit_data_regex'].get()
+        data_file_list = []
+        if data_dir and data_rx:
+            data_expr = os.path.join(data_dir,data_rx)
+            data_file_list = glob.glob(data_expr)
+        xrsd_file_list = []
+        if xrsd_dir and xrsd_rx:
+            xrsd_expr = os.path.join(xrsd_dir,xrsd_rx)
+            xrsd_file_list = glob.glob(xrsd_expr)
+
+        df_map = self._match_data_to_yml(data_file_list,xrsd_file_list)
+
         data_file_listbox.delete(0,tkinter.END)
         system_file_listbox.delete(0,tkinter.END)
-        sys_file_list = []
-        dfsfx = self._vars['io_control']['data_filename_suffix'].get()
-        sfdir = self._vars['io_control']['system_definition_dir'].get()
-        sfsfx = self._vars['io_control']['system_definition_filename_suffix'].get()
-        for df in data_file_list:
-            dfname = os.path.split(df)[1]
-            sfname = os.path.splitext(dfname)[0]
-            sfname = sfname[:sfname.rfind(dfsfx)]
-            sfname = sfname+sfsfx+'.yml'
-            sf = os.path.join(sfdir,sfname)
-            sys_file_list.append(sf)
-        data_file_listbox.insert(0,*data_file_list)
-        system_file_listbox.insert(0,*sys_file_list)
-
-    def _update_search_expression(self,*args):
-        new_dir = self._vars['io_control']['data_dir'].get()
-        new_file_expr = '*'+self._vars['io_control']['data_filename_suffix'].get()+'.'+self._vars['io_control']['data_file_extension'].get()
-        new_search_expr = os.path.join(new_dir,new_file_expr)
-        self._vars['io_control']['data_search_expression'].set(new_search_expr)
+        data_file_listbox.insert(0,*list(df_map.keys()))
+        system_file_listbox.insert(0,*list(df_map.values()))
 
     def _get_data_files_from_browser(self,data_file_listbox,system_file_listbox):
-        pass
-        # TODO: update this
-        #df_list = data_file_listbox.get(0,tkinter.END)
-        #sf_list = system_file_listbox.get(0,tkinter.END)
+        df_list = data_file_listbox.get(0,tkinter.END)
+        sf_list = system_file_listbox.get(0,tkinter.END)
         #data_files = OrderedDict((df,sf) for df,sf in zip(df_list,sf_list))
-        #self._set_data_files(data_files)
+        df_map = self._match_data_to_yml(df_list,sf_list)
+        self._set_data_files(df_map)
 
     def _browse_for_directory(self,parent_widget,dir_entry_var,title=''):
         browser_root = os.getcwd()
@@ -456,32 +469,47 @@ class XRSDFitGUI(object):
             )
         dir_entry_var.set(data_dir)
 
-    def _set_data_files(self,data_files=[],yml_files=[]):
+    def _match_data_to_yml(self,data_files,yml_files):
         all_data_files = OrderedDict()
         if data_files:
+            # build an index for mapping data file names to yml files
+            yml_index = {}
+            if yml_files: 
+                for ymlf in yml_files:
+                    sys = load_sys_from_yaml(ymlf)
+                    df_name = sys.sample_metadata['data_file']
+                    yml_index[df_name] = ymlf
             for idf,df_path in enumerate(data_files):
                 if os.path.exists(df_path):
                     df_name = os.path.split(df_path)[1]
                     df_name_noext = os.path.splitext(df_name)[0]
-                    if yml_files: 
-                        ymlf = yml_files[idf]
+                    if df_name in yml_index: 
+                        ymlf = yml_index[df_name]
                     else:
+                        # assign default yml path, co-located with data file, same filename
                         ymlf = os.path.join(os.path.split(df_path)[0],df_name_noext+'.yml')
-                    if not os.path.exists(ymlf):
-                        sys = xrsdsys.System(sample_metadata={'data_file':df_name})
-                        save_sys_to_yaml(ymlf,sys)
+                    #if os.path.exists(ymlf):
+                    #    sys = load_sys_from_yaml(ymlf)
+                    #else:
+                    #    sys = xrsdsys.System(sample_metadata={'data_file':df_name})
+                    #    save_sys_to_yaml(ymlf,sys)
                     all_data_files[df_path] = ymlf
                 else:
-                    warnings.warn('nonexistent data file {}- skipping'.format(df_path))
+                    warnings.warn('skipping nonexistent data file {}'.format(df_path))
         elif yml_files:
             for ymlf in yml_files:
                 sys = load_sys_from_yaml(ymlf)
                 df = sys.sample_metadata['data_file']
+                # we assume the data file is co-located with the yml file,
+                # and the data filename is properly declared in the yml
                 df_path = os.path.join(os.path.split(ymlf)[0],df)
                 if os.path.exists(df_path):
                     all_data_files[df_path] = ymlf
                 else:
-                    warnings.warn('yml file {} references nonexistent data file {}- skipping'.format(ymlf,df_path))
+                    warnings.warn('skipping nonexistent data file {} (from {})'.format(df_path,ymlf))
+        return all_data_files
+
+    def _set_data_files(self,all_data_files={}):
         self.data_files = all_data_files
         df_options_dict = {'':None}
         if all_data_files:
@@ -935,6 +963,7 @@ class XRSDFitGUI(object):
         if not param_nm in param_vars: param_vars[param_nm] = {}
 
         paramf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
+        paramf.grid_columnconfigure(1,weight=1)
         paramf.grid_columnconfigure(2,weight=1)
         paramv = tkinter.DoubleVar(paramf)
         param_frames[param_nm] = paramf
@@ -1217,6 +1246,7 @@ class XRSDFitGUI(object):
 
     @staticmethod
     def on_mousewheel(canvas,event):
+        print('mousewheel!')
         canvas.yview_scroll(-1*event.delta,'units')
 
     @staticmethod
