@@ -5,7 +5,7 @@ import numpy as np
 
 from xrsdkit.system import System, Population
 from xrsdkit.system.noise import NoiseModel
-from xrsdkit.visualization.gui import run_gui_on_files
+from xrsdkit.visualization.gui import run_gui
 from xrsdkit.tools import ymltools as xrsdyml
 
 src_wl = 0.8265616
@@ -38,6 +38,6 @@ xrsdyml.save_sys_to_yaml(sysfpath,np_sl_sys)
 
 def test_fit_gui():
     if 'DISPLAY' in os.environ:
-        fit_sys = run_gui_on_files([datapath],[sysfpath])
+        fit_sys = run_gui([datapath],[sysfpath])
     os.remove(sysfpath)
 
