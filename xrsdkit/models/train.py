@@ -100,7 +100,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         print('Training binary classifier for '+struct_nm+' structures')
         model_id = struct_nm+'_binary'
         try:
-            new_model_type = model_configs['main_classifiers'][model_id]['type']
+            new_model_type = model_configs['main_classifiers'][model_id]['model_type']
             metric = model_configs['main_classifiers'][model_id]['metric']
         except:
             new_model_type = 'logistic_regressor'
@@ -148,7 +148,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             flag_data = data.loc[flag_idx,:].copy()
             if flag_data.shape[0] > 0: # we have data with these structure flags in the training set
                 try:
-                    new_model_type = model_configs['main_classifiers'][model_id]['type']
+                    new_model_type = model_configs['main_classifiers'][model_id]['model_type']
                     metric = model_configs['main_classifiers'][model_id]['metric']
                 except:
                     new_model_type = 'logistic_regressor'
@@ -189,7 +189,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         # every system class must have a noise classifier
         print('    Training noise classifier for system class {}'.format(sys_cls))
         try:
-            new_model_type = model_configs[sys_cls]['noise_model']['type']
+            new_model_type = model_configs[sys_cls]['noise_model']['model_type']
             metric = model_configs[sys_cls]['noise_model']['metric']
         except:
             new_model_type = 'logistic_regressor'
@@ -227,7 +227,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             form_header = pop_id+'_form'
             print('    Training: {}'.format(form_header))
             try:
-                new_model_type = model_configs[sys_cls][pop_id]['form']['type']
+                new_model_type = model_configs[sys_cls][pop_id]['form']['model_type']
                 metric = model_configs[sys_cls][pop_id]['form']['metric']
             except:
                 new_model_type = 'logistic_regressor'
@@ -259,7 +259,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                 stg_header = pop_id+'_'+stg_nm
                 print('    Training: {}'.format(stg_header))
                 try:
-                    new_model_type = model_configs[sys_cls][pop_id][stg_nm]['type']
+                    new_model_type = model_configs[sys_cls][pop_id][stg_nm]['model_type']
                     metric = model_configs[sys_cls][pop_id][stg_nm]['metric']
                 except:
                     new_model_type = 'logistic_regressor'
@@ -298,7 +298,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     stg_header = pop_id+'_'+stg_nm
                     print('        Training: {}'.format(stg_header))
                     try:
-                        new_model_type = model_configs[sys_cls][pop_id][ff][stg_nm]['type']
+                        new_model_type = model_configs[sys_cls][pop_id][ff][stg_nm]['model_type']
                         metric = model_configs[sys_cls][pop_id][ff][stg_nm]['metric']
                     except:
                         new_model_type = 'logistic_regressor'
@@ -459,7 +459,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
                 if not pnm == 'I0':
                     param_header = 'noise_'+pnm
                     try:
-                        new_model_type = model_configs[sys_cls]['noise'][modnm][pnm]['type']
+                        new_model_type = model_configs[sys_cls]['noise'][modnm][pnm]['model_type']
                         metric = model_configs[sys_cls]['noise'][modnm][pnm]['metric']
                     except:
                         new_model_type = 'ridge_regressor'
@@ -494,7 +494,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
             # every population must have a model for I0_fraction
             param_header = pop_id+'_I0_fraction'
             try:
-                new_model_type = model_configs[sys_cls][pop_id]['I0_fraction']['type']
+                new_model_type = model_configs[sys_cls][pop_id]['I0_fraction']['model_type']
                 metric = model_configs[sys_cls][pop_id]['I0_fraction']['metric']
             except:
                 new_model_type = 'ridge_regressor'
@@ -536,7 +536,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
                     for pnm in xrsdefs.structure_params(struct,{stg_nm:stg_label}):
                         param_header = pop_id+'_'+pnm
                         try:
-                            new_model_type = model_configs[sys_cls][pop_id][stg_nm][stg_label][pnm]['type']
+                            new_model_type = model_configs[sys_cls][pop_id][stg_nm][stg_label][pnm]['model_type']
                             metric = model_configs[sys_cls][pop_id][stg_nm][stg_label][pnm]['metric']
                         except:
                             new_model_type = 'ridge_regressor'
@@ -577,7 +577,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
                 for pnm in xrsdefs.form_factor_params[form_id]:
                     param_header = pop_id+'_'+pnm
                     try:
-                        new_model_type = model_configs[sys_cls][pop_id][form_id][pnm]['type']
+                        new_model_type = model_configs[sys_cls][pop_id][form_id][pnm]['model_type']
                         metric = model_configs[sys_cls][pop_id][form_id][pnm]['metric']
                     except:
                         new_model_type = 'ridge_regressor'
@@ -619,7 +619,7 @@ def train_regression_models(data, train_hyperparameters=False, select_features=F
                         for pnm in xrsdefs.additional_form_factor_params(form_id,{stg_nm:stg_label}):
                             param_header = pop_id+'_'+pnm
                             try:
-                                new_model_type = model_configs[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm]['type']
+                                new_model_type = model_configs[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm]['model_type']
                                 metric = model_configs[sys_cls][pop_id][form_id][stg_nm][stg_label][pnm]['metric']
                             except:
                                 new_model_type = 'ridge_regressor'
