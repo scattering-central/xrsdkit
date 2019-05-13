@@ -287,29 +287,35 @@ class XRSDFitGUI(object):
         iof.grid_columnconfigure(0,weight=1)
         iof.grid_columnconfigure(1,weight=1)
         iof.grid_columnconfigure(2,weight=1)
+        #iof.grid_rowconfigure(0,minsize=40)
         self._frames['io_control'] = iof
         dfvar = tkinter.StringVar(iof)
         dfvar.trace('w',self._update_data_file)
         self._vars['io_control']['data_file'] = dfvar
 
+        self._vars['io_control']['models_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['data_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['data_regex'] = tkinter.StringVar(iof)
         self._vars['io_control']['xrsdkit_data_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['xrsdkit_data_regex'] = tkinter.StringVar(iof)
         self._vars['io_control']['same_dir_flag'] = tkinter.BooleanVar(iof)
 
-        dfl = tkinter.Label(iof,text='scattering/diffraction data files:',anchor='w')
+        modl = tkinter.Label(iof,text='train/load machine learning models:',anchor='e')
+        dfl = tkinter.Label(iof,text='load scattering/diffraction data files:',anchor='e')
+        modbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_models)
         dfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_data_files)
-        dfl.grid(row=0,column=0,columnspan=2,sticky='w')
-        dfbb.grid(row=0,column=2,sticky='e')
+        modl.grid(row=0,column=0,columnspan=2,sticky='ew')
+        modbb.grid(row=0,column=2,sticky='e')
+        dfl.grid(row=1,column=0,columnspan=2,sticky='ew')
+        dfbb.grid(row=1,column=2,sticky='e')
 
         # this creates and packs the data file selection menu:
         self._set_data_files()
 
         prevb = tkinter.Button(iof,text='Previous',width=8,command=self._previous_data_file)
         nxtb = tkinter.Button(iof,text='Next',width=8,command=self._next_data_file)
-        prevb.grid(row=2,column=0,sticky='w')
-        nxtb.grid(row=2,column=2,sticky='e')
+        prevb.grid(row=3,column=0,sticky='w')
+        nxtb.grid(row=3,column=2,sticky='e')
 
         # bind the mousewheel to scroll the parent frame
         # NOTE: this was an attempt, it didn't seem to work
@@ -321,6 +327,9 @@ class XRSDFitGUI(object):
     #    widg.bindtags((tag,)+widg.bindtags())
     #    for cwidg in widg.children.values():
     #        self._bind_all_children(cwidg,tag)
+
+    def _browse_models(self,*args):
+        pass
 
     def _browse_data_files(self,*args):
         browser_popup = tkinter.Toplevel(master=self.fit_gui)
@@ -518,7 +527,7 @@ class XRSDFitGUI(object):
         dfcb.config(width=10,anchor='e')
         if self._widgets['datafile_option_menu']: 
             self._widgets['datafile_option_menu'].grid_forget()
-        dfcb.grid(row=1,column=0,columnspan=3,sticky='ew')
+        dfcb.grid(row=2,column=0,columnspan=3,sticky='ew')
         self._widgets['datafile_option_menu'] = dfcb
         if self.data_files:
             self._next_data_file()
@@ -532,10 +541,11 @@ class XRSDFitGUI(object):
             next_file_idx = min([nfiles-1,current_file_idx+1])
         else:
             next_file_idx = 0
-        next_file = file_list[next_file_idx]
-        if not current_file == next_file:
-            # setting the var triggers self._update_data_file()
-            self._vars['io_control']['data_file'].set(next_file)
+        if next_file_idx < nfiles: 
+            next_file = file_list[next_file_idx]
+            if not current_file == next_file:
+                # setting the var triggers self._update_data_file()
+                self._vars['io_control']['data_file'].set(next_file)
 
     def _previous_data_file(self,*args):
         current_file = self._vars['io_control']['data_file'].get()
@@ -591,15 +601,15 @@ class XRSDFitGUI(object):
         self._frames['fit_control'] = cf
         self._vars['fit_control']['sys_def_file'] = tkinter.StringVar(cf)
 
-        sysdefl = tkinter.Label(cf,text='system definition file:',anchor='w')
-        sysdefl.grid(row=0,column=0,sticky='w')
+        sysdefl = tkinter.Label(cf,text='xrsdkit data file:',anchor='e')
+        sysdefl.grid(row=0,column=0,sticky='e')
         sysfsvb = tkinter.Button(cf,text='Save',width=8,command=self._save_sys_file) 
         sysfldb = tkinter.Button(cf,text='Load',width=8,command=self._load_sys_file) 
-        sysfsvb.grid(row=0,column=1,sticky='ew')
-        sysfldb.grid(row=0,column=2,sticky='ew')
+        sysfsvb.grid(row=1,column=1,sticky='ew')
+        sysfldb.grid(row=1,column=2,sticky='ew')
 
         sysfne = tkinter.Entry(cf,state='readonly',textvariable=self._vars['fit_control']['sys_def_file'])
-        sysfne.grid(row=1,column=0,columnspan=3,sticky='ew')
+        sysfne.grid(row=0,column=1,columnspan=2,sticky='ew')
 
         self._vars['fit_control']['experiment_id'] = tkinter.StringVar(cf)
         self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
