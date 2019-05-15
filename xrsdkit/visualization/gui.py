@@ -26,9 +26,11 @@ else:
 from .. import definitions as xrsdefs 
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
-from ..tools.ymltools import load_sys_from_yaml,save_sys_to_yaml
+from ..tools.ymltools import load_sys_from_yaml,save_sys_to_yaml,read_local_dataset
 from ..tools import profiler
 from ..models import predict as xrsdpred
+from ..models.train import train_from_dataframe
+from ..models import load_models
 
 q_default = np.linspace(0.,1.,100)
 I_default = np.zeros(q_default.shape)
@@ -79,7 +81,7 @@ def run_gui(data_files=[],yml_files=[]):
 #   that sometimes occur when the gui is closed
 #   (_tkinter.TclError: invalid command name)
 #   NOTE: on Windows, the error message is more informative:
-#   it appears that this may have something to do with one of the scrollbars
+#   this has something to do with the scrollbars
 
 class XRSDFitGUI(object):
 
@@ -228,10 +230,10 @@ class XRSDFitGUI(object):
         # the current approach will always scroll control_frame regardless of focus-
         # some research suggests the use of bind_class with a custom bindtag,
         # but this has not yet been implemented successfully
+        #self.fit_gui.bind_class("scrollable_controls","<MouseWheel>",partial(self.on_mousewheel,control_frame_canvas))
         control_frame.bind_all("<MouseWheel>", partial(self.on_mousewheel,control_frame_canvas))
         control_frame.bind_all("<Button-4>", partial(self.on_trackpad,control_frame_canvas))
         control_frame.bind_all("<Button-5>", partial(self.on_trackpad,control_frame_canvas))
-        #self.fit_gui.bind_class("scrollable_controls","<MouseWheel>",partial(self.on_mousewheel,control_frame_canvas))
         yscr = tkinter.Scrollbar(control_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
         control_frame_canvas.pack(fill='both',expand=True)
@@ -293,12 +295,21 @@ class XRSDFitGUI(object):
         dfvar.trace('w',self._update_data_file)
         self._vars['io_control']['data_file'] = dfvar
 
+        self._vars['io_control']['output_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['dataset_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['models_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['data_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['data_regex'] = tkinter.StringVar(iof)
         self._vars['io_control']['xrsdkit_data_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['xrsdkit_data_regex'] = tkinter.StringVar(iof)
         self._vars['io_control']['same_dir_flag'] = tkinter.BooleanVar(iof)
+
+        default_output_dir = os.path.join(os.getcwd(),'xrsdkit_models')
+        ii=1
+        while os.path.exists(default_output_dir):
+            default_output_dir = os.path.join(os.getcwd(),'xrsdkit_models_{}'.format(ii))
+            ii+=1
+        self._vars['io_control']['output_dir'].set(default_output_dir) 
 
         modl = tkinter.Label(iof,text='train/load machine learning models:',anchor='e')
         dfl = tkinter.Label(iof,text='load scattering/diffraction data files:',anchor='e')
@@ -329,7 +340,99 @@ class XRSDFitGUI(object):
     #        self._bind_all_children(cwidg,tag)
 
     def _browse_models(self,*args):
-        pass
+        browser_popup = tkinter.Toplevel(master=self.fit_gui)
+        browser_popup.geometry('450x600')
+        browser_popup.title('modeling data browser')
+        main_canvas = tkinter.Canvas(browser_popup)
+        main_canvas.pack(fill=tkinter.BOTH,expand=tkinter.YES)
+        main_frame = tkinter.Frame(main_canvas,bd=4,padx=10,pady=10)
+        main_frame_window = main_canvas.create_window(0,0,window=main_frame,anchor='nw')
+        main_canvas_configure = partial(self._canvas_configure,main_canvas,main_frame,main_frame_window)  
+        main_canvas.bind("<Configure>",main_canvas_configure)
+        entry_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        entry_frame.grid_columnconfigure(0,weight=2)
+        entry_frame.grid_columnconfigure(1,weight=1)
+        entry_frame.grid_columnconfigure(2,weight=1)
+        entry_frame.grid_rowconfigure(2,minsize=20)
+        entry_frame.grid_rowconfigure(5,minsize=20)
+        # entry frame widgets
+        odirl = tkinter.Label(entry_frame,text='Output trained models to:',anchor='w')
+        ddirl = tkinter.Label(entry_frame,text='Train from dataset:',anchor='w')
+        mdirl = tkinter.Label(entry_frame,text='Load trained models:',anchor='w')
+        odirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['output_dir'],
+            'Select output directory for modeling data'
+            ))
+        ddirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['dataset_dir'],
+            'Select training dataset directory'
+            ))
+        mdirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['models_dir'],
+            'Select directory of trained xrsdkit models'
+            ))
+        odirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['output_dir'])
+        ddirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['dataset_dir'])
+        mdirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['models_dir'])
+        # display widgets
+        display_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        display = tkinter.Listbox(display_frame)
+        display.pack(fill=tkinter.BOTH,expand=True,padx=2,pady=2)
+        # controls for launching training etc
+        trainbtn = tkinter.Button(entry_frame,text='Train...',command=partial(self._train_models,display))
+        loadbtn = tkinter.Button(entry_frame,text='Load',command=partial(self._load_models,display))
+        # widget packing
+        odirl.grid(row=0,column=0,sticky='ew')
+        odirbb.grid(row=0,column=1,sticky='ew')
+        odirent.grid(row=1,column=0,columnspan=3,sticky='ew')
+        ddirl.grid(row=3,column=0,sticky='ew')
+        ddirbb.grid(row=3,column=1,sticky='ew')
+        trainbtn.grid(row=3,column=2,sticky='ew')
+        ddirent.grid(row=4,column=0,columnspan=3,sticky='ew')
+        mdirl.grid(row=6,column=0,sticky='ew')
+        mdirbb.grid(row=6,column=1,sticky='ew')
+        loadbtn.grid(row=6,column=2,sticky='ew')
+        mdirent.grid(row=7,column=0,columnspan=3,sticky='ew')
+        # frame packing 
+        entry_frame.pack(side=tkinter.TOP,fill=tkinter.X,expand=False,padx=2,pady=2)
+        display_frame.pack(side=tkinter.TOP,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
+        # wait for the browser to close before continuing main loop 
+        self.fit_gui.wait_window(browser_popup)
+
+
+    def _train_models(self,display):
+        # TODO: input widget for downsampling distance?
+        # TODO: toggles for hyperparam selection? feature selection?
+        # TODO: widget for setting model config path 
+        dataset_dir = self._vars['io_control']['dataset_dir'].get()
+        output_dir = self._vars['io_control']['output_dir'].get() 
+        model_config_path = os.path.join(dataset_dir,'model_config.yml')
+        self._print_to_listbox(display,'LOADING DATASET FROM: {}'.format(dataset_dir))
+        df = read_local_dataset(dataset_dir,downsampling_distance=1.,
+                message_callback=partial(self._print_to_listbox,display))
+        self._print_to_listbox(display,'---- FINISHED LOADING DATASET ----')
+        self._print_to_listbox(display,'BEGINNING TO TRAIN MODELS')
+        self._print_to_listbox(display,'MODEL CONFIG FILE PATH: {}'.format(model_config_path))
+        reg_mods, cls_mods = train_from_dataframe(df, 
+                train_hyperparameters=False, select_features=False,
+                output_dir=output_dir, model_config_path=model_config_path,
+                message_callback=partial(self._print_to_listbox,display)
+                )
+        self._print_to_listbox(display,'---- FINISHED TRAINING ----')
+
+    def _load_models(self,display):
+        models_dir = self._vars['io_control']['models_dir'].get()
+        self._print_to_listbox(display,'LOADING MODELS FROM: {}'.format(models_dir)) 
+        load_models(models_dir)
+        self._print_to_listbox(display,'---- FINISHED LOADING MODELS ----'.format(models_dir)) 
+
+    def _print_to_listbox(self,lb,msg):
+        lb.insert(tkinter.END,msg)
+        lb.see(tkinter.END)
+        self.fit_gui.update_idletasks()
 
     def _browse_data_files(self,*args):
         browser_popup = tkinter.Toplevel(master=self.fit_gui)
