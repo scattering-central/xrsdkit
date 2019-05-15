@@ -24,7 +24,7 @@ def load_sys_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(**sd)
 
-def read_local_dataset(dataset_dir,downsampling_distance=None):
+def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=print):
     """Load xrsdkit data from a directory.
 
     The directory should contain subdirectories,
@@ -54,12 +54,14 @@ def read_local_dataset(dataset_dir,downsampling_distance=None):
         if os.path.isdir(exp_data_dir):
             for s_data_file in os.listdir(exp_data_dir):
                 if s_data_file.endswith('.yml'):
-                    print('loading data from {}'.format(s_data_file))
+                    message_callback('loading data from {}'.format(s_data_file))
                     file_path = os.path.join(exp_data_dir, s_data_file)
                     #sys = load_sys_from_yaml(file_path)
                     #if bool(int(sys.fit_report['good_fit'])):
                     sys_dicts[s_data_file] = yaml.load(open(file_path,'r')) 
-    df = create_modeling_dataset(list(sys_dicts.values()),downsampling_distance=downsampling_distance)
+    df = create_modeling_dataset(list(sys_dicts.values()),
+                downsampling_distance=downsampling_distance,
+                message_callback=message_callback)
     return df 
 
 def migrate_features(data_dir):
@@ -82,7 +84,7 @@ def migrate_features(data_dir):
     print('FINISHED FEATURE MIGRATION')
 
 
-def create_modeling_dataset(xrsd_system_dicts,downsampling_distance=None):
+def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, message_callback=print):
     """Build a modeling DataFrame from xrsdkit.system.System objects.
 
     If `downsampling_distance` is not None, the dataset will be 
@@ -147,7 +149,7 @@ def create_modeling_dataset(xrsd_system_dicts,downsampling_distance=None):
 
     df_work = pd.DataFrame(data=data, columns=colnames)
     if downsampling_distance:
-        df_work = downsample_by_group(df_work,downsampling_distance)
+        df_work = downsample_by_group(df_work,downsampling_distance,message_callback)
     return df_work
 
 
@@ -300,7 +302,7 @@ def sort_populations(struct_nm,pops_dict):
     for ip,p in enumerate(param_ar): new_pops[p[0]] = pops_dict[p[0]]
     return new_pops
 
-def downsample_by_group(df,min_distance=1.):
+def downsample_by_group(df,min_distance=1.,message_callback=print):
     """Group and down-sample a DataFrame of xrsd records.
         
     Parameters
@@ -326,10 +328,10 @@ def downsample_by_group(df,min_distance=1.):
     # downsample each group independently
     for group_labels,grp in all_groups.groups.items():
         group_df = df.iloc[grp].copy()
-        print('Downsampling data for group: {}'.format(group_labels))
+        message_callback('Downsampling data for group: {}'.format(group_labels))
         #lbl_df = _filter_by_labels(data,lbls)
         dsamp = downsample(df.iloc[grp].copy(), min_distance)
-        print('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
+        message_callback('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
         data_sample = data_sample.append(dsamp)
     return data_sample
 
