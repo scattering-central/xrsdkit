@@ -93,7 +93,7 @@ class XRSDModel(object):
         msg = 'subclasses of XRSDModel must implement build_model()'
         raise NotImplementedError(msg)
 
-    def train(self, model_data, train_hyperparameters=False, select_features=False):
+    def train(self, model_data, train_hyperparameters=False, select_features=False, predicted_df=None):
         """Train the model, optionally searching for optimal hyperparameters.
 
         Parameters
@@ -145,7 +145,7 @@ class XRSDModel(object):
             # after parameter and feature selection,
             # the entire dataset is used for final training,
             new_model = self.build_model(model_hyperparams)
-            self.cross_valid_results = self.run_cross_validation(new_model,valid_data,model_feats)
+            self.cross_valid_results = self.run_cross_validation(new_model,valid_data,model_feats,predicted_df)
             new_model.fit(valid_data[model_feats], valid_data[self.target])
             self.model = new_model
             self.features = model_feats 
@@ -242,7 +242,7 @@ class XRSDModel(object):
         if any([ct<n_distinct for ct in distinct_value_counts]): return False
         return True
 
-    def run_cross_validation(self,model,data,feature_names):
+    def run_cross_validation(self,model,data,feature_names,predicted_df=None):
         """Cross-validate a model by LeaveOneGroupOut. 
 
         The train/test groupings are defined by the 'group_id' labels,
@@ -263,8 +263,10 @@ class XRSDModel(object):
             dictionary of cross validation metrics.
         """
         y_true = {} 
-        y_pred = {} 
+        y_pred = {}
         group_ids = data.group_id.unique()
+        if predicted_df is not None and ('_binary' in self.target):
+            predicted_df[self.target + '_pr'] = [None] * predicted_df.shape[0]
         for gid in group_ids:
             tr = data[(data['group_id'] != gid)]
             test = data[(data['group_id'] == gid)]
@@ -273,6 +275,18 @@ class XRSDModel(object):
             yt = test[self.target] 
             y_pred[gid] = yp
             y_true[gid] = yt
+            if predicted_df is not None:
+                # insert predicted values
+                df_temp = test[['sample_id']].copy()
+                if '_binary' in self.target:
+                    df_temp[self.target + '_pr'] = yp
+                    for index, row in df_temp.iterrows():
+                        predicted_df.loc[index, self.target + '_pr'] = row[self.target + '_pr']
+                else: # it is a system classifier
+                    df_temp['system_class_pr'] = yp
+                    for index, row in df_temp.iterrows():
+                        predicted_df.loc[index, 'system_class_pr'] = row['system_class_pr']
+
         return self.cv_report(data,y_true,y_pred)
 
     def grid_search_hyperparams(self,model,data,feature_names,hyperparam_grid,n_leave_out=1):

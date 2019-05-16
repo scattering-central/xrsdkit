@@ -5,10 +5,12 @@ from collections import OrderedDict
 
 import yaml
 import numpy as np
+import pandas as pd
 
 from . import get_regression_models, get_classification_models, get_reg_conf, get_cl_conf
 from .. import definitions as xrsdefs
 from ..tools import primitives
+from ..tools.profiler import profile_keys
 from .regressor import Regressor
 from .classifier import Classifier
 
@@ -97,8 +99,11 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
 
     # find all system_class labels represented in `data`:
     all_sys_cls = data['system_class'].tolist()
-
     data_copy = data.copy()
+
+    # Create a dataframe to keep track of predicted values
+    predicted = data_copy[['experiment_id', 'sample_id', 'data_file', 'system_class']].copy()
+
     for struct_nm in xrsdefs.structure_names:
         message_callback('Training binary classifier for '+struct_nm+' structures')
         model_id = struct_nm+'_binary'
@@ -112,6 +117,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         model = Classifier(new_model_type, metric, model_id)
         labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
         data_copy.loc[:,model_id] = labels
+        predicted.loc[:,model_id] = labels
         if ('main_classifiers' in classification_models) \
         and (model_id in classification_models['main_classifiers']) \
         and (classification_models['main_classifiers'][model_id].trained) \
@@ -119,7 +125,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             for param_nm in model.models_and_params[new_model_type]:
                 model.model.set_params(**{param_nm:old_pars[param_nm]})
-        model.train(data_copy, train_hyperparameters, select_features)
+        model.train(data_copy, train_hyperparameters, select_features, predicted)
         if model.trained:
             f1_score = model.cross_valid_results['f1']
             acc = model.cross_valid_results['accuracy']
@@ -131,10 +137,11 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         new_cls_models['main_classifiers'][model_id] = model
         summary['main_classifiers'][model_id] = primitives(model.get_cv_summary())
         config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric) 
+
+    predicted['system_class_pr'] = [None] * predicted.shape[0]
     # There are 2**n possible outcomes for n binary classifiers.
     # For the (2**n)-1 non-null outcomes, a second classifier is used,
     # to count the number of populations of each structural type.
-
     all_flag_combs = itertools.product([True,False],repeat=len(xrsdefs.structure_names))
     for flags in all_flag_combs:
         if sum(flags) > 0:
@@ -164,7 +171,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                     for param_nm in model.models_and_params[new_model_type]:
                         model.model.set_params(**{param_nm:old_pars[param_nm]})
-                model.train(flag_data, train_hyperparameters, select_features)
+                model.train(flag_data, train_hyperparameters, select_features, predicted)
                 if model.trained:
                     f1_score = model.cross_valid_results['f1']
                     acc = model.cross_valid_results['accuracy']
@@ -176,7 +183,50 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                 # save the classifier
                 new_cls_models['main_classifiers'][model_id] = model
                 summary['main_classifiers'][model_id] = primitives(model.get_cv_summary())
-                config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric) 
+                config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric)
+
+    # final processing of "predicted" dataframe:
+    for i, row in predicted.iterrows():
+        predicted_pops = []
+        for struct_nm in xrsdefs.structure_names:
+            label = struct_nm+'_binary_pr'
+            if label in predicted.columns and row[label]:
+                predicted_pops.append(struct_nm)
+        if len(predicted_pops) == 0:
+            #if all pops are False, the sample must be labeled us
+            row['system_class_pr'] = 'unidentified'
+        else:
+            # It is possible that some predictions are inconsistent.
+            # For example, we predict diffuse = True, disordered = False, crystalline = False for a sample with
+            # no diffuse populations and one disordered population.
+            # Since sample include only one or more disordered populations, the system class
+            # was predicted classifier that classify disordered or disordered__disordered.
+            # In real life this classifier would not be used since we predicted
+            # diffuse = True, disordered = False, crystalline = False.
+            # So, we need to update the system class for this sample using a system classifier for the samples
+            # with this combination of populations.
+            # Also, we could put just "wrong prediction" on this sample since it populations we predicted
+            # incorrectly, system class also will be predicted incorrectly.
+            consistent = True
+            pr = set(row['system_class_pr'].split('__'))
+            for p in pr:
+                if p not in predicted_pops:
+                    consistent = False
+                    break
+            for p in predicted_pops:
+                if p not in pr:
+                    consistent = False
+                    break
+            if consistent == False:
+                # find the right model
+                model_id = '__'.join(predicted_pops)
+                model = new_cls_models['main_classifiers'][model_id]
+                sample_features = row[profile_keys]
+                feature_idx = [k in model.features for k in sample_features]
+                scaled_features = model.scaler.transform(sample_features)[:, feature_idx]
+                # make new prediction
+                row['system_class_pr'] = model.model.predict(scaled_features)[0]
+    print(predicted.head())
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers; drop this label up front 

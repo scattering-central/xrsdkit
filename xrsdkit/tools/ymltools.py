@@ -112,7 +112,7 @@ def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, messa
     all_cls_labels = set()
 
     for sys in xrsd_system_dicts:
-        expt_id, sample_id, good_fit, feature_labels, \
+        expt_id, sample_id, data_file, good_fit, feature_labels, \
             classification_labels, regression_outputs = unpack_sample(sys)
         if good_fit:
             for k,v in regression_outputs.items():
@@ -124,7 +124,7 @@ def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, messa
             cls_labels.append(classification_labels)
 
             feat_labels.append(feature_labels)
-            data.append([expt_id,sample_id])
+            data.append([expt_id,sample_id,data_file])
 
     reg_labels_list = list(all_reg_labels)
     reg_labels_list.sort()
@@ -143,7 +143,7 @@ def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, messa
         datai.extend(list(orl.values()))
         datai.extend(list(ofl.values()))
 
-    colnames = ['experiment_id'] + ['sample_id'] +\
+    colnames = ['experiment_id'] + ['sample_id'] + ['data_file'] +\
             cls_labels_list + \
             reg_labels_list + \
             copy.copy(profiler.profile_keys)
@@ -170,6 +170,8 @@ def unpack_sample(sys_dict):
         id of the experiment (should be unique across all experiments)
     sample_id : str
         id of the sample (must be unique across all samples)
+    data_file, : str
+        name of .dat file that contains q/I array
     good_fit : bool 
         True if this sample's fit is good enough to train models on it
     features : dict 
@@ -182,6 +184,7 @@ def unpack_sample(sys_dict):
     """
     expt_id = sys_dict['sample_metadata']['experiment_id']
     sample_id = sys_dict['sample_metadata']['sample_id']
+    data_file = sys_dict['sample_metadata']['data_file']
     features = sys_dict['features']
     good_fit = bool(sys_dict['fit_report']['good_fit'])
     sys = System(**sys_dict)
@@ -232,7 +235,7 @@ def unpack_sample(sys_dict):
     if sys_cls == '':
         sys_cls = 'unidentified'
     classification_labels['system_class'] = sys_cls
-    return expt_id, sample_id, good_fit, features, classification_labels, regression_labels
+    return expt_id, sample_id, data_file, good_fit, features, classification_labels, regression_labels
 
 
 def sort_populations(struct_nm,pops_dict):
