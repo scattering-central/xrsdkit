@@ -519,7 +519,7 @@ class XRSDFitGUI(object):
         canclb = tkinter.Button(entry_frame,text='Cancel / Exit',command=browser_popup.destroy)
         canclb.grid(row=8,column=0,columnspan=3,sticky='ew')
         finbtn = tkinter.Button(display_frame,text='Finish / Load Files',
-            command=partial(self._get_data_files_from_browser,dfplist,sfplist))
+            command=partial(self._get_data_files_from_browser,dfplist,sfplist,browser_popup))
         finbtn.grid(row=2,column=0,columnspan=2,sticky='ew')
 
         # finally, pack frames into the main widget
@@ -564,12 +564,13 @@ class XRSDFitGUI(object):
         data_file_listbox.insert(0,*list(df_map.keys()))
         system_file_listbox.insert(0,*list(df_map.values()))
 
-    def _get_data_files_from_browser(self,data_file_listbox,system_file_listbox):
+    def _get_data_files_from_browser(self,data_file_listbox,system_file_listbox,browser_popup):
         df_list = data_file_listbox.get(0,tkinter.END)
         sf_list = system_file_listbox.get(0,tkinter.END)
         #data_files = OrderedDict((df,sf) for df,sf in zip(df_list,sf_list))
         df_map = self._match_data_to_yml(df_list,sf_list)
         self._set_data_files(df_map)
+        browser_popup.destroy()
 
     def _browse_for_directory(self,parent_widget,dir_entry_var,title=''):
         browser_root = os.getcwd()
