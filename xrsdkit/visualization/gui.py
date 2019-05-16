@@ -146,7 +146,7 @@ class XRSDFitGUI(object):
         self._build_plot_widgets()
         data_file_map = self._match_data_to_yml(data_files,yml_files)
         self._set_data_files(data_file_map)
-        self.fit_gui.geometry('1100x700')
+        self.fit_gui.geometry('1150x700')
         self._draw_plots()
         #self._next_data_file()
 
@@ -172,8 +172,8 @@ class XRSDFitGUI(object):
         # the main widget will be a frame,
         # displayed as a window item on the main canvas:
         self.main_frame = tkinter.Frame(main_canvas,bd=4,relief=tkinter.SUNKEN)
-        self.main_frame.grid_columnconfigure(0,weight=1)
-        self.main_frame.grid_columnconfigure(1,weight=0)
+        self.main_frame.grid_columnconfigure(0,weight=10)
+        self.main_frame.grid_columnconfigure(1,weight=1)
         self.main_frame.grid_rowconfigure(0,weight=1)
         main_frame_window = main_canvas.create_window(0,0,window=self.main_frame,anchor='nw')
         # _canvas_configure() ensures that the window item and scrollbar
@@ -406,7 +406,6 @@ class XRSDFitGUI(object):
     def _train_models(self,display):
         # TODO: input widget for downsampling distance?
         # TODO: toggles for hyperparam selection? feature selection?
-        # TODO: widget for setting model config path 
         dataset_dir = self._vars['io_control']['dataset_dir'].get()
         output_dir = self._vars['io_control']['output_dir'].get() 
         model_config_path = os.path.join(dataset_dir,'model_config.yml')
