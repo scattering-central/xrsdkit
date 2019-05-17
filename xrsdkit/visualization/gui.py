@@ -173,7 +173,7 @@ class XRSDFitGUI(object):
         # displayed as a window item on the main canvas:
         self.main_frame = tkinter.Frame(main_canvas,bd=4,relief=tkinter.SUNKEN)
         self.main_frame.grid_columnconfigure(0,weight=10)
-        self.main_frame.grid_columnconfigure(1,weight=1)
+        self.main_frame.grid_columnconfigure(1,weight=2)
         self.main_frame.grid_rowconfigure(0,weight=1)
         main_frame_window = main_canvas.create_window(0,0,window=self.main_frame,anchor='nw')
         # _canvas_configure() ensures that the window item and scrollbar
