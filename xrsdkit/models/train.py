@@ -6,6 +6,7 @@ from collections import OrderedDict
 import yaml
 import numpy as np
 import pandas as pd
+from sklearn.metrics import f1_score, confusion_matrix, accuracy_score, precision_score, recall_score
 
 from . import get_regression_models, get_classification_models, get_reg_conf, get_cl_conf
 from .. import definitions as xrsdefs
@@ -40,14 +41,18 @@ def train_from_dataframe(data, train_hyperparameters=False, select_features=Fals
         # load the current model configs, if any
         model_configs_cl = get_cl_conf()
         model_configs_reg = get_reg_conf()
-    cls_models, new_summary_cl, new_config_cl = train_classification_models(data, train_hyperparameters, select_features, model_configs_cl, message_callback)
-    reg_models, new_summary_reg, new_config_reg = train_regression_models(data, train_hyperparameters, select_features, model_configs_reg, message_callback)
+    cls_models, new_summary_cl, new_config_cl, predicted = \
+        train_classification_models(data, train_hyperparameters, select_features, model_configs_cl)
+    reg_models, new_summary_reg, new_config_reg = \
+        train_regression_models(data, train_hyperparameters, select_features, model_configs_reg)
     if output_dir:
         if not os.path.exists(output_dir): os.mkdir(output_dir)
-        new_summary = collect_summary(new_summary_reg, new_summary_cl, old_summary)
+        new_summary = collect_summary(new_summary_reg, new_summary_cl, predicted, old_summary)
         yml_f = os.path.join(output_dir,'training_summary.yml')
         with open(yml_f,'w') as yml_file:
             yaml.dump(new_summary,yml_file)
+        predicted_f = os.path.join(output_dir,'predicted_pops_and_system_classes.csv')
+        predicted.to_csv(predicted_f)
         if model_config_path:
             new_config = collect_config(new_config_reg, new_config_cl)
             with open(model_config_path,'w') as yml_file:
@@ -85,6 +90,8 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         Dict of model performance metrics, collected during training
     config : dict
         Dict of model types and training targets, collected during training
+    predicted : pandas DataFrame
+        Dataframe with predictions from the "main" classifiers
     """
 
     # get a reference to the currently-loaded classification models dict
@@ -194,7 +201,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                 predicted_pops.append(struct_nm)
         if len(predicted_pops) == 0:
             #if all pops are False, the sample must be labeled us
-            row['system_class_pr'] = 'unidentified'
+            predicted.loc[i, 'system_class_pr'] = 'unidentified'
         else:
             # It is possible that some predictions are inconsistent.
             # For example, we predict diffuse = True, disordered = False, crystalline = False for a sample with
@@ -207,26 +214,36 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             # with this combination of populations.
             # Also, we could put just "wrong prediction" on this sample since it populations we predicted
             # incorrectly, system class also will be predicted incorrectly.
+
+            # The "predicted" dataframe also may include some samples wiht true system class "unidentified"
+            # This samples have no predicted system class yet, if any of binary classifiers predict "True"
             consistent = True
-            pr = set(row['system_class_pr'].split('__'))
-            for p in pr:
-                if p not in predicted_pops:
-                    consistent = False
-                    break
-            for p in predicted_pops:
-                if p not in pr:
-                    consistent = False
-                    break
+            if row['system_class_pr'] is None: # possible when true label is "unidentified"
+                consistent = False
+            else:
+                pr = set(row['system_class_pr'].split('__'))
+                for p in pr:
+                    if p not in predicted_pops:
+                        consistent = False
+                        break
+                for p in predicted_pops:
+                    if p not in pr:
+                        consistent = False
+                        break
             if consistent == False:
                 # find the right model
                 model_id = '__'.join(predicted_pops)
-                model = new_cls_models['main_classifiers'][model_id]
-                sample_features = row[profile_keys]
-                feature_idx = [k in model.features for k in sample_features]
-                scaled_features = model.scaler.transform(sample_features)[:, feature_idx]
-                # make new prediction
-                row['system_class_pr'] = model.model.predict(scaled_features)[0]
-    print(predicted.head())
+                if model_id in new_cls_models['main_classifiers']:
+                    model = new_cls_models['main_classifiers'][model_id]
+                    sample_features = data_copy.loc[i, profile_keys]
+                    sample_features = sample_features.to_dict(OrderedDict)
+                    feature_array = np.array(list(sample_features.values())).reshape(1,-1)
+                    feature_idx = [k in model.features for k in sample_features.keys()]
+                    scaled_features = model.scaler.transform(feature_array)[:, feature_idx]
+                    # make new prediction
+                    predicted.loc[i, 'system_class_pr'] = model.model.predict(scaled_features)[0]
+                else:
+                    predicted.loc[i, 'system_class_pr'] = 'unidentified'
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers; drop this label up front 
@@ -378,7 +395,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     new_cls_models[sys_cls][pop_id][ff][stg_nm] = model
                     summary[sys_cls][pop_id][ff][stg_nm] = primitives(model.get_cv_summary())
                     config[sys_cls][pop_id][ff][stg_nm] = dict(model_type=model.model_type, metric=model.metric) 
-    return new_cls_models, summary, config
+    return new_cls_models, summary, config, predicted
 
 
 def save_classification_models(output_dir, models):
@@ -818,12 +835,13 @@ def collect_config(config_reg, config_cl):
     model_configs['CLASSIFIERS'] = config_cl 
     return model_configs
 
-def collect_summary(summary_reg, summary_cl, old_summary={}):
-    summary = OrderedDict.fromkeys(['DESCRIPTION','CLASSIFIERS','REGRESSORS'])
+def collect_summary(summary_reg, summary_cl, predicted, old_summary={}):
+    summary = OrderedDict.fromkeys(['DESCRIPTION','SYSTEM_CLASS','CLASSIFIERS','REGRESSORS'])
     summary['DESCRIPTION'] = 'Each metric is reported with two values: '\
         'The first value is the value of the metric, '\
         'and the second value is the difference in the metric '\
         'relative to a reference training summary, if provided'
+    summary['SYSTEM_CLASS'] = make_sys_class_summary(predicted)
     summary['CLASSIFIERS'] = summary_cl 
     summary['REGRESSORS'] = summary_reg 
     old_summary_reg = {}
@@ -855,3 +873,31 @@ def collect_summary(summary_reg, summary_cl, old_summary={}):
     #                diff = None
     #            summary['CLASSIFIERS'][k]['scores'][key] = [value, diff]
     return summary
+
+def make_sys_class_summary(predicted):
+    y_true = predicted['system_class']
+    y_pred = predicted['system_class_pr']
+    labels = predicted['system_class'].unique().tolist()
+    lens = [len(l) for l in labels]
+    max_len = max(lens)
+    labels_with_white_space = []
+    for l in labels:
+        white_spase = " " * (max_len - len(l) +1)
+        labels_with_white_space.append(l +  white_spase)
+    cm = str(confusion_matrix(y_true, y_pred, labels)).split('\n')
+    formatted_matrix = OrderedDict.fromkeys(labels_with_white_space)
+    fm_list = []
+    for ilabel,label in enumerate(labels_with_white_space):
+        fm_list.append([label, cm[ilabel]])
+        #formatted_matrix[label] = cm[ilabel]
+    result = dict(
+            all_labels = labels,
+            confusion_matrix = fm_list,
+            f1 = f1_score(y_true,y_pred,labels=labels,average="macro"),
+            precision = precision_score(y_true, y_pred, average="macro"),
+            recall = recall_score(y_true, y_pred, average="macro"),
+            accuracy = accuracy_score(y_true, y_pred, sample_weight=None)
+            )
+    return primitives(result)
+
+
