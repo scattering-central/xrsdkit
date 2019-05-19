@@ -639,7 +639,7 @@ class XRSDFitGUI(object):
         current_file = self._vars['io_control']['data_file'].get()
         file_list = list(self.data_files.keys())
         nfiles = len(file_list)
-        if current_file:
+        if current_file in file_list:
             current_file_idx = file_list.index(current_file)
             next_file_idx = min([nfiles-1,current_file_idx+1])
         else:
