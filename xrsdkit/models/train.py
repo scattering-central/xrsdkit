@@ -233,7 +233,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             if consistent == False:
                 # find the right model
                 model_id = '__'.join(predicted_pops)
-                if model_id in new_cls_models['main_classifiers']:
+                if model_id in new_cls_models['main_classifiers'] and new_cls_models['main_classifiers'][model_id].trained:
                     model = new_cls_models['main_classifiers'][model_id]
                     sample_features = data_copy.loc[i, profile_keys]
                     sample_features = sample_features.to_dict(OrderedDict)
