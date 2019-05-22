@@ -1,7 +1,10 @@
+from __future__ import print_function
 from collections import OrderedDict
 import os
 import sys
 import copy
+from distutils.dir_util import copy_tree
+import shutil
 
 from sklearn import preprocessing
 import pandas as pd
@@ -22,13 +25,19 @@ def load_sys_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(**sd)
 
-def read_all_experiments(dataset_dir):
+def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=print):
     """Load xrsdkit data from a directory.
 
     The directory should contain subdirectories,
     one for each experiment in the dataset.
     Each subdirectory should contain .yml files describing 
     the xrsdkit.system.System objects from the experiment.
+    Each .yml file should have a corresponding .dat file in the same directory,
+    where the .dat file contains the integrated scattering pattern.
+    The name of the .dat file should be specified in the .yml file,
+    as the 'data_file' from the sample_metadata dictionary.
+    TODO: move this dataset description to the main documentation,  
+    then refer to it from here.
 
     Parameters
     ----------
@@ -37,44 +46,57 @@ def read_all_experiments(dataset_dir):
 
     Returns
     -------
-    sys_dicts : list
-        list of dictionaries loaded from any .yml files 
-        that were found in the experiment subdirectories
+    df : pandas.DataFrame 
+        modeling DataFrame built from dataset files
     """
-    sys_dicts = []
+    sys_dicts = OrderedDict() 
     for experiment in os.listdir(dataset_dir):
         exp_data_dir = os.path.join(dataset_dir,experiment)
         if os.path.isdir(exp_data_dir):
             for s_data_file in os.listdir(exp_data_dir):
                 if s_data_file.endswith('.yml'):
+                    message_callback('loading data from {}'.format(s_data_file))
                     file_path = os.path.join(exp_data_dir, s_data_file)
-                    sys = load_sys_from_yaml(file_path)
+                    #sys = load_sys_from_yaml(file_path)
                     #if bool(int(sys.fit_report['good_fit'])):
-                    sys_dicts.append(sys.to_dict())
-    return sys_dicts
+                    sys_dicts[s_data_file] = yaml.load(open(file_path,'r')) 
+    df = create_modeling_dataset(list(sys_dicts.values()),
+                downsampling_distance=downsampling_distance,
+                message_callback=message_callback)
+    return df 
 
-
-def gather_dataset(dataset_dir,downsampling_distance=None,output_csv=False):
-    """Build a DataFrame for a dataset saved in a local directory.
-
-    The data directory should contain one or more subdirectories,
-    where each subdirectory contains the .yml files for an experiment,
-    where each .yml file describes one sample,
-    as created by save_sys_to_yaml().
-    If `downsampling_distance` is not None,
-    the dataset will be downsampled with downsample_by_group().
-    If `output_csv` is True,
-    the dataset is saved to dataset.csv in `dataset_dir`.
+def migrate_features(data_dir):
+    """Update features for all yml files in a local directory.
 
     Parameters
     ----------
-    dataset_dir : str
-        absolute path to the folder with the training set
-        Precondition: dataset directory includes subdirectories 
-        for each of the experiments in the dataset; 
-        each experiment directory contains the .yml files
-        describing xrsdkit.system.System objects that were fit 
-        to scattering data from the experiment. 
+    data_dir : str
+        absolute path to the directory containing yml data 
+    """
+    print('BEGINNING FEATURE MIGRATION FOR DIRECTORY: {}'.format(data_dir))
+    for s_data_file in os.listdir(data_dir):
+        if s_data_file.endswith('.yml'):
+            print('loading data from {}'.format(s_data_file))
+            file_path = os.path.join(data_dir, s_data_file)
+            sys = load_sys_from_yaml(file_path)
+            q_I = np.loadtxt(os.path.join(data_dir,sys.sample_metadata['data_file']))
+            sys.features = profiler.profile_pattern(q_I[:,0],q_I[:,1])
+            save_sys_to_yaml(file_path,sys)
+    print('FINISHED FEATURE MIGRATION')
+
+
+def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, message_callback=print):
+    """Build a modeling DataFrame from xrsdkit.system.System objects.
+
+    If `downsampling_distance` is not None, the dataset will be 
+    downsampled with downsample_by_group(downsampling_distance).
+
+    Parameters
+    ----------
+    xrsd_system_dicts: list of dict
+        Dicts describing all xrsdkit.system.System 
+        objects in the dataset. Each of these dicts should be 
+        similar to the output of xrsdkit.system.System.to_dict().
 
     Returns
     -------
@@ -89,22 +111,20 @@ def gather_dataset(dataset_dir,downsampling_distance=None,output_csv=False):
     all_reg_labels = set()
     all_cls_labels = set()
 
-    all_sys = read_all_experiments(dataset_dir)
+    for sys in xrsd_system_dicts:
+        expt_id, sample_id, good_fit, feature_labels, \
+            classification_labels, regression_outputs = unpack_sample(sys)
+        if good_fit:
+            for k,v in regression_outputs.items():
+                all_reg_labels.add(k)
+            reg_labels.append(regression_outputs)
 
-    for sys in all_sys:
-        expt_id, sample_id, feature_labels, classification_labels, regression_outputs = \
-            unpack_sample(sys)
+            for k,v in classification_labels.items():
+                all_cls_labels.add(k)
+            cls_labels.append(classification_labels)
 
-        for k,v in regression_outputs.items():
-            all_reg_labels.add(k)
-        reg_labels.append(regression_outputs)
-
-        for k,v in classification_labels.items():
-            all_cls_labels.add(k)
-        cls_labels.append(classification_labels)
-
-        feat_labels.append(feature_labels)
-        data.append([expt_id,sample_id])
+            feat_labels.append(feature_labels)
+            data.append([expt_id,sample_id])
 
     reg_labels_list = list(all_reg_labels)
     reg_labels_list.sort()
@@ -130,9 +150,7 @@ def gather_dataset(dataset_dir,downsampling_distance=None,output_csv=False):
 
     df_work = pd.DataFrame(data=data, columns=colnames)
     if downsampling_distance:
-        df_work = downsample_by_group(df_work,downsampling_distance)
-    if output_csv:
-        df_work.to_csv(os.path.join(dataset_dir,'dataset.csv'))
+        df_work = downsample_by_group(df_work,downsampling_distance,message_callback)
     return df_work
 
 
@@ -149,7 +167,11 @@ def unpack_sample(sys_dict):
     Returns
     -------
     expt_id : str
-        name of the experiment (must be unique for a training set)
+        id of the experiment (should be unique across all experiments)
+    sample_id : str
+        id of the sample (must be unique across all samples)
+    good_fit : bool 
+        True if this sample's fit is good enough to train models on it
     features : dict 
         dict of features with their values,
         similar to output of xrsdkit.tools.profiler.profile_pattern()
@@ -157,12 +179,11 @@ def unpack_sample(sys_dict):
         dict of all classification labels with their values for given sample
     regression_labels : dict
         dict of all regression labels with their values for given sample
-    sample_id : str
-        uinque sample id (includes experiment id)
     """
     expt_id = sys_dict['sample_metadata']['experiment_id']
     sample_id = sys_dict['sample_metadata']['sample_id']
     features = sys_dict['features']
+    good_fit = bool(sys_dict['fit_report']['good_fit'])
     sys = System(**sys_dict)
 
     regression_labels = {}
@@ -211,7 +232,7 @@ def unpack_sample(sys_dict):
     if sys_cls == '':
         sys_cls = 'unidentified'
     classification_labels['system_class'] = sys_cls
-    return expt_id, sample_id, features, classification_labels, regression_labels
+    return expt_id, sample_id, good_fit, features, classification_labels, regression_labels
 
 
 def sort_populations(struct_nm,pops_dict):
@@ -282,7 +303,7 @@ def sort_populations(struct_nm,pops_dict):
     for ip,p in enumerate(param_ar): new_pops[p[0]] = pops_dict[p[0]]
     return new_pops
 
-def downsample_by_group(df,min_distance=1.):
+def downsample_by_group(df,min_distance=1.,message_callback=print):
     """Group and down-sample a DataFrame of xrsd records.
         
     Parameters
@@ -308,10 +329,10 @@ def downsample_by_group(df,min_distance=1.):
     # downsample each group independently
     for group_labels,grp in all_groups.groups.items():
         group_df = df.iloc[grp].copy()
-        print('Downsampling data for group: {}'.format(group_labels))
+        message_callback('Downsampling data for group: {}'.format(group_labels))
         #lbl_df = _filter_by_labels(data,lbls)
         dsamp = downsample(df.iloc[grp].copy(), min_distance)
-        print('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
+        message_callback('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
         data_sample = data_sample.append(dsamp)
     return data_sample
 
@@ -371,3 +392,4 @@ def downsample(df, min_distance):
 
         sample = sample.append(df.iloc[sample_order])
     return sample
+

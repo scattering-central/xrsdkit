@@ -13,6 +13,7 @@ Contents:
 
    description
    installation
+   db_installation
    usage
    packagedoc
 

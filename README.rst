@@ -1,36 +1,38 @@
-xrsdkit: Python modules for x-ray scattering and diffraction data analysis 
-==========================================================================
+xrsdkit: Machine learning models for fast x-ray scattering and diffraction data analysis
+========================================================================================
 
 
 Description
 -----------
 
-This package supports a data ecosystem for 
-X-ray scattering and diffraction patterns,
-notably including tools to curate datasets 
-and build statistical models for automated analysis.
-The package includes a set of models
-trained on data curated by the developers
-at Stanford Synchrotron Radiaton Lightsource (SSRL),
-a directorate of the Stanford Linear Accelerator (SLAC) laboratory.
-
-Data employed for the packaged models 
-are attributed to the following sources:
-
- - Wu, Liheng, et al. Nature 548, 197–201 (2017). doi: 10.1038/nature23308
-
-As more patterns are added to the curated set, 
-the models are expected to become more effective.
-If you have a data set that you would like to volunteer
-to add to the curated set, 
-please contact the development team at
-ssrl-citrination@slac.stanford.edu or paws-developers@slac.stanford.edu.
+This package provides the tools 
+for a X-ray scattering and diffraction data ecosystem,
+including tools to curate datasets 
+and train machine learning models for fast and/or automated analysis.
 
 
 Example
 -------
 
-This example profiles, parameterizes, 
+**Example 1.** This example illustrates training using default and user defined settings.
+
+**Import xrsdkit devtools** ::
+
+    import xrsdkit.tools.devtools as xrsdev
+
+**Train using default model configurations**
+
+If you have no model configuration file, 
+you can provide the path where you want a new configuration file to be saved.
+The default model configuration will be created at the provided path ::
+
+    xrsdev.train_on_local_dataset("path_to_dataset", "models_directory", "configuration_file_path")
+
+Now the configuration file can be updated (manually or programmatically),
+and the training can be executed again (use the same command).
+
+
+**Example 2.** This example profiles, parameterizes,
 and optimizes the fit of a scattering equation
 to a measured saxs spectrum.
 
@@ -40,16 +42,22 @@ to a measured saxs spectrum.
     from xrsdkit.tools import profiler as xrsdprof
     from xrsdkit import models as xrsdmods
     from xrsdkit import system as xrsdsys
-    from xrsdkit import visualization as xrsdvis 
+    from xrsdkit import visualization as xrsdvis
+
+**Load machine learning models** ::
+
+    import xrsdkit
+    xrsdkit.models.load_models("models_directory")
+
 
 **Read and profile a scattering pattern** ::
 
     q_I = np.loadtxt('my_data/sample_0.dat')
     q = q_I[:,0]
     I = q_I[:,1]
-    p = xrsdprof.profile_pattern(q,I)    
+    p = xrsdprof.profile_pattern(q,I)
 
-**Use statistical models to identify and parameterize the material system** ::
+**Use machine learning models to identify and parameterize the material system** ::
 
     pred = xrsdmods.predict(p)
     source_wavelength = 0.8
@@ -75,9 +83,11 @@ Contribution
 
 To contribute code, please feel free to submit a pull request on this repository.
 
-To contribute data for improving the models,
-please contact the development team at
-ssrl-citrination@slac.stanford.edu or paws-developers@slac.stanford.edu.
+If you have a dataset that you would like to use with xrsdkit,
+and you would like some help with it, please contact the development team at
+paws-developers@slac.stanford.edu.
+We cannot guarantee a solution, 
+but we will be very interested to hear about your use case.
 
 
 License

@@ -3,8 +3,8 @@ numpy
 scipy
 pandas
 lmfit
-scikit-learn>0.19.0
-citrination_client
-pypif
+scikit-learn<0.21.0
 matplotlib
 dask_ml
+pygresql
+paramiko

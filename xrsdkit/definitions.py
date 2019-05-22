@@ -6,22 +6,35 @@ import os
 import numpy as np
 import yaml
 
+structure_names = ['diffuse','disordered','crystalline']
+structures = OrderedDict.fromkeys(structure_names)
+form_factor_names = ['atomic','polyatomic','guinier_porod','spherical']
+form_factors = OrderedDict.fromkeys(form_factor_names)
+noise_model_names = ['flat','low_q_scatter'] 
+noise_models = OrderedDict.fromkeys(noise_model_names)
+
 # supported structures, forms, and noise models
-structures = dict(
+structures.update(
     diffuse = 'disordered, non-interacting particles',
     disordered = 'disordered, interacting particles',
     crystalline = 'particles arranged in a lattice'
     )
-form_factors = dict( 
+form_factors.update( 
     atomic = 'Single atom',
     polyatomic = 'Multiple atoms',
     guinier_porod = 'Scatterer described by Guinier-Porod equations',
     spherical = 'Spherical particle'
     )
-noise_models = dict(
+noise_models.update(
     flat = 'Flat noise floor for all q',
     low_q_scatter = 'Flat noise floor plus a Guinier-Porod-like contribution'
     )
+
+# load parameters for all atomic scattering form factors
+fpath = os.path.join(os.path.dirname(__file__),'scattering','atomic_scattering_params.yml')
+f = open(fpath,'r')
+atomic_params = yaml.load(f)
+f.close()
 
 def validate(structure,form,settings):
     if structure in ['diffuse','disordered']:
@@ -40,12 +53,9 @@ def validate(structure,form,settings):
                 .format(settings['distribution'])
                 raise ValueError(msg)
 
-structure_names = list(structures.keys())
-form_factor_names = list(form_factors.keys())
-noise_model_names = list(noise_models.keys())
-
-# supported settings for each structure, form factor,
-# along with default values
+# top-level settings, along with default values:
+# these settings must exist for the corresponding
+# structures and form factors
 structure_settings = dict(
     diffuse = {},
     disordered = {'interaction':'hard_spheres'},
@@ -65,7 +75,10 @@ form_settings = dict(
     spherical = {'distribution':'single'}
     )
 
-# default parameters for each form factor and noise model
+# top-level parameters, along with default definitions:
+# these parameters are always valid for the corresponding
+# form factors and noise models, 
+# regardless of settings, etc.
 form_factor_params = dict(
     atomic = {},
     polyatomic = {},
@@ -85,7 +98,20 @@ noise_params = dict(
         )
     )
 
-# TODO: find a better way to deal with modelable settings:
+# crystal system and lattice definitions
+crystal_systems = ['triclinic','monoclinic','orthorhombic','tetragonal','trigonal','hexagonal','cubic']
+bravais_lattices = [\
+            'triclinic','P_monoclinic','C_monoclinic',\
+            'P_orthorhombic','C_orthorhombic','A_orthorhombic',\
+            'I_orthorhombic','F_orthorhombic',\
+            'P_tetragonal','I_tetragonal',\
+            'rhombohedral','hexagonal',\
+            'P_cubic','I_cubic','F_cubic',\
+            ]
+all_lattices = bravais_lattices+['hcp','diamond']
+
+# TODO: deprecate this, 
+# and find a better way to deal with modelable settings:
 # consider that after classifying lattice,
 # the next layer will be to classify space group,
 # and after classifying n_atoms, the next layer should attempt 
@@ -102,21 +128,175 @@ modelable_form_factor_settings = dict(
     spherical = ['distribution']
     )
 
-# load parameters for all atomic scattering form factors
-fpath = os.path.join(os.path.dirname(__file__),'scattering','atomic_scattering_params.yml')
-atomic_params = yaml.load(open(fpath,'r'))
+def secondary_settings(structure,form,primary_settings):
+    """Return secondary settings, along with sensible default values.
 
-# build crystal system, lattice, and space group tables...
-crystal_systems = ['triclinic','monoclinic','orthorhombic','tetragonal','trigonal','hexagonal','cubic']
-bravais_lattices = [\
-            'triclinic','P_monoclinic','C_monoclinic',\
-            'P_orthorhombic','C_orthorhombic','A_orthorhombic',\
-            'I_orthorhombic','F_orthorhombic',\
-            'P_tetragonal','I_tetragonal',\
-            'rhombohedral','hexagonal',\
-            'P_cubic','I_cubic','F_cubic',\
-            ]
-all_lattices = bravais_lattices+['hcp','diamond']
+    Secondary settings depend on the structure, form,
+    and possibly primary setting values.
+    Primary settings are defined by xrsdkit.definitions.structure_settings
+    and xrsdkit.definitions.form_factor_settings.
+
+    Parameters
+    ----------
+    structure : str
+        Population structure designation, for fetching valid structure settings
+    form : str
+        Population form factor designation, for fetching valid form factor settings
+    primary_settings : dict
+        Dict of primary settings
+
+    Returns
+    -------
+    stgs : dict
+        Dict of all possible settings along with sensible default values
+    """
+    #stgs = {}
+    #stgs.update(copy.deepcopy(structure_settings[structure]))
+    #if form:
+    #    stgs.update(copy.deepcopy(form_settings[form]))
+    #stgs.update(prior_settings)
+    #for stg_nm in stgs.keys():
+    #    if (stg_nm in prior_settings) \
+    #    and (prior_settings[stg_nm] in setting_selections(structure,form,prior_settings)):
+    #        stgs[stg_nm] = prior_settings[stg_nm]
+    sec_stgs = {}
+    for stg_nm,stg_val in primary_settings.items():
+        if stg_nm == 'n_atoms':
+            sec_stgs.update(
+                dict([('symbol_{}'.format(iat),'H') for iat in range(stg_val)]) 
+                )
+        if stg_nm == 'integration_mode':
+            if stg_val == 'spherical':
+                sec_stgs.update({'q_min':0.,'q_max':1.})
+        if stg_nm == 'distribution' and form == 'spherical':
+            if stg_val == 'r_normal':
+                sec_stgs.update({'sampling_width':3.5,'sampling_step':0.05})
+        #if stg_nm == 'distribution' and form == 'guinier_porod':
+        #    if stg_val == 'rg_normal':
+        #        sec_stgs.update({'sampling_width':2.0,'sampling_step':0.1})
+    return sec_stgs 
+
+# datatypes for all settings 
+def setting_datatypes(stg_nm):
+    if stg_nm in ['lattice','space_group',\
+    'texture','profile','structure_factor_mode',\
+    'integration_mode','interaction','distribution']: 
+        return str
+    if stg_nm in ['q_min','q_max','sampling_width','sampling_step']:
+        return float
+    if stg_nm == 'n_atoms': return int
+    if 'symbol' in stg_nm: return str
+
+# all possible options for all settings (empty list if not enumerable)
+def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
+    if stg_nm == 'lattice': return all_lattices
+    if stg_nm == 'space_group':
+        if 'lattice' in prior_settings:
+            valid_sgs = lattice_space_groups[prior_settings['lattice']]
+            return ['']+valid_sgs
+        else:
+            return ['']
+    if stg_nm == 'texture': return ['random']
+    if stg_nm == 'profile': return ['gaussian','lorentzian','voigt']
+    if stg_nm == 'structure_factor_mode': return ['local','radial']
+    if stg_nm == 'integration_mode': return ['spherical']
+    if stg_nm == 'interaction': return ['hard_spheres']
+    if stg_nm == 'distribution':
+        if form == 'guinier_porod':
+            return ['single']#,'rg_normal']
+        if form == 'spherical':
+            return ['single','r_normal']
+    if stg_nm in ['q_min','q_max','sampling_width','sampling_step']: return []
+    if stg_nm == 'n_atoms': return []
+    if 'symbol' in stg_nm: return list(atomic_params.keys())
+
+# generate any additional parameters that depend on setting selections
+def structure_params(structure,prior_settings):
+    params = {}
+    if structure == 'disordered':
+        if 'interaction' in prior_settings:
+            if prior_settings['interaction'] == 'hard_spheres':
+                params.update(
+                    r_hard = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},
+                    v_fraction = {'value':0.5,'fixed':False,'bounds':[0.01,0.7405],'constraint_expr':None}
+                    ) 
+    if structure == 'crystalline':
+        if 'lattice' in prior_settings:
+            if prior_settings['lattice'] in ['P_cubic','I_cubic','F_cubic','diamond','hcp']:
+                params.update(a={'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None})
+            if prior_settings['lattice'] in ['hexagonal','P_tetragonal','I_tetragonal']:
+                params.update(
+                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
+                    c = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}  
+                    ) 
+            if prior_settings['lattice'] == 'rhombohedral':
+                params.update(
+                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
+                    alpha = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}  
+                    ) 
+            if prior_settings['lattice'] in ['P_orthorhombic','C_orthorhombic','I_orthorhombic','F_orthorhombic']:
+                params.update(
+                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
+                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
+                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}  
+                    ) 
+            if prior_settings['lattice'] in ['P_monoclinic','C_monoclinic']:
+                params.update(
+                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
+                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
+                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}, 
+                    beta = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}  
+                    )
+            if prior_settings['lattice'] == 'triclinic':
+                params.update(
+                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
+                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
+                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}, 
+                    alpha = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None},  
+                    beta = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}, 
+                    gamma = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None} 
+                    )
+        if 'profile' in prior_settings:
+            if prior_settings['profile'] == 'voigt':
+                params.update(
+                    hwhm_g = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None},
+                    hwhm_l = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
+                    )
+            if prior_settings['profile'] in ['gaussian','lorentzian']:
+                params.update(hwhm={'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None})
+    return params
+
+def additional_form_factor_params(form,prior_settings):
+    if form == 'polyatomic':
+        if 'n_atoms' in prior_settings:
+            coord_params = {} 
+            for iat in range(prior_settings['n_atoms']):
+                coord_params.update({
+                    'u_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
+                    'v_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
+                    'w_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None} 
+                    })
+            for iat in range(prior_settings['n_atoms']):
+                coord_params.update( 
+                    {'occupancy_'+str(iat):{'value':1.,'fixed':True,'bounds':[0.,1.],'constraint_expr':None}}
+                    )
+            return coord_params
+    #if form == 'guinier_porod':
+    #    if 'distribution' in prior_settings:
+    #        if prior_settings['distribution'] == 'rg_normal':
+    #            return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
+    if form == 'spherical':
+        if 'distribution' in prior_settings:
+            if prior_settings['distribution'] == 'r_normal':
+                return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
+    return {} 
+
+def all_params(structure,form=None,prior_settings={}):
+    all_pars = {'I0':{'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}}
+    all_pars.update(structure_params(structure,prior_settings))
+    if form: all_pars.update(copy.deepcopy(form_factor_params[form]))
+    if form: all_pars.update(additional_form_factor_params(form,prior_settings))
+    return all_pars
 
 # point groups associated with each crystal system 
 crystal_point_groups = dict(
@@ -260,167 +440,6 @@ for isg in range(207,215): sg_point_groups[all_space_groups[isg]] = '432'
 for isg in range(215,221): sg_point_groups[all_space_groups[isg]] = '-43m'
 for isg in range(221,231): sg_point_groups[all_space_groups[isg]] = 'm-3m'
 
-def all_settings(structure,form=None,prior_settings={}):
-    """Return all valid settings, along with sensible default values.
-
-    Parameters
-    ----------
-    structure : str
-        Population structure designation, for fetching valid structure settings
-    form : str
-        Population form factor designation, for fetching valid form factor settings
-
-    Returns
-    -------
-    stgs : dict
-        Dict of all possible settings along with sensible default values
-    """
- 
-    stgs = {}
-    stgs.update(copy.deepcopy(structure_settings[structure]))
-    if form:
-        stgs.update(copy.deepcopy(form_settings[form]))
-    stgs.update(prior_settings)
-    addl_stgs = {}
-    for stg_nm,stg_val in stgs.items():
-        if stg_nm == 'n_atoms':
-            addl_stgs.update(
-                dict([('symbol_{}'.format(iat),'H') for iat in range(stg_val)]) 
-                )
-        if stg_nm == 'integration_mode':
-            if stg_val == 'spherical':
-                addl_stgs.update({'q_min':0.,'q_max':1.})
-        if stg_nm == 'distribution' and form == 'spherical':
-            if stg_val == 'r_normal':
-                addl_stgs.update({'sampling_width':3.5,'sampling_step':0.05})
-        if stg_nm == 'distribution' and form == 'guinier_porod':
-            if stg_val == 'rg_normal':
-                addl_stgs.update({'sampling_width':2.0,'sampling_step':0.1})
-    stgs.update(addl_stgs)
-    return stgs 
-
-# all possible options for all settings (empty list if not enumerable)
-def setting_selections(structure,form=None,prior_settings={}):
-    stg_sel = {}
-    if structure == 'crystalline':
-        stg_sel['lattice'] = lattices
-        #valid_sgs = sgs.all_space_groups.values()
-        if 'lattice' in prior_settings:
-            valid_sgs = lattice_space_groups[prior_settings['lattice']]
-        stg_sel['space_group'] = ['']+valid_sgs
-        # TODO: implement 'textured', 'single_crystal' 
-        stg_sel['texture'] = ['random']
-        stg_sel['profile'] = ['gaussian','lorentzian','voigt']
-        stg_sel['structure_factor_mode'] = ['local','radial']
-        # TODO: non-spherical integration modes for sections of q-space  
-        stg_sel['integration_mode'] = ['spherical']
-        stg_sel['q_min'] = []
-        stg_sel['q_max'] = []
-    if structure == 'disordered':
-        # TODO: coulombic and square-well interactions
-        stg_sel['interaction'] = ['hard_spheres']
-    if form == 'atomic':
-        stg_sel['symbol'] = atomic_params.keys()
-    if form == 'polyatomic':
-        stg_sel['n_atoms'] = [],
-    if form == 'spherical':
-        stg_sel['distribution'] = ['single','r_normal'],
-        stg_sel['sampling_width'] = [],
-        stg_sel['sampling_step'] = [],
-    if form == 'guinier_porod':
-        stg_sel['distribution'] = ['single','rg_normal'],
-        stg_sel['sampling_width'] = []
-        stg_sel['sampling_step'] = [],
-    return stg_sel
-
-# generate any additional parameters that depend on setting selections
-def structure_params(structure,prior_settings):
-    params = {}
-    if structure == 'disordered':
-        if 'interaction' in prior_settings:
-            if prior_settings['interaction'] == 'hard_spheres':
-                params.update(
-                    r_hard = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},
-                    v_fraction = {'value':0.5,'fixed':False,'bounds':[0.01,0.7405],'constraint_expr':None}
-                    ) 
-    if structure == 'crystalline':
-        if 'lattice' in prior_settings:
-            if prior_settings['lattice'] in ['P_cubic','I_cubic','F_cubic','diamond','hcp']:
-                params.update(a={'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None})
-            if prior_settings['lattice'] in ['hexagonal','P_tetragonal','I_tetragonal']:
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    c = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}  
-                    ) 
-            if prior_settings['lattice'] == 'rhombohedral':
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    alpha = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}  
-                    ) 
-            if prior_settings['lattice'] in ['P_orthorhombic','C_orthorhombic','I_orthorhombic','F_orthorhombic']:
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}  
-                    ) 
-            if prior_settings['lattice'] in ['P_monoclinic','C_monoclinic']:
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}, 
-                    beta = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}  
-                    )
-            if prior_settings['lattice'] == 'triclinic':
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}, 
-                    alpha = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None},  
-                    beta = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}, 
-                    gamma = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None} 
-                    )
-        if 'profile' in prior_settings:
-            if prior_settings['profile'] == 'voigt':
-                params.update(
-                    hwhm_g = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None},
-                    hwhm_l = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
-                    )
-            if prior_settings['profile'] in ['gaussian','lorentzian']:
-                params.update(hwhm={'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None})
-    return params
-
-def additional_form_factor_params(form,prior_settings):
-    if form == 'polyatomic':
-        if 'n_atoms' in prior_settings:
-            coord_params = {} 
-            for iat in range(prior_settings['n_atoms']):
-                coord_params.update({
-                    'u_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
-                    'v_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
-                    'w_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None} 
-                    })
-            for iat in range(prior_settings['n_atoms']):
-                coord_params.update( 
-                    {'occupancy_'+str(iat):{'value':1.,'fixed':True,'bounds':[0.,1.],'constraint_expr':None}}
-                    )
-            return coord_params
-    if form == 'guinier_porod':
-        if 'distribution' in prior_settings:
-            if prior_settings['distribution'] == 'rg_normal':
-                return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
-    if form == 'spherical':
-        if 'distribution' in prior_settings:
-            if prior_settings['distribution'] == 'r_normal':
-                return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
-    return {} 
-
-def all_params(structure,form=None,prior_settings={}):
-    all_pars = {'I0':{'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}}
-    all_pars.update(structure_params(structure,prior_settings))
-    if form: all_pars.update(copy.deepcopy(form_factor_params[form]))
-    if form: all_pars.update(additional_form_factor_params(form,prior_settings))
-    return all_pars
-
 def lattice_coords(lattice):
     if lattice in ['triclinic','P_monoclinic','P_orthorhombic','P_tetragonal','rhombohedral','hexagonal','P_cubic']:
         return np.array([[0.,0.,0.]])
@@ -531,28 +550,8 @@ def reciprocal_lattice_vectors(lat1, lat2, lat3, crystallographic=True):
         rlat3 *= 2*np.pi
     return rlat1, rlat2, rlat3
 
-# datatypes, units, and descriptions for all settings and params (gui tooling)
-setting_datatypes = dict(
-    lattice = str,
-    centering = str,
-    space_group = str,
-    texture = str,
-    profile = str,
-    structure_factor_mode = str,
-    integration_mode = str,
-    q_min = float,
-    q_max = float,
-    interaction = str,
-    symbol = str,
-    n_atoms = int,
-    distribution = str,
-    sampling_width = float, 
-    sampling_step = float
-    )
-
 setting_descriptions = dict(
-    lattice = 'Name of the lattice family for crystalline populations',
-    centering = 'Crystalline lattice centering specifier',
+    lattice = 'Lattice identifier for crystalline populations',
     space_group = 'Crystalline space group specification (International symbol)',
     texture = 'Distribution of orientations for crystalline populations',
     profile = 'Selection of peak profile for broadening diffraction peaks',

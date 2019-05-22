@@ -1,15 +1,19 @@
 from collections import OrderedDict
 from functools import partial
+import glob
 import copy
 import sys
 import os
-
-from ..tools import profiler
-from ..models import predict as xrsdpred
+if sys.version_info[0] < 3:
+    import Tkinter as tkinter
+    import tkFileDialog as filedialog
+else:
+    import tkinter
+    from tkinter import filedialog
+import warnings
 
 import numpy as np
 import matplotlib
-
 mplv = matplotlib.__version__
 mplvmaj = int(mplv.split('.')[0])
 from matplotlib.figure import Figure
@@ -22,24 +26,53 @@ else:
 from .. import definitions as xrsdefs 
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
+from ..tools.ymltools import load_sys_from_yaml,save_sys_to_yaml,read_local_dataset
+from ..tools import profiler
+from ..models import predict as xrsdpred
+from ..models.train import train_from_dataframe
+from ..models import load_models
 
-if sys.version_info[0] < 3:
-    import Tkinter as tkinter
-else:
-    import tkinter
+q_default = np.linspace(0.,1.,100)
+I_default = np.zeros(q_default.shape)
 
-def run_fit_gui(system,q,I,dI=None,error_weighted=True,
-    logI_weighted=True,q_range=[0.,float('inf')]):
-    gui = XRSDFitGUI(system,q,I,dI,error_weighted,logI_weighted,q_range)
-    sys_opt = gui.start()
-    # collect results and return
-    return sys_opt
+def run_gui_on_yaml_directory(yml_dir=None,yml_regex='*.yml'):
+    yml_files = glob.glob(os.path.join(yml_dir,yml_regex))
+    run_gui(yml_files=yml_files)
 
-# TODO (low): when a structure or form selection is rejected,
+def run_gui_on_data_directory(data_dir=None,data_regex='*.dat'):
+    data_files = glob.glob(os.path.join(data_dir,data_regex))
+    #for datf in data_files.keys():
+    #    df_name = os.path.split(datf)[1]
+    #    df_name_noext = os.path.splitext(df_name)[0]
+    #    ymlf = os.path.join(yml_dir,df_name_noext+'.yml')
+    #    if not os.path.exists(ymlf):
+    #        sys = xrsdsys.System(sample_metadata={'data_file':df_name})
+    #        save_sys_to_yaml(ymlf,sys)
+    #    data_files[datf] = ymlf
+    run_gui(data_files=data_files)
+
+def run_gui(data_files=[],yml_files=[]):
+    gui = XRSDFitGUI(data_files,yml_files)
+    gui.start()
+
+# TODO: gui sometimes freezes when "previous" or "next" buttons are pressed,
+#   seems to happen when computing heavily, 
+#   e.g. when computing superlattice diffraction
+
+# TODO: mouse-over pop-up help windows
+
+# TODO: fix mousewheel scrolling behavior in Windows-
+# currently scrolling jumps between top and bottom, 
+# does not stop in between
+
+# TODO: fix mousewheel scrolling behavior for separate windows-
+# currently mousewheel always controls the main input canvas 
+
+# TODO (low): when a selection is rejected (raises an Exception),
 #   get the associated combobox re-painted-
 #   currently the value does get reset, 
 #   but the cb does not repaint until it is focused-on...
-#   note, this may be a use case for update_idletasks()
+#   try update_idletasks()?
 
 # TODO (low): in _validate_param(), 
 #   if param_key == 'constraint_expr', 
@@ -51,22 +84,62 @@ def run_fit_gui(system,q,I,dI=None,error_weighted=True,
 # TODO (low): find a way to fix the errors 
 #   that sometimes occur when the gui is closed
 #   (_tkinter.TclError: invalid command name)
+#   NOTE: on Windows, the error message is more informative:
+#   this has something to do with the scrollbars
 
 class XRSDFitGUI(object):
 
-    def __init__(self,system,q,I,dI=None,
-        error_weighted=True,logI_weighted=True,q_range=[0.,float('inf')]):
+    def __init__(self,data_files=[],yml_files=[]):
+        """Create an instance of the xrsdkit gui.
 
+        The data that are initially loaded in the GUI 
+        depend on the two input file lists, `data_files` and `yml_files`.
+
+        If data files exist but YAML files do not,
+        e.g. for scattering data that have not yet been fit by xrsdkit,
+        the `data_files` input alone is sufficient.
+        In this case, minimal YAML files will be created and placed 
+        in the same directory as the data files,
+        and will be given matching filenames.
+        Fitting results will be stored in these YAML files.
+
+        If the data files exist and the YAML files also exist,
+        and they are in the same directories with matching filenames,
+        the `data_files` input alone is sufficient,
+        and the corresponding YAML files are detected automatically.
+
+        If the data files and YAML files should be in separate directories,
+        the `yml_files` input can be used to specify the YAML paths,
+        which should have one-to-one correspondence to the `data_files`.
+        This works whether or not the YAML files exist:
+        if they do not exist, minimal YAML files are created.
+
+        Finally, if the data files exist and the YAML files also exist,
+        and they are in the same directory,
+        and each YAML file sample_metadata correctly names its data file,
+        the `yml_files` input alone is sufficient.
+
+        Parameters
+        ----------
+        data_files : list of str 
+            List of paths to 1d-integrated scattering data files
+            (each file must have two columns, q and I(q)).
+        yml_files : list of str
+            List of paths to xrsdkit system data YAML files.
+            If YAML files do not exist (i.e. data have not been fit),
+            the `data_files` input must be provided.
+            If data files are in the same directory as YAML files,
+            and the YAML sample_metadata attribute gives the correct filename,
+            this input may be used alone (with `data_files`=[]).
+            If YAML and data files both exist in different directories,
+            both `yml_files` and `data_files` inputs must be used.
+        """
         super(XRSDFitGUI, self).__init__()
-        self.q = q
-        self.I = I
-        self.dI = dI
-        if not system: system = xrsdsys.System()
-        self.sys = system
-        self.error_weighted = error_weighted
-        self.logI_weighted = logI_weighted
-        self.q_range = q_range
-
+        # start with a default system definition, q, and I(q)
+        self.sys = xrsdsys.System()
+        self.q = q_default
+        self.I = I_default
+        self.dI = None
         self.fit_gui = tkinter.Tk()
         self.fit_gui.protocol('WM_DELETE_WINDOW',self._cleanup)
         # setup the main gui objects
@@ -75,15 +148,15 @@ class XRSDFitGUI(object):
         self._build_control_widgets()
         # create the plots
         self._build_plot_widgets()
-        # draw the plots...
-        #self._draw_plots()
+        data_file_map = self._match_data_to_yml(data_files,yml_files)
+        self._set_data_files(data_file_map)
         self.fit_gui.geometry('1100x700')
+        self._draw_plots()
+        #self._next_data_file()
 
     def start(self):
         # start the tk loop
         self.fit_gui.mainloop()
-        # after the loop, return the (optimized) system
-        return self.sys
 
     def _cleanup(self):
         # remove references to all gui objects, widgets, etc. 
@@ -103,6 +176,9 @@ class XRSDFitGUI(object):
         # the main widget will be a frame,
         # displayed as a window item on the main canvas:
         self.main_frame = tkinter.Frame(main_canvas,bd=4,relief=tkinter.SUNKEN)
+        self.main_frame.grid_columnconfigure(0,weight=1)
+        self.main_frame.grid_columnconfigure(1,weight=0,minsize=400)
+        self.main_frame.grid_rowconfigure(0,weight=1)
         main_frame_window = main_canvas.create_window(0,0,window=self.main_frame,anchor='nw')
         # _canvas_configure() ensures that the window item and scrollbar
         # remain the correct size for the underlying widget
@@ -123,13 +199,13 @@ class XRSDFitGUI(object):
         canvas.config(scrollregion=canvas.bbox(tkinter.ALL))
 
     def _build_plot_widgets(self):
-        # the main frame contains a plot frame on the left,
+        # the main frame contains a frame on the left,
         # containing a canvas, which contains a window item,
         # which displays a view on a plot widget 
         # built from FigureCanvasTkAgg.get_tk_widget()
         plot_frame = tkinter.Frame(self.main_frame,bd=4,relief=tkinter.SUNKEN)
-        plot_frame.pack(side=tkinter.LEFT,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
-        self.fig,I_comp = plot_xrsd_fit(self.sys,self.q,self.I,self.dI,False)
+        plot_frame.grid(row=0,column=0,sticky='nesw',padx=2,pady=2)
+        self.fig,I_comp = plot_xrsd_fit(sys=self.sys,show_plot=False)
         plot_frame_canvas = tkinter.Canvas(plot_frame)
         yscr = tkinter.Scrollbar(plot_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
@@ -145,16 +221,20 @@ class XRSDFitGUI(object):
             plot_frame_canvas,self.plot_canvas,plot_canvas_window)
         plot_frame_canvas.bind("<Configure>",self.plot_canvas_configure)
         self.mpl_canvas.draw()
-        self._update_fit_objective(I_comp)
 
     def _build_control_widgets(self):
-        # the main frame contains a control frame on the right,
+        # the main frame contains a frame on the right,
         # containing a canvas, which contains a window item,
         # which displays a view on a frame full of entry widgets and labels, 
         # which are used to control parameters, settings, etc. 
         control_frame = tkinter.Frame(self.main_frame)
-        control_frame.pack(side=tkinter.RIGHT,fill='y')
+        control_frame.grid(row=0,column=1,sticky='nesw',padx=2,pady=2)
         control_frame_canvas = tkinter.Canvas(control_frame)
+        # TODO: figure out how to make the mousewheel control the currently-focused frame-
+        # the current approach will always scroll control_frame regardless of focus-
+        # some research suggests the use of bind_class with a custom bindtag,
+        # but this has not yet been implemented successfully
+        #self.fit_gui.bind_class("scrollable_controls","<MouseWheel>",partial(self.on_mousewheel,control_frame_canvas))
         control_frame.bind_all("<MouseWheel>", partial(self.on_mousewheel,control_frame_canvas))
         control_frame.bind_all("<Button-4>", partial(self.on_trackpad,control_frame_canvas))
         control_frame.bind_all("<Button-5>", partial(self.on_trackpad,control_frame_canvas))
@@ -163,9 +243,8 @@ class XRSDFitGUI(object):
         control_frame_canvas.pack(fill='both',expand=True)
         control_frame_canvas.config(yscrollcommand=yscr.set)
         yscr.config(command=control_frame_canvas.yview)
-        # TODO (low): figure out a way to set or control the width of the control widget
-        # NOTE: currently it takes on the net width of the entry widgets
         self.control_widget = tkinter.Frame(control_frame_canvas)
+        self.control_widget.grid_columnconfigure(0,weight=1)
         control_canvas_window = control_frame_canvas.create_window((0,0),window=self.control_widget,anchor='nw')
         self.control_canvas_configure = partial(self._canvas_configure,
             control_frame_canvas,self.control_widget,control_canvas_window)
@@ -183,7 +262,8 @@ class XRSDFitGUI(object):
             parameters=OrderedDict(),
             settings=OrderedDict(),
             new_population=None,
-            fit_control=OrderedDict()
+            fit_control=None,
+            io_control=None
             )
         self._vars = OrderedDict(
             noise_model=None,
@@ -192,62 +272,452 @@ class XRSDFitGUI(object):
             parameters=OrderedDict(),
             settings=OrderedDict(),
             new_population_name=None,
-            fit_control=OrderedDict()
+            fit_control=OrderedDict(),
+            io_control=OrderedDict()
+            )
+        self._widgets = OrderedDict(
+            datafile_option_menu = None
             )
 
     def _create_control_widgets(self):
-        self._frames['parameters']['noise'] = OrderedDict()
-        self._vars['parameters']['noise'] = OrderedDict()
+        self._create_io_control_frame()
         self._create_fit_control_frame()
         self._create_noise_frame()
         for pop_nm in self.sys.populations.keys():
-            self._frames['parameters'][pop_nm] = OrderedDict()
-            self._vars['parameters'][pop_nm] = OrderedDict()
-            self._frames['populations'][pop_nm] = self._create_pop_frame(pop_nm)
-        self._frames['new_population'] = self._create_new_pop_frame()
+            self._create_pop_frame(pop_nm)
+        self._create_new_pop_frame()
         self._pack_population_frames()
 
-    def _pack_population_frames(self):
-        n_pop_frames = len(self._frames['populations'])
-        for pop_idx, pop_nm in enumerate(self._frames['populations'].keys()):
-            self._frames['populations'][pop_nm].grid(
-            row=2+pop_idx,pady=2,padx=2,sticky='ew')
-        self._frames['new_population'].grid(row=2+n_pop_frames,pady=2,padx=2,sticky='ew')
+    def _create_io_control_frame(self):
+        iof = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        iof.grid_columnconfigure(0,weight=1)
+        iof.grid_columnconfigure(1,weight=1)
+        iof.grid_columnconfigure(2,weight=1)
+        #iof.grid_rowconfigure(0,minsize=40)
+        self._frames['io_control'] = iof
+        dfvar = tkinter.StringVar(iof)
+        dfvar.trace('w',self._update_data_file)
+        self._vars['io_control']['data_file'] = dfvar
 
-    def _repack_pop_frames(self):
-        for pop_nm,frm in self._frames['populations'].items(): frm.pack_forget() 
-        self._frames['new_population'].pack_forget()
-        new_pop_frms = OrderedDict()
-        # save the relevant frames, create new ones as needed 
-        for pop_nm in self._frames['populations'].keys(): 
-            if pop_nm in self.sys.populations:
-                new_pop_frms[pop_nm] = self._frames['populations'][pop_nm]
-        for pop_nm in self.sys.populations.keys():
-            if not pop_nm in self._frames['populations']:
-                new_pop_frms[pop_nm] = self._create_pop_frame(pop_nm)
-        # destroy any frames that didn't get saved
-        pop_frm_nms = list(self._frames['populations'].keys())
-        for pop_nm in pop_frm_nms:
-            if not pop_nm in self.sys.populations: 
-                frm = self._frames['populations'].pop(pop_nm)
-                frm.destroy()
-                # TODO (low): clean up refs to obsolete vars
-                # and widgets that were children of this frame 
-        # place the new frames in the _frames dict 
-        self._frames['populations'] = new_pop_frms
-        self._pack_population_frames()
-        # update_idletasks() processes the frame changes, 
-        # so that they are accounted for in control_canvas_configure()
+        self._vars['io_control']['output_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['dataset_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['models_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['data_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['data_regex'] = tkinter.StringVar(iof)
+        self._vars['io_control']['xrsdkit_data_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['xrsdkit_data_regex'] = tkinter.StringVar(iof)
+        self._vars['io_control']['same_dir_flag'] = tkinter.BooleanVar(iof)
+
+        default_output_dir = os.path.join(os.getcwd(),'xrsdkit_models')
+        ii=1
+        while os.path.exists(default_output_dir):
+            default_output_dir = os.path.join(os.getcwd(),'xrsdkit_models_{}'.format(ii))
+            ii+=1
+        self._vars['io_control']['output_dir'].set(default_output_dir) 
+
+        modl = tkinter.Label(iof,text='train/load machine learning models:',anchor='e')
+        dfl = tkinter.Label(iof,text='load scattering/diffraction data files:',anchor='e')
+        modbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_models)
+        dfbb = tkinter.Button(iof,text='Browse...',width=8,command=self._browse_data_files)
+        modl.grid(row=0,column=0,columnspan=2,sticky='ew')
+        modbb.grid(row=0,column=2,sticky='e')
+        dfl.grid(row=1,column=0,columnspan=2,sticky='ew')
+        dfbb.grid(row=1,column=2,sticky='e')
+
+        # this creates and packs the data file selection menu:
+        self._set_data_files()
+
+        prevb = tkinter.Button(iof,text='Previous',width=8,command=self._previous_data_file)
+        nxtb = tkinter.Button(iof,text='Next',width=8,command=self._next_data_file)
+        prevb.grid(row=3,column=0,sticky='w')
+        nxtb.grid(row=3,column=2,sticky='e')
+
+        # bind the mousewheel to scroll the parent frame
+        # NOTE: this was an attempt, it didn't seem to work
+        #self._bind_all_children(iof,"scrollable_controls")
+
+        iof.grid(row=0,pady=2,padx=2,sticky='ew')
+
+    #def _bind_all_children(self,widg,tag):
+    #    widg.bindtags((tag,)+widg.bindtags())
+    #    for cwidg in widg.children.values():
+    #        self._bind_all_children(cwidg,tag)
+
+    def _browse_models(self,*args):
+        browser_popup = tkinter.Toplevel(master=self.fit_gui)
+        browser_popup.geometry('450x600')
+        browser_popup.title('modeling data browser')
+        main_canvas = tkinter.Canvas(browser_popup)
+        main_canvas.pack(fill=tkinter.BOTH,expand=tkinter.YES)
+        main_frame = tkinter.Frame(main_canvas,bd=4,padx=10,pady=10)
+        main_frame_window = main_canvas.create_window(0,0,window=main_frame,anchor='nw')
+        main_canvas_configure = partial(self._canvas_configure,main_canvas,main_frame,main_frame_window)  
+        main_canvas.bind("<Configure>",main_canvas_configure)
+        entry_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        entry_frame.grid_columnconfigure(0,weight=2)
+        entry_frame.grid_columnconfigure(1,weight=1)
+        entry_frame.grid_columnconfigure(2,weight=1)
+        entry_frame.grid_rowconfigure(2,minsize=20)
+        entry_frame.grid_rowconfigure(5,minsize=20)
+        # entry frame widgets
+        odirl = tkinter.Label(entry_frame,text='Output trained models to:',anchor='w')
+        ddirl = tkinter.Label(entry_frame,text='Train from dataset:',anchor='w')
+        mdirl = tkinter.Label(entry_frame,text='Load trained models:',anchor='w')
+        odirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['output_dir'],
+            'Select output directory for modeling data'
+            ))
+        ddirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['dataset_dir'],
+            'Select training dataset directory'
+            ))
+        mdirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['models_dir'],
+            'Select directory of trained xrsdkit models'
+            ))
+        odirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['output_dir'])
+        ddirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['dataset_dir'])
+        mdirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['models_dir'])
+        # display widgets
+        display_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        display = tkinter.Listbox(display_frame)
+        display.pack(fill=tkinter.BOTH,expand=True,padx=2,pady=2)
+        # controls for launching training etc
+        trainbtn = tkinter.Button(entry_frame,text='Train...',command=partial(self._train_models,display))
+        loadbtn = tkinter.Button(entry_frame,text='Load',command=partial(self._load_models,display))
+        # widget packing
+        odirl.grid(row=0,column=0,sticky='ew')
+        odirbb.grid(row=0,column=1,sticky='ew')
+        odirent.grid(row=1,column=0,columnspan=3,sticky='ew')
+        ddirl.grid(row=3,column=0,sticky='ew')
+        ddirbb.grid(row=3,column=1,sticky='ew')
+        trainbtn.grid(row=3,column=2,sticky='ew')
+        ddirent.grid(row=4,column=0,columnspan=3,sticky='ew')
+        mdirl.grid(row=6,column=0,sticky='ew')
+        mdirbb.grid(row=6,column=1,sticky='ew')
+        loadbtn.grid(row=6,column=2,sticky='ew')
+        mdirent.grid(row=7,column=0,columnspan=3,sticky='ew')
+        # frame packing 
+        entry_frame.pack(side=tkinter.TOP,fill=tkinter.X,expand=False,padx=2,pady=2)
+        display_frame.pack(side=tkinter.TOP,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
+        # wait for the browser to close before continuing main loop 
+        self.fit_gui.wait_window(browser_popup)
+
+
+    def _train_models(self,display):
+        # TODO: input widget for downsampling distance?
+        # TODO: toggles for hyperparam selection? feature selection?
+        dataset_dir = self._vars['io_control']['dataset_dir'].get()
+        output_dir = self._vars['io_control']['output_dir'].get() 
+        model_config_path = os.path.join(dataset_dir,'model_config.yml')
+        self._print_to_listbox(display,'LOADING DATASET FROM: {}'.format(dataset_dir))
+        df = read_local_dataset(dataset_dir,downsampling_distance=1.,
+                message_callback=partial(self._print_to_listbox,display))
+        self._print_to_listbox(display,'---- FINISHED LOADING DATASET ----')
+        self._print_to_listbox(display,'BEGINNING TO TRAIN MODELS')
+        self._print_to_listbox(display,'MODEL CONFIG FILE PATH: {}'.format(model_config_path))
+        reg_mods, cls_mods = train_from_dataframe(df, 
+                train_hyperparameters=False, select_features=False,
+                output_dir=output_dir, model_config_path=model_config_path,
+                message_callback=partial(self._print_to_listbox,display)
+                )
+        self._print_to_listbox(display,'---- FINISHED TRAINING ----')
+
+    def _load_models(self,display):
+        models_dir = self._vars['io_control']['models_dir'].get()
+        self._print_to_listbox(display,'LOADING MODELS FROM: {}'.format(models_dir)) 
+        load_models(models_dir)
+        self._print_to_listbox(display,'---- FINISHED LOADING MODELS ----'.format(models_dir)) 
+
+    def _print_to_listbox(self,lb,msg):
+        lb.insert(tkinter.END,msg)
+        lb.see(tkinter.END)
         self.fit_gui.update_idletasks()
-        self.control_canvas_configure()
+
+    def _browse_data_files(self,*args):
+        browser_popup = tkinter.Toplevel(master=self.fit_gui)
+        browser_popup.geometry('500x800')
+        browser_popup.title('data file browser')
+        main_canvas = tkinter.Canvas(browser_popup)
+        main_canvas.pack(fill=tkinter.BOTH,expand=tkinter.YES)
+        main_frame = tkinter.Frame(main_canvas,bd=4,padx=10,pady=10)
+        main_frame_window = main_canvas.create_window(0,0,window=main_frame,anchor='nw')
+        main_canvas_configure = partial(self._canvas_configure,main_canvas,main_frame,main_frame_window)  
+        main_canvas.bind("<Configure>",main_canvas_configure)
+
+        entry_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        entry_frame.grid_columnconfigure(0,weight=2)
+        entry_frame.grid_columnconfigure(1,weight=2)
+        entry_frame.grid_columnconfigure(2,weight=1)
+        entry_frame.grid_rowconfigure(2,minsize=20)
+        entry_frame.grid_rowconfigure(6,minsize=20)
+        # widgets for setting data files directory
+        ddirl = tkinter.Label(entry_frame,text='scattering data directory:',anchor='w')
+        drxl = tkinter.Label(entry_frame,text='filter:',anchor='w')
+        ddirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['data_dir'])
+        drxent = tkinter.Entry(entry_frame,width=6,textvariable=self._vars['io_control']['data_regex'])
+        self._vars['io_control']['data_regex'].set('*.dat')
+        ddirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
+            self._browse_for_directory,browser_popup,
+            self._vars['io_control']['data_dir'],
+            'Select scattering data directory'
+            ))
+        ddirl.grid(row=0,column=0,sticky='sew')
+        ddirbb.grid(row=0,column=1,sticky='sew')
+        ddirent.grid(row=1,column=0,columnspan=2,sticky='ew')
+        drxl.grid(row=0,column=2,sticky='w')
+        drxent.grid(row=1,column=2,sticky='ew')
+        # widgets for setting xrsdkit system definition files directory
+        sdirl = tkinter.Label(entry_frame,text='xrsdkit data directory:',anchor='w')
+        srxl = tkinter.Label(entry_frame,text='filter:',anchor='w')
+        sdirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['xrsdkit_data_dir'])
+        srxent = tkinter.Entry(entry_frame,width=6,textvariable=self._vars['io_control']['xrsdkit_data_regex'])
+        self._vars['io_control']['xrsdkit_data_regex'].set('*.yml')
+        sdirbb = tkinter.Button(entry_frame,text='Browse',
+            command=partial(self._browse_for_directory,browser_popup,
+            self._vars['io_control']['xrsdkit_data_dir'],
+            'Select xrsdkit data directory'
+            ))
+        samedircb = self.connected_checkbutton(entry_frame,self._vars['io_control']['same_dir_flag'],
+            self._set_same_dir_flag,'same as scattering data directory')
+        sdirl.grid(row=3,column=0,sticky='sew')
+        sdirbb.grid(row=3,column=1,sticky='sew')
+        sdirent.grid(row=4,column=0,columnspan=2,sticky='ew')
+        srxl.grid(row=3,column=2,sticky='w')
+        srxent.grid(row=4,column=2,sticky='ew')
+        samedircb.grid(row=5,column=0,columnspan=2,sticky='w')
+
+        # TODO: put a scrollbar on the display frame, shorten the main window
+        #scrollbar = tkinter.Scrollbar(browser_popup,orient='vertical')
+        #scrollbar.pack(side=tkinter.RIGHT,fill=tkinter.Y)
+        #scrollbar.config(command=main_canvas.yview)
+        #main_canvas.config(yscrollcommand=scrollbar.set)
+        # TODO: make the scrollbar respond to the mouse wheel
+        # when the mouse is in this window. 
+        # Currently the mouse wheel always controls the main window.
+        display_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
+        display_frame.grid_columnconfigure(0,weight=1)
+        display_frame.grid_columnconfigure(1,weight=1)
+        display_frame.grid_rowconfigure(1,weight=1)
+        # widgets for displaying file lists:
+        dfl = tkinter.Label(display_frame,text='scattering data files:',anchor='w')
+        sfl = tkinter.Label(display_frame,text='xrsdkit data files:',anchor='w')
+        dfl.grid(row=0,column=0,sticky='w')
+        sfl.grid(row=0,column=1,sticky='w')
+
+        # TODO: figure out how to right-justify the Listbox
+        # so that the end of the file path is always visible
+        dfl.config(justify=tkinter.RIGHT)
+        sfl.config(justify=tkinter.RIGHT)
+
+        dfplist = tkinter.Listbox(display_frame)
+        sfplist = tkinter.Listbox(display_frame)
+        dfplist.grid(row=1,column=0,sticky='nsew') 
+        sfplist.grid(row=1,column=1,sticky='nsew')
+
+        sexprb = tkinter.Button(entry_frame,text='Execute Search',command=partial(self._execute_search,dfplist,sfplist))
+        sexprb.grid(row=7,column=0,columnspan=3,sticky='ew')
+        canclb = tkinter.Button(entry_frame,text='Cancel / Exit',command=browser_popup.destroy)
+        canclb.grid(row=8,column=0,columnspan=3,sticky='ew')
+        finbtn = tkinter.Button(display_frame,text='Finish / Load Files',
+            command=partial(self._get_data_files_from_browser,dfplist,sfplist,browser_popup))
+        finbtn.grid(row=2,column=0,columnspan=2,sticky='ew')
+
+        # finally, pack frames into the main widget
+        entry_frame.pack(side=tkinter.TOP,fill=tkinter.X,expand=False,padx=2,pady=2)
+        display_frame.pack(side=tkinter.TOP,fill=tkinter.BOTH,expand=True,padx=2,pady=2)
+
+        # wait for the browser to close before continuing main loop 
+        self.fit_gui.wait_window(browser_popup)
+
+    # TODO
+    def _set_same_dir_flag(self):
+        flag = self._vars['io_control']['same_dir_flag'].get()
+        if flag:
+            pass
+            # make dir input read-only
+            # disable browse button
+            # set dir entry to same as data dir
+        else:
+            pass
+            # enable browse button
+            # make dir input writable
+        return True
+
+    def _execute_search(self,data_file_listbox,system_file_listbox):
+        data_dir = self._vars['io_control']['data_dir'].get()
+        data_rx = self._vars['io_control']['data_regex'].get()
+        xrsd_dir = self._vars['io_control']['xrsdkit_data_dir'].get()
+        xrsd_rx = self._vars['io_control']['xrsdkit_data_regex'].get()
+        data_file_list = []
+        if data_dir and data_rx:
+            data_expr = os.path.join(data_dir,data_rx)
+            data_file_list = glob.glob(data_expr)
+        xrsd_file_list = []
+        if xrsd_dir and xrsd_rx:
+            xrsd_expr = os.path.join(xrsd_dir,xrsd_rx)
+            xrsd_file_list = glob.glob(xrsd_expr)
+
+        df_map = self._match_data_to_yml(data_file_list,xrsd_file_list)
+
+        data_file_listbox.delete(0,tkinter.END)
+        system_file_listbox.delete(0,tkinter.END)
+        data_file_listbox.insert(0,*list(df_map.keys()))
+        system_file_listbox.insert(0,*list(df_map.values()))
+
+    def _get_data_files_from_browser(self,data_file_listbox,system_file_listbox,browser_popup):
+        df_list = data_file_listbox.get(0,tkinter.END)
+        sf_list = system_file_listbox.get(0,tkinter.END)
+        #data_files = OrderedDict((df,sf) for df,sf in zip(df_list,sf_list))
+        df_map = self._match_data_to_yml(df_list,sf_list)
+        self._set_data_files(df_map)
+        browser_popup.destroy()
+
+    def _browse_for_directory(self,parent_widget,dir_entry_var,title=''):
+        browser_root = os.getcwd()
+        data_dir = filedialog.askdirectory(
+            parent=parent_widget,
+            initialdir=browser_root,
+            title=title
+            )
+        dir_entry_var.set(data_dir)
+
+    def _match_data_to_yml(self,data_files,yml_files):
+        all_data_files = OrderedDict()
+        if data_files:
+            # build an index for mapping data file names to yml files
+            yml_index = {}
+            if yml_files: 
+                for ymlf in yml_files:
+                    sys = load_sys_from_yaml(ymlf)
+                    df_name = sys.sample_metadata['data_file']
+                    yml_index[df_name] = ymlf
+            for idf,df_path in enumerate(data_files):
+                if os.path.exists(df_path):
+                    df_name = os.path.split(df_path)[1]
+                    df_name_noext = os.path.splitext(df_name)[0]
+                    if df_name in yml_index: 
+                        ymlf = yml_index[df_name]
+                    else:
+                        # assign default yml path, co-located with data file, same filename
+                        ymlf = os.path.join(os.path.split(df_path)[0],df_name_noext+'.yml')
+                    #if os.path.exists(ymlf):
+                    #    sys = load_sys_from_yaml(ymlf)
+                    #else:
+                    #    sys = xrsdsys.System(sample_metadata={'data_file':df_name})
+                    #    save_sys_to_yaml(ymlf,sys)
+                    all_data_files[df_path] = ymlf
+                else:
+                    warnings.warn('skipping nonexistent data file {}'.format(df_path))
+        elif yml_files:
+            for ymlf in yml_files:
+                sys = load_sys_from_yaml(ymlf)
+                df = sys.sample_metadata['data_file']
+                # we assume the data file is co-located with the yml file,
+                # and the data filename is properly declared in the yml
+                df_path = os.path.join(os.path.split(ymlf)[0],df)
+                if os.path.exists(df_path):
+                    all_data_files[df_path] = ymlf
+                else:
+                    warnings.warn('skipping nonexistent data file {} (from {})'.format(df_path,ymlf))
+        return all_data_files
+
+    def _set_data_files(self,all_data_files={}):
+        self.data_files = all_data_files
+        df_options_dict = {'':None}
+        if all_data_files:
+            df_options_dict = OrderedDict.fromkeys(all_data_files.keys())
+        dfcb = tkinter.OptionMenu(self._frames['io_control'],self._vars['io_control']['data_file'],*df_options_dict)
+        dfcb.config(width=10,anchor='e')
+        if self._widgets['datafile_option_menu']: 
+            self._widgets['datafile_option_menu'].grid_forget()
+        dfcb.grid(row=2,column=0,columnspan=3,sticky='ew')
+        self._widgets['datafile_option_menu'] = dfcb
+        if self.data_files:
+            self._next_data_file()
+
+    def _next_data_file(self,*args):
+        current_file = self._vars['io_control']['data_file'].get()
+        file_list = list(self.data_files.keys())
+        nfiles = len(file_list)
+        if current_file in file_list:
+            current_file_idx = file_list.index(current_file)
+            next_file_idx = min([nfiles-1,current_file_idx+1])
+        else:
+            next_file_idx = 0
+        if next_file_idx < nfiles: 
+            next_file = file_list[next_file_idx]
+            if not current_file == next_file:
+                # setting the var triggers self._update_data_file()
+                self._vars['io_control']['data_file'].set(next_file)
+
+    def _previous_data_file(self,*args):
+        current_file = self._vars['io_control']['data_file'].get()
+        file_list = list(self.data_files.keys())
+        prev_file = ''
+        if current_file:
+            current_file_idx = file_list.index(current_file)
+            prev_file_idx = current_file_idx-1
+            if prev_file_idx>=0: prev_file = file_list[prev_file_idx]
+        if not current_file == prev_file:
+            # setting the var triggers self._update_data_file()
+            self._vars['io_control']['data_file'].set(prev_file)
+
+    def _save_sys_file(self,*args):
+        # TODO: if file already exists, warn user about overwrite
+        sys_file = self._vars['fit_control']['sys_def_file'].get()
+        if sys_file and os.path.exists(os.path.split(sys_file)[0]):
+            save_sys_to_yaml(sys_file,self.sys)
+
+    def _load_sys_file(self,*args):
+        sys_file = self._vars['fit_control']['sys_def_file'].get()
+        if os.path.exists(sys_file):
+            new_sys = load_sys_from_yaml(sys_file)
+        else:
+            new_sys = xrsdsys.System()
+        self._set_system(new_sys)
+
+    def _update_data_file(self,*event_args):
+        df = self._vars['io_control']['data_file'].get()
+        if df:
+            q_I = np.loadtxt(df)
+            self.q = q_I[:,0]
+            self.I = q_I[:,1]
+            if q_I.shape[1] > 2:
+                self.dI = q_I[:,2]
+            sysf = self.data_files[df]
+            if not sysf:
+                sysf = os.path.splitext(df)[0]+'.yml'
+            self._vars['fit_control']['sys_def_file'].set(sysf)
+            self._load_sys_file()
+        else:
+            self.q = q_default
+            self.I = I_default
+            self.dI = None
+            self._vars['fit_control']['sys_def_file'].set('')
+            self._set_system(xrsdsys.System())
 
     def _create_fit_control_frame(self):
-        # TODO: file io q,I (dat/csv) and system data (YAML)
-
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        cf.grid_columnconfigure(0,weight=0)
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
         self._frames['fit_control'] = cf
+        self._vars['fit_control']['sys_def_file'] = tkinter.StringVar(cf)
+
+        sysdefl = tkinter.Label(cf,text='xrsdkit data file:',anchor='e')
+        sysdefl.grid(row=0,column=0,sticky='e')
+        sysfsvb = tkinter.Button(cf,text='Save',width=8,command=self._save_sys_file) 
+        sysfldb = tkinter.Button(cf,text='Load',width=8,command=self._load_sys_file) 
+        sysfsvb.grid(row=1,column=1,sticky='ew')
+        sysfldb.grid(row=1,column=2,sticky='ew')
+
+        sysfne = tkinter.Entry(cf,state='readonly',textvariable=self._vars['fit_control']['sys_def_file'])
+        sysfne.grid(row=0,column=1,columnspan=2,sticky='ew')
+
         self._vars['fit_control']['experiment_id'] = tkinter.StringVar(cf)
         self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
         self._vars['fit_control']['sample_id'] = tkinter.StringVar(cf)
@@ -257,11 +727,11 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['objective'] = tkinter.StringVar(cf)
         self._vars['fit_control']['error_weighted'] = tkinter.BooleanVar(cf)
         self._vars['fit_control']['logI_weighted'] = tkinter.BooleanVar(cf)
-        self._vars['fit_control']['error_weighted'].set(self.error_weighted)
-        self._vars['fit_control']['logI_weighted'].set(self.logI_weighted)
+        self._vars['fit_control']['error_weighted'].set(self.sys.fit_report['error_weighted'])
+        self._vars['fit_control']['logI_weighted'].set(self.sys.fit_report['logI_weighted'])
         self._vars['fit_control']['q_range'] = [tkinter.DoubleVar(cf),tkinter.DoubleVar(cf)]
-        self._vars['fit_control']['q_range'][0].set(self.q_range[0])
-        self._vars['fit_control']['q_range'][1].set(self.q_range[1])
+        self._vars['fit_control']['q_range'][0].set(self.sys.fit_report['q_range'][0])
+        self._vars['fit_control']['q_range'][1].set(self.sys.fit_report['q_range'][1])
         self._vars['fit_control']['good_fit'] = tkinter.BooleanVar(cf)
         self._vars['fit_control']['good_fit'].set(self.sys.fit_report['good_fit'])
 
@@ -269,48 +739,41 @@ class XRSDFitGUI(object):
         exptide = self.connected_entry(cf,self._vars['fit_control']['experiment_id'],self._set_experiment_id,10)
         sampidl = tkinter.Label(cf,text='sample id:',anchor='e')
         sampide = self.connected_entry(cf,self._vars['fit_control']['sample_id'],self._set_sample_id,10)
-        exptidl.grid(row=0,column=0,sticky='e')
-        exptide.grid(row=0,column=1,columnspan=2,sticky='ew')
-        sampidl.grid(row=1,column=0,sticky='e')
-        sampide.grid(row=1,column=1,columnspan=2,sticky='ew')
+        exptidl.grid(row=5,column=0,sticky='e')
+        exptide.grid(row=5,column=1,columnspan=2,sticky='ew')
+        sampidl.grid(row=6,column=0,sticky='e')
+        sampide.grid(row=6,column=1,columnspan=2,sticky='ew')
 
         wll = tkinter.Label(cf,text='wavelength:',anchor='e')
         wle = self.connected_entry(cf,self._vars['fit_control']['wavelength'],self._set_wavelength,10)
-        wll.grid(row=2,column=0,sticky='e')
-        wle.grid(row=2,column=1,columnspan=2,sticky='ew')
+        wll.grid(row=7,column=0,sticky='e')
+        wle.grid(row=7,column=1,columnspan=2,sticky='ew')
 
         q_range_lbl = tkinter.Label(cf,text='q-range:',anchor='e')
-        q_range_lbl.grid(row=3,column=0,sticky='e')
-        #q_lo_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][0])
-        #q_hi_ent = tkinter.Entry(cf,width=8,textvariable=self._vars['fit_control']['q_range'][1])
-        q_lo_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][0],
-            partial(self._set_q_range,0),8) 
-        q_hi_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][1],
-            partial(self._set_q_range,1),8) 
-        q_lo_ent.grid(row=3,column=1,sticky='ew')
-        q_hi_ent.grid(row=3,column=2,sticky='ew')
+        q_range_lbl.grid(row=8,column=0,sticky='e')
+        q_lo_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][0],partial(self._set_q_range,0),8) 
+        q_hi_ent = self.connected_entry(cf,self._vars['fit_control']['q_range'][1],partial(self._set_q_range,1),8) 
+        q_lo_ent.grid(row=8,column=1,sticky='ew')
+        q_hi_ent.grid(row=8,column=2,sticky='ew')
 
-        ewtcb = self.connected_checkbutton(cf,self._vars['fit_control']['error_weighted'],
-            self._set_error_weighted,'error weighted')
-        ewtcb.grid(row=4,column=0,sticky='w')
-        logwtcb = self.connected_checkbutton(cf,self._vars['fit_control']['logI_weighted'],
-            self._set_logI_weighted,'log(I) weighted')
-        logwtcb.grid(row=5,column=0,sticky='w')
+        ewtcb = self.connected_checkbutton(cf,self._vars['fit_control']['error_weighted'],self._set_error_weighted,'error weighted')
+        ewtcb.grid(row=9,column=0,sticky='e')
+        logwtcb = self.connected_checkbutton(cf,self._vars['fit_control']['logI_weighted'],self._set_logI_weighted,'log(I) weighted')
+        logwtcb.grid(row=10,column=0,sticky='e')
 
-        estbtn = tkinter.Button(cf,text='Estimate',width=8,command=self._estimate)
-        estbtn.grid(row=4,column=1,rowspan=2,sticky='nesw')
         fitbtn = tkinter.Button(cf,text='Fit',width=8,command=self._fit)
-        fitbtn.grid(row=4,column=2,rowspan=2,sticky='nesw')
+        fitbtn.grid(row=9,column=1,rowspan=2,sticky='nesw')
+        estbtn = tkinter.Button(cf,text='Estimate',width=8,command=self._estimate)
+        estbtn.grid(row=9,column=2,rowspan=2,sticky='nesw')
 
         objl = tkinter.Label(cf,text='objective:',anchor='e')
-        objl.grid(row=6,column=0,sticky='e')
+        objl.grid(row=11,column=0,sticky='e')
         rese = tkinter.Entry(cf,width=10,state='readonly',textvariable=self._vars['fit_control']['objective'])
-        rese.grid(row=6,column=1,sticky='ew')
-        fitcb = self.connected_checkbutton(cf,self._vars['fit_control']['good_fit'],
-            self._set_good_fit,'Good fit')
-        fitcb.grid(row=6,column=2,sticky='ew')
+        rese.grid(row=11,column=1,sticky='ew')
+        gdfitcb = self.connected_checkbutton(cf,self._vars['fit_control']['good_fit'],self._set_good_fit,'Good fit')
+        gdfitcb.grid(row=11,column=2,sticky='ew')
 
-        cf.grid(row=0,pady=2,padx=2,sticky='ew')
+        cf.grid(row=1,pady=2,padx=2,sticky='ew')
 
     def _set_experiment_id(self,event=None):
         try:
@@ -347,10 +810,10 @@ class XRSDFitGUI(object):
         try:
             new_val = self._vars['fit_control']['q_range'][q_idx].get()
         except:
-            self._vars['fit_control']['q_range'][q_idx].set(self.q_range[q_idx])
-            new_val = self.q_range[q_idx]
-        if not new_val == self.q_range[q_idx]:
-            self.q_range[q_idx] = new_val
+            self._vars['fit_control']['q_range'][q_idx].set(self.sys.fit_report['q_range'][q_idx])
+            new_val = self.sys.fit_report['q_range'][q_idx]
+        if not new_val == self.sys.fit_report['q_range'][q_idx]:
+            self.sys.fit_report['q_range'][q_idx] = new_val
             self._update_fit_objective()
         return True
 
@@ -374,8 +837,10 @@ class XRSDFitGUI(object):
 
     def _create_noise_frame(self):
         nf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        nf.grid_columnconfigure(0,weight=1)
         self._frames['noise_model'] = nf
         nmf = tkinter.Frame(nf,bd=0) 
+        #nmf.grid_columnconfigure(0,weight=1)
         nl = tkinter.Label(nmf,text='noise model:',width=12,anchor='e',padx=10)
         nl.pack(side=tkinter.LEFT)
         ntpvar = tkinter.StringVar(nmf)
@@ -393,18 +858,18 @@ class XRSDFitGUI(object):
             self._frames['parameters']['noise'][noise_param_nm] = \
             self._create_param_frame('noise',noise_param_nm) 
         self._pack_noise_params()
-        nf.grid(row=1,pady=2,padx=2,sticky='ew')
+        nf.grid(row=2,pady=2,padx=2,sticky='ew')
 
     def _repack_noise_frame(self):
         nmdl = self.sys.noise_model.model
-        for par_nm,frm in self._frames['parameters']['noise'].items(): frm.pack_forget() 
+        for par_nm,frm in self._frames['parameters']['noise'].items(): frm.grid_forget() 
+        #self.fit_gui.update_idletasks()
         new_par_frms = OrderedDict()
-        # save the relevant frames, create new ones as needed 
+        # NOTE: it is tempting to "keep" some frames that need not be renewed,
+        # but if so, the widgets for the bounds, constraints, etc. would still need to be updated 
+        # create new frames for all params
         for par_nm in xrsdefs.noise_params[nmdl]: 
-            if par_nm in self._frames['parameters']['noise']:
-                new_par_frms[par_nm] = self._frames['parameters']['noise'][par_nm]
-            else:
-                new_par_frms[par_nm] = self._create_param_frame('noise',par_nm)
+            new_par_frms[par_nm] = self._create_param_frame('noise',par_nm)
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['parameters']['noise'].keys())
         for par_nm in par_frm_nms: 
@@ -427,6 +892,7 @@ class XRSDFitGUI(object):
     def _create_pop_frame(self,pop_nm):
         pop = self.sys.populations[pop_nm]
         pf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
+        pf.grid_columnconfigure(0,weight=1)
         self._frames['populations'][pop_nm] = pf
         pop_struct = self.sys.populations[pop_nm].structure
         pop_form = self.sys.populations[pop_nm].form
@@ -481,7 +947,7 @@ class XRSDFitGUI(object):
         # PACKING:
         self._pack_setting_frames(pop_nm)
         self._pack_parameter_frames(pop_nm)
-        return pf
+        #return pf
 
     def _repack_pop_frame(self,pop_nm):
         pop_struct = self.sys.populations[pop_nm].structure
@@ -490,14 +956,13 @@ class XRSDFitGUI(object):
         pop_params = self.sys.populations[pop_nm].parameters
         #
         # SETTINGS: 
-        for stg_nm,frm in self._frames['settings'][pop_nm].items(): frm.pack_forget() 
+        for stg_nm,frm in self._frames['settings'][pop_nm].items(): frm.grid_forget() 
         new_stg_frms = OrderedDict()
-        # save the relevant frames, create new ones as needed 
-        for stg_nm in pop_settings:
-            if stg_nm in self._frames['settings'][pop_nm]:
-                new_stg_frms[stg_nm] = self._frames['settings'][pop_nm][stg_nm]
-            else:
-                new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,stg_nm)
+        # create new frames for all settings
+        # NOTE: it is tempting to "keep" some frames that need not be renewed,
+        # but if so, the relevant OptionMenu widgets would still need to be updated
+        for stg_nm, stg_val in pop_settings.items():
+            new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,stg_nm)
         # destroy any frames that didn't get repacked
         stg_frm_nms = list(self._frames['settings'][pop_nm].keys())
         for stg_nm in stg_frm_nms: 
@@ -509,14 +974,14 @@ class XRSDFitGUI(object):
         self._frames['settings'][pop_nm] = new_stg_frms
         #
         # PARAMETERS: 
-        for par_nm,frm in self._frames['parameters'][pop_nm].items(): frm.pack_forget() 
+        for par_nm,frm in self._frames['parameters'][pop_nm].items(): frm.grid_forget() 
+        #self.fit_gui.update_idletasks()
         new_par_frms = OrderedDict()
-        # save the relevant frames, create new ones as needed 
+        # NOTE: it is tempting to "keep" some frames that need not be renewed,
+        # but if so, the widgets for the bounds, constraints, etc. would still need to be updated 
+        # create new frames for all params
         for par_nm in pop_params: 
-            if par_nm in self._frames['parameters'][pop_nm]:
-                new_par_frms[par_nm] = self._frames['parameters'][pop_nm][par_nm]
-            else:
-                new_par_frms[par_nm] = self._create_param_frame(pop_nm,par_nm)
+            new_par_frms[par_nm] = self._create_param_frame(pop_nm,par_nm)
         # destroy any frames that didn't get repacked
         par_frm_nms = list(self._frames['parameters'][pop_nm].keys())
         for par_nm in par_frm_nms: 
@@ -533,6 +998,32 @@ class XRSDFitGUI(object):
         self.fit_gui.update_idletasks()
         self.control_canvas_configure()
 
+    def _pack_population_frames(self):
+        n_pop_frames = len(self._frames['populations'])
+        for pop_idx, pop_nm in enumerate(self._frames['populations'].keys()):
+            self._frames['populations'][pop_nm].grid(
+            row=3+pop_idx,pady=2,padx=2,sticky='ew')
+        self._frames['new_population'].grid(row=3+n_pop_frames,pady=2,padx=2,sticky='ew')
+
+    def _repack_pop_frames(self):
+        for pop_nm,frm in self._frames['populations'].items(): frm.grid_forget() 
+        self._frames['new_population'].grid_forget()
+        for pop_nm in self.sys.populations.keys():
+            if not pop_nm in self._frames['populations']:
+                self._create_pop_frame(pop_nm)
+        pop_frm_nms = list(self._frames['populations'].keys())
+        for pop_nm in pop_frm_nms:
+            if not pop_nm in self.sys.populations: 
+                frm = self._frames['populations'].pop(pop_nm)
+                frm.destroy()
+                # TODO (low): clean up refs to obsolete vars
+                # and widgets that were children of this frame 
+        self._pack_population_frames()
+        # update_idletasks() processes the frame changes, 
+        # so that they are accounted for in control_canvas_configure()
+        self.fit_gui.update_idletasks()
+        self.control_canvas_configure()
+
     def _pack_setting_frames(self,pop_nm):
         for stg_idx, stg_frm in enumerate(self._frames['settings'][pop_nm].values()):
             stg_frm.grid(row=1+stg_idx,sticky='ew')
@@ -542,7 +1033,6 @@ class XRSDFitGUI(object):
         for param_idx, paramf in enumerate(self._frames['parameters'][pop_nm].values()):
             paramf.grid(row=1+n_stg_frms+param_idx,sticky='ew')
 
-    # TODO: if xrsdefs.setting_selections, make the entry a combobox
     def _create_setting_frame(self,pop_nm,stg_nm):
         stg_vars = self._vars['settings'][pop_nm]
         stg_frames = self._frames['settings'][pop_nm]
@@ -551,11 +1041,11 @@ class XRSDFitGUI(object):
         stgf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
         stgf.grid_columnconfigure(1,weight=1)
 
-        if xrsdefs.setting_datatypes[stg_nm] is str:
+        if xrsdefs.setting_datatypes(stg_nm) is str:
             stgv = tkinter.StringVar(parent_frame)
-        elif xrsdefs.setting_datatypes[stg_nm] is int:
+        elif xrsdefs.setting_datatypes(stg_nm) is int:
             stgv = tkinter.IntVar(parent_frame)
-        elif xrsdefs.setting_datatypes[stg_nm] is float:
+        elif xrsdefs.setting_datatypes(stg_nm) is float:
             stgv = tkinter.DoubleVar(parent_frame)
         stg_frames[stg_nm] = stgf
         stg_vars[stg_nm] = stgv
@@ -564,9 +1054,15 @@ class XRSDFitGUI(object):
         stgl.grid(row=0,column=0,sticky='e')
         s = parent_obj.settings[stg_nm]
         stgv.set(str(s))
-        stge = self.connected_entry(stgf,stgv,
-            partial(self._update_setting,pop_nm,stg_nm))
-        stge.grid(row=0,column=1,sticky='ew')
+
+        stg_sel = OrderedDict.fromkeys(xrsdefs.setting_selections(stg_nm,parent_obj.structure,parent_obj.form))
+        if stg_sel:
+            stgcb = tkinter.OptionMenu(stgf,stgv,*stg_sel)
+            stgv.trace('w',partial(self._update_setting,pop_nm,stg_nm))
+            stgcb.grid(row=0,column=1,sticky='w')
+        else:
+            stge = self.connected_entry(stgf,stgv,partial(self._update_setting,pop_nm,stg_nm))
+            stge.grid(row=0,column=1,sticky='w')
         return stgf
 
     def _create_param_frame(self,pop_nm,param_nm):
@@ -584,6 +1080,7 @@ class XRSDFitGUI(object):
         if not param_nm in param_vars: param_vars[param_nm] = {}
 
         paramf = tkinter.Frame(parent_frame,bd=2,pady=4,padx=10,relief=tkinter.GROOVE)
+        paramf.grid_columnconfigure(1,weight=1)
         paramf.grid_columnconfigure(2,weight=1)
         paramv = tkinter.DoubleVar(paramf)
         param_frames[param_nm] = paramf
@@ -652,7 +1149,7 @@ class XRSDFitGUI(object):
         addb = tkinter.Button(npf,text='+',command=self._new_population)
         addb.grid(row=0,column=2,sticky='e')
         npops = len(self._frames['populations'])
-        return npf
+        #return npf
 
     def _draw_plots(self):
         I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.dI,False)
@@ -661,8 +1158,7 @@ class XRSDFitGUI(object):
 
     def _update_fit_objective(self,I_comp=None):
         obj_val = self.sys.evaluate_residual(
-            self.q,self.I,self.dI,
-            self.error_weighted,self.logI_weighted,self.q_range,I_comp)
+            self.q,self.I,self.dI,I_comp)
         self._vars['fit_control']['objective'].set(str(obj_val))
 
     def _update_param(self,pop_nm,param_nm,param_key,param_idx=None,event=None):
@@ -699,7 +1195,7 @@ class XRSDFitGUI(object):
                 self._draw_plots()
         return vflag
 
-    def _update_setting(self,pop_nm,stg_nm,event=None):
+    def _update_setting(self,pop_nm,stg_nm,*event_args):
         vflag = self._validate_setting(pop_nm,stg_nm) 
         if vflag:
             x = self.sys.populations[pop_nm]
@@ -770,11 +1266,11 @@ class XRSDFitGUI(object):
         new_nm = self._vars['new_population_name'].get()
         if new_nm and not new_nm in self.sys.populations:
             self.sys.add_population(new_nm,'diffuse','atomic')
-            self._frames['new_population'].pack_forget() 
-            self._frames['populations'][new_nm] = self._create_pop_frame(new_nm)
+            self._frames['new_population'].grid_forget() 
+            self._create_pop_frame(new_nm)
             npops = len(self._frames['populations'])
-            self._frames['populations'][new_nm].grid(row=1+npops,padx=2,pady=2,sticky='ew') 
-            self._frames['new_population'].grid(row=2+npops,padx=2,pady=2,sticky='ew') 
+            self._frames['populations'][new_nm].grid(row=2+npops,padx=2,pady=2,sticky='ew') 
+            self._frames['new_population'].grid(row=3+npops,padx=2,pady=2,sticky='ew') 
             # update_idletasks() processes the new frame,
             # so that it is accounted for in control_canvas_configure()
             self.fit_gui.update_idletasks()
@@ -817,11 +1313,7 @@ class XRSDFitGUI(object):
         self._draw_plots()
 
     def _fit(self):
-        sys_opt = xrsdsys.fit(
-            self.sys,
-            self.q,self.I,self.dI,
-            self.error_weighted,self.logI_weighted,self.q_range
-            )
+        sys_opt = xrsdsys.fit(self.sys,self.q,self.I,self.dI)
         self.sys.update_from_dict(sys_opt.to_dict())
         self._update_parameter_values() 
         self._draw_plots()
@@ -838,19 +1330,32 @@ class XRSDFitGUI(object):
         feats = profiler.profile_pattern(self.q,self.I)
         pred = xrsdpred.predict(feats)
         sys_est = xrsdpred.system_from_prediction(pred,self.q,self.I,
-            source_wavelength=self._vars['fit_control']['wavelength'].get()
-            )
-        # replace self.sys
-        sys_est.update_from_dict(dict(
             features = self.sys.features,
             sample_metadata = self.sys.sample_metadata,
             fit_report = self.sys.fit_report
-            ))
-        #self.sys.update_from_dict(sys_est.to_dict())
-        self.sys = sys_est
+            )
+        self._set_system(sys_est)
+
+    def _set_system(self,new_sys):
+        self.sys = new_sys 
+        # update fit control widgets for new system
+        self._vars['fit_control']['good_fit'].set(self.sys.fit_report['good_fit'])
+        self._vars['fit_control']['q_range'][0].set(self.sys.fit_report['q_range'][0])
+        self._vars['fit_control']['q_range'][1].set(self.sys.fit_report['q_range'][1])
+        self._vars['fit_control']['error_weighted'].set(self.sys.fit_report['error_weighted'])
+        self._vars['fit_control']['logI_weighted'].set(self.sys.fit_report['logI_weighted'])
+        self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
+        self._vars['fit_control']['sample_id'].set(self.sys.sample_metadata['sample_id'])
+        self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
+        if any([pp.structure=='crystalline' for pp in new_sys.populations.values()]):
+            if new_sys.sample_metadata['source_wavelength'] == 0.:
+                # TODO: put this warning in a pop-up
+                warnings.warn('Diffraction computations require a nonzero wavelength: setting default 1.5406')
+                # NOTE: setting this var will also set the corresponding system attribute
+                self._vars['fit_control']['wavelength'].set(1.5406)
         # repack everything 
-        self._repack_pop_frames()
         self._repack_noise_frame()
+        self._repack_pop_frames()
         for pop_nm in self.sys.populations.keys():
             self._repack_pop_frame(pop_nm)
         # draw plots and update fit objective
@@ -858,6 +1363,7 @@ class XRSDFitGUI(object):
 
     @staticmethod
     def on_mousewheel(canvas,event):
+        print('mousewheel!')
         canvas.yview_scroll(-1*event.delta,'units')
 
     @staticmethod
@@ -869,15 +1375,21 @@ class XRSDFitGUI(object):
         canvas.yview_scroll(d,'units')
 
     @staticmethod
-    def connected_entry(parent,tkvar,cbfun=None,entry_width=20):
+    def connected_entry(parent,tkvar,cbfun=None,entry_width=None):
         if cbfun:
             # piggyback on entry validation to update internal data
             # NOTE: validatecommand must return a boolean, or else it will disconnect quietly
-            e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar,validate="focusout",validatecommand=cbfun)
+            if entry_width:
+                e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar,validate="focusout",validatecommand=cbfun)
+            else:
+                e = tkinter.Entry(parent,textvariable=tkvar,validate="focusout",validatecommand=cbfun)
             # also respond to the return key
             e.bind('<Return>',cbfun)
         else:
-            e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar)
+            if entry_width:
+                e = tkinter.Entry(parent,width=entry_width,textvariable=tkvar)
+            else:
+                e = tkinter.Entry(parent,textvariable=tkvar)
         return e
 
     @staticmethod

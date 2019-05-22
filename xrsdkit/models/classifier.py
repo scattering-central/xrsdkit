@@ -1,37 +1,101 @@
-import numpy as np
+from collections import OrderedDict
 
-from sklearn import linear_model, model_selection
-from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
+import numpy as np
+from sklearn import linear_model
+from sklearn.decomposition import PCA
+from sklearn.metrics import f1_score, confusion_matrix, accuracy_score, precision_score, recall_score
+from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import tree
+from sklearn.neighbors import KNeighborsClassifier
 
 from .xrsd_model import XRSDModel
-from dask_ml.model_selection import GridSearchCV
-from ..tools import profiler
-
 
 class Classifier(XRSDModel):
     """Class for models that classify attributes of material systems."""
 
-    def __init__(self,label,yml_file):
-        super(Classifier,self).__init__(label, yml_file)
-        self.grid_search_hyperparameters = dict(
-            alpha = [0.00001, 0.0001, 0.001, 0.01, 0.1], # regularisation coef, default 0.0001
-            l1_ratio = [0, 0.15, 0.5, 0.85, 1.0] # default 0.15
+    def __init__(self, model_type, metric, label):
+        super(Classifier,self).__init__(model_type, metric, label)
+        self.models_and_params = dict(
+            logistic_regressor = dict(
+                C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+                ),
+            sgd_classifier = dict(
+                alpha = np.logspace(-1,2,num=4,endpoint=True,base=10.),
+                l1_ratio = np.linspace(0.,1.,num=5,endpoint=True) 
+                ),
+            non_linear_svm = dict(
+               C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+               ),
+            linear_svm = dict(
+               penalty = ['l1', 'l2'],
+               C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+               ),
+            linear_svm_hinge = dict(
+               C = np.logspace(-1,3,num=15,endpoint=True,base=10.)
+               ),
+            random_forest = dict(
+               n_estimators = [1, 5, 10, 50]
+               ),
+            d_tree = dict(),
+            knn = dict(
+                n_neighbors = [1,3,5,7],
+                weights = ['uniform', 'distance']
+                )
             )
 
+
     def build_model(self,model_hyperparams={}):
-        if all([p in model_hyperparams for p in ['alpha','l1_ratio']]):
-            new_model = linear_model.SGDClassifier(
-                    alpha=model_hyperparams['alpha'], 
-                    loss='log',
-                    penalty='elasticnet',
-                    l1_ratio=model_hyperparams['l1_ratio'],
-                    max_iter=1000, class_weight='balanced', tol=1e-5
-                    )
+        if self.model_type ==  'logistic_regressor':
+            penalty='l2'
+            if 'penalty' in model_hyperparams: penalty = model_hyperparams['penalty']
+            C = 1.
+            if 'C' in model_hyperparams: C = model_hyperparams['C']
+            solver = 'lbfgs'
+            if 'solver' in model_hyperparams: solver = model_hyperparams['solver']
+            new_model = linear_model.LogisticRegression(penalty=penalty, C=C, 
+                class_weight='balanced', solver=solver, max_iter=100000)
+        elif self.model_type == 'sgd_classifier':
+            new_model = self.build_sgd_model(model_hyperparams)
+        elif self.model_type == 'non_linear_svm':
+            C = 1.
+            if 'C' in model_hyperparams: C = model_hyperparams['C']
+            new_model = svm.SVC(C=C, kernel = 'poly', class_weight='balanced', probability=True, gamma='scale')
+        elif self.model_type == 'linear_svm':
+            C = 1.
+            if 'C' in model_hyperparams: C = model_hyperparams['C']
+            penalty = 'l2'
+            if 'penalty' in model_hyperparams: penalty = model_hyperparams['penalty']
+            new_model = svm.LinearSVC(C=C, penalty = penalty, class_weight='balanced', loss = 'squared_hinge', dual=False,  max_iter=1000, tol=1.E-3)
+        elif self.model_type == 'linear_svm_hinge':
+            C = 1.
+            if 'C' in model_hyperparams: C = model_hyperparams['C']
+            penalty = 'l2'
+            new_model = svm.LinearSVC(C=C, penalty = penalty, class_weight='balanced', loss = 'hinge', dual=True,  max_iter=1000, tol=1.E-3)
+        elif self.model_type == 'random_forest':
+            n_estimators = 10
+            if 'n_estimators' in model_hyperparams: C = model_hyperparams['n_estimators']
+            new_model = RandomForestClassifier(n_estimators=n_estimators, max_features=None)
+        elif self.model_type == 'd_tree':
+            new_model = tree.DecisionTreeClassifier()
+        elif self.model_type == 'knn':
+            n_neighbors=5
+            weights = 'distance'
+            if 'n_neighbors' in model_hyperparams: n_neighbors = model_hyperparams['n_neighbors']
+            if 'weights' in model_hyperparams: weights = model_hyperparams['weights']
+            new_model = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, n_jobs=-1)
         else:
-            new_model = linear_model.SGDClassifier(
-                loss='log', penalty='elasticnet',
-                max_iter=1000, class_weight='balanced', tol=1e-5
-                )
+            raise ValueError('Unrecognized model type: {}'.format(self.model_type))
+        return new_model
+
+    def build_sgd_model(self,model_hyperparams={}):
+        alpha = 1.E-4
+        if 'alpha' in model_hyperparams: alpha = model_hyperparams['alpha']
+        l1_ratio = 0.15 
+        if 'l1_ratio' in model_hyperparams: l1_ratio = model_hyperparams['l1_ratio']
+        new_model = linear_model.SGDClassifier(
+                alpha=alpha, loss='log', penalty='elasticnet', l1_ratio=l1_ratio,
+                max_iter=1000, tol=1.E-3, class_weight='balanced')
         return new_model
 
     def classify(self, sample_features):
@@ -45,176 +109,91 @@ class Classifier(XRSDModel):
 
         Returns
         -------
-        sys_cls : object 
+        cls : object 
             Predicted classification value for self.target, given `sample_features`
         cert : float or None
             the certainty of the prediction
             (For models that are not trained, cert=None)
         """
-        feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-        x = self.scaler.transform(feature_array)
-        sys_cls = self.model.predict(x)[0]
-        cert = max(self.model.predict_proba(x)[0])
-        return sys_cls, cert
+        if self.trained:
+            feature_array = np.array(list(sample_features.values())).reshape(1,-1)
+            feature_idx = [k in self.features for k in sample_features.keys()]
+            x = self.scaler.transform(feature_array)[:, feature_idx]
+            cls = self.model.predict(x)[0]
+            try:
+                cert = max(self.model.predict_proba(x)[0])
+            except:
+                cert = None  # the model has no attribute 'predict_proba'
+            return cls, cert
+        else:
+            return (self.default_val,0.)
 
-    def run_cross_validation(self, model, df, feature_names):
-        """Cross-validate a model by LeaveOneGroupOut. 
+    def cv_report(self,data,y_true,y_pred):
+        all_labels = data[self.target].unique().tolist()
+        y_true_all = []
+        y_pred_all = []
+        for gid,yt in y_true.items():
+            y_true_all.extend(yt)
+        for gid,yp in y_pred.items():
+            y_pred_all.extend(yp)
+        cm = confusion_matrix(y_true_all, y_pred_all, all_labels)
 
-        The train/test groupings are defined by the 'group_id' labels,
-        which are added to the dataframe during self.assign_groups().
-
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            pandas dataframe of features and labels,
-            including at least three distinct experiment_id labels 
-        model : sklearn.linear_model.SGDClassifier
-            an sklearn classifier instance trained on some dataset
-            with some choice of hyperparameters
-        feature_names : list of str
-            list of feature names (column headers) used for training.
-
-        Returns
-        -------
-        result : dict
-            list of all labels from df,
-            number of experiments,
-            list of all experiments,
-            F1_macro, accuracy, confusion matrix,
-            and testing-training splits.
-        """
-        groups = df.group_id.unique()
-        all_classes = df[self.target].unique().tolist()
-        true_labels = []
-        pred_labels = []
-        for i in range(len(groups)):
-            tr = df[(df['group_id'] != groups[i])]
-            test = df[(df['group_id'] == groups[i])]
-            model.fit(tr[feature_names], tr[self.target])
-            y_pred = model.predict(test[feature_names])
-            pred_labels.extend(y_pred)
-            true_labels.extend(test[self.target])
-        cm = confusion_matrix(true_labels, pred_labels, all_classes)
-        experiments = df.experiment_id.unique() 
-        result = dict(all_classes = all_classes,
-                        number_of_experiments = len(experiments),
-                        experiments = str(experiments),
-                        confusion_matrix = str(cm),
-                        F1_score_by_classes = f1_score(true_labels, pred_labels,
-                                    labels=all_classes, average=None).tolist(),
-                        F1_score_averaged_not_weighted = f1_score(true_labels,
-                                    pred_labels, labels=all_classes, average='macro'),
-                        accuracy = accuracy_score(true_labels, pred_labels, sample_weight=None),
-                        test_training_split = 'for classes with samples from 3 or more experiment_ids, \n'\
-                                            'the data are split according to experiment_id; \n'\
-                                            'for classes with samples from 2 or fewer experiment_ids, \n'\
-                                            'the data are randomly shuffled and split into three groups'
-                        )
+        if len(all_labels) == 2 and isinstance(all_labels[0], bool): score_type = "binary"
+        else: score_type = "macro" #self.metric is f1_macro, so we cannot it use directly
+        result = dict(
+            all_labels = all_labels,
+            confusion_matrix = str(cm),
+            f1 = f1_score(y_true_all,y_pred_all,labels=all_labels,average=score_type),
+            precision = precision_score(y_true_all, y_pred_all, average=score_type),
+            recall = recall_score(y_true_all, y_pred_all, average=score_type),
+            accuracy = accuracy_score(y_true_all, y_pred_all, sample_weight=None)
+            )
+        #print('f1: {}'.format(result['f1_score']))
+        if "f1" in self.metric: result['minimization_score'] = -1*result['f1']
+        elif "prec" in self.metric: result['minimization_score'] = -1*result['precision']
+        elif "rec" in self.metric: result['minimization_score'] = -1*result['recall']
+        else: result['minimization_score'] = -1*result['accuracy']
         return result
 
-    def hyperparameters_search(self,transformed_data, group_by='group_id', n_leave_out=1, scoring='f1_macro'):
-        """Grid search for optimal alpha and l1 ratio hyperparameters.
+    def group_by_pc1(self,dataframe,feature_names,n_groups=5):
+        label_cts = dataframe[self.target].value_counts()
+        # to check if we have at least 2 different labels:
+        if len(label_cts) < 2: return False
+        labels = list(label_cts.keys())
+        for l in labels:
+            if label_cts[l] < n_groups:
+                # this label cannot be spread across the groups:
+                # remove it from the model entirely 
+                label_cts.pop(l)
+        # to check if we still have at least 2 different labels:
+        if len(label_cts) < 2: return False
+        groups_possible = self._diverse_groups_possible(dataframe,n_groups,len(label_cts.keys()))
+        if not groups_possible: return False
 
-        Returns
-        -------
-        params : dict
-            dictionary of the parameters to get the best f1 score.
-        """
+        group_ids = range(1,n_groups+1)
+        for label in label_cts.keys():
+            lidx = dataframe.loc[:,self.target]==label
+            ldata = dataframe.loc[lidx,feature_names]
+            pc1 = PCA(n_components=1)
+            ldata_pc = pc1.fit_transform(ldata).ravel()
+            pc_rank = np.argsort(ldata_pc)
+            lgroups = np.zeros(ldata.shape[0])
+            gp_size = int(round(ldata.shape[0]/n_groups))
+            for igid,gid in enumerate(group_ids):
+                lgroups[pc_rank[igid*gp_size:(igid+1)*gp_size]] = int(gid)
+            dataframe.loc[lidx,'group_id'] = lgroups
+        return True
 
-        cv = model_selection.LeavePGroupsOut(n_groups=n_leave_out).split(
-                transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]),
-                                                                  groups=transformed_data[group_by])
-        test_model = self.build_model()
-
-        # threaded scheduler with optimal number of threads
-        # will be used by default for dask GridSearchCV
-        clf = GridSearchCV(test_model,
-                        self.grid_search_hyperparameters, cv=cv, scoring=scoring)
-        clf.fit(transformed_data[profiler.profile_keys], np.ravel(transformed_data[self.target]))
-        params = clf.best_params_
-        return params
-
-    def print_labels(self, all=True):
-        if all:
-            labels = self.cross_valid_results['all_classes']
-        else:
-            labels = self.cross_valid_results['model_was_NOT_tested_for']
-        if labels:
-            result = ''
-            for l in labels:
-                result += l
-                result += '\n'
-            return result
-        else:
-            return "The model was tested for all labels"
-
-    def assign_groups(self, dataframe):
-        """Assign train/test groups to `dataframe`.
-
-        This reimplementation invokes the base class method, 
-        and then updates the groups if necessary
-        to balance the representation of classes among the groups. 
-
-        Parameters
-        ----------
-        dataframe : pandas.DataFrame
-            dataframe of sample features and corresponding labels
-
-        Returns
-        -------
-        trainable : bool
-            indicates whether or not training is possible
-        """
-        trainable = super(Classifier,self).assign_groups(dataframe)
-        if trainable:
-            cl_counts = dataframe[self.target].value_counts()
-            for cl,nsamp in cl_counts.items():
-                cl_idx = dataframe[self.target] == cl
-                cl_data = dataframe.loc[cl_idx]
-                if nsamp < 10:
-                    # insufficient samples for the class: 
-                    # set group_id to zero to leave this class out of the model
-                    dataframe.loc[cl_idx,'group_id'] = 0
-                else:
-                    # sufficient samples exist for training this class
-                    cl_grp_ids = cl_data['group_id'].unique()
-                    if len(cl_grp_ids) < 3:
-                        # less than three groups are represented in this class:
-                        # the group_id assignments should be rebalanced.
-                        # shuffle-split samples into 3 groups.
-                        cl_group_ids = self.shuffle_split_3fold(nsamp) 
-                        dataframe.loc[cl_idx,'group_id'] = cl_group_ids 
-            #check if we still have at least two fully represented classes:
-            if len(dataframe.loc[dataframe.group_id>0,self.target].unique()) < 2:
-                return False
-        return trainable 
-                    
     def print_confusion_matrix(self):
-        if self.cross_valid_results['confusion_matrix']:
-            result = ''
-            matrix = self.cross_valid_results['confusion_matrix'].split('\n')
-            for i in range(len(self.cross_valid_results['all_classes'])):
-                result += (matrix[i] + "  " +
-                        self.cross_valid_results['all_classes'][i] + '\n')
-            return result
-        else:
-            return "Confusion matrix was not created"
-
-    def print_F1_scores(self):
         result = ''
-        for i in range(len(self.cross_valid_results['F1_score_by_classes'])):
-            result += (self.cross_valid_results['all_classes'][i] +
-                       " : " + str(self.cross_valid_results['F1_score_by_classes'][i]) + '\n')
+        matrix = self.cross_valid_results['confusion_matrix'].split('\n')
+        for ilabel,label in enumerate(self.cross_valid_results['all_labels']):
+            result += (matrix[ilabel]+"  "+str(label)+'\n')
         return result
 
-    def print_accuracy(self):
-        if self.cross_valid_results['accuracy']:
-            return str(self.cross_valid_results['accuracy'])
-        else:
-            return "Mean accuracies by classes were not calculated"
-
-    def average_F1(self):
-        return str(self.cross_valid_results['F1_score_averaged_not_weighted'])
+    def get_cv_summary(self):
+        return dict(model_type=self.model_type,
+                    scores={k:self.cross_valid_results.get(k,None) for k in ['f1','accuracy','precision','recall']})
 
     def print_CV_report(self):
         """Return a string describing the model's cross-validation metrics.
@@ -222,17 +201,22 @@ class Classifier(XRSDModel):
         Returns
         -------
         CV_report : str
-            string with formated results of cross validatin.
+            string with formatted results of cross validation.
         """
+        # TODO: document the computation of these metrics, 
+        # then refer to documentation in this report
+        # TODO: add sample_ids and groupings to this report 
+        # TODO: add feature names to this report
         CV_report = 'Cross validation results for {} Classifier\n\n'.format(self.target) + \
-            'Data from {} experiments was used\n\n'.format(
-            str(self.cross_valid_results['number_of_experiments'])) + \
             'Confusion matrix:\n' + \
             self.print_confusion_matrix()+'\n\n' + \
-            'F1 scores by label:\n' + \
-            self.print_F1_scores() + '\n'\
-            'Label-averaged unweighted F1 score: {}\n\n'.format(self.average_F1()) + \
-            'Accuracy:\n' + \
-            self.print_accuracy() + '\n'+\
-            "Test/training split: " + self.cross_valid_results['test_training_split']
+            'F1 score: {}\n\n'.format(
+            self.cross_valid_results['f1']) + \
+            'Precision: {}\n\n'.format(
+            self.cross_valid_results['precision']) + \
+            'Recall: {}\n\n'.format(
+            self.cross_valid_results['recall']) + \
+            'Accuracy: {}\n\n'.format(
+            self.cross_valid_results['accuracy']) 
         return CV_report
+

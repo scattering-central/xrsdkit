@@ -1,10 +1,12 @@
+import copy
 import os
 
 import numpy as np
 
 from xrsdkit.system import System, Population
 from xrsdkit.system.noise import NoiseModel
-from xrsdkit.visualization.gui import run_fit_gui
+from xrsdkit.visualization.gui import run_gui
+from xrsdkit.tools import ymltools as xrsdyml
 
 src_wl = 0.8265616
 
@@ -18,21 +20,24 @@ np_sl = Population('crystalline','spherical',
     parameters={'I0':{'value':1.},'a':{'value':130.},'r':{'value':35.}}
     )
 np_sys = System(
-    nanoparticles=nps,
-    noise=flat_noise
+    nanoparticles=copy.deepcopy(nps),
+    noise=flat_noise,
+    sample_metadata={'source_wavelength':src_wl}
     )
 np_sl_sys = System(
-    superlattice=np_sl,
-    nanoparticles=nps,
+    superlattice=copy.deepcopy(np_sl),
+    nanoparticles=copy.deepcopy(nps),
     noise=flat_noise,
-    sample_metadata={'source_wavelength':0.8}
+    sample_metadata={'source_wavelength':src_wl}
     )
 
 datapath = os.path.join(os.path.dirname(__file__),
-    'test_data','solution_saxs','peaks','peaks_0.csv')
-q_I_sl = np.loadtxt(open(datapath,'r'),dtype=float,delimiter=',')
+    'test_data','solution_saxs','peaks','peaks_0.dat')
+sysfpath = os.path.splitext(datapath)[0]+'.yml'
+xrsdyml.save_sys_to_yaml(sysfpath,np_sl_sys)
 
 def test_fit_gui():
     if 'DISPLAY' in os.environ:
-        fit_sys = run_fit_gui(np_sl_sys,q_I_sl[:,0],q_I_sl[:,1])
+        fit_sys = run_gui([datapath],[sysfpath])
+    os.remove(sysfpath)
 
