@@ -75,9 +75,9 @@ class Classifier(XRSDModel):
         elif self.model_type == 'random_forest':
             n_estimators = 10
             if 'n_estimators' in model_hyperparams: C = model_hyperparams['n_estimators']
-            new_model = RandomForestClassifier(n_estimators=n_estimators, max_features=None)
+            new_model = RandomForestClassifier(n_estimators=n_estimators, max_features=None, random_state=1)
         elif self.model_type == 'd_tree':
-            new_model = tree.DecisionTreeClassifier()
+            new_model = tree.DecisionTreeClassifier(random_state=1)
         elif self.model_type == 'knn':
             n_neighbors=5
             weights = 'distance'
