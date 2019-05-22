@@ -55,6 +55,10 @@ def run_gui(data_files=[],yml_files=[]):
     gui = XRSDFitGUI(data_files,yml_files)
     gui.start()
 
+# TODO: gui sometimes freezes when "previous" or "next" buttons are pressed,
+#   seems to happen when computing heavily, 
+#   e.g. when computing superlattice diffraction
+
 # TODO: mouse-over pop-up help windows
 
 # TODO: fix mousewheel scrolling behavior in Windows-
@@ -146,7 +150,7 @@ class XRSDFitGUI(object):
         self._build_plot_widgets()
         data_file_map = self._match_data_to_yml(data_files,yml_files)
         self._set_data_files(data_file_map)
-        self.fit_gui.geometry('1250x700')
+        self.fit_gui.geometry('1100x700')
         self._draw_plots()
         #self._next_data_file()
 
@@ -173,7 +177,7 @@ class XRSDFitGUI(object):
         # displayed as a window item on the main canvas:
         self.main_frame = tkinter.Frame(main_canvas,bd=4,relief=tkinter.SUNKEN)
         self.main_frame.grid_columnconfigure(0,weight=1)
-        self.main_frame.grid_columnconfigure(1,weight=0, minsize=500)
+        self.main_frame.grid_columnconfigure(1,weight=0,minsize=400)
         self.main_frame.grid_rowconfigure(0,weight=1)
         main_frame_window = main_canvas.create_window(0,0,window=self.main_frame,anchor='nw')
         # _canvas_configure() ensures that the window item and scrollbar
