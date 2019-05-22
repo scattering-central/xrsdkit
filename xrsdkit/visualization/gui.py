@@ -571,8 +571,7 @@ class XRSDFitGUI(object):
     def _get_data_files_from_browser(self,data_file_listbox,system_file_listbox,browser_popup):
         df_list = data_file_listbox.get(0,tkinter.END)
         sf_list = system_file_listbox.get(0,tkinter.END)
-        #data_files = OrderedDict((df,sf) for df,sf in zip(df_list,sf_list))
-        df_map = self._match_data_to_yml(df_list,sf_list)
+        df_map = OrderedDict((df,sf) for df,sf in zip(df_list,sf_list))
         self._set_data_files(df_map)
         browser_popup.destroy()
 
