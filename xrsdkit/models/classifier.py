@@ -130,23 +130,18 @@ class Classifier(XRSDModel):
 
     def cv_report(self,data,y_true,y_pred):
         all_labels = data[self.target].unique().tolist()
-        y_true_all = []
-        y_pred_all = []
-        for gid,yt in y_true.items():
-            y_true_all.extend(yt)
-        for gid,yp in y_pred.items():
-            y_pred_all.extend(yp)
-        cm = confusion_matrix(y_true_all, y_pred_all, all_labels)
+        
+        cm = confusion_matrix(y_true, y_pred, all_labels)
 
         if len(all_labels) == 2 and isinstance(all_labels[0], bool): score_type = "binary"
         else: score_type = "macro" #self.metric is f1_macro, so we cannot it use directly
         result = dict(
             all_labels = all_labels,
             confusion_matrix = str(cm),
-            f1 = f1_score(y_true_all,y_pred_all,labels=all_labels,average=score_type),
-            precision = precision_score(y_true_all, y_pred_all, average=score_type),
-            recall = recall_score(y_true_all, y_pred_all, average=score_type),
-            accuracy = accuracy_score(y_true_all, y_pred_all, sample_weight=None)
+            f1 = f1_score(y_true,y_pred,labels=all_labels,average=score_type),
+            precision = precision_score(y_true, y_pred, average=score_type),
+            recall = recall_score(y_true, y_pred, average=score_type),
+            accuracy = accuracy_score(y_true, y_pred, sample_weight=None)
             )
         #print('f1: {}'.format(result['f1_score']))
         if "f1" in self.metric: result['minimization_score'] = -1*result['f1']
@@ -181,11 +176,11 @@ class Classifier(XRSDModel):
             gp_size = [int(round(ldata.shape[0]/n_groups))] * n_groups
             if ldata.shape[0]%n_groups != 0:
                 for i in range(ldata.shape[0]%n_groups):
-                    gp_size[i] +=1
+                    gp_size[i]+=1
             s = 0
             for igid,gid in enumerate(group_ids):
                 lgroups[pc_rank[s:s+gp_size[igid]]] = int(gid)
-                s +=gp_size[igid]
+                s+=gp_size[igid]
             dataframe.loc[lidx,'group_id'] = lgroups
         return True
 

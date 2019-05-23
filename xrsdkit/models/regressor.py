@@ -175,22 +175,18 @@ class Regressor(XRSDModel):
         return True 
 
     def cv_report(self,data,y_true,y_pred):
-        y_true_all = []
-        y_pred_all = []
         group_MAE = {}
         groupsize_weighted_MAE = {}
-        for gid,yt in y_true.items():
-            y_true_all.extend(yt)
-        for gid,yp in y_pred.items():
-            y_pred_all.extend(yp)
-        for gid in y_true.keys():
-            group_MAE[gid] = mean_absolute_error(y_true[gid],y_pred[gid])
-            groupsize_weighted_MAE[gid] = group_MAE[gid]*y_true[gid].shape[0]/data.shape[0]
+        gids = data['group_id']
+        for gid in gids.unique():
+            gid_idx = (gids==gid)
+            group_MAE[gid] = mean_absolute_error(y_true[gid_idx],y_pred[gid_idx])
+            groupsize_weighted_MAE[gid] = group_MAE[gid]*y_true[gid_idx].shape[0]/data.shape[0]
         result = dict(
-            MAE = mean_absolute_error(y_true_all,y_pred_all),
+            MAE = mean_absolute_error(y_true,y_pred),
             group_average_MAE = np.mean(list(group_MAE.values())),
             groupsize_weighted_average_MAE = np.sum(list(groupsize_weighted_MAE.values())),
-            coef_of_determination = Rsquared(np.array(y_true_all),np.array(y_pred_all))
+            coef_of_determination = Rsquared(np.array(y_true),np.array(y_pred))
             )
         #result['minimization_score'] = result['MAE']
         result['minimization_score'] = -1*result['coef_of_determination']
