@@ -51,7 +51,7 @@ def train_from_dataframe(data, train_hyperparameters=False, select_features=Fals
         yml_f = os.path.join(output_dir,'training_summary.yml')
         with open(yml_f,'w') as yml_file:
             yaml.dump(new_summary,yml_file)
-        predicted_f = os.path.join(output_dir,'predicted_pops_and_system_classes.csv')
+        predicted_f = os.path.join(output_dir,'predicted_structures_and_system_classes.csv')
         predicted.to_csv(predicted_f)
         if model_config_path:
             new_config = collect_config(new_config_reg, new_config_cl)
@@ -91,7 +91,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
     config : dict
         Dict of model types and training targets, collected during training
     predicted : pandas DataFrame
-        Dataframe with predictions from the "main" classifiers
+        Dataframe with cross-validation predictions for the "main" classifiers
     """
 
     # get a reference to the currently-loaded classification models dict
@@ -109,7 +109,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
     data_copy = data.copy()
 
     # Create a dataframe to keep track of predicted values
-    predicted = data_copy[['experiment_id', 'sample_id', 'data_file', 'system_class']].copy()
+    predicted = data_copy[['experiment_id', 'sample_id', 'system_class']].copy()
 
     for struct_nm in xrsdefs.structure_names:
         message_callback('Training binary classifier for '+struct_nm+' structures')
@@ -132,7 +132,10 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             for param_nm in model.models_and_params[new_model_type]:
                 model.model.set_params(**{param_nm:old_pars[param_nm]})
-        model.train(data_copy, train_hyperparameters, select_features, predicted)
+
+        y_true,y_pred = model.train(data_copy, train_hyperparameters, select_features)
+        predicted.loc[:,model_id+'_pr'] = y_pred 
+
         if model.trained:
             f1_score = model.cross_valid_results['f1']
             acc = model.cross_valid_results['accuracy']
@@ -145,7 +148,6 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         summary['main_classifiers'][model_id] = primitives(model.get_cv_summary())
         config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric) 
 
-    predicted['system_class_pr'] = [None] * predicted.shape[0]
     # There are 2**n possible outcomes for n binary classifiers.
     # For the (2**n)-1 non-null outcomes, a second classifier is used,
     # to count the number of populations of each structural type.
@@ -178,7 +180,11 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                     for param_nm in model.models_and_params[new_model_type]:
                         model.model.set_params(**{param_nm:old_pars[param_nm]})
-                model.train(flag_data, train_hyperparameters, select_features, predicted)
+                
+                predicted.loc[:,'system_class_pr'] = ['unidentified'] * predicted.shape[0]
+                y_true,y_pred = model.train(flag_data, train_hyperparameters, select_features)
+                predicted.loc[y_true.index,'system_class_pr'] = y_pred 
+
                 if model.trained:
                     f1_score = model.cross_valid_results['f1']
                     acc = model.cross_valid_results['accuracy']
@@ -194,13 +200,13 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
 
     # final processing of "predicted" dataframe:
     for i, row in predicted.iterrows():
-        predicted_pops = []
+        predicted_structs = []
         for struct_nm in xrsdefs.structure_names:
             label = struct_nm+'_binary_pr'
             if label in predicted.columns and row[label]:
-                predicted_pops.append(struct_nm)
-        if len(predicted_pops) == 0:
-            #if all pops are False, the sample must be labeled us
+                predicted_structs.append(struct_nm)
+        if len(predicted_structs) == 0:
+            #if all structs are predicted False, system_class is unidentified 
             predicted.loc[i, 'system_class_pr'] = 'unidentified'
         else:
             # It is possible that some predictions are inconsistent.
@@ -222,17 +228,17 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                 consistent = False
             else:
                 pr = set(row['system_class_pr'].split('__'))
-                for p in pr:
-                    if p not in predicted_pops:
+                for struct in pr:
+                    if struct not in predicted_structs:
                         consistent = False
                         break
-                for p in predicted_pops:
-                    if p not in pr:
+                for struct in predicted_structs:
+                    if struct not in pr:
                         consistent = False
                         break
             if consistent == False:
                 # find the right model
-                model_id = '__'.join(predicted_pops)
+                model_id = '__'.join(predicted_structs)
                 if model_id in new_cls_models['main_classifiers'] and new_cls_models['main_classifiers'][model_id].trained:
                     model = new_cls_models['main_classifiers'][model_id]
                     sample_features = data_copy.loc[i, profile_keys]
