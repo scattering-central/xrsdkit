@@ -123,7 +123,7 @@ def cross_validate_system_classifiers(cls_models, data):
             flag_idx = np.ones(data.shape[0],dtype=bool)
             model_id = ''
             for struct_nm, flag in zip(xrsdefs.structure_names,flags):
-                struct_flag_idx = np.array(pred[struct_nm+'_binary']==flag)
+                struct_flag_idx = np.array(pred[struct_nm+'_binary_pr']==flag)
                 flag_idx = flag_idx & struct_flag_idx
                 if flag:
                     if model_id: model_id += '__'
