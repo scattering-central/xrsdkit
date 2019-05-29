@@ -26,7 +26,8 @@ else:
 from .. import definitions as xrsdefs 
 from . import plot_xrsd_fit, draw_xrsd_fit
 from .. import system as xrsdsys
-from ..tools.ymltools import load_sys_from_yaml,save_sys_to_yaml,read_local_dataset
+from ..tools.ymltools import load_sys_from_yaml, save_sys_to_yaml,\
+        match_data_to_yml, read_local_dataset
 from ..tools import profiler
 from ..models import predict as xrsdpred
 from ..models.train import train_from_dataframe
@@ -148,7 +149,7 @@ class XRSDFitGUI(object):
         self._build_control_widgets()
         # create the plots
         self._build_plot_widgets()
-        data_file_map = self._match_data_to_yml(data_files,yml_files)
+        data_file_map = match_data_to_yml(data_files,yml_files)
         self._set_data_files(data_file_map)
         self.fit_gui.geometry('1100x700')
         self._draw_plots()
@@ -412,9 +413,9 @@ class XRSDFitGUI(object):
         # TODO: toggles for hyperparam selection? feature selection?
         dataset_dir = self._vars['io_control']['dataset_dir'].get()
         output_dir = self._vars['io_control']['output_dir'].get() 
-        model_config_path = os.path.join(dataset_dir,'model_config.yml')
+        model_config_path = os.path.join(output_dir,'model_config.yml')
         self._print_to_listbox(display,'LOADING DATASET FROM: {}'.format(dataset_dir))
-        df = read_local_dataset(dataset_dir,downsampling_distance=1.,
+        df, idx_df = read_local_dataset(dataset_dir,downsampling_distance=1.,
                 message_callback=partial(self._print_to_listbox,display))
         self._print_to_listbox(display,'---- FINISHED LOADING DATASET ----')
         self._print_to_listbox(display,'BEGINNING TO TRAIN MODELS')
@@ -561,7 +562,7 @@ class XRSDFitGUI(object):
             xrsd_expr = os.path.join(xrsd_dir,xrsd_rx)
             xrsd_file_list = glob.glob(xrsd_expr)
 
-        df_map = self._match_data_to_yml(data_file_list,xrsd_file_list)
+        df_map = match_data_to_yml(data_file_list,xrsd_file_list)
 
         data_file_listbox.delete(0,tkinter.END)
         system_file_listbox.delete(0,tkinter.END)
@@ -583,46 +584,6 @@ class XRSDFitGUI(object):
             title=title
             )
         dir_entry_var.set(data_dir)
-
-    def _match_data_to_yml(self,data_files,yml_files):
-        all_data_files = OrderedDict()
-        if data_files:
-            # build an index for mapping data file names to yml files
-            yml_index = {}
-            if yml_files: 
-                for ymlf in yml_files:
-                    sys = load_sys_from_yaml(ymlf)
-                    df_name = sys.sample_metadata['data_file']
-                    yml_index[df_name] = ymlf
-            for idf,df_path in enumerate(data_files):
-                if os.path.exists(df_path):
-                    df_name = os.path.split(df_path)[1]
-                    df_name_noext = os.path.splitext(df_name)[0]
-                    if df_name in yml_index: 
-                        ymlf = yml_index[df_name]
-                    else:
-                        # assign default yml path, co-located with data file, same filename
-                        ymlf = os.path.join(os.path.split(df_path)[0],df_name_noext+'.yml')
-                    #if os.path.exists(ymlf):
-                    #    sys = load_sys_from_yaml(ymlf)
-                    #else:
-                    #    sys = xrsdsys.System(sample_metadata={'data_file':df_name})
-                    #    save_sys_to_yaml(ymlf,sys)
-                    all_data_files[df_path] = ymlf
-                else:
-                    warnings.warn('skipping nonexistent data file {}'.format(df_path))
-        elif yml_files:
-            for ymlf in yml_files:
-                sys = load_sys_from_yaml(ymlf)
-                df = sys.sample_metadata['data_file']
-                # we assume the data file is co-located with the yml file,
-                # and the data filename is properly declared in the yml
-                df_path = os.path.join(os.path.split(ymlf)[0],df)
-                if os.path.exists(df_path):
-                    all_data_files[df_path] = ymlf
-                else:
-                    warnings.warn('skipping nonexistent data file {} (from {})'.format(df_path,ymlf))
-        return all_data_files
 
     def _set_data_files(self,all_data_files={}):
         self.data_files = all_data_files
