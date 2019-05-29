@@ -253,7 +253,7 @@ class XRSDModel(object):
         """Cross-validate a model by LeaveOneGroupOut. 
 
         The train/test groupings are defined by the 'group_id' labels,
-        which are added to the dataframe during self.assign_groups().
+        which should be added to the `data` before calling this method.
 
         Parameters
         ----------

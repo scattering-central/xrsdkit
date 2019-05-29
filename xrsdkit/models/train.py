@@ -90,6 +90,7 @@ def cross_validate_system_classifiers(cls_models, data):
     """
     # Create a dataframe to keep track of predicted values
     pred = data[['experiment_id', 'sample_id', 'system_class']].copy()
+    pred.loc[:,'system_class_pr'] = 'unidentified' 
     # Copy input dataframe to avoid mutating it
     data_copy = data.copy()
     # Get list of true system classification labels
@@ -131,11 +132,7 @@ def cross_validate_system_classifiers(cls_models, data):
             if model_id in cls_models['main_classifiers']:
                 cls = cls_models['main_classifiers'][model_id]
                 if cls.trained:
-                    group_ids, training_possible = cls.group_by_pc1(
-                            data_copy.loc[flag_idx,:],profile_keys)
-                    data_copy.loc[flag_idx,'group_id'] = group_ids
-                    y_true,y_pred = cls.run_cross_validation(cls.model, 
-                            data_copy.loc[flag_idx,:],cls.features)
+                    y_pred = cls.model.predict(data_copy.loc[flag_idx,cls.features])
                 else:
                     y_pred = [cls.default_val] * np.sum(flag_idx) 
             else:
