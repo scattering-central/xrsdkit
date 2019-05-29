@@ -45,7 +45,7 @@ def train_from_dataframe(data, train_hyperparameters=False, select_features=Fals
         train_classification_models(data, train_hyperparameters, select_features, model_configs_cl)
     reg_models, new_summary_reg, new_config_reg = \
         train_regression_models(data, train_hyperparameters, select_features, model_configs_reg)
-    sys_cls_results = cross_validate_system_classifications(cls_models,data)
+    sys_cls_results = cross_validate_system_classifiers(cls_models,data)
     if output_dir:
         if not os.path.exists(output_dir): os.mkdir(output_dir)
         new_summary = collect_summary(new_summary_reg, new_summary_cl, sys_cls_results, old_summary)
@@ -90,6 +90,8 @@ def cross_validate_system_classifiers(cls_models, data):
     """
     # Create a dataframe to keep track of predicted values
     pred = data[['experiment_id', 'sample_id', 'system_class']].copy()
+    # Copy input dataframe to avoid mutating it
+    data_copy = data.copy()
     # Get list of true system classification labels
     all_sys_cls = data['system_class'].tolist()
     # Fill in labels for all binary structure flags
@@ -97,12 +99,18 @@ def cross_validate_system_classifiers(cls_models, data):
         model_id = struct_nm+'_binary'
         labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
         pred.loc[:,model_id] = labels
-    # Run cross-validation to obtain predicted labels for all binary structure flags
+        data_copy.loc[:,model_id] = labels
+    # Re-assign train/test groups and run cross-validation 
+    # to obtain predicted labels for all binary structure flags
     for struct_nm in xrsdefs.structure_names:
         model_id = struct_nm+'_binary'
-        y_true,y_pred = cls_models[model_id].run_cross_validation(
-                        cls_models[model_id].model, data, 
-                        cls_models[model_id].features)
+        cls = cls_models['main_classifiers'][model_id]
+        if cls.trained:
+            group_ids, training_possible = cls.group_by_pc1(data_copy,profile_keys)
+            data_copy['group_id'] = group_ids
+            y_true,y_pred = cls.run_cross_validation(cls.model,data_copy,cls.features)
+        else:
+            y_pred = [cls.default_val] * data_copy.shape[0]
         pred.loc[:,model_id+'_pr'] = y_pred 
     # For each combination of binary flags, 
     # if the model exists (this combination of flags was in the training set),
@@ -115,17 +123,23 @@ def cross_validate_system_classifiers(cls_models, data):
             flag_idx = np.ones(data.shape[0],dtype=bool)
             model_id = ''
             for struct_nm, flag in zip(xrsdefs.structure_names,flags):
-                struct_flag_idx = np.array(pred.loc[struct_nm+'_binary']==flag)
+                struct_flag_idx = np.array(pred[struct_nm+'_binary']==flag)
                 flag_idx = flag_idx & struct_flag_idx
                 if flag:
                     if model_id: model_id += '__'
                     model_id += struct_nm
-            if model_id in cls_models:
-                y_true,y_pred = cls_models[model_id].run_cross_validation(
-                                cls_models[model_id].model, data.loc[flag_idx,:],
-                                cls_models[model_id].features)
+            if model_id in cls_models['main_classifiers']:
+                cls = cls_models['main_classifiers'][model_id]
+                if cls.trained:
+                    group_ids, training_possible = cls.group_by_pc1(
+                            data_copy.loc[flag_idx,:],profile_keys)
+                    data_copy.loc[flag_idx,'group_id'] = group_ids
+                    y_true,y_pred = cls.run_cross_validation(cls.model, 
+                            data_copy.loc[flag_idx,:],cls.features)
+                else:
+                    y_pred = [cls.default_val] * np.sum(flag_idx) 
             else:
-                y_pred = ['unidentified'] * len(flag_idx)
+                y_pred = ['unidentified'] * np.sum(flag_idx)
             pred.loc[flag_idx,'system_class_pr'] = y_pred
     return pred
 
@@ -881,25 +895,19 @@ def collect_summary(summary_reg, summary_cl, predicted, old_summary={}):
     return summary
 
 def make_sys_class_summary(predicted):
-    y_true = predicted['system_class']
-    y_pred = predicted['system_class_pr']
+    y_true = predicted['system_class'].tolist()
+    y_pred = predicted['system_class_pr'].tolist()
     labels = predicted['system_class'].unique().tolist()
-    lens = [len(l) for l in labels]
-    max_len = max(lens)
-    labels_with_white_space = []
-    for l in labels:
-        white_spase = " " * (max_len - len(l) +1)
-        labels_with_white_space.append(l +  white_spase)
+    max_len = max([len(l) for l in labels])
     cm = str(confusion_matrix(y_true, y_pred, labels)).split('\n')
-    formatted_matrix = OrderedDict.fromkeys(labels_with_white_space)
     fm_list = []
-    for ilabel,label in enumerate(labels_with_white_space):
-        fm_list.append([label, cm[ilabel]])
-        #formatted_matrix[label] = cm[ilabel]
+    for ilabel,label in enumerate(labels):
+        label_withspc = label+" "*(max_len-len(label)+1)
+        fm_list.append([label_withspc, cm[ilabel]])
     result = dict(
             all_labels = labels,
             confusion_matrix = fm_list,
-            f1 = f1_score(y_true,y_pred,labels=labels,average="macro"),
+            f1 = f1_score(y_true, y_pred, labels=labels, average="macro"),
             precision = precision_score(y_true, y_pred, average="macro"),
             recall = recall_score(y_true, y_pred, average="macro"),
             accuracy = accuracy_score(y_true, y_pred, sample_weight=None)
