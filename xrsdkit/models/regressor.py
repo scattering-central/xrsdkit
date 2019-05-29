@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn import linear_model, preprocessing
 from sklearn.metrics import mean_absolute_error
@@ -136,27 +137,28 @@ class Regressor(XRSDModel):
 
     def group_by_pc1(self,dataframe,feature_names,n_groups=5):
         groups_possible = self._diverse_groups_possible(dataframe,n_groups,2)
-        if not groups_possible: return False
+        group_ids = pd.Series(np.zeros(dataframe.shape[0]),index=dataframe.index,dtype=int)
+        if not groups_possible: 
+            return group_ids, False
 
-        group_ids = range(1,n_groups+1)
+        gids = range(1,n_groups+1)
         pc1 = PCA(n_components=1)
         data_pc = pc1.fit_transform(dataframe[feature_names]).ravel()
         pc_rank = np.argsort(data_pc)
         gp_size = int(round(dataframe.shape[0]/n_groups))
-        groups = np.zeros(dataframe.shape[0])
-        for igid,gid in enumerate(group_ids):
-            groups[pc_rank[igid*gp_size:(igid+1)*gp_size]] = int(gid)
-        dataframe.loc[:,'group_id'] = groups
+        #groups = np.zeros(dataframe.shape[0])
+        for igid,gid in enumerate(gids):
+            group_ids.iloc[pc_rank[igid*gp_size:(igid+1)*gp_size]] = int(gid)
 
         # check all groups for at least two distinct target values-
         # for any deficient groups, swap samples to balance
         val_cts_by_group = OrderedDict()
         deficient_gids = []
-        for gid in group_ids:
-            val_cts_by_group[gid] = dataframe.loc[dataframe.loc[:,'group_id']==gid,self.target].value_counts()
+        for gid in gids:
+            val_cts_by_group[gid] = dataframe.loc[(group_ids==gid),self.target].value_counts()
             if len(val_cts_by_group[gid]) < 2: deficient_gids.append(gid)
 
-        temp_gid = max(group_ids)+1
+        temp_gid = max(gids)+1
         while len(deficient_gids) > 0:
             gid = deficient_gids.pop(0)
             val = val_cts_by_group[gid].keys()[0]
@@ -166,13 +168,17 @@ class Regressor(XRSDModel):
             candidate_nvals = [len(vcts) for ggiidd,vcts in val_cts_by_group.items()]
             swap_gid = val_cts_by_group.keys()[np.argmax(candidate_nvals)]
             # swap the groups half-half:
+            
+            import pdb; pdb.set_trace()
+            # TODO: TEST THIS
+
             # 1. temporarily assign half of swap_gid to temp_gid 
-            dataframe.loc[(dataframe.loc[:,'group_id']==swap_gid)[:round(ct/2)],'group_id'] = temp_gid
+            group_ids.loc[group_ids==swap_gid][:round(ct/2)] = temp_gid
             # 2. assign half of gid to swap_gid 
-            dataframe.loc[(dataframe.loc[:,'group_id']==gid)[:round(ct/2)],'group_id'] = swap_gid
+            group_ids.loc[group_ids==gid][:round(ct/2)] = swap_gid
             # 3. assign temp_gid to gid
-            dataframe.loc[dataframe.loc[:,'group_id']==temp_gid,'group_id'] = gid
-        return True 
+            group_ids.loc[group_ids==temp_gid] = gid
+        return group_ids, True 
 
     def cv_report(self,data,y_true,y_pred):
         group_MAE = {}

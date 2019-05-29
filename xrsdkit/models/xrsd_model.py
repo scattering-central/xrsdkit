@@ -108,7 +108,8 @@ class XRSDModel(object):
             are used to recursively eliminate features
             based on best cross-validation metrics
         """
-        training_possible = self.group_by_pc1(model_data,profiler.profile_keys)
+        group_ids, training_possible = self.group_by_pc1(model_data,profiler.profile_keys)
+        model_data['group_id'] = group_ids
         if not training_possible:
             # not enough samples, or all have identical labels-
             # take a non-standardized default value
