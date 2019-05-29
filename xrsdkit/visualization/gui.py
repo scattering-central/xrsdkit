@@ -413,7 +413,7 @@ class XRSDFitGUI(object):
         # TODO: toggles for hyperparam selection? feature selection?
         dataset_dir = self._vars['io_control']['dataset_dir'].get()
         output_dir = self._vars['io_control']['output_dir'].get() 
-        model_config_path = os.path.join(dataset_dir,'model_config.yml')
+        model_config_path = os.path.join(output_dir,'model_config.yml')
         self._print_to_listbox(display,'LOADING DATASET FROM: {}'.format(dataset_dir))
         df, idx_df = read_local_dataset(dataset_dir,downsampling_distance=1.,
                 message_callback=partial(self._print_to_listbox,display))
