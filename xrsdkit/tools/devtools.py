@@ -7,7 +7,7 @@ from ..models.train import train_from_dataframe
 from ..models import load_models
 
 def train_on_local_dataset(dataset_dir, output_dir=None, model_config_path=None, downsampling_distance=1.):
-    df = read_local_dataset(dataset_dir, downsampling_distance=downsampling_distance) 
+    df, idx_df = read_local_dataset(dataset_dir, downsampling_distance=downsampling_distance) 
     reg_models, cls_models = train_from_dataframe(df, 
             train_hyperparameters=True, select_features=True, 
             output_dir=output_dir, model_config_path=model_config_path, message_callback=print)
@@ -19,7 +19,9 @@ def train_on_remote_dataset(dataset_dir, output_dir, conf_file=None, downsamplin
             output_dir=output_dir, model_config_path=model_config_path, message_callback=print)
 
 def dataset_to_csv(dataset_dir, downsampling_distance=1.):
-    df = read_local_dataset(dataset_dir, downsampling_distance=downsampling_distance) 
+    df, idx_df = read_local_dataset(dataset_dir, downsampling_distance=downsampling_distance) 
     output_path = os.path.join(dataset_dir, 'dataset.csv')
+    idx_output_path = os.path.join(dataset_dir, 'dataset_index.csv')
     df.to_csv(output_path)
+    idx_df.to_csv(idx_output_path)
 

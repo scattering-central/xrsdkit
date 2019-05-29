@@ -41,18 +41,18 @@ def train_from_dataframe(data, train_hyperparameters=False, select_features=Fals
         # load the current model configs, if any
         model_configs_cl = get_cl_conf()
         model_configs_reg = get_reg_conf()
-    cls_models, new_summary_cl, new_config_cl, predicted = \
+    cls_models, new_summary_cl, new_config_cl = \
         train_classification_models(data, train_hyperparameters, select_features, model_configs_cl)
     reg_models, new_summary_reg, new_config_reg = \
         train_regression_models(data, train_hyperparameters, select_features, model_configs_reg)
+    sys_cls_results = cross_validate_system_classifiers(cls_models,data)
     if output_dir:
         if not os.path.exists(output_dir): os.mkdir(output_dir)
-        new_summary = collect_summary(new_summary_reg, new_summary_cl, predicted, old_summary)
+        new_summary = collect_summary(new_summary_reg, new_summary_cl, sys_cls_results, old_summary)
         yml_f = os.path.join(output_dir,'training_summary.yml')
         with open(yml_f,'w') as yml_file:
             yaml.dump(new_summary,yml_file)
-        predicted_f = os.path.join(output_dir,'predicted_pops_and_system_classes.csv')
-        predicted.to_csv(predicted_f)
+        sys_cls_results.to_csv(os.path.join(output_dir,'main_classifier_results.csv'))
         if model_config_path:
             new_config = collect_config(new_config_reg, new_config_cl)
             with open(model_config_path,'w') as yml_file:
@@ -66,6 +66,79 @@ def train_from_dataframe(data, train_hyperparameters=False, select_features=Fals
         message_callback('SAVING REGRESSION MODELS TO {}'.format(reg_dir))
         save_regression_models(reg_dir, reg_models)
     return reg_models, cls_models
+
+def cross_validate_system_classifiers(cls_models, data):
+    """Cross-validate the main classifier set.
+
+    This is performed in a special subroutine
+    because of the two-level structure of the main system classifiers.
+    If a test sample is mis-classified in the first level,
+    it must then be evaluated by the second-level classifier that corresponds
+    to the (incorrect) results that were obtained from the first level.
+
+    Parameters
+    ----------
+    cls_models : dict
+        Dictionary of xrsdkit classifiers
+    data : pandas.DataFrame
+        Dataset to cross-validate
+
+    Returns
+    -------
+    predicted : pandas DataFrame
+        Dataframe with cross-validation predictions for the "main" classifiers
+    """
+    # Create a dataframe to keep track of predicted values
+    pred = data[['experiment_id', 'sample_id', 'system_class']].copy()
+    pred.loc[:,'system_class_pr'] = 'unidentified' 
+    # Copy input dataframe to avoid mutating it
+    data_copy = data.copy()
+    # Get list of true system classification labels
+    all_sys_cls = data['system_class'].tolist()
+    # Fill in labels for all binary structure flags
+    for struct_nm in xrsdefs.structure_names:
+        model_id = struct_nm+'_binary'
+        labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
+        pred.loc[:,model_id] = labels
+        data_copy.loc[:,model_id] = labels
+    # Re-assign train/test groups and run cross-validation 
+    # to obtain predicted labels for all binary structure flags
+    for struct_nm in xrsdefs.structure_names:
+        model_id = struct_nm+'_binary'
+        cls = cls_models['main_classifiers'][model_id]
+        if cls.trained:
+            group_ids, training_possible = cls.group_by_pc1(data_copy,profile_keys)
+            data_copy['group_id'] = group_ids
+            y_true,y_pred = cls.run_cross_validation(cls.model,data_copy,cls.features)
+        else:
+            y_pred = [cls.default_val] * data_copy.shape[0]
+        pred.loc[:,model_id+'_pr'] = y_pred 
+    # For each combination of binary flags, 
+    # if the model exists (this combination of flags was in the training set),
+    # use it to cross-validate the data subset with matching binary flag predictions.
+    # if the model does not exist (this combination of flags was not in the training set),
+    # label the data subset with matching binary flags as 'unidentified'
+    all_flag_combs = itertools.product([True,False],repeat=len(xrsdefs.structure_names))
+    for flags in all_flag_combs:
+        if sum(flags) > 0:
+            flag_idx = np.ones(data.shape[0],dtype=bool)
+            model_id = ''
+            for struct_nm, flag in zip(xrsdefs.structure_names,flags):
+                struct_flag_idx = np.array(pred[struct_nm+'_binary_pr']==flag)
+                flag_idx = flag_idx & struct_flag_idx
+                if flag:
+                    if model_id: model_id += '__'
+                    model_id += struct_nm
+            if model_id in cls_models['main_classifiers']:
+                cls = cls_models['main_classifiers'][model_id]
+                if cls.trained:
+                    y_pred = cls.model.predict(data_copy.loc[flag_idx,cls.features])
+                else:
+                    y_pred = [cls.default_val] * np.sum(flag_idx) 
+            else:
+                y_pred = ['unidentified'] * np.sum(flag_idx)
+            pred.loc[flag_idx,'system_class_pr'] = y_pred
+    return pred
 
 def train_classification_models(data, train_hyperparameters=False, select_features=False, model_configs={}, message_callback=print):
     """Train all classifiers that are trainable from `data`.
@@ -90,8 +163,6 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         Dict of model performance metrics, collected during training
     config : dict
         Dict of model types and training targets, collected during training
-    predicted : pandas DataFrame
-        Dataframe with predictions from the "main" classifiers
     """
 
     # get a reference to the currently-loaded classification models dict
@@ -108,9 +179,6 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
     all_sys_cls = data['system_class'].tolist()
     data_copy = data.copy()
 
-    # Create a dataframe to keep track of predicted values
-    predicted = data_copy[['experiment_id', 'sample_id', 'data_file', 'system_class']].copy()
-
     for struct_nm in xrsdefs.structure_names:
         message_callback('Training binary classifier for '+struct_nm+' structures')
         model_id = struct_nm+'_binary'
@@ -124,7 +192,6 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         model = Classifier(new_model_type, metric, model_id)
         labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
         data_copy.loc[:,model_id] = labels
-        predicted.loc[:,model_id] = labels
         if ('main_classifiers' in classification_models) \
         and (model_id in classification_models['main_classifiers']) \
         and (classification_models['main_classifiers'][model_id].trained) \
@@ -132,7 +199,9 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             for param_nm in model.models_and_params[new_model_type]:
                 model.model.set_params(**{param_nm:old_pars[param_nm]})
-        model.train(data_copy, train_hyperparameters, select_features, predicted)
+
+        y_true,y_pred = model.train(data_copy, train_hyperparameters, select_features)
+
         if model.trained:
             f1_score = model.cross_valid_results['f1']
             acc = model.cross_valid_results['accuracy']
@@ -145,7 +214,6 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         summary['main_classifiers'][model_id] = primitives(model.get_cv_summary())
         config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric) 
 
-    predicted['system_class_pr'] = [None] * predicted.shape[0]
     # There are 2**n possible outcomes for n binary classifiers.
     # For the (2**n)-1 non-null outcomes, a second classifier is used,
     # to count the number of populations of each structural type.
@@ -178,7 +246,9 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                     for param_nm in model.models_and_params[new_model_type]:
                         model.model.set_params(**{param_nm:old_pars[param_nm]})
-                model.train(flag_data, train_hyperparameters, select_features, predicted)
+                
+                y_true,y_pred = model.train(flag_data, train_hyperparameters, select_features)
+
                 if model.trained:
                     f1_score = model.cross_valid_results['f1']
                     acc = model.cross_valid_results['accuracy']
@@ -191,59 +261,6 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                 new_cls_models['main_classifiers'][model_id] = model
                 summary['main_classifiers'][model_id] = primitives(model.get_cv_summary())
                 config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric)
-
-    # final processing of "predicted" dataframe:
-    for i, row in predicted.iterrows():
-        predicted_pops = []
-        for struct_nm in xrsdefs.structure_names:
-            label = struct_nm+'_binary_pr'
-            if label in predicted.columns and row[label]:
-                predicted_pops.append(struct_nm)
-        if len(predicted_pops) == 0:
-            #if all pops are False, the sample must be labeled us
-            predicted.loc[i, 'system_class_pr'] = 'unidentified'
-        else:
-            # It is possible that some predictions are inconsistent.
-            # For example, we predict diffuse = True, disordered = False, crystalline = False for a sample with
-            # no diffuse populations and one disordered population.
-            # Since sample include only one or more disordered populations, the system class
-            # was predicted classifier that classify disordered or disordered__disordered.
-            # In real life this classifier would not be used since we predicted
-            # diffuse = True, disordered = False, crystalline = False.
-            # So, we need to update the system class for this sample using a system classifier for the samples
-            # with this combination of populations.
-            # Also, we could put just "wrong prediction" on this sample since it populations we predicted
-            # incorrectly, system class also will be predicted incorrectly.
-
-            # The "predicted" dataframe also may include some samples wiht true system class "unidentified"
-            # This samples have no predicted system class yet, if any of binary classifiers predict "True"
-            consistent = True
-            if row['system_class_pr'] is None: # possible when true label is "unidentified"
-                consistent = False
-            else:
-                pr = set(row['system_class_pr'].split('__'))
-                for p in pr:
-                    if p not in predicted_pops:
-                        consistent = False
-                        break
-                for p in predicted_pops:
-                    if p not in pr:
-                        consistent = False
-                        break
-            if consistent == False:
-                # find the right model
-                model_id = '__'.join(predicted_pops)
-                if model_id in new_cls_models['main_classifiers'] and new_cls_models['main_classifiers'][model_id].trained:
-                    model = new_cls_models['main_classifiers'][model_id]
-                    sample_features = data_copy.loc[i, profile_keys]
-                    sample_features = sample_features.to_dict(OrderedDict)
-                    feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-                    feature_idx = [k in model.features for k in sample_features.keys()]
-                    scaled_features = model.scaler.transform(feature_array)[:, feature_idx]
-                    # make new prediction
-                    predicted.loc[i, 'system_class_pr'] = model.model.predict(scaled_features)[0]
-                else:
-                    predicted.loc[i, 'system_class_pr'] = 'unidentified'
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers; drop this label up front 
@@ -395,7 +412,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     new_cls_models[sys_cls][pop_id][ff][stg_nm] = model
                     summary[sys_cls][pop_id][ff][stg_nm] = primitives(model.get_cv_summary())
                     config[sys_cls][pop_id][ff][stg_nm] = dict(model_type=model.model_type, metric=model.metric) 
-    return new_cls_models, summary, config, predicted
+    return new_cls_models, summary, config
 
 
 def save_classification_models(output_dir, models):
@@ -875,25 +892,19 @@ def collect_summary(summary_reg, summary_cl, predicted, old_summary={}):
     return summary
 
 def make_sys_class_summary(predicted):
-    y_true = predicted['system_class']
-    y_pred = predicted['system_class_pr']
+    y_true = predicted['system_class'].tolist()
+    y_pred = predicted['system_class_pr'].tolist()
     labels = predicted['system_class'].unique().tolist()
-    lens = [len(l) for l in labels]
-    max_len = max(lens)
-    labels_with_white_space = []
-    for l in labels:
-        white_spase = " " * (max_len - len(l) +1)
-        labels_with_white_space.append(l +  white_spase)
+    max_len = max([len(l) for l in labels])
     cm = str(confusion_matrix(y_true, y_pred, labels)).split('\n')
-    formatted_matrix = OrderedDict.fromkeys(labels_with_white_space)
     fm_list = []
-    for ilabel,label in enumerate(labels_with_white_space):
-        fm_list.append([label, cm[ilabel]])
-        #formatted_matrix[label] = cm[ilabel]
+    for ilabel,label in enumerate(labels):
+        label_withspc = label+" "*(max_len-len(label)+1)
+        fm_list.append([label_withspc, cm[ilabel]])
     result = dict(
             all_labels = labels,
             confusion_matrix = fm_list,
-            f1 = f1_score(y_true,y_pred,labels=labels,average="macro"),
+            f1 = f1_score(y_true, y_pred, labels=labels, average="macro"),
             precision = precision_score(y_true, y_pred, average="macro"),
             recall = recall_score(y_true, y_pred, average="macro"),
             accuracy = accuracy_score(y_true, y_pred, sample_weight=None)

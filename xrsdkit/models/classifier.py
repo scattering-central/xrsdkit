@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 from sklearn import linear_model
 from sklearn.decomposition import PCA
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score, precision_score, recall_score
@@ -130,23 +131,18 @@ class Classifier(XRSDModel):
 
     def cv_report(self,data,y_true,y_pred):
         all_labels = data[self.target].unique().tolist()
-        y_true_all = []
-        y_pred_all = []
-        for gid,yt in y_true.items():
-            y_true_all.extend(yt)
-        for gid,yp in y_pred.items():
-            y_pred_all.extend(yp)
-        cm = confusion_matrix(y_true_all, y_pred_all, all_labels)
+        
+        cm = confusion_matrix(y_true, y_pred, all_labels)
 
         if len(all_labels) == 2 and isinstance(all_labels[0], bool): score_type = "binary"
         else: score_type = "macro" #self.metric is f1_macro, so we cannot it use directly
         result = dict(
             all_labels = all_labels,
             confusion_matrix = str(cm),
-            f1 = f1_score(y_true_all,y_pred_all,labels=all_labels,average=score_type),
-            precision = precision_score(y_true_all, y_pred_all, average=score_type),
-            recall = recall_score(y_true_all, y_pred_all, average=score_type),
-            accuracy = accuracy_score(y_true_all, y_pred_all, sample_weight=None)
+            f1 = f1_score(y_true,y_pred,labels=all_labels,average=score_type),
+            precision = precision_score(y_true, y_pred, average=score_type),
+            recall = recall_score(y_true, y_pred, average=score_type),
+            accuracy = accuracy_score(y_true, y_pred, sample_weight=None)
             )
         #print('f1: {}'.format(result['f1_score']))
         if "f1" in self.metric: result['minimization_score'] = -1*result['f1']
@@ -157,8 +153,9 @@ class Classifier(XRSDModel):
 
     def group_by_pc1(self,dataframe,feature_names,n_groups=5):
         label_cts = dataframe[self.target].value_counts()
+        group_ids = pd.Series(np.zeros(dataframe.shape[0]),index=dataframe.index,dtype=int)
         # to check if we have at least 2 different labels:
-        if len(label_cts) < 2: return False
+        if len(label_cts) < 2: return group_ids, False
         labels = list(label_cts.keys())
         for l in labels:
             if label_cts[l] < n_groups:
@@ -166,11 +163,11 @@ class Classifier(XRSDModel):
                 # remove it from the model entirely 
                 label_cts.pop(l)
         # to check if we still have at least 2 different labels:
-        if len(label_cts) < 2: return False
+        if len(label_cts) < 2: return group_ids, False
         groups_possible = self._diverse_groups_possible(dataframe,n_groups,len(label_cts.keys()))
-        if not groups_possible: return False
+        if not groups_possible: return group_ids, False
 
-        group_ids = range(1,n_groups+1)
+        gids = range(1,n_groups+1)
         for label in label_cts.keys():
             lidx = dataframe.loc[:,self.target]==label
             ldata = dataframe.loc[lidx,feature_names]
@@ -181,13 +178,13 @@ class Classifier(XRSDModel):
             gp_size = [int(round(ldata.shape[0]/n_groups))] * n_groups
             if ldata.shape[0]%n_groups != 0:
                 for i in range(ldata.shape[0]%n_groups):
-                    gp_size[i] +=1
+                    gp_size[i]+=1
             s = 0
-            for igid,gid in enumerate(group_ids):
+            for igid,gid in enumerate(gids):
                 lgroups[pc_rank[s:s+gp_size[igid]]] = int(gid)
-                s +=gp_size[igid]
-            dataframe.loc[lidx,'group_id'] = lgroups
-        return True
+                s+=gp_size[igid]
+            group_ids.loc[lidx] = lgroups
+        return group_ids, True
 
     def print_confusion_matrix(self):
         result = ''
