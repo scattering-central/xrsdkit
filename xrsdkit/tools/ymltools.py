@@ -64,6 +64,46 @@ def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=p
                 downsampling_distance=downsampling_distance,
                 message_callback=message_callback)
     return df 
+    
+def match_data_to_yml(data_files,yml_files):
+    all_data_files = OrderedDict()
+    if data_files:
+        # build an index for mapping data file names to yml files
+        yml_index = {}
+        if yml_files: 
+            for ymlf in yml_files:
+                sys = load_sys_from_yaml(ymlf)
+                df_name = sys.sample_metadata['data_file']
+                yml_index[df_name] = ymlf
+        for idf,df_path in enumerate(data_files):
+            if os.path.exists(df_path):
+                df_name = os.path.split(df_path)[1]
+                df_name_noext = os.path.splitext(df_name)[0]
+                if df_name in yml_index: 
+                    ymlf = yml_index[df_name]
+                else:
+                    # assign default yml path, co-located with data file, same filename
+                    ymlf = os.path.join(os.path.split(df_path)[0],df_name_noext+'.yml')
+                #if os.path.exists(ymlf):
+                #    sys = load_sys_from_yaml(ymlf)
+                #else:
+                #    sys = xrsdsys.System(sample_metadata={'data_file':df_name})
+                #    save_sys_to_yaml(ymlf,sys)
+                all_data_files[df_path] = ymlf
+            else:
+                warnings.warn('skipping nonexistent data file {}'.format(df_path))
+    elif yml_files:
+        for ymlf in yml_files:
+            sys = load_sys_from_yaml(ymlf)
+            df = sys.sample_metadata['data_file']
+            # we assume the data file is co-located with the yml file,
+            # and the data filename is properly declared in the yml
+            df_path = os.path.join(os.path.split(ymlf)[0],df)
+            if os.path.exists(df_path):
+                all_data_files[df_path] = ymlf
+            else:
+                warnings.warn('skipping nonexistent data file {} (from {})'.format(df_path,ymlf))
+    return all_data_files
 
 def migrate_features(data_dir):
     """Update features for all yml files in a local directory.
