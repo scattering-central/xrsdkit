@@ -28,14 +28,16 @@ def load_sys_from_yaml(file_path):
 def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=print):
     """Load xrsdkit data from a directory.
 
-    The directory should contain subdirectories,
+    The main dataset directory should contain subdirectories,
     one for each experiment in the dataset.
+    The subdirectory names should be the same as the experiment_id labels
+    for all samples in the subdirectory.
     Each subdirectory should contain .yml files describing 
     the xrsdkit.system.System objects from the experiment.
     Each .yml file should have a corresponding .dat file in the same directory,
     where the .dat file contains the integrated scattering pattern.
     The name of the .dat file should be specified in the .yml file,
-    as the 'data_file' from the sample_metadata dictionary.
+    referenced to sample_metadata['data_file'].
     TODO: move this dataset description to the main documentation,  
     then refer to it from here.
 
@@ -48,8 +50,12 @@ def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=p
     -------
     df : pandas.DataFrame 
         modeling DataFrame built from dataset files
+    index_df : pandas.DataFrame
+        indexing DataFrame for associating .yml and .dat files
+        with the corresponding experiment_id and sample_id.
     """
-    sys_dicts = OrderedDict() 
+    sys_dicts = OrderedDict()
+    idx_df = pd.DataFrame(columns=['sample_id','experiment_id','yml_file','data_file'])
     for experiment in os.listdir(dataset_dir):
         exp_data_dir = os.path.join(dataset_dir,experiment)
         if os.path.isdir(exp_data_dir):
@@ -57,13 +63,19 @@ def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=p
                 if s_data_file.endswith('.yml'):
                     message_callback('loading data from {}'.format(s_data_file))
                     file_path = os.path.join(exp_data_dir, s_data_file)
-                    #sys = load_sys_from_yaml(file_path)
-                    #if bool(int(sys.fit_report['good_fit'])):
-                    sys_dicts[s_data_file] = yaml.load(open(file_path,'r')) 
+                    sys = load_sys_from_yaml(file_path)
+                    data_file = sys.sample_metadata['data_file']
+                    idx_df = idx_df.append(dict(
+                                sample_id=sys.sample_metadata['sample_id'],
+                                experiment_id=sys.sample_metadata['experiment_id'],
+                                yml_file=s_data_file,
+                                data_file=sys.sample_metadata['data_file']
+                                ), ignore_index=True)
+                    sys_dicts[s_data_file] = sys.to_dict() 
     df = create_modeling_dataset(list(sys_dicts.values()),
                 downsampling_distance=downsampling_distance,
                 message_callback=message_callback)
-    return df 
+    return df, idx_df
     
 def match_data_to_yml(data_files,yml_files):
     all_data_files = OrderedDict()
@@ -164,7 +176,7 @@ def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, messa
             cls_labels.append(classification_labels)
 
             feat_labels.append(feature_labels)
-            data.append([expt_id,sample_id,data_file])
+            data.append([expt_id,sample_id])
 
     reg_labels_list = list(all_reg_labels)
     reg_labels_list.sort()
@@ -183,7 +195,7 @@ def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, messa
         datai.extend(list(orl.values()))
         datai.extend(list(ofl.values()))
 
-    colnames = ['experiment_id'] + ['sample_id'] + ['data_file'] +\
+    colnames = ['experiment_id','sample_id'] + \
             cls_labels_list + \
             reg_labels_list + \
             copy.copy(profiler.profile_keys)

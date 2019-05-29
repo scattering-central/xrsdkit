@@ -415,7 +415,7 @@ class XRSDFitGUI(object):
         output_dir = self._vars['io_control']['output_dir'].get() 
         model_config_path = os.path.join(dataset_dir,'model_config.yml')
         self._print_to_listbox(display,'LOADING DATASET FROM: {}'.format(dataset_dir))
-        df = read_local_dataset(dataset_dir,downsampling_distance=1.,
+        df, idx_df = read_local_dataset(dataset_dir,downsampling_distance=1.,
                 message_callback=partial(self._print_to_listbox,display))
         self._print_to_listbox(display,'---- FINISHED LOADING DATASET ----')
         self._print_to_listbox(display,'BEGINNING TO TRAIN MODELS')
