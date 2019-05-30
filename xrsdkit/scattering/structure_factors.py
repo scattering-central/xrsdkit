@@ -24,9 +24,10 @@ def hard_sphere_sf(q,r_sphere,volume_fraction):
     cosqd = np.cos(qd)
     l1 = (1+2*p)**2/(1-p)**4
     l2 = -1*(1+p/2)**2/(1-p)**4
+    nc_0 = -2*p*( 4*l1 + 18*p*l2 + p*l1 )
     if q[0] == 0.:
         nc = np.zeros(len(q))
-        nc[0] = -2*p*( 4*l1 + 18*p*l2 + p*l1 )
+        nc[0] = nc_0
         nc[1:] = -24*p*(
             l1*( (sinqd[1:] - qd[1:]*cosqd[1:]) / qd3[1:] )
             -6*p*l2*( (qd2[1:]*cosqd[1:] - 2*qd[1:]*sinqd[1:] - 2*cosqd[1:] + 2) / qd4[1:] )
@@ -41,5 +42,7 @@ def hard_sphere_sf(q,r_sphere,volume_fraction):
                         + 24*qd*sinqd + 24*cosqd - 24) / qd6 )
             )
     F = 1/(1-nc)
+    F_0 = 1/(1-nc_0)
+    F = F/F_0
     return F
 

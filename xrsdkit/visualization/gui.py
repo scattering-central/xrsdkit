@@ -779,15 +779,15 @@ class XRSDFitGUI(object):
 
     def _set_error_weighted(self):
         new_val = self._vars['fit_control']['error_weighted'].get()
-        if not new_val == self.error_weighted:
-            self.error_weighted = new_val
+        if not new_val == self.sys.fit_report['error_weighted']:
+            self.sys.fit_report['error_weighted'] = new_val
             self._update_fit_objective()
         return True
 
     def _set_logI_weighted(self):
         new_val = self._vars['fit_control']['logI_weighted'].get()
-        if not new_val == self.logI_weighted:
-            self.logI_weighted = new_val
+        if not new_val == self.sys.fit_report['logI_weighted']:
+            self.sys.fit_report['logI_weighted'] = new_val
             self._update_fit_objective()
         return True
 
@@ -1323,7 +1323,6 @@ class XRSDFitGUI(object):
 
     @staticmethod
     def on_mousewheel(canvas,event):
-        print('mousewheel!')
         canvas.yview_scroll(-1*event.delta,'units')
 
     @staticmethod
