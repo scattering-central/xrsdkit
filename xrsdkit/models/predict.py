@@ -54,8 +54,6 @@ def predict(features, system_class=None, noise_model=None):
     parameters = predict_parameters(features, sys_cls, form_factors, settings)
     results.update(parameters)
 
-    print(results)
-
     return results
 
 def predict_system_class(features):
@@ -73,7 +71,6 @@ def predict_system_class(features):
         dictionary with predicted classifications and parameters
     """
     classifiers = get_classification_models()
-    regressors = get_regression_models()
 
     # use the main classifiers to evaluate the system class
     if 'main_classifiers' in classifiers \
@@ -102,6 +99,25 @@ def predict_system_class(features):
     return (sys_cls, certainties)
 
 def predict_noise(features, sys_cls, noise_m):
+    """Predict type of noise and parameters for it.
+
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    sys_cls : String
+        system class
+    noise_m : String
+        type of noise
+
+    Returns
+    -------
+    noise_model : (String, float)
+        type of noise and predicted probability
+    noise_params : dict
+        dictionary with predicted parameters
+    """
 
     classifiers = get_classification_models()
     regressors = get_regression_models()
@@ -126,6 +142,21 @@ def predict_noise(features, sys_cls, noise_m):
     return noise_model, noise_params
 
 def predict_form_factors(features, sys_cl):
+    """Predict form factor for each population.
+
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    sys_cls : String
+        system class
+
+    Returns
+    -------
+    form_factors : dict
+        dictionary with predicted form factors
+    """
 
     classifiers = get_classification_models()
 
@@ -137,8 +168,23 @@ def predict_form_factors(features, sys_cl):
         form_factors[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].classify(features)
     return form_factors
 
-def predict_settigs(features, sys_cl,form_factors):
+def predict_settigs(features, sys_cl, form_factors):
+    """Predict form factor for each population.
 
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    sys_cls : String
+        system class
+    form_factors : dict
+        dictionary with form factors for each population
+    Returns
+    -------
+    settings : dict
+        dictionary with settings
+    """
     classifiers = get_classification_models()
     cl_models_to_use = classifiers[sys_cl]
     settings = {}
@@ -156,7 +202,24 @@ def predict_settigs(features, sys_cl,form_factors):
     return settings
 
 def predict_parameters(features, sys_cls, form_factors, settings):
+    """Predict form factor for each population.
 
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    sys_cls : String
+        system class
+    form_factors : dict
+        dictionary with form factors for each population
+    settings : dict
+        dictionary with settings
+    Returns
+    -------
+    parameters : dict
+        dictionary with values for each parameter
+    """
     regressors = get_regression_models()
     reg_models_to_use = regressors[sys_cls]
     parameters = {}
@@ -166,6 +229,10 @@ def predict_parameters(features, sys_cls, form_factors, settings):
 
         # evaluate I0_fraction
         parameters[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
+
+        # evaluate form factor parameters
+        for param_nm,param_default in xrsdefs.form_factor_params[ff_nm].items():
+            parameters[pop_id+'_'+param_nm] = reg_models_to_use[pop_id][ff_nm][param_nm].predict(features)
 
         # take each setting
         for stg_nm in xrsdefs.modelable_structure_settings[struct]:
