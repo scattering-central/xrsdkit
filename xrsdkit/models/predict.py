@@ -4,9 +4,6 @@ from . import get_regression_models, get_classification_models
 from ..system import System
 from .. import definitions as xrsdefs
 
-classifiers = get_classification_models()
-regressors = get_regression_models()
-
 def predict(features, system_class=None, noise_model=None):
     """Estimate system identity and physical parameters, given a feature vector.
 
@@ -57,6 +54,8 @@ def predict(features, system_class=None, noise_model=None):
     parameters = predict_parameters(features, sys_cls, form_factors, settings)
     results.update(parameters)
 
+    print(results)
+
     return results
 
 def predict_system_class(features):
@@ -73,6 +72,8 @@ def predict_system_class(features):
     results : dict
         dictionary with predicted classifications and parameters
     """
+    classifiers = get_classification_models()
+    regressors = get_regression_models()
 
     # use the main classifiers to evaluate the system class
     if 'main_classifiers' in classifiers \
@@ -102,6 +103,9 @@ def predict_system_class(features):
 
 def predict_noise(features, sys_cls, noise_m):
 
+    classifiers = get_classification_models()
+    regressors = get_regression_models()
+
     cl_models_to_use = classifiers[sys_cls]
     reg_models_to_use = regressors[sys_cls]
 
@@ -123,6 +127,8 @@ def predict_noise(features, sys_cls, noise_m):
 
 def predict_form_factors(features, sys_cl):
 
+    classifiers = get_classification_models()
+
     # evaluate population form factors
     cl_models_to_use = classifiers[sys_cl]
     form_factors = {}
@@ -133,6 +139,7 @@ def predict_form_factors(features, sys_cl):
 
 def predict_settigs(features, sys_cl,form_factors):
 
+    classifiers = get_classification_models()
     cl_models_to_use = classifiers[sys_cl]
     settings = {}
     for ipop, struct in enumerate(sys_cl.split('__')):
@@ -150,6 +157,7 @@ def predict_settigs(features, sys_cl,form_factors):
 
 def predict_parameters(features, sys_cls, form_factors, settings):
 
+    regressors = get_regression_models()
     reg_models_to_use = regressors[sys_cls]
     parameters = {}
     for ipop, struct in enumerate(sys_cls.split('__')):
