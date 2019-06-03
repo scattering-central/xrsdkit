@@ -1112,7 +1112,7 @@ class XRSDFitGUI(object):
         #return npf
 
     def _draw_plots(self):
-        I_comp = draw_xrsd_fit(self.fig,self.sys,self.q,self.I,self.dI,False)
+        I_comp = draw_xrsd_fit(self.fig.gca(),self.sys,self.q,self.I,self.dI)
         self.mpl_canvas.draw()
         self._update_fit_objective(I_comp)
 
