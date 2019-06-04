@@ -9,14 +9,21 @@ def predict(features, system_class=None, noise_model=None):
 
     Evaluates classifiers and regression models to
     estimate physical parameters of a sample
-    that produced the input `features`,
-    from xrsdit.tools.profiler.profile_pattern().
+    that produced the input `features`.
 
     Parameters
     ----------
     features : OrderedDict
         OrderedDict of features with their values,
         similar to output of xrsdkit.tools.profiler.profile_pattern()
+    system_class : str
+        String specifying a prior for the system class.
+        If this is provided, the system_class is not predicted-
+        the provided system_class is used directly.
+    noise_model : str
+        String specifying a prior for the noise model.
+        If provided, the noise_model is not predicted-
+        the provided noise_model is used directly.
 
     Returns
     -------
@@ -47,7 +54,7 @@ def predict(features, system_class=None, noise_model=None):
     results.update(form_factors)
 
     # evaluate settings
-    settings = predict_settigs(features, sys_cls,form_factors)
+    settings = predict_settings(features, sys_cls, form_factors)
     results.update(settings)
 
     # evaluate parameters for all populations
@@ -94,11 +101,10 @@ def predict_system_class(features):
         else:
             sys_cls = 'unidentified'
     else:
-        raise RuntimeError('attempted to predict() before creating main classifiers')
-
+        raise RuntimeError('attempted predict_system_class() before loading main classifiers')
     return (sys_cls, certainties)
 
-def predict_noise(features, sys_cls, noise_m):
+def predict_noise(features, sys_cls, noise_m=None):
     """Predict type of noise and parameters for it.
 
     Parameters
@@ -106,15 +112,17 @@ def predict_noise(features, sys_cls, noise_m):
     features : OrderedDict
         OrderedDict of features with their values,
         similar to output of xrsdkit.tools.profiler.profile_pattern()
-    sys_cls : String
-        system class
-    noise_m : String
-        type of noise
+    sys_cls : str
+        String specifying the system_class 
+    noise_m : str
+        String specifying a prior for the noise model.
+        If provided, the noise_model is not predicted-
+        the provided noise_model is used directly.
 
     Returns
     -------
-    noise_model : (String, float)
-        type of noise and predicted probability
+    noise_model : (str, float)
+        noise_model specification and likelihood of prediction
     noise_params : dict
         dictionary with predicted parameters
     """
@@ -133,12 +141,12 @@ def predict_noise(features, sys_cls, noise_m):
     # evaluate noise parameters
     nmodl = noise_model[0]
     param_nms = list(xrsdefs.noise_params[nmodl].keys())
-    # there is no model for I0, due to its arbitrary scale
+    # there is no model for I0, due to its arbitrary scale;
+    # I0_fraction is predicted instead, and later scaled to match measurement
     param_nms.pop(param_nms.index('I0'))
     noise_params = {}
     for param_nm in param_nms+['I0_fraction']:
         noise_params['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].predict(features)
-
     return noise_model, noise_params
 
 def predict_form_factors(features, sys_cl):
@@ -149,17 +157,15 @@ def predict_form_factors(features, sys_cl):
     features : OrderedDict
         OrderedDict of features with their values,
         similar to output of xrsdkit.tools.profiler.profile_pattern()
-    sys_cls : String
-        system class
+    sys_cls : str
+        String specifying the system_class 
 
     Returns
     -------
     form_factors : dict
         dictionary with predicted form factors
     """
-
     classifiers = get_classification_models()
-
     # evaluate population form factors
     cl_models_to_use = classifiers[sys_cl]
     form_factors = {}
@@ -168,18 +174,19 @@ def predict_form_factors(features, sys_cl):
         form_factors[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].classify(features)
     return form_factors
 
-def predict_settigs(features, sys_cl, form_factors):
-    """Predict form factor for each population.
+def predict_settings(features, sys_cl, form_factors):
+    """Predict any modelable settings for each population.
 
     Parameters
     ----------
     features : OrderedDict
         OrderedDict of features with their values,
         similar to output of xrsdkit.tools.profiler.profile_pattern()
-    sys_cls : String
-        system class
+    sys_cls : str
+        String specifying the system_class 
     form_factors : dict
-        dictionary with form factors for each population
+        dictionary specifying form factors for each population
+
     Returns
     -------
     settings : dict
@@ -202,19 +209,20 @@ def predict_settigs(features, sys_cl, form_factors):
     return settings
 
 def predict_parameters(features, sys_cls, form_factors, settings):
-    """Predict form factor for each population.
+    """Predict parameters for each population.
 
     Parameters
     ----------
     features : OrderedDict
         OrderedDict of features with their values,
         similar to output of xrsdkit.tools.profiler.profile_pattern()
-    sys_cls : String
-        system class
+    sys_cls : str
+        String specifying the system_class 
     form_factors : dict
         dictionary with form factors for each population
     settings : dict
-        dictionary with settings
+        dictionary specifying settings for each population 
+
     Returns
     -------
     parameters : dict
@@ -234,10 +242,9 @@ def predict_parameters(features, sys_cls, form_factors, settings):
         for param_nm,param_default in xrsdefs.form_factor_params[ff_nm].items():
             parameters[pop_id+'_'+param_nm] = reg_models_to_use[pop_id][ff_nm][param_nm].predict(features)
 
-        # take each setting
+        # take each structure setting
         for stg_nm in xrsdefs.modelable_structure_settings[struct]:
             stg_val = settings[pop_id+'_'+stg_nm][0]
-
             # evaluate any additional parameters that depend on this setting
             for param_nm in xrsdefs.structure_params(struct,{stg_nm:stg_val}):
                 parameters[pop_id+'_'+param_nm] = \
@@ -246,11 +253,11 @@ def predict_parameters(features, sys_cls, form_factors, settings):
         # take each form factor setting
         for stg_nm in xrsdefs.modelable_form_factor_settings[ff_nm]:
             stg_val = settings[pop_id+'_'+stg_nm][0]
-
             # evaluate any additional parameters that depend on this setting
             for param_nm in xrsdefs.additional_form_factor_params(ff_nm,{stg_nm:stg_val}):
                 parameters[pop_id+'_'+param_nm] = \
                 reg_models_to_use[pop_id][ff_nm][stg_nm][stg_val][param_nm].predict(features)
+
     return parameters
 
 
