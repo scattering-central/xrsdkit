@@ -4,13 +4,67 @@ from . import get_regression_models, get_classification_models
 from ..system import System
 from .. import definitions as xrsdefs
 
-def predict(features):
+def predict(features, system_class=None, noise_model=None):
     """Estimate system identity and physical parameters, given a feature vector.
 
     Evaluates classifiers and regression models to
     estimate physical parameters of a sample
-    that produced the input `features`,
-    from xrsdit.tools.profiler.profile_pattern().
+    that produced the input `features`.
+
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    system_class : str
+        String specifying a prior for the system class.
+        If this is provided, the system_class is not predicted-
+        the provided system_class is used directly.
+    noise_model : str
+        String specifying a prior for the noise model.
+        If provided, the noise_model is not predicted-
+        the provided noise_model is used directly.
+
+    Returns
+    -------
+    results : dict
+        dictionary with predicted classifications and parameters
+    """
+    results = {}
+
+    # TODO: unidentified systems should still have models
+    # for predicting the noise model and parameters
+    if system_class:
+        system_class = (system_class,  None)
+    else:
+        system_class =  predict_system_class(features)
+    results['system_class'] = system_class
+    sys_cls = system_class[0]
+    if sys_cls == 'unidentified':
+        return results
+
+    noise_model, noise_params = predict_noise(features, sys_cls, noise_model)
+
+    # evaluate the noise model
+    results['noise_model'] = noise_model
+    results.update(noise_params)
+
+    # evaluate population form factors
+    form_factors = predict_form_factors(features, sys_cls)
+    results.update(form_factors)
+
+    # evaluate settings
+    settings = predict_settings(features, sys_cls, form_factors)
+    results.update(settings)
+
+    # evaluate parameters for all populations
+    parameters = predict_parameters(features, sys_cls, form_factors, settings)
+    results.update(parameters)
+
+    return results
+
+def predict_system_class(features):
+    """Predict system class, given a feature vector.
 
     Parameters
     ----------
@@ -24,8 +78,6 @@ def predict(features):
         dictionary with predicted classifications and parameters
     """
     classifiers = get_classification_models()
-    regressors = get_regression_models()
-    results = {}
 
     # use the main classifiers to evaluate the system class
     if 'main_classifiers' in classifiers \
@@ -49,62 +101,165 @@ def predict(features):
         else:
             sys_cls = 'unidentified'
     else:
-        raise RuntimeError('attempted to predict() before creating main classifiers') 
+        raise RuntimeError('attempted predict_system_class() before loading main classifiers')
+    return (sys_cls, certainties)
 
-    # TODO: unidentified systems should still have models
-    # for predicting the noise model and parameters
-    results['system_class'] = (sys_cls, certainties)
-    if sys_cls == 'unidentified':
-        return results
+def predict_noise(features, sys_cls, noise_m=None):
+    """Predict type of noise and parameters for it.
+
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    sys_cls : str
+        String specifying the system_class 
+    noise_m : str
+        String specifying a prior for the noise model.
+        If provided, the noise_model is not predicted-
+        the provided noise_model is used directly.
+
+    Returns
+    -------
+    noise_model : (str, float)
+        noise_model specification and likelihood of prediction
+    noise_params : dict
+        dictionary with predicted parameters
+    """
+
+    classifiers = get_classification_models()
+    regressors = get_regression_models()
 
     cl_models_to_use = classifiers[sys_cls]
     reg_models_to_use = regressors[sys_cls]
 
-    # evaluate the noise model
-    results['noise_model'] = cl_models_to_use['noise_model'].classify(features)
+    if noise_m is None:
+        noise_model = cl_models_to_use['noise_model'].classify(features)
+    else:
+        noise_model = (noise_m, None)
 
     # evaluate noise parameters
-    nmodl = results['noise_model'][0]
+    nmodl = noise_model[0]
     param_nms = list(xrsdefs.noise_params[nmodl].keys())
-    # there is no model for I0, due to its arbitrary scale
+    # there is no model for I0, due to its arbitrary scale;
+    # I0_fraction is predicted instead, and later scaled to match measurement
     param_nms.pop(param_nms.index('I0'))
+    noise_params = {}
     for param_nm in param_nms+['I0_fraction']:
-        results['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].predict(features)
+        noise_params['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].predict(features)
+    return noise_model, noise_params
 
-    # evaluate population form factors 
-    for ipop, struct in enumerate(results['system_class'][0].split('__')):
+def predict_form_factors(features, sys_cl):
+    """Predict form factor for each population.
+
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    sys_cls : str
+        String specifying the system_class 
+
+    Returns
+    -------
+    form_factors : dict
+        dictionary with predicted form factors
+    """
+    classifiers = get_classification_models()
+    # evaluate population form factors
+    cl_models_to_use = classifiers[sys_cl]
+    form_factors = {}
+    for ipop, struct in enumerate(sys_cl.split('__')):
         pop_id = 'pop{}'.format(ipop)
-        results[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].classify(features)
-        ff_nm = results[pop_id+'_form'][0]
+        form_factors[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].classify(features)
+    return form_factors
 
-        # evaluate I0_fraction 
-        results[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
+def predict_settings(features, sys_cl, form_factors):
+    """Predict any modelable settings for each population.
+
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    sys_cls : str
+        String specifying the system_class 
+    form_factors : dict
+        dictionary specifying form factors for each population
+
+    Returns
+    -------
+    settings : dict
+        dictionary with settings
+    """
+    classifiers = get_classification_models()
+    cl_models_to_use = classifiers[sys_cl]
+    settings = {}
+    for ipop, struct in enumerate(sys_cl.split('__')):
+        pop_id = 'pop{}'.format(ipop)
+        ff_nm = form_factors[pop_id+'_form'][0]
+
+        # evaluate any modelable settings for this structure
+        for stg_nm in xrsdefs.modelable_structure_settings[struct]:
+            settings[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][stg_nm].classify(features)
+
+        # evaluate any modelable settings for this form factor
+        for stg_nm in xrsdefs.modelable_form_factor_settings[ff_nm]:
+            settings[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][ff_nm][stg_nm].classify(features)
+    return settings
+
+def predict_parameters(features, sys_cls, form_factors, settings):
+    """Predict parameters for each population.
+
+    Parameters
+    ----------
+    features : OrderedDict
+        OrderedDict of features with their values,
+        similar to output of xrsdkit.tools.profiler.profile_pattern()
+    sys_cls : str
+        String specifying the system_class 
+    form_factors : dict
+        dictionary with form factors for each population
+    settings : dict
+        dictionary specifying settings for each population 
+
+    Returns
+    -------
+    parameters : dict
+        dictionary with values for each parameter
+    """
+    regressors = get_regression_models()
+    reg_models_to_use = regressors[sys_cls]
+    parameters = {}
+    for ipop, struct in enumerate(sys_cls.split('__')):
+        pop_id = 'pop{}'.format(ipop)
+        ff_nm = form_factors[pop_id+'_form'][0]
+
+        # evaluate I0_fraction
+        parameters[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
 
         # evaluate form factor parameters
-        for param_nm,param_default in xrsdefs.form_factor_params[ff_nm].items(): 
-            results[pop_id+'_'+param_nm] = reg_models_to_use[pop_id][ff_nm][param_nm].predict(features)
+        for param_nm,param_default in xrsdefs.form_factor_params[ff_nm].items():
+            parameters[pop_id+'_'+param_nm] = reg_models_to_use[pop_id][ff_nm][param_nm].predict(features)
 
-        # evaluate any modelable settings for this structure 
+        # take each structure setting
         for stg_nm in xrsdefs.modelable_structure_settings[struct]:
-            results[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][stg_nm].classify(features)
-            stg_val = results[pop_id+'_'+stg_nm][0]
-            
+            stg_val = settings[pop_id+'_'+stg_nm][0]
             # evaluate any additional parameters that depend on this setting
             for param_nm in xrsdefs.structure_params(struct,{stg_nm:stg_val}):
-                results[pop_id+'_'+param_nm] = \
+                parameters[pop_id+'_'+param_nm] = \
                 reg_models_to_use[pop_id][stg_nm][stg_val][param_nm].predict(features)
 
-        # evaluate any modelable settings for this form factor 
+        # take each form factor setting
         for stg_nm in xrsdefs.modelable_form_factor_settings[ff_nm]:
-            results[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][ff_nm][stg_nm].classify(features)
-            stg_val = results[pop_id+'_'+stg_nm][0]
-
+            stg_val = settings[pop_id+'_'+stg_nm][0]
             # evaluate any additional parameters that depend on this setting
             for param_nm in xrsdefs.additional_form_factor_params(ff_nm,{stg_nm:stg_val}):
-                results[pop_id+'_'+param_nm] = \
+                parameters[pop_id+'_'+param_nm] = \
                 reg_models_to_use[pop_id][ff_nm][stg_nm][stg_val][param_nm].predict(features)
 
-    return results
+    return parameters
+
 
 def system_from_prediction(prediction,q,I,**kwargs):
     """Create a System object from output of predict() function.
