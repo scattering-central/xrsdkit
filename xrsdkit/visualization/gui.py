@@ -57,8 +57,8 @@ def run_gui(data_files=[],yml_files=[]):
     gui.start()
 
 # TODO: gui sometimes freezes when "previous" or "next" buttons are pressed,
-#   seems to happen when computing heavily, 
-#   e.g. when computing superlattice diffraction
+#   seems to happen when computing heavily on a slow machine, 
+#   e.g. when computing superlattice diffraction on a notebook
 
 # TODO: mouse-over pop-up help windows
 
@@ -69,7 +69,7 @@ def run_gui(data_files=[],yml_files=[]):
 # TODO: fix mousewheel scrolling behavior for separate windows-
 # currently mousewheel always controls the main input canvas 
 
-# TODO (low): when a selection is rejected (raises an Exception),
+# TODO (low): when a combobox selection is rejected (raises an Exception),
 #   get the associated combobox re-painted-
 #   currently the value does get reset, 
 #   but the cb does not repaint until it is focused-on...
@@ -277,7 +277,9 @@ class XRSDFitGUI(object):
             io_control=OrderedDict()
             )
         self._widgets = OrderedDict(
-            datafile_option_menu = None
+            datafile_option_menu = None,
+            sys_def_path_display = None,
+            yml_loader_menu = None
             )
 
     def _create_control_widgets(self):
@@ -294,12 +296,17 @@ class XRSDFitGUI(object):
         iof.grid_columnconfigure(0,weight=1)
         iof.grid_columnconfigure(1,weight=1)
         iof.grid_columnconfigure(2,weight=1)
-        #iof.grid_rowconfigure(0,minsize=40)
+        iof.grid_rowconfigure(2,minsize=10)
+        iof.grid_rowconfigure(6,minsize=10)
+        iof.grid_rowconfigure(10,minsize=10)
         self._frames['io_control'] = iof
         dfvar = tkinter.StringVar(iof)
         dfvar.trace('w',self._update_data_file)
-        self._vars['io_control']['data_file'] = dfvar
+        pfvar = tkinter.StringVar(iof)
+        pfvar.trace('w',self._load_params_from_yml)
 
+        self._vars['io_control']['data_file'] = dfvar
+        self._vars['io_control']['params_file'] = pfvar
         self._vars['io_control']['output_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['dataset_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['models_dir'] = tkinter.StringVar(iof)
@@ -308,6 +315,7 @@ class XRSDFitGUI(object):
         self._vars['io_control']['xrsdkit_data_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['xrsdkit_data_regex'] = tkinter.StringVar(iof)
         self._vars['io_control']['same_dir_flag'] = tkinter.BooleanVar(iof)
+        self._vars['io_control']['sys_def_file'] = tkinter.StringVar(iof)
 
         default_output_dir = os.path.join(os.getcwd(),'xrsdkit_models')
         ii=1
@@ -328,11 +336,25 @@ class XRSDFitGUI(object):
         # this creates and packs the data file selection menu:
         self._set_data_files()
 
+        datfl = tkinter.Label(iof,text='input data file:',anchor='e')
         prevb = tkinter.Button(iof,text='Previous',width=8,command=self._previous_data_file)
         nxtb = tkinter.Button(iof,text='Next',width=8,command=self._next_data_file)
-        prevb.grid(row=3,column=0,sticky='w')
-        nxtb.grid(row=3,column=2,sticky='e')
+        datfl.grid(row=3,column=0,sticky='w')
+        prevb.grid(row=5,column=0,sticky='w')
+        nxtb.grid(row=5,column=2,sticky='e')
 
+        sysdefl = tkinter.Label(iof,text='output yml file:',anchor='e')
+        sysdefl.grid(row=7,column=0,sticky='w')
+        sysfne = tkinter.Entry(iof,state='readonly',textvariable=self._vars['io_control']['sys_def_file'],justify='right')
+        sysfne.grid(row=8,column=0,columnspan=3,sticky='ew')
+        sysfsvb = tkinter.Button(iof,text='Save',width=8,command=self._save_sys_file) 
+        sysfldb = tkinter.Button(iof,text='Load',width=8,command=self._load_sys_file) 
+        sysfsvb.grid(row=9,column=0,sticky='w')
+        sysfldb.grid(row=9,column=2,sticky='e')
+        self._widgets['sys_def_path_display'] = sysfne
+
+        ymlfl = tkinter.Label(iof,text='load parameters from:',anchor='e')
+        ymlfl.grid(row=11,column=0,sticky='w')
         # bind the mousewheel to scroll the parent frame
         # NOTE: this was an attempt, it didn't seem to work
         #self._bind_all_children(iof,"scrollable_controls")
@@ -588,14 +610,22 @@ class XRSDFitGUI(object):
     def _set_data_files(self,all_data_files={}):
         self.data_files = all_data_files
         df_options_dict = {'':None}
+        ymlf_options_dict = {'':None}
         if all_data_files:
             df_options_dict = OrderedDict.fromkeys(all_data_files.keys())
+            ymlf_options_dict = OrderedDict.fromkeys(all_data_files.values())
         dfcb = tkinter.OptionMenu(self._frames['io_control'],self._vars['io_control']['data_file'],*df_options_dict)
+        ymlfcb = tkinter.OptionMenu(self._frames['io_control'],self._vars['io_control']['params_file'],*ymlf_options_dict)
         dfcb.config(width=10,anchor='e')
+        ymlfcb.config(width=10,anchor='e')
         if self._widgets['datafile_option_menu']: 
             self._widgets['datafile_option_menu'].grid_forget()
-        dfcb.grid(row=2,column=0,columnspan=3,sticky='ew')
+        if self._widgets['yml_loader_menu']: 
+            self._widgets['yml_loader_menu'].grid_forget()
+        dfcb.grid(row=4,column=0,columnspan=3,sticky='ew')
+        ymlfcb.grid(row=12,column=0,columnspan=3,sticky='ew')
         self._widgets['datafile_option_menu'] = dfcb
+        self._widgets['params_loader_menu'] = ymlfcb 
         if self.data_files:
             self._next_data_file()
 
@@ -628,12 +658,12 @@ class XRSDFitGUI(object):
 
     def _save_sys_file(self,*args):
         # TODO: if file already exists, warn user about overwrite
-        sys_file = self._vars['fit_control']['sys_def_file'].get()
+        sys_file = self._vars['io_control']['sys_def_file'].get()
         if sys_file and os.path.exists(os.path.split(sys_file)[0]):
             save_sys_to_yaml(sys_file,self.sys)
 
     def _load_sys_file(self,*args):
-        sys_file = self._vars['fit_control']['sys_def_file'].get()
+        sys_file = self._vars['io_control']['sys_def_file'].get()
         if os.path.exists(sys_file):
             new_sys = load_sys_from_yaml(sys_file)
         else:
@@ -651,14 +681,28 @@ class XRSDFitGUI(object):
             sysf = self.data_files[df]
             if not sysf:
                 sysf = os.path.splitext(df)[0]+'.yml'
-            self._vars['fit_control']['sys_def_file'].set(sysf)
+            self._vars['io_control']['sys_def_file'].set(sysf)
+            self._vars['io_control']['params_file'].set(sysf)
+            self._widgets['sys_def_path_display'].xview(len(sysf))
             self._load_sys_file()
         else:
             self.q = q_default
             self.I = I_default
             self.dI = None
-            self._vars['fit_control']['sys_def_file'].set('')
+            self._vars['io_control']['sys_def_file'].set('')
             self._set_system(xrsdsys.System())
+
+    def _load_params_from_yml(self,*event_args):
+        ymlf = self._vars['io_control']['params_file'].get()
+        sys_def_ymlf = self._vars['io_control']['sys_def_file'].get()
+        if not ymlf == sys_def_ymlf:
+            new_sys = self.sys.clone() 
+            for pop_nm in list(new_sys.populations.keys()):
+                new_sys.remove_population(pop_nm)
+            params_sys = load_sys_from_yaml(ymlf)
+            new_sys.update_from_dict(params_sys.populations)
+            new_sys.update_noise_model(params_sys.noise_model.to_dict())
+            self._set_system(new_sys)
 
     def _create_fit_control_frame(self):
         cf = tkinter.Frame(self.control_widget,bd=4,pady=10,padx=10,relief=tkinter.RAISED)
@@ -666,17 +710,6 @@ class XRSDFitGUI(object):
         cf.grid_columnconfigure(1,weight=1)
         cf.grid_columnconfigure(2,weight=1)
         self._frames['fit_control'] = cf
-        self._vars['fit_control']['sys_def_file'] = tkinter.StringVar(cf)
-
-        sysdefl = tkinter.Label(cf,text='xrsdkit data file:',anchor='e')
-        sysdefl.grid(row=0,column=0,sticky='e')
-        sysfsvb = tkinter.Button(cf,text='Save',width=8,command=self._save_sys_file) 
-        sysfldb = tkinter.Button(cf,text='Load',width=8,command=self._load_sys_file) 
-        sysfsvb.grid(row=1,column=1,sticky='ew')
-        sysfldb.grid(row=1,column=2,sticky='ew')
-
-        sysfne = tkinter.Entry(cf,state='readonly',textvariable=self._vars['fit_control']['sys_def_file'])
-        sysfne.grid(row=0,column=1,columnspan=2,sticky='ew')
 
         self._vars['fit_control']['experiment_id'] = tkinter.StringVar(cf)
         self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])

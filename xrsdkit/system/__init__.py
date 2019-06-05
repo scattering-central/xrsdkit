@@ -52,6 +52,9 @@ class System(object):
         sd['features'] = self.features
         return sd
 
+    def clone(self):
+        return System(**self.to_dict())
+
     def update_from_dict(self,d):
         for pop_name,pd in d.items():
             if pop_name == 'noise':
