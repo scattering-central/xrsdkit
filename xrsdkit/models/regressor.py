@@ -90,8 +90,29 @@ class Regressor(XRSDModel):
         data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
         return data
 
+    def predict_all(self,data):
+        """Run predictions for each row of input `data`.
+
+        Each row of `data` represents one sample.
+        The `data` columns are assumed to match self.features.
+
+        Parameters
+        ----------
+        data : array
+        
+        Returns
+        -------
+        preds : array
+        """
+        if self.trained:
+            X = self.scaler.transform(data)
+            preds = self.model.predict(X)
+        else:
+            preds = self.default_val*np.ones(data.shape[0])
+        return preds 
+
     def predict(self, sample_features):
-        """Predict this model's scalar target for a given sample. 
+        """Predict this model's scalar target for one sample. 
 
         Parameters
         ----------
@@ -183,9 +204,12 @@ class Regressor(XRSDModel):
     def cv_report(self,data,y_true,y_pred):
         group_MAE = {}
         groupsize_weighted_MAE = {}
-        gids = data['group_id']
-        for gid in gids.unique():
-            gid_idx = (gids==gid)
+        all_gids = data['group_id'].unique()
+        gids = np.array(data['group_id'])
+        y_true = np.array(y_true)
+        y_pred = np.array(y_pred)
+        for gid in all_gids:
+            gid_idx = gids==gid
             group_MAE[gid] = mean_absolute_error(y_true[gid_idx],y_pred[gid_idx])
             groupsize_weighted_MAE[gid] = group_MAE[gid]*y_true[gid_idx].shape[0]/data.shape[0]
         result = dict(

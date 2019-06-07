@@ -99,8 +99,31 @@ class Classifier(XRSDModel):
                 max_iter=1000, tol=1.E-3, class_weight='balanced')
         return new_model
 
+    def predict_all(self,data):
+        """Run predictions for each row of input `data`.
+
+        Each row of `data` represents one sample.
+        The `data` columns are assumed to match self.features.
+
+        Parameters
+        ----------
+        data : array
+        
+        Returns
+        -------
+        preds : array
+        """
+        if self.trained:
+            X = self.scaler.transform(data)
+            preds = self.model.predict(X)
+            certs = self.model.predict_proba(X)
+        else:
+            preds = np.array([self.default_val]*data.shape[0])
+            certs = np.zeros(data.shape[0])
+        return preds, certs 
+
     def classify(self, sample_features):
-        """Classify the model target for a sample.
+        """Classify the model target for one sample.
 
         Parameters
         ----------
