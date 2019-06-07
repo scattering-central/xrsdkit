@@ -132,46 +132,56 @@ class XRSDModel(object):
             self.features = []
             self.trained = False
         else:
-            s_model_data = self.standardize(model_data)
             # remove unlabeled samples
-            s_model_data = s_model_data[s_model_data[self.target].isnull() == False]
+            valid_data = model_data[model_data[self.target].isnull() == False]
+            # exclude samples with group_id==0
+            valid_data = valid_data[valid_data.group_id>0]
             # maybe shuffle: SGD models train more efficiently on shuffled data
             if self.model_type in ['sgd_regressor','sgd_classifier']:
-                s_model_data = utils.shuffle(s_model_data)
-            # exclude samples with group_id==0
-            valid_data = s_model_data[s_model_data.group_id>0]
+                valid_data = utils.shuffle(valid_data)
+            s_valid_data = self.standardize(valid_data,profiler.profile_keys)
 
             # begin by recursively eliminating features on a simple model (default parameters)
             model_feats = copy.deepcopy(profiler.profile_keys)
             if select_features:
-                model_feats = self._cross_validation_rfe(valid_data,model_feats)
+                model_feats = self._cross_validation_rfe(s_valid_data,model_feats)
+                s_valid_data = self.standardize(valid_data,model_feats)
 
             # use model_feats to grid-search hyperparameters
             model_hyperparams = {}
             if train_hyperparameters:
                 test_model = self.build_model()
                 param_grid = self.models_and_params[self.model_type]
-                model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid)
+                model_hyperparams = self.grid_search_hyperparams(test_model,s_valid_data,model_feats,param_grid)
 
             # after parameter and feature selection,
             # the entire dataset is used for final training,
             self.features = model_feats 
             self.model = self.build_model(model_hyperparams)
-            self.model.fit(valid_data[self.features], valid_data[self.target])
-            y_true = valid_data[self.target].copy()
-            y_xval = self._cross_validation_test(self.model,valid_data,self.features)
-            y_pred = self.model.predict(valid_data[self.features])
-            self.cross_valid_results = self.cv_report(valid_data,y_true,y_xval) 
+            self.model.fit(s_valid_data[self.features], s_valid_data[self.target])
+            y_true = s_valid_data[self.target].copy()
+            y_xval = self._cross_validation_test(self.model,s_valid_data,self.features)
+            y_pred = self.model.predict(s_valid_data[self.features])
+            self.cross_valid_results = self.cv_report(s_valid_data,y_true,y_xval) 
             self.trained = True
         return y_true,y_pred,y_xval
 
-    def standardize(self,data):
-        """Standardize the columns of data that are used as model inputs"""
-        data = data.copy()
+    def standardize(self,data,features):
+        """Standardize the columns of data that are used as model inputs.
+
+        Parameters
+        ----------
+        data : pandas.DataFrame
+
+        Returns
+        -------
+        s_data : pandas.DataFrame
+        """
+        s_data = data.copy()
         self.scaler = preprocessing.StandardScaler()
-        self.scaler.fit(data[profiler.profile_keys])
-        data[profiler.profile_keys] = self.scaler.transform(data[profiler.profile_keys])
-        return data
+        self.scaler.fit(data[features])
+        s_data[features] = self.scaler.transform(data[features])
+        return s_data
 
     def _cross_validation_rfe(self,data,model_feats):
         model_outputs = np.ravel(data[self.target])
