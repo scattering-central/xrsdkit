@@ -76,7 +76,7 @@ class Regressor(XRSDModel):
                 )
         return model_data
 
-    def standardize(self,data):
+    def standardize(self,data,features):
         """Standardize the columns that are used as inputs and outputs.
 
         Reimplementation of XRSDModel.standardize():
@@ -84,11 +84,11 @@ class Regressor(XRSDModel):
         since the effects of model hyperparameters 
         are relative to the scale of the outputs. 
         """
-        data = super(Regressor,self).standardize(data)
+        s_data = super(Regressor,self).standardize(data,features)
         self.scaler_y = preprocessing.StandardScaler() 
         self.scaler_y.fit(data[self.target].values.reshape(-1, 1))
-        data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
-        return data
+        s_data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
+        return s_data
 
     def predict(self,data):
         """Run predictions for each row of input `data`.
