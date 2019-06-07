@@ -48,5 +48,5 @@ def test_multipanel_plot():
         ax[0,1].set_xlabel('')
         ax[0,1].set_ylabel('')
         ax[1,1].set_ylabel('')
-        plt.show()
+        fig.show()
 

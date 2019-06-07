@@ -189,6 +189,8 @@ def setting_datatypes(stg_nm):
 
 # all possible options for all settings (empty list if not enumerable)
 def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
+    if setting_datatypes(stg_nm) == bool:
+        return [True,False]
     if stg_nm == 'lattice': return all_lattices
     if stg_nm == 'space_group':
         if 'lattice' in prior_settings:

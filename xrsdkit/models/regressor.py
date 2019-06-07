@@ -76,7 +76,7 @@ class Regressor(XRSDModel):
                 )
         return model_data
 
-    def standardize(self,data):
+    def standardize(self,data,features):
         """Standardize the columns that are used as inputs and outputs.
 
         Reimplementation of XRSDModel.standardize():
@@ -84,33 +84,32 @@ class Regressor(XRSDModel):
         since the effects of model hyperparameters 
         are relative to the scale of the outputs. 
         """
-        data = super(Regressor,self).standardize(data)
+        s_data = super(Regressor,self).standardize(data,features)
         self.scaler_y = preprocessing.StandardScaler() 
         self.scaler_y.fit(data[self.target].values.reshape(-1, 1))
-        data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
-        return data
+        s_data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
+        return s_data
 
-    def predict(self, sample_features):
-        """Predict this model's scalar target for a given sample. 
+    def predict(self,data):
+        """Run predictions for each row of input `data`.
+
+        Each row of `data` represents one sample.
+        The `data` columns are assumed to match self.features.
 
         Parameters
         ----------
-        sample_features : OrderedDict
-            OrderedDict of features with their values,
-            similar to output of xrsdkit.tools.profiler.profile_pattern()
-
+        data : array-like
+        
         Returns
         -------
-        prediction : float
-            predicted parameter value
+        preds : array
         """
         if self.trained:
-            feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-            feature_idx = [k in self.features for k in sample_features.keys()]
-            x = self.scaler.transform(feature_array)[:, feature_idx]
-            return float(self.scaler_y.inverse_transform(self.model.predict(x))[0])
+            X = self.scaler.transform(data)
+            preds = self.model.predict(X)
         else:
-            return self.default_val
+            preds = self.default_val*np.ones(data.shape[0])
+        return preds 
 
     def get_cv_summary(self):
         return dict(model_type=self.model_type,
@@ -183,9 +182,12 @@ class Regressor(XRSDModel):
     def cv_report(self,data,y_true,y_pred):
         group_MAE = {}
         groupsize_weighted_MAE = {}
-        gids = data['group_id']
-        for gid in gids.unique():
-            gid_idx = (gids==gid)
+        all_gids = data['group_id'].unique()
+        gids = np.array(data['group_id'])
+        y_true = np.array(y_true)
+        y_pred = np.array(y_pred)
+        for gid in all_gids:
+            gid_idx = gids==gid
             group_MAE[gid] = mean_absolute_error(y_true[gid_idx],y_pred[gid_idx])
             groupsize_weighted_MAE[gid] = group_MAE[gid]*y_true[gid_idx].shape[0]/data.shape[0]
         result = dict(

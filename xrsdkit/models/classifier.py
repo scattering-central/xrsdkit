@@ -99,43 +99,36 @@ class Classifier(XRSDModel):
                 max_iter=1000, tol=1.E-3, class_weight='balanced')
         return new_model
 
-    def classify(self, sample_features):
-        """Classify the model target for a sample.
+    def predict(self,data):
+        """Run predictions for input array-like `data`.
+
+        Each row of `data` represents one sample.
+        The `data` columns are assumed to match self.features.
 
         Parameters
         ----------
-        sample_features : OrderedDict
-            OrderedDict of features with their values,
-            similar to output of xrsdkit.tools.profiler.profile_pattern().
-
+        data : array-like
+        
         Returns
         -------
-        cls : object 
-            Predicted classification value for self.target, given `sample_features`
-        cert : float or None
-            the certainty of the prediction
-            (For models that are not trained, cert=None)
+        preds : array
         """
         if self.trained:
-            feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-            feature_idx = [k in self.features for k in sample_features.keys()]
-            x = self.scaler.transform(feature_array)[:, feature_idx]
-            cls = self.model.predict(x)[0]
-            try:
-                cert = max(self.model.predict_proba(x)[0])
-            except:
-                cert = None  # the model has no attribute 'predict_proba'
-            return cls, cert
+            X = self.scaler.transform(data)
+            preds = self.model.predict(X)
+            certs = self.model.predict_proba(X)
         else:
-            return (self.default_val,0.)
+            preds = np.array([self.default_val]*data.shape[0])
+            certs = np.zeros(data.shape[0])
+        return preds, certs 
 
     def cv_report(self,data,y_true,y_pred):
         all_labels = data[self.target].unique().tolist()
-        
         cm = confusion_matrix(y_true, y_pred, all_labels)
-
-        if len(all_labels) == 2 and isinstance(all_labels[0], bool): score_type = "binary"
-        else: score_type = "macro" #self.metric is f1_macro, so we cannot it use directly
+        if len(all_labels) == 2 and isinstance(all_labels[0], bool): 
+            score_type = "binary"
+        else: 
+            score_type = "macro" #self.metric is f1_macro, so we cannot it use directly
         result = dict(
             all_labels = all_labels,
             confusion_matrix = str(cm),
@@ -145,10 +138,14 @@ class Classifier(XRSDModel):
             accuracy = accuracy_score(y_true, y_pred, sample_weight=None)
             )
         #print('f1: {}'.format(result['f1_score']))
-        if "f1" in self.metric: result['minimization_score'] = -1*result['f1']
-        elif "prec" in self.metric: result['minimization_score'] = -1*result['precision']
-        elif "rec" in self.metric: result['minimization_score'] = -1*result['recall']
-        else: result['minimization_score'] = -1*result['accuracy']
+        if "f1" in self.metric: 
+            result['minimization_score'] = -1*result['f1']
+        elif "prec" in self.metric: 
+            result['minimization_score'] = -1*result['precision']
+        elif "rec" in self.metric: 
+            result['minimization_score'] = -1*result['recall']
+        else: 
+            result['minimization_score'] = -1*result['accuracy']
         return result
 
     def group_by_pc1(self,dataframe,feature_names,n_groups=5):

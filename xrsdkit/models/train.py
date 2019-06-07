@@ -90,7 +90,7 @@ def cross_validate_system_classifiers(cls_models, data):
     """
     # Create a dataframe to keep track of predicted values
     pred = data[['experiment_id', 'sample_id', 'system_class']].copy()
-    pred.loc[:,'system_class_pr'] = 'unidentified' 
+    pred.loc[:,'system_class_xval'] = 'unidentified'
     # Copy input dataframe to avoid mutating it
     data_copy = data.copy()
     # Get list of true system classification labels
@@ -109,9 +109,11 @@ def cross_validate_system_classifiers(cls_models, data):
         if cls.trained:
             group_ids, training_possible = cls.group_by_pc1(data_copy,profile_keys)
             data_copy['group_id'] = group_ids
-            y_true,y_pred = cls.run_cross_validation(cls.model,data_copy,cls.features)
+            y_xval = cls.run_cross_validation(data_copy)
         else:
-            y_pred = [cls.default_val] * data_copy.shape[0]
+            y_xval = [cls.default_val] * data_copy.shape[0]
+        pred.loc[:,model_id+'_xval'] = y_xval
+        y_pred,certs = cls.predict(data_copy[cls.features])
         pred.loc[:,model_id+'_pr'] = y_pred 
     # For each combination of binary flags, 
     # if the model exists (this combination of flags was in the training set),
@@ -132,12 +134,12 @@ def cross_validate_system_classifiers(cls_models, data):
             if model_id in cls_models['main_classifiers']:
                 cls = cls_models['main_classifiers'][model_id]
                 if cls.trained:
-                    y_pred = cls.model.predict(data_copy.loc[flag_idx,cls.features])
+                    y_pred, certs = cls.predict(data_copy.loc[flag_idx,cls.features])
                 else:
                     y_pred = [cls.default_val] * np.sum(flag_idx) 
             else:
                 y_pred = ['unidentified'] * np.sum(flag_idx)
-            pred.loc[flag_idx,'system_class_pr'] = y_pred
+            pred.loc[flag_idx,'system_class_xval'] = y_pred
     return pred
 
 def train_classification_models(data, train_hyperparameters=False, select_features=False, model_configs={}, message_callback=print):
@@ -200,7 +202,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             for param_nm in model.models_and_params[new_model_type]:
                 model.model.set_params(**{param_nm:old_pars[param_nm]})
 
-        y_true,y_pred = model.train(data_copy, train_hyperparameters, select_features)
+        y_true,y_pred,y_xval = model.train(data_copy, train_hyperparameters, select_features)
 
         if model.trained:
             f1_score = model.cross_valid_results['f1']
@@ -247,7 +249,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     for param_nm in model.models_and_params[new_model_type]:
                         model.model.set_params(**{param_nm:old_pars[param_nm]})
                 
-                y_true,y_pred = model.train(flag_data, train_hyperparameters, select_features)
+                y_true,y_pred,y_xval = model.train(flag_data, train_hyperparameters, select_features)
 
                 if model.trained:
                     f1_score = model.cross_valid_results['f1']
@@ -893,10 +895,10 @@ def collect_summary(summary_reg, summary_cl, predicted, old_summary={}):
 
 def make_sys_class_summary(predicted):
     y_true = predicted['system_class'].tolist()
-    y_pred = predicted['system_class_pr'].tolist()
+    y_xval = predicted['system_class_xval'].tolist()
     labels = predicted['system_class'].unique().tolist()
     max_len = max([len(l) for l in labels])
-    cm = str(confusion_matrix(y_true, y_pred, labels)).split('\n')
+    cm = str(confusion_matrix(y_true, y_xval, labels)).split('\n')
     fm_list = []
     for ilabel,label in enumerate(labels):
         label_withspc = label+" "*(max_len-len(label)+1)
@@ -904,10 +906,10 @@ def make_sys_class_summary(predicted):
     result = dict(
             all_labels = labels,
             confusion_matrix = fm_list,
-            f1 = f1_score(y_true, y_pred, labels=labels, average="macro"),
-            precision = precision_score(y_true, y_pred, average="macro"),
-            recall = recall_score(y_true, y_pred, average="macro"),
-            accuracy = accuracy_score(y_true, y_pred, sample_weight=None)
+            f1 = f1_score(y_true, y_xval, labels=labels, average="macro"),
+            precision = precision_score(y_true, y_xval, average="macro"),
+            recall = recall_score(y_true, y_xval, average="macro"),
+            accuracy = accuracy_score(y_true, y_xval, sample_weight=None)
             )
     return primitives(result)
 
