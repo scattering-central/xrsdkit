@@ -65,7 +65,10 @@ structure_settings = dict(
         structure_factor_mode = 'local',
         integration_mode = 'spherical',
         texture = 'random',
-        profile = 'voigt'
+        profile = 'voigt',
+        polarization_correction = True,
+        lorentz_correction = True,
+        use_symmetry = True
         )
     )
 form_settings = dict(
@@ -186,6 +189,8 @@ def setting_datatypes(stg_nm):
         return float
     if stg_nm == 'n_atoms': return int
     if 'symbol' in stg_nm: return str
+    if stg_nm in ['polarization_correction','lorentz_correction','use_symmetry']:
+        return bool
 
 # all possible options for all settings (empty list if not enumerable)
 def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):

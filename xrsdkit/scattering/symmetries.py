@@ -26,26 +26,26 @@ mirror_nz_x = np.array([[0,0,1],[0,1,0],[1,0,0]])
 # and then (for equal h and k), higher l values.
 symmetry_operations = OrderedDict.fromkeys(xrsdefs.all_point_groups)
 
-# TODO: tabulate all symmetry operations
-# that can be used to reduce the reciprocal space summation
-# for a given space group.
+# TODO: tabulate all symmetry operations that can be used 
+# to reduce the reciprocal space summation for a given point group.
 # TODO: determine whether or not this can be done based solely on the point group
-# associated with the space group.
-symmetry_operations['P1'] = [] 
-symmetry_operations['P-1'] = [inversion] 
-symmetry_operations['Fm-3m'] = [\
+symmetry_operations['1'] = [] 
+symmetry_operations['-1'] = [inversion] 
+symmetry_operations['m-3m'] = [\
     mirror_x,mirror_y,mirror_z,\
     mirror_x_y,mirror_y_z,mirror_z_x,\
     mirror_nx_y,mirror_ny_z,mirror_nz_x\
     # TODO: add the 3-fold x+y+z-rotoinversion
     ]
-symmetry_operations['P6(3)/mmc'] = [\
-    #mirror_z, mirror_x_y, mirror_nx_y
+symmetry_operations['6/mmm'] = [\
+    inversion#, mirror_z, mirror_x_y, mirror_nx_y
     ]
 
 def symmetrize_points(all_hkl,rlat,space_group=None,symprec=1.E-6):
-    # TODO: investigate whether or not the symmetrization
-    # can just make use of the point group symmetries...
+    # TODO: determine whether or not this can be done solely based on the point group
+    point_group = None
+    if space_group:
+        point_group = xrsdefs.sg_point_groups[space_group]
     reduced_hkl = copy.deepcopy(all_hkl)
     n_pts = all_hkl.shape[0]
     hkl_mults = np.ones(n_pts,dtype=int)
@@ -54,9 +54,9 @@ def symmetrize_points(all_hkl,rlat,space_group=None,symprec=1.E-6):
     hkl_range = np.max(all_hkl,axis=0)-np.min(all_hkl,axis=0)
     hkl_rank = all_hkl[:,0]*(hkl_range[1]+1)*(hkl_range[2]+1) + all_hkl[:,1]*(hkl_range[2]+1) + all_hkl[:,2]
     sym_ops = []
-    if space_group:
-        if space_group in symmetry_operations:
-            sym_ops = symmetry_operations[space_group]
+    if point_group:
+        if point_group in symmetry_operations:
+            sym_ops = symmetry_operations[point_group]
     for op in sym_ops:
         sym_pts = np.dot(op,lat_pts.T).T 
         # get difference matrix between lat_pts and sym_pts.
