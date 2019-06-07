@@ -267,7 +267,7 @@ class XRSDModel(object):
 
     def get_x_array(self,od):
         """Extract input array from feature dictionary"""
-        return np.array([od[k] for k in self.features])
+        return np.array([od[k] for k in self.features]).reshape(1,-1)
 
     def predict(self,x):
         raise NotImplementedError('XRSDModel subclasses must implement predict()')
