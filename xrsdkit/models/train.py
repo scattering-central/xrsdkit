@@ -90,8 +90,7 @@ def cross_validate_system_classifiers(cls_models, data):
     """
     # Create a dataframe to keep track of predicted values
     pred = data[['experiment_id', 'sample_id', 'system_class']].copy()
-    pred.loc[:,'system_class_xval'] = 'unidentified' 
-    pred.loc[:,'system_class_pr'] = 'unidentified' 
+    pred.loc[:,'system_class_xval'] = 'unidentified'
     # Copy input dataframe to avoid mutating it
     data_copy = data.copy()
     # Get list of true system classification labels
@@ -140,7 +139,7 @@ def cross_validate_system_classifiers(cls_models, data):
                     y_pred = [cls.default_val] * np.sum(flag_idx) 
             else:
                 y_pred = ['unidentified'] * np.sum(flag_idx)
-            pred.loc[flag_idx,'system_class_pr'] = y_pred
+            pred.loc[flag_idx,'system_class_xval'] = y_pred
     return pred
 
 def train_classification_models(data, train_hyperparameters=False, select_features=False, model_configs={}, message_callback=print):
@@ -896,7 +895,6 @@ def collect_summary(summary_reg, summary_cl, predicted, old_summary={}):
 
 def make_sys_class_summary(predicted):
     y_true = predicted['system_class'].tolist()
-    y_pred = predicted['system_class_pr'].tolist()
     y_xval = predicted['system_class_xval'].tolist()
     labels = predicted['system_class'].unique().tolist()
     max_len = max([len(l) for l in labels])
