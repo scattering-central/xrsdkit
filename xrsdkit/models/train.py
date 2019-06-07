@@ -110,14 +110,11 @@ def cross_validate_system_classifiers(cls_models, data):
         if cls.trained:
             group_ids, training_possible = cls.group_by_pc1(data_copy,profile_keys)
             data_copy['group_id'] = group_ids
-            # TODO: data_copy must be scaled first
-            s_data = data_copy.copy()
-            s_data[cls.features] = cls.scaler.transform(data_copy[cls.features])
-            y_xval = cls._run_cross_validation(cls.model,s_data,cls.features)
+            y_xval = cls.run_cross_validation(data_copy)
         else:
             y_xval = [cls.default_val] * data_copy.shape[0]
         pred.loc[:,model_id+'_xval'] = y_xval
-        y_pred,certs = cls.predict_all(np.array(data_copy[cls.features]))
+        y_pred,certs = cls.predict(data_copy[cls.features])
         pred.loc[:,model_id+'_pr'] = y_pred 
     # For each combination of binary flags, 
     # if the model exists (this combination of flags was in the training set),
@@ -138,7 +135,7 @@ def cross_validate_system_classifiers(cls_models, data):
             if model_id in cls_models['main_classifiers']:
                 cls = cls_models['main_classifiers'][model_id]
                 if cls.trained:
-                    y_pred, certs = cls.predict_all((data_copy.loc[flag_idx,cls.features]))
+                    y_pred, certs = cls.predict(data_copy.loc[flag_idx,cls.features])
                 else:
                     y_pred = [cls.default_val] * np.sum(flag_idx) 
             else:

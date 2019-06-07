@@ -159,7 +159,7 @@ class XRSDModel(object):
             self.model = self.build_model(model_hyperparams)
             self.model.fit(valid_data[self.features], valid_data[self.target])
             y_true = valid_data[self.target].copy()
-            y_xval = self._run_cross_validation(self.model,valid_data,self.features)
+            y_xval = self._cross_validation_test(self.model,valid_data,self.features)
             y_pred = self.model.predict(valid_data[self.features])
             self.cross_valid_results = self.cv_report(valid_data,y_true,y_xval) 
             self.trained = True
@@ -179,7 +179,7 @@ class XRSDModel(object):
         rfe_feats = []
         test_model = self.build_model()
         y_true = data[self.target].copy()
-        y_xval = self._run_cross_validation(test_model,data,model_feats)
+        y_xval = self._cross_validation_test(test_model,data,model_feats)
         cv = self.cv_report(data,y_true,y_xval)
         cv_metrics.append(cv['minimization_score'])
         rfe_feats.append(copy.deepcopy(model_feats))
@@ -194,7 +194,7 @@ class XRSDModel(object):
             for feat in model_feats:
                 trial_feats = copy.deepcopy(model_feats)
                 trial_feats.remove(feat)
-                y_xval = self._run_cross_validation(test_model,data,trial_feats)
+                y_xval = self._cross_validation_test(test_model,data,trial_feats)
                 cv = self.cv_report(data,y_true,y_xval)
                 feat_cv_metrics.append(cv['minimization_score'])
             best_cv_idx = np.argmin(feat_cv_metrics)
@@ -259,7 +259,20 @@ class XRSDModel(object):
         if any([ct<n_distinct for ct in distinct_value_counts]): return False
         return True
 
-    def _run_cross_validation(self,model,data,feature_names):
+    def run_cross_validation(self,data):
+        s_data = data.copy()
+        s_data[self.features] = self.scaler.transform(s_data[self.features])
+        y_xval = self._cross_validation_test(self.model,s_data,self.features)
+        return y_xval
+
+    def get_x_array(self,od):
+        """Extract input array from feature dictionary"""
+        return np.array([od[k] for k in self.features]).reshape(1,-1)
+
+    def predict(self,x):
+        raise NotImplementedError('XRSDModel subclasses must implement predict()')
+
+    def _cross_validation_test(self,model,data,feature_names):
         """Cross-validate a model by LeaveOneGroupOut. 
 
         The train/test groupings are defined by the 'group_id' labels,
