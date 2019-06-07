@@ -89,13 +89,15 @@ def predict_system_class(features):
         for struct_nm in xrsdefs.structure_names:
             model_id = struct_nm+'_binary'
             #if model_id in main_cls:
-            struct_result = main_cls[model_id].classify(features)
+            struct_result = main_cls[model_id].predict(
+                        main_cls[model_id].get_x_array(features))
             certainties[model_id] = struct_result[1]
             if struct_result[0]:
                 if flagged_structures: flagged_structures += '__'
                 flagged_structures += struct_nm
         if flagged_structures in main_cls:
-            sys_cls_result = main_cls[flagged_structures].classify(features)
+            sys_cls_result = main_cls[flagged_structures].predict(
+                            main_cls[flagged_structures].get_x_array(features))
             sys_cls = sys_cls_result[0]
             certainties['system_class'] = sys_cls_result[1]
         else:
@@ -134,7 +136,8 @@ def predict_noise(features, sys_cls, noise_m=None):
     reg_models_to_use = regressors[sys_cls]
 
     if noise_m is None:
-        noise_model = cl_models_to_use['noise_model'].classify(features)
+        noise_model = cl_models_to_use['noise_model'].predict(
+                    cl_models_to_use['noise_model'].get_x_array(features))
     else:
         noise_model = (noise_m, None)
 
@@ -146,7 +149,8 @@ def predict_noise(features, sys_cls, noise_m=None):
     param_nms.pop(param_nms.index('I0'))
     noise_params = {}
     for param_nm in param_nms+['I0_fraction']:
-        noise_params['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].predict(features)
+        noise_params['noise_'+param_nm] = reg_models_to_use['noise'][nmodl][param_nm].predict(
+                                        reg_models_to_use['noise'][nmodl][param_nm].get_x_array(features))
     return noise_model, noise_params
 
 def predict_form_factors(features, sys_cl):
@@ -171,7 +175,8 @@ def predict_form_factors(features, sys_cl):
     form_factors = {}
     for ipop, struct in enumerate(sys_cl.split('__')):
         pop_id = 'pop{}'.format(ipop)
-        form_factors[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].classify(features)
+        form_factors[pop_id+'_form'] = cl_models_to_use[pop_id]['form'].predict(
+                                cl_models_to_use[pop_id]['form'].get_x_array(features))
     return form_factors
 
 def predict_settings(features, sys_cl, form_factors):
@@ -201,11 +206,13 @@ def predict_settings(features, sys_cl, form_factors):
 
         # evaluate any modelable settings for this structure
         for stg_nm in xrsdefs.modelable_structure_settings[struct]:
-            settings[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][stg_nm].classify(features)
+            settings[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][stg_nm].predict(
+                                    cl_models_to_use[pop_id][stg_nm].get_x_array(features))
 
         # evaluate any modelable settings for this form factor
         for stg_nm in xrsdefs.modelable_form_factor_settings[ff_nm]:
-            settings[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][ff_nm][stg_nm].classify(features)
+            settings[pop_id+'_'+stg_nm] = cl_models_to_use[pop_id][ff_nm][stg_nm].predict(
+                                    cl_models_to_use[pop_id][ff_nm][stg_nm].get_x_array(features))
     return settings
 
 def predict_parameters(features, sys_cls, form_factors, settings):
@@ -236,11 +243,13 @@ def predict_parameters(features, sys_cls, form_factors, settings):
         ff_nm = form_factors[pop_id+'_form'][0]
 
         # evaluate I0_fraction
-        parameters[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(features)
+        parameters[pop_id+'_I0_fraction'] = reg_models_to_use[pop_id]['I0_fraction'].predict(
+                                    reg_models_to_use[pop_id]['I0_fraction'].get_x_array(features))
 
         # evaluate form factor parameters
         for param_nm,param_default in xrsdefs.form_factor_params[ff_nm].items():
-            parameters[pop_id+'_'+param_nm] = reg_models_to_use[pop_id][ff_nm][param_nm].predict(features)
+            parameters[pop_id+'_'+param_nm] = reg_models_to_use[pop_id][ff_nm][param_nm].predict(
+                                    reg_models_to_use[pop_id][ff_nm][param_nm].get_x_array(features))
 
         # take each structure setting
         for stg_nm in xrsdefs.modelable_structure_settings[struct]:
@@ -248,7 +257,8 @@ def predict_parameters(features, sys_cls, form_factors, settings):
             # evaluate any additional parameters that depend on this setting
             for param_nm in xrsdefs.structure_params(struct,{stg_nm:stg_val}):
                 parameters[pop_id+'_'+param_nm] = \
-                reg_models_to_use[pop_id][stg_nm][stg_val][param_nm].predict(features)
+                reg_models_to_use[pop_id][stg_nm][stg_val][param_nm].predict(
+                        reg_models_to_use[pop_id][stg_nm][stg_val][param_nm].get_x_array(features))
 
         # take each form factor setting
         for stg_nm in xrsdefs.modelable_form_factor_settings[ff_nm]:
@@ -256,7 +266,8 @@ def predict_parameters(features, sys_cls, form_factors, settings):
             # evaluate any additional parameters that depend on this setting
             for param_nm in xrsdefs.additional_form_factor_params(ff_nm,{stg_nm:stg_val}):
                 parameters[pop_id+'_'+param_nm] = \
-                reg_models_to_use[pop_id][ff_nm][stg_nm][stg_val][param_nm].predict(features)
+                reg_models_to_use[pop_id][ff_nm][stg_nm][stg_val][param_nm].predict(
+                        reg_models_to_use[pop_id][ff_nm][stg_nm][stg_val][param_nm].get_x_array(features))
 
     return parameters
 

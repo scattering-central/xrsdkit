@@ -90,7 +90,7 @@ class Regressor(XRSDModel):
         data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
         return data
 
-    def predict_all(self,data):
+    def predict(self,data):
         """Run predictions for each row of input `data`.
 
         Each row of `data` represents one sample.
@@ -98,7 +98,7 @@ class Regressor(XRSDModel):
 
         Parameters
         ----------
-        data : array
+        data : array-like
         
         Returns
         -------
@@ -110,28 +110,6 @@ class Regressor(XRSDModel):
         else:
             preds = self.default_val*np.ones(data.shape[0])
         return preds 
-
-    def predict(self, sample_features):
-        """Predict this model's scalar target for one sample. 
-
-        Parameters
-        ----------
-        sample_features : OrderedDict
-            OrderedDict of features with their values,
-            similar to output of xrsdkit.tools.profiler.profile_pattern()
-
-        Returns
-        -------
-        prediction : float
-            predicted parameter value
-        """
-        if self.trained:
-            feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-            feature_idx = [k in self.features for k in sample_features.keys()]
-            x = self.scaler.transform(feature_array)[:, feature_idx]
-            return float(self.scaler_y.inverse_transform(self.model.predict(x))[0])
-        else:
-            return self.default_val
 
     def get_cv_summary(self):
         return dict(model_type=self.model_type,
