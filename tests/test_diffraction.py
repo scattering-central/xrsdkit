@@ -22,7 +22,7 @@ hcp_spheres = Population(
     structure='crystalline',
     form='spherical',
     settings={'lattice':'hcp',
-        'space_group':'P6(3)/mmc','q_max':0.6,
+        'space_group':'P6(3)/mmc','q_max':0.2,
         'structure_factor_mode':'radial'},
     parameters=dict(
         a={'value':120.},
