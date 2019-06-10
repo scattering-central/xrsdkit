@@ -11,8 +11,8 @@ class Population(object):
     def __init__(self,structure,form,settings={},parameters={}):
         self.structure = None
         self.form = None
-        self.settings = {}
-        self.parameters = {}
+        self.settings = OrderedDict() 
+        self.parameters = OrderedDict() 
         self.set_structure(structure)
         self.set_form(form)
         self.update_settings(settings)
@@ -33,9 +33,11 @@ class Population(object):
     def update_settings(self,new_settings={}):
         current_settings = copy.deepcopy(self.settings)
         primary_settings = copy.deepcopy(xrsdefs.structure_settings[self.structure])
-        # edge case: self.form is None during __init__.
+        # edge case hander: self.form is None during __init__.
         if self.form: primary_settings.update(copy.deepcopy(xrsdefs.form_settings[self.form]))
-        # replace any primary_setting values with the new_settings
+        # replace any default values in primary_settings 
+        # with new_settings or current_settings,
+        # giving priority to new_settings
         for stgnm in primary_settings.keys():
             if stgnm in current_settings:
                 primary_settings[stgnm] = current_settings[stgnm]
@@ -53,12 +55,8 @@ class Population(object):
         all_settings.update(secondary_settings)
         # ensure validity
         xrsdefs.validate(self.structure,self.form,all_settings)
-        # remove any self.settings not in all_settings
-        for stg_nm in current_settings.keys():
-            if not stg_nm in all_settings:
-                self.settings.pop(stg_nm)
-        # update self.settings
-        self.settings.update(all_settings)
+        # take all_settings to be the new settings
+        self.settings = all_settings
         # update self.parameters to respect the new settings
         self.update_parameters()
 
@@ -70,7 +68,7 @@ class Population(object):
                 param_nm,self.structure,self.form,self.settings)  
                 raise ValueError(msg)
         # remove any non-valid params,
-        # copy current valid values to valid_params
+        # and copy any valid, existing values to valid_params
         current_param_nms = list(self.parameters.keys())
         for param_nm in current_param_nms:
             if param_nm in valid_params.keys():
