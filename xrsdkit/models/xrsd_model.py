@@ -172,6 +172,9 @@ class XRSDModel(object):
         Parameters
         ----------
         data : pandas.DataFrame
+            modeling dataset
+        features : list
+            features to be standardized
 
         Returns
         -------
