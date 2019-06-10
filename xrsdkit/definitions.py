@@ -56,49 +56,71 @@ def validate(structure,form,settings):
 # top-level settings, along with default values:
 # these settings must exist for the corresponding
 # structures and form factors
+#
+# specify setting names for all structures:
+# use fromkeys(list) get proper ordering
 structure_settings = dict(
-    diffuse = {},
-    disordered = {'interaction':'hard_spheres'},
-    crystalline = dict(
-        lattice = 'P_cubic',
-        space_group = '',
-        structure_factor_mode = 'local',
-        integration_mode = 'spherical',
-        texture = 'random',
-        profile = 'voigt',
-        polarization_correction = True,
-        lorentz_correction = True,
-        use_symmetry = True
-        )
+    diffuse = OrderedDict(),
+    disordered = OrderedDict.fromkeys(['interaction']),
+    crystalline = OrderedDict.fromkeys(['lattice','space_group',\
+            'texture','integration_mode','use_symmetry',\
+            'structure_factor_mode','profile',\
+            'polarization_correction','lorentz_correction']
+            )
+    )
+# use update() to specify default values
+structure_settings['disordered'].update(interaction='hard_spheres'),
+structure_settings['crystalline'].update(
+    lattice = 'P_cubic',
+    space_group = '',
+    structure_factor_mode = 'local',
+    integration_mode = 'spherical',
+    texture = 'random',
+    profile = 'voigt',
+    polarization_correction = True,
+    lorentz_correction = True,
+    use_symmetry = True
     )
 form_settings = dict(
-    atomic = {'symbol':'C'},
-    polyatomic = {'n_atoms':2},
-    guinier_porod = {'distribution':'single'},
-    spherical = {'distribution':'single'}
+    atomic = OrderedDict.fromkeys(['symbol']),
+    polyatomic = OrderedDict.fromkeys(['n_atoms']),
+    guinier_porod = OrderedDict(),
+    spherical = OrderedDict.fromkeys(['distribution'])
     )
+form_settings['atomic'].update(symbol='C')
+form_settings['polyatomic'].update(n_atoms=2)
+form_settings['spherical'].update(distribution='single')
 
 # top-level parameters, along with default definitions:
 # these parameters are always valid for the corresponding
 # form factors and noise models, 
 # regardless of settings, etc.
 form_factor_params = dict(
-    atomic = {},
-    polyatomic = {},
-    guinier_porod = dict(
-        rg = {'value':10.,'fixed':False,'bounds':[0.1,None],'constraint_expr':None},
-        D = {'value':4.,'fixed':True,'bounds':[0.,4.],'constraint_expr':None} 
-        ),
-    spherical = {'r':{'value':20.,'fixed':False,'bounds':[0.1,None],'constraint_expr':None}}
+    atomic = OrderedDict(),
+    polyatomic = OrderedDict(),
+    guinier_porod = OrderedDict.fromkeys(['rg','D']),
+    spherical = OrderedDict.fromkeys(['r'])
+    )
+form_factor_params['guinier_porod'].update(
+    rg = {'value':10.,'fixed':False,'bounds':[0.1,None],'constraint_expr':None},
+    D = {'value':4.,'fixed':True,'bounds':[0.,4.],'constraint_expr':None} 
+    )
+form_factor_params['spherical'].update(
+    r={'value':20.,'fixed':False,'bounds':[0.1,None],'constraint_expr':None}
     )
 noise_params = dict(
-    flat = {'I0':{'value':1.E-3,'fixed':False,'bounds':[0.,None],'constraint_expr':None}},
-    low_q_scatter = dict(
-        I0 = {'value':100,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
-        I0_flat_fraction = {'value':0.01,'fixed':False,'bounds':[0.,1.],'constraint_expr':None},
-        effective_rg = {'value':100.,'fixed':True,'bounds':[0.1,None],'constraint_expr':None},
-        effective_D = {'value':4.,'fixed':True,'bounds':[0.,4.],'constraint_expr':None} 
-        )
+    flat = OrderedDict.fromkeys(['I0']),
+    low_q_scatter = OrderedDict.fromkeys(
+        ['I0','I0_flat_fraction','effective_rg','effective_D'])
+    )
+noise_params['flat'].update(
+    I0={'value':1.E-3,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
+    )
+noise_params['low_q_scatter'].update(
+    I0 = {'value':100,'fixed':False,'bounds':[0.,None],'constraint_expr':None},
+    I0_flat_fraction = {'value':0.01,'fixed':False,'bounds':[0.,1.],'constraint_expr':None},
+    effective_rg = {'value':100.,'fixed':False,'bounds':[0.1,None],'constraint_expr':None},
+    effective_D = {'value':4.,'fixed':False,'bounds':[0.,4.],'constraint_expr':None} 
     )
 
 # crystal system and lattice definitions
@@ -150,33 +172,22 @@ def secondary_settings(structure,form,primary_settings):
 
     Returns
     -------
-    stgs : dict
-        Dict of all possible settings along with sensible default values
+    sec_stgs : OrderedDict
+        Dict of secondary settings along with sensible default values
     """
-    #stgs = {}
-    #stgs.update(copy.deepcopy(structure_settings[structure]))
-    #if form:
-    #    stgs.update(copy.deepcopy(form_settings[form]))
-    #stgs.update(prior_settings)
-    #for stg_nm in stgs.keys():
-    #    if (stg_nm in prior_settings) \
-    #    and (prior_settings[stg_nm] in setting_selections(structure,form,prior_settings)):
-    #        stgs[stg_nm] = prior_settings[stg_nm]
-    sec_stgs = {}
+    sec_stgs = OrderedDict() 
     for stg_nm,stg_val in primary_settings.items():
         if stg_nm == 'n_atoms':
-            sec_stgs.update(
-                dict([('symbol_{}'.format(iat),'H') for iat in range(stg_val)]) 
-                )
+            for iat in range(stg_val):
+                sec_stgs['symbol_{}'.format(iat)] = 'H'
         if stg_nm == 'integration_mode':
             if stg_val == 'spherical':
-                sec_stgs.update({'q_min':0.,'q_max':1.})
+                sec_stgs['q_min'] = 0.
+                sec_stgs['q_max'] = 1.
         if stg_nm == 'distribution' and form == 'spherical':
             if stg_val == 'r_normal':
-                sec_stgs.update({'sampling_width':3.5,'sampling_step':0.05})
-        #if stg_nm == 'distribution' and form == 'guinier_porod':
-        #    if stg_val == 'rg_normal':
-        #        sec_stgs.update({'sampling_width':2.0,'sampling_step':0.1})
+                sec_stgs['sampling_width']=3.5
+                sec_stgs['sampling_step']=0.05
     return sec_stgs 
 
 # datatypes for all settings 
@@ -199,7 +210,7 @@ def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
     if stg_nm == 'lattice': return all_lattices
     if stg_nm == 'space_group':
         if 'lattice' in prior_settings:
-            valid_sgs = lattice_space_groups[prior_settings['lattice']]
+            valid_sgs = list(lattice_space_groups[prior_settings['lattice']].values())
             return ['']+valid_sgs
         else:
             return ['']
@@ -219,87 +230,65 @@ def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
 
 # generate any additional parameters that depend on setting selections
 def structure_params(structure,prior_settings):
-    params = {}
+    params = OrderedDict() 
     if structure == 'disordered':
         if 'interaction' in prior_settings:
             if prior_settings['interaction'] == 'hard_spheres':
-                params.update(
-                    r_hard = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},
-                    v_fraction = {'value':0.5,'fixed':False,'bounds':[0.01,0.7405],'constraint_expr':None}
-                    ) 
+                params['r_hard'] = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['v_fraction'] = {'value':0.5,'fixed':False,'bounds':[0.01,0.7405],'constraint_expr':None}
+            # NOTE: parameters for new interactions potentials would go here
     if structure == 'crystalline':
         if 'lattice' in prior_settings:
             if prior_settings['lattice'] in ['P_cubic','I_cubic','F_cubic','diamond','hcp']:
-                params.update(a={'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None})
+                params['a']={'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
             if prior_settings['lattice'] in ['hexagonal','P_tetragonal','I_tetragonal']:
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    c = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}  
-                    ) 
+                params['a'] = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['c'] = {'value':20.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
             if prior_settings['lattice'] == 'rhombohedral':
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    alpha = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}  
-                    ) 
+                params['a'] = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['alpha'] = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}
             if prior_settings['lattice'] in ['P_orthorhombic','C_orthorhombic','I_orthorhombic','F_orthorhombic']:
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}  
-                    ) 
+                params['a'] = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['b'] = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['c'] = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
             if prior_settings['lattice'] in ['P_monoclinic','C_monoclinic']:
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}, 
-                    beta = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}  
-                    )
+                params['a'] = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['b'] = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['c'] = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['beta'] = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}
             if prior_settings['lattice'] == 'triclinic':
-                params.update(
-                    a = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    b = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None},  
-                    c = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}, 
-                    alpha = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None},  
-                    beta = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}, 
-                    gamma = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None} 
-                    )
+                params['a'] = {'value':10.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['b'] = {'value':12.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['c'] = {'value':15.,'fixed':False,'bounds':[1.E-1,None],'constraint_expr':None}
+                params['alpha'] = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}
+                params['beta'] = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}
+                params['gamma'] = {'value':90.,'fixed':False,'bounds':[0,180.],'constraint_expr':None}
         if 'profile' in prior_settings:
             if prior_settings['profile'] == 'voigt':
-                params.update(
-                    hwhm_g = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None},
-                    hwhm_l = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
-                    )
+                params['hwhm_g'] = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
+                params['hwhm_l'] = {'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
             if prior_settings['profile'] in ['gaussian','lorentzian']:
-                params.update(hwhm={'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None})
+                params['hwhm']={'value':1.E-3,'fixed':False,'bounds':[1.E-9,None],'constraint_expr':None}
     return params
 
 def additional_form_factor_params(form,prior_settings):
+    params = OrderedDict()
     if form == 'polyatomic':
         if 'n_atoms' in prior_settings:
-            coord_params = {} 
             for iat in range(prior_settings['n_atoms']):
-                coord_params.update({
-                    'u_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
-                    'v_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None},
-                    'w_'+str(iat): {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None} 
-                    })
-            for iat in range(prior_settings['n_atoms']):
-                coord_params.update( 
-                    {'occupancy_'+str(iat):{'value':1.,'fixed':True,'bounds':[0.,1.],'constraint_expr':None}}
-                    )
-            return coord_params
-    #if form == 'guinier_porod':
-    #    if 'distribution' in prior_settings:
-    #        if prior_settings['distribution'] == 'rg_normal':
-    #            return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
+                params['occupancy_{}'.format(iat)] = {'value':1.,'fixed':True,'bounds':[0.,1.],'constraint_expr':None}
+                params['u_{}'.format(iat)] = {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None}
+                params['v_{}'.format(iat)] = {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None}
+                params['w_{}'.format(iat)] = {'value':0.1*iat,'fixed':True,'bounds':[-1.,1.],'constraint_expr':None}
     if form == 'spherical':
         if 'distribution' in prior_settings:
             if prior_settings['distribution'] == 'r_normal':
-                return {'sigma':{'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}}
-    return {} 
+                params['sigma'] = {'value':0.05,'fixed':False,'bounds':[0.,2.],'constraint_expr':None}
+    return params 
 
 def all_params(structure,form=None,prior_settings={}):
-    all_pars = {'I0':{'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}}
+    all_pars = OrderedDict()
+    all_pars['I0'] = {'value':1.,'fixed':False,'bounds':[0.,None],'constraint_expr':None}
     all_pars.update(structure_params(structure,prior_settings))
     if form: all_pars.update(copy.deepcopy(form_factor_params[form]))
     if form: all_pars.update(additional_form_factor_params(form,prior_settings))
