@@ -38,7 +38,7 @@ symmetry_operations['m-3m'] = [\
     # TODO: add the 3-fold x+y+z-rotoinversion
     ]
 symmetry_operations['6/mmm'] = [\
-    inversion#, mirror_z, mirror_x_y, mirror_nx_y
+    inversion, mirror_z, mirror_x_y, mirror_nx_y
     ]
 
 def symmetrize_points(all_hkl,rlat,space_group=None,symprec=1.E-6):

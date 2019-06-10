@@ -58,8 +58,7 @@ def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
                     settings['sampling_width'],settings['sampling_step']
                     )
         if form == 'guinier_porod':
-            if settings['distribution'] == 'single':
-                ff_sqr = guinier_porod_intensity(q,parameters['rg']['value'],parameters['D']['value']) 
+            ff_sqr = guinier_porod_intensity(q,parameters['rg']['value'],parameters['D']['value']) 
         if structure == 'disordered':
             sf = xrsf.hard_sphere_sf(q,parameters['r_hard']['value'],parameters['v_fraction']['value'])
             return parameters['I0']['value'] * sf * ff_sqr 
