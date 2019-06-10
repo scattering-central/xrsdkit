@@ -55,7 +55,8 @@ def symmetrize_points(all_hkl,rlat,space_group=None,symprec=1.E-6):
     hkl_rank = all_hkl[:,0]*(hkl_range[1]+1)*(hkl_range[2]+1) + all_hkl[:,1]*(hkl_range[2]+1) + all_hkl[:,2]
     sym_ops = []
     if point_group:
-        if point_group in symmetry_operations:
+        if (point_group in symmetry_operations) \
+        and (symmetry_operations[point_group] is not None):
             sym_ops = symmetry_operations[point_group]
     for op in sym_ops:
         sym_pts = np.dot(op,lat_pts.T).T 

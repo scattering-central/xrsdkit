@@ -40,12 +40,15 @@ def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
             q,source_wavelength,settings['lattice'],latparams,coords,ff_funcs,pk_func,occs,
             q_min=settings['q_min'],q_max=settings['q_max'],
             space_group=settings['space_group'],
-            sf_mode=settings['structure_factor_mode']
+            sf_mode=settings['structure_factor_mode'],
+            polz_correction=settings['polarization_correction'],
+            lorentz_correction=settings['lorentz_correction'],
+            use_symmetry=settings['use_symmetry']
             )
         return parameters['I0']['value'] * I_xtal
     else:
         if form == 'atomic':
-            ff_sqr = xrff.atomic_ff(q,settings['symbol']) ** 2
+            ff_sqr = xrff.atomic_ff_normalized(q,settings['symbol']) ** 2
         if form == 'spherical':
             if settings['distribution'] == 'single':
                 ff_sqr = xrff.spherical_ff(q,parameters['r']['value']) ** 2
@@ -219,7 +222,6 @@ def integrated_isotropic_diffraction_intensity(
     numpy.array
         Diffracted intensity, normalized such that I(q=0) is equal to 1.
     """
-    #import pdb; pdb.set_trace()
     if not source_wavelength:
         raise ValueError('cannot compute diffraction with source wavelength of {}'.format(source_wavelength))
     if not q_max: q_max = q[-1]
