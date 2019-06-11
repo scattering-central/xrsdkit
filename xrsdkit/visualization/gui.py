@@ -233,13 +233,13 @@ class XRSDFitGUI(object):
         control_frame.grid(row=0,column=1,sticky='nesw',padx=2,pady=2)
         control_frame_canvas = tkinter.Canvas(control_frame)
         # TODO: figure out how to make the mousewheel control the currently-focused frame-
-        # the current approach will always scroll control_frame regardless of focus-
+        # the "bind_all" approach will always scroll control_frame regardless of focus-
         # some research suggests the use of bind_class with a custom bindtag,
         # but this has not yet been implemented successfully
         #self.fit_gui.bind_class("scrollable_controls","<MouseWheel>",partial(self.on_mousewheel,control_frame_canvas))
-        control_frame.bind_all("<MouseWheel>", partial(self.on_mousewheel,control_frame_canvas))
-        control_frame.bind_all("<Button-4>", partial(self.on_trackpad,control_frame_canvas))
-        control_frame.bind_all("<Button-5>", partial(self.on_trackpad,control_frame_canvas))
+        #control_frame.bind_all("<MouseWheel>", partial(self.on_mousewheel,control_frame_canvas))
+        #control_frame.bind_all("<Button-4>", partial(self.on_trackpad,control_frame_canvas))
+        #control_frame.bind_all("<Button-5>", partial(self.on_trackpad,control_frame_canvas))
         yscr = tkinter.Scrollbar(control_frame)
         yscr.pack(side=tkinter.RIGHT,fill='y')
         control_frame_canvas.pack(fill='both',expand=True)
