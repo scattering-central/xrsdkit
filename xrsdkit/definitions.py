@@ -149,7 +149,7 @@ modelable_structure_settings = dict(
 modelable_form_factor_settings = dict(
     atomic = ['symbol'],
     polyatomic = ['n_atoms'],
-    guinier_porod = ['distribution'],
+    guinier_porod = [],
     spherical = ['distribution']
     )
 
@@ -220,8 +220,6 @@ def setting_selections(stg_nm,structure=None,form=None,prior_settings={}):
     if stg_nm == 'integration_mode': return ['spherical']
     if stg_nm == 'interaction': return ['hard_spheres']
     if stg_nm == 'distribution':
-        if form == 'guinier_porod':
-            return ['single']#,'rg_normal']
         if form == 'spherical':
             return ['single','r_normal']
     if stg_nm in ['q_min','q_max','sampling_width','sampling_step']: return []
