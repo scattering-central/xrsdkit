@@ -1058,13 +1058,13 @@ class XRSDFitGUI(object):
         stgl.grid(row=0,column=0,sticky='e')
         s = parent_obj.settings[stg_nm]
         stgv.set(str(s))
-        stgv.trace('w',partial(self._update_setting,pop_nm,stg_nm))
 
         stg_sel = xrsdefs.setting_selections(stg_nm,parent_obj.structure,parent_obj.form,parent_obj.settings)
         if stg_sel:
             stgcb = ttk.Combobox(stgf,textvariable=stgv,
                     values=stg_sel,state='readonly')
             stgcb.grid(row=0,column=1,sticky='ew')
+            stgv.trace('w',partial(self._update_setting,pop_nm,stg_nm))
         else:
             stge = self.connected_entry(stgf,stgv,partial(self._update_setting,pop_nm,stg_nm))
             stge.grid(row=0,column=1,sticky='w')
