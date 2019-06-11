@@ -40,12 +40,15 @@ def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
             q,source_wavelength,settings['lattice'],latparams,coords,ff_funcs,pk_func,occs,
             q_min=settings['q_min'],q_max=settings['q_max'],
             space_group=settings['space_group'],
-            sf_mode=settings['structure_factor_mode']
+            sf_mode=settings['structure_factor_mode'],
+            polz_correction=settings['polarization_correction'],
+            lorentz_correction=settings['lorentz_correction'],
+            use_symmetry=settings['use_symmetry']
             )
         return parameters['I0']['value'] * I_xtal
     else:
         if form == 'atomic':
-            ff_sqr = xrff.atomic_ff(q,settings['symbol']) ** 2
+            ff_sqr = xrff.atomic_ff_normalized(q,settings['symbol']) ** 2
         if form == 'spherical':
             if settings['distribution'] == 'single':
                 ff_sqr = xrff.spherical_ff(q,parameters['r']['value']) ** 2
@@ -55,8 +58,7 @@ def compute_intensity(q,source_wavelength,structure,form,settings,parameters):
                     settings['sampling_width'],settings['sampling_step']
                     )
         if form == 'guinier_porod':
-            if settings['distribution'] == 'single':
-                ff_sqr = guinier_porod_intensity(q,parameters['rg']['value'],parameters['D']['value']) 
+            ff_sqr = guinier_porod_intensity(q,parameters['rg']['value'],parameters['D']['value']) 
         if structure == 'disordered':
             sf = xrsf.hard_sphere_sf(q,parameters['r_hard']['value'],parameters['v_fraction']['value'])
             return parameters['I0']['value'] * sf * ff_sqr 
@@ -162,7 +164,8 @@ def spherical_normal_intensity(q,r0,sigma,sampling_width=3.5,sampling_step=0.05)
 # TODO: vectorize and parallelize where possible
 def integrated_isotropic_diffraction_intensity(
     q,source_wavelength,lattice,latparams,coords,ff_funcs,pk_func,
-    occupancies=None,q_min=0.,q_max=None,space_group='',sf_mode='local'):
+    occupancies=None,q_min=0.,q_max=None,space_group='',sf_mode='local',
+    polz_correction=True,lorentz_correction=True,use_symmetry=True):
     """Compute integrated diffraction pattern for an isotropic (powder-like) system.
 
     Parameters
@@ -201,13 +204,23 @@ def integrated_isotropic_diffraction_intensity(
         from the reciprocal space origin through the lattice point.
         The 'radial' mode is meant to capture the effects of 
         form factors that vary considerably within peak widths.
+    polz_correction : bool
+        If True, a polarization correction of (1+cos^2(2*theta))/2 is applied,
+        where lambda*q = 4*pi*sin(theta), for all input `q` values. 
+    lorentz_correction : bool
+        If True, the Lorentz correction of 1/(sin(theta)*sin(2*theta))
+        is applied separately to each peak.
+        This is not applied for all `q` values because it is indefinite at q=0.
+    use_symmetry : bool
+        If True, the summation over reciprocal space is reduced
+        by applying the symmetry operations of the point group associated with the `space_group`,
+        and multiplicity factors are collected and applied accordingly
 
     Returns
     -------
     numpy.array
         Diffracted intensity, normalized such that I(q=0) is equal to 1.
     """
-    #import pdb; pdb.set_trace()
     if not source_wavelength:
         raise ValueError('cannot compute diffraction with source wavelength of {}'.format(source_wavelength))
     if not q_max: q_max = q[-1]
@@ -219,8 +232,10 @@ def integrated_isotropic_diffraction_intensity(
     n_q = len(q)
     I = np.zeros(n_q)
     th = np.arcsin(source_wavelength*q/(4.*np.pi))
-    # polarization factor 
-    pz = 0.5*(1.+np.cos(2.*th)**2) 
+    # polarization factor
+    pz = np.ones(n_q)
+    if polz_correction: 
+        pz = 0.5*(1.+np.cos(2.*th)**2) 
     I0 = 0.
     q0 = np.array([0.])
 
@@ -263,9 +278,10 @@ def integrated_isotropic_diffraction_intensity(
         return np.zeros(n_q)
     
     # symmetrize the hkl sampling, save the multiplicities 
-    # TODO: determine whether or not this can be done solely based on the point group
-    #point_group = xrsdefs.sg_point_groups[space_group]
-    reduced_hkl,hkl_mults = xrsdsym.symmetrize_points(all_hkl,np.array([b1,b2,b3]),space_group)  
+    reduced_hkl = all_hkl
+    hkl_mults = np.ones(all_hkl.shape[0])
+    if use_symmetry:
+        reduced_hkl,hkl_mults = xrsdsym.symmetrize_points(all_hkl,np.array([b1,b2,b3]),space_group)  
 
     # g-vector magnitude for all hkl
     absg_hkl = np.linalg.norm(np.dot(reduced_hkl,[b1,b2,b3]),axis=1)
@@ -276,7 +292,9 @@ def integrated_isotropic_diffraction_intensity(
     # diffraction angle theta for all hkl
     th_hkl = np.arcsin(source_wavelength*absq_hkl/(4.*np.pi))
     # Lorentz factors for all hkl
-    ltz_hkl = 1. / (np.sin(th_hkl)*np.sin(2*th_hkl))
+    ltz_hkl = np.ones(th_hkl.shape[0])
+    if lorentz_correction:
+        ltz_hkl = 1. / (np.sin(th_hkl)*np.sin(2*th_hkl))
 
     # peak profiles for all abs(q) values
     # TODO: vectorize this?

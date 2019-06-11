@@ -5,9 +5,10 @@ import numpy as np
 
 from .. import definitions as xrsdefs
 
-def atomic_ff(q,atom_symbol):
+def atomic_ff_normalized(q,atom_symbol):
     pars = xrsdefs.atomic_params[atom_symbol]
-    return compute_atomic_ff(q,pars['Z'],pars['a'],pars['b'])
+    ff = compute_atomic_ff(q,pars['Z'],pars['a'],pars['b']) 
+    return ff/pars['Z']
 
 def compute_atomic_ff(q,Z,a,b):
     g = q*1./(2*np.pi)
@@ -27,7 +28,7 @@ def spherical_ff(q,r):
         return 3.*(np.sin(x)-x*np.cos(x))*x**-3
 
 def atomic_ff_func(atom_symbol):
-    return lambda q,atom_symbol=atom_symbol: atomic_ff(q,atom_symbol)
+    return lambda q,atom_symbol=atom_symbol: atomic_ff_normalized(q,atom_symbol)
 
 def spherical_ff_func(r):
     return lambda q,r=r: spherical_ff(q,r)

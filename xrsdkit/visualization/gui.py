@@ -11,6 +11,7 @@ else:
     import tkinter
     from tkinter import filedialog
 import warnings
+from tkinter import ttk
 
 import numpy as np
 import matplotlib
@@ -137,7 +138,7 @@ class XRSDFitGUI(object):
         """
         super(XRSDFitGUI, self).__init__()
         # start with a default system definition, q, and I(q)
-        self.sys = xrsdsys.System()
+        self.sys = xrsdsys.System(sample_metadata={'source_wavelength':1.5406})
         self.q = q_default
         self.I = I_default
         self.dI = None
@@ -277,9 +278,9 @@ class XRSDFitGUI(object):
             io_control=OrderedDict()
             )
         self._widgets = OrderedDict(
-            datafile_option_menu = None,
-            sys_def_path_display = None,
-            yml_loader_menu = None
+            data_file_cb = None,
+            yml_file_display = None,
+            param_loader_cb = None
             )
 
     def _create_control_widgets(self):
@@ -351,7 +352,7 @@ class XRSDFitGUI(object):
         sysfldb = tkinter.Button(iof,text='Load',width=8,command=self._load_sys_file) 
         sysfsvb.grid(row=9,column=0,sticky='w')
         sysfldb.grid(row=9,column=2,sticky='e')
-        self._widgets['sys_def_path_display'] = sysfne
+        self._widgets['yml_file_display'] = sysfne
 
         ymlfl = tkinter.Label(iof,text='load parameters from:',anchor='e')
         ymlfl.grid(row=11,column=0,sticky='w')
@@ -609,23 +610,28 @@ class XRSDFitGUI(object):
 
     def _set_data_files(self,all_data_files={}):
         self.data_files = all_data_files
-        df_options_dict = {'':None}
-        ymlf_options_dict = {'':None}
-        if all_data_files:
-            df_options_dict = OrderedDict.fromkeys(all_data_files.keys())
-            ymlf_options_dict = OrderedDict.fromkeys(all_data_files.values())
-        dfcb = tkinter.OptionMenu(self._frames['io_control'],self._vars['io_control']['data_file'],*df_options_dict)
-        ymlfcb = tkinter.OptionMenu(self._frames['io_control'],self._vars['io_control']['params_file'],*ymlf_options_dict)
-        dfcb.config(width=10,anchor='e')
-        ymlfcb.config(width=10,anchor='e')
-        if self._widgets['datafile_option_menu']: 
-            self._widgets['datafile_option_menu'].grid_forget()
-        if self._widgets['yml_loader_menu']: 
-            self._widgets['yml_loader_menu'].grid_forget()
+
+        dfcb = ttk.Combobox(self._frames['io_control'],
+            textvariable=self._vars['io_control']['data_file'],
+            values=list(all_data_files.keys()),
+            state='readonly',
+            justify='right'     # NOTE: justify doesn't work
+            )
+        ymlfcb = ttk.Combobox(self._frames['io_control'],
+            textvariable=self._vars['io_control']['params_file'],
+            values=list(all_data_files.values()),
+            state='readonly',
+            justify='right'     # NOTE: justify doesn't work
+            ) 
+
+        if self._widgets['data_file_cb']: 
+            self._widgets['data_file_cb'].grid_forget()
+        if self._widgets['param_loader_cb']: 
+            self._widgets['param_loader_cb'].grid_forget()
         dfcb.grid(row=4,column=0,columnspan=3,sticky='ew')
         ymlfcb.grid(row=12,column=0,columnspan=3,sticky='ew')
-        self._widgets['datafile_option_menu'] = dfcb
-        self._widgets['params_loader_menu'] = ymlfcb 
+        self._widgets['data_file_cb'] = dfcb
+        self._widgets['param_loader_cb'] = ymlfcb 
         if self.data_files:
             self._next_data_file()
 
@@ -683,7 +689,7 @@ class XRSDFitGUI(object):
                 sysf = os.path.splitext(df)[0]+'.yml'
             self._vars['io_control']['sys_def_file'].set(sysf)
             self._vars['io_control']['params_file'].set(sysf)
-            self._widgets['sys_def_path_display'].xview(len(sysf))
+            self._widgets['yml_file_display'].xview(len(sysf))
             self._load_sys_file()
         else:
             self.q = q_default
@@ -695,7 +701,7 @@ class XRSDFitGUI(object):
     def _load_params_from_yml(self,*event_args):
         ymlf = self._vars['io_control']['params_file'].get()
         sys_def_ymlf = self._vars['io_control']['sys_def_file'].get()
-        if not ymlf == sys_def_ymlf:
+        if os.path.exists(ymlf) and not ymlf == sys_def_ymlf:
             new_sys = self.sys.clone() 
             for pop_nm in list(new_sys.populations.keys()):
                 new_sys.remove_population(pop_nm)
@@ -833,16 +839,17 @@ class XRSDFitGUI(object):
         nf.grid_columnconfigure(0,weight=1)
         self._frames['noise_model'] = nf
         nmf = tkinter.Frame(nf,bd=0) 
+        nmf.grid_rowconfigure(0,minsize=30)
         #nmf.grid_columnconfigure(0,weight=1)
         nl = tkinter.Label(nmf,text='noise model:',width=12,anchor='e',padx=10)
-        nl.pack(side=tkinter.LEFT)
+        nl.grid(row=0,column=0,sticky='e')
         ntpvar = tkinter.StringVar(nmf)
-        ntp_option_dict = list(xrsdefs.noise_model_names)
-        ntpcb = tkinter.OptionMenu(nmf,ntpvar,*ntp_option_dict)
         ntpvar.set(self.sys.noise_model.model)
         ntpvar.trace('w',self._update_noise)
-        ntpcb.pack(side=tkinter.LEFT,fill='x')
         self._vars['noise_model'] = ntpvar
+        ntpcb = ttk.Combobox(nmf,textvariable=ntpvar,
+                state='readonly',values=xrsdefs.noise_model_names)
+        ntpcb.grid(row=0,column=1,sticky='ew')
         nmf.grid(row=0,sticky='ew')
 
         self._frames['parameters']['noise'] = OrderedDict()
@@ -895,6 +902,8 @@ class XRSDFitGUI(object):
         # NAME, STRUCTURE, and FORM: 
         plf = tkinter.Frame(pf,bd=0)
         plf.grid_columnconfigure(2,weight=1)
+        plf.grid_rowconfigure(1,minsize=30)
+        plf.grid_rowconfigure(2,minsize=30)
         popl = tkinter.Label(plf,text='population:',anchor='e')
         popnml = tkinter.Label(plf,text=pop_nm,anchor='w')
         popl.grid(row=0,column=0,sticky='e')
@@ -905,22 +914,22 @@ class XRSDFitGUI(object):
         strl = tkinter.Label(plf,text='structure:',width=12,anchor='e')
         strl.grid(row=1,column=0,sticky='e')
         strvar = tkinter.StringVar(plf)
-        str_option_dict = OrderedDict.fromkeys(xrsdefs.structure_names)
-        strcb = tkinter.OptionMenu(plf,strvar,*str_option_dict)
         strvar.set(pop_struct)
         strvar.trace('w',partial(self._update_structure,pop_nm))
-        strcb.grid(row=1,column=1,sticky='ew')
         self._vars['structures'][pop_nm] = strvar
+        strcb = ttk.Combobox(plf,textvariable=strvar,
+                values=xrsdefs.structure_names,state='readonly')
+        strcb.grid(row=1,column=1,sticky='ew')
         #
         ffl = tkinter.Label(plf,text='form factor:',width=12,anchor='e')
         ffl.grid(row=2,column=0,sticky='e')
         ffvar = tkinter.StringVar(plf)
-        ff_option_dict = OrderedDict.fromkeys(xrsdefs.form_factor_names)
-        ffcb = tkinter.OptionMenu(plf,ffvar,*ff_option_dict)
         ffvar.set(pop_form)
         ffvar.trace('w',partial(self._update_form_factor,pop_nm))
-        ffcb.grid(row=2,column=1,sticky='ew') 
         self._vars['form_factors'][pop_nm] = ffvar
+        ffcb = ttk.Combobox(plf,textvariable=ffvar,
+                values=xrsdefs.form_factor_names,state='readonly')
+        ffcb.grid(row=2,column=1,sticky='ew') 
         plf.grid(row=0,sticky='ew')
         #
         # SETTINGS:
@@ -952,8 +961,8 @@ class XRSDFitGUI(object):
         for stg_nm,frm in self._frames['settings'][pop_nm].items(): frm.grid_forget() 
         new_stg_frms = OrderedDict()
         # create new frames for all settings
-        # NOTE: it is tempting to "keep" some frames that need not be renewed,
-        # but if so, the relevant OptionMenu widgets would still need to be updated
+        # NOTE: it is tempting to "keep" frames for settings that still hold,
+        # but if so, the selection widgets would still need to be updated
         for stg_nm, stg_val in pop_settings.items():
             new_stg_frms[stg_nm] = self._create_setting_frame(pop_nm,stg_nm)
         # destroy any frames that didn't get repacked
@@ -970,9 +979,9 @@ class XRSDFitGUI(object):
         for par_nm,frm in self._frames['parameters'][pop_nm].items(): frm.grid_forget() 
         #self.fit_gui.update_idletasks()
         new_par_frms = OrderedDict()
+        # create new frames for all params
         # NOTE: it is tempting to "keep" some frames that need not be renewed,
         # but if so, the widgets for the bounds, constraints, etc. would still need to be updated 
-        # create new frames for all params
         for par_nm in pop_params: 
             new_par_frms[par_nm] = self._create_param_frame(pop_nm,par_nm)
         # destroy any frames that didn't get repacked
@@ -1040,19 +1049,22 @@ class XRSDFitGUI(object):
             stgv = tkinter.IntVar(parent_frame)
         elif xrsdefs.setting_datatypes(stg_nm) is float:
             stgv = tkinter.DoubleVar(parent_frame)
+        elif xrsdefs.setting_datatypes(stg_nm) is bool:
+            stgv = tkinter.BooleanVar(parent_frame)
         stg_frames[stg_nm] = stgf
         stg_vars[stg_nm] = stgv
 
-        stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=12,anchor='e')
+        stgl = tkinter.Label(stgf,text='{}:'.format(stg_nm),width=18,anchor='e')
         stgl.grid(row=0,column=0,sticky='e')
         s = parent_obj.settings[stg_nm]
         stgv.set(str(s))
 
-        stg_sel = OrderedDict.fromkeys(xrsdefs.setting_selections(stg_nm,parent_obj.structure,parent_obj.form))
+        stg_sel = xrsdefs.setting_selections(stg_nm,parent_obj.structure,parent_obj.form,parent_obj.settings)
         if stg_sel:
-            stgcb = tkinter.OptionMenu(stgf,stgv,*stg_sel)
+            stgcb = ttk.Combobox(stgf,textvariable=stgv,
+                    values=stg_sel,state='readonly')
+            stgcb.grid(row=0,column=1,sticky='ew')
             stgv.trace('w',partial(self._update_setting,pop_nm,stg_nm))
-            stgcb.grid(row=0,column=1,sticky='w')
         else:
             stge = self.connected_entry(stgf,stgv,partial(self._update_setting,pop_nm,stg_nm))
             stge.grid(row=0,column=1,sticky='w')
@@ -1339,13 +1351,12 @@ class XRSDFitGUI(object):
         self._vars['fit_control']['logI_weighted'].set(self.sys.fit_report['logI_weighted'])
         self._vars['fit_control']['experiment_id'].set(self.sys.sample_metadata['experiment_id'])
         self._vars['fit_control']['sample_id'].set(self.sys.sample_metadata['sample_id'])
-        self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
         if any([pp.structure=='crystalline' for pp in new_sys.populations.values()]):
             if new_sys.sample_metadata['source_wavelength'] == 0.:
                 # TODO: put this warning in a pop-up
                 warnings.warn('Diffraction computations require a nonzero wavelength: setting default 1.5406')
-                # NOTE: setting this var will also set the corresponding system attribute
-                self._vars['fit_control']['wavelength'].set(1.5406)
+                new_sys.sample_metadata['source_wavelength'].set(1.5406)
+        self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
         # repack everything 
         self._repack_noise_frame()
         self._repack_pop_frames()

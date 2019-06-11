@@ -83,6 +83,17 @@ class Regressor(XRSDModel):
         For the regression models the target must also be standardized,
         since the effects of model hyperparameters 
         are relative to the scale of the outputs. 
+
+        Parameters
+        ----------
+        data : pandas.DataFrame
+            modeling dataset
+        features : list
+            features to be standardized
+
+        Returns
+        -------
+        s_data : pandas.DataFrame
         """
         s_data = super(Regressor,self).standardize(data,features)
         self.scaler_y = preprocessing.StandardScaler() 
