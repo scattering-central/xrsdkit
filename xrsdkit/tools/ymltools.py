@@ -25,7 +25,7 @@ def load_sys_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(**sd)
 
-def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=print):
+def read_local_dataset(dataset_dirs, downsampling_distance=None,message_callback=print):
     """Load xrsdkit data from a directory.
 
     The main dataset directory should contain subdirectories,
@@ -43,8 +43,8 @@ def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=p
 
     Parameters
     ----------
-    dataset_dir : str
-        absolute path to the root directory of the dataset
+    dataset_dirs : list
+        list of absolute paths to the root directory of the datasets
 
     Returns
     -------
@@ -56,22 +56,23 @@ def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=p
     """
     sys_dicts = OrderedDict()
     idx_df = pd.DataFrame(columns=['sample_id','experiment_id','yml_file','data_file'])
-    for experiment in os.listdir(dataset_dir):
-        exp_data_dir = os.path.join(dataset_dir,experiment)
-        if os.path.isdir(exp_data_dir):
-            for s_data_file in os.listdir(exp_data_dir):
-                if s_data_file.endswith('.yml'):
-                    message_callback('loading data from {}'.format(s_data_file))
-                    file_path = os.path.join(exp_data_dir, s_data_file)
-                    sys = load_sys_from_yaml(file_path)
-                    data_file = sys.sample_metadata['data_file']
-                    idx_df = idx_df.append(dict(
-                                sample_id=sys.sample_metadata['sample_id'],
-                                experiment_id=sys.sample_metadata['experiment_id'],
-                                yml_file=s_data_file,
-                                data_file=sys.sample_metadata['data_file']
-                                ), ignore_index=True)
-                    sys_dicts[s_data_file] = sys.to_dict() 
+    for dataset_dir in dataset_dirs:
+        for experiment in os.listdir(dataset_dir):
+            exp_data_dir = os.path.join(dataset_dir,experiment)
+            if os.path.isdir(exp_data_dir):
+                for s_data_file in os.listdir(exp_data_dir):
+                    if s_data_file.endswith('.yml'):
+                        message_callback('loading data from {}'.format(s_data_file))
+                        file_path = os.path.join(exp_data_dir, s_data_file)
+                        sys = load_sys_from_yaml(file_path)
+                        data_file = sys.sample_metadata['data_file']
+                        idx_df = idx_df.append(dict(
+                                    sample_id=sys.sample_metadata['sample_id'],
+                                    experiment_id=sys.sample_metadata['experiment_id'],
+                                    yml_file=s_data_file,
+                                    data_file=sys.sample_metadata['data_file']
+                                    ), ignore_index=True)
+                        sys_dicts[s_data_file] = sys.to_dict()
     df = create_modeling_dataset(list(sys_dicts.values()),
                 downsampling_distance=downsampling_distance,
                 message_callback=message_callback)
