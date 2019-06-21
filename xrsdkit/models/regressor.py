@@ -178,10 +178,6 @@ class Regressor(XRSDModel):
             candidate_nvals = [len(vcts) for ggiidd,vcts in val_cts_by_group.items()]
             swap_gid = list(val_cts_by_group.keys())[np.argmax(candidate_nvals)]
             # swap the groups half-half:
-            
-            #import pdb; pdb.set_trace()
-            # TODO: TEST THIS
-
             # 1. temporarily assign half of swap_gid to temp_gid 
             group_ids.loc[group_ids==swap_gid][:int(round(ct/2))] = temp_gid
             # 2. assign half of gid to swap_gid 

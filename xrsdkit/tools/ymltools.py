@@ -25,7 +25,7 @@ def load_sys_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(**sd)
 
-def read_local_dataset(dataset_dirs, downsampling_distance=None,message_callback=print):
+def read_local_dataset(dataset_dirs, downsampling_distance=None, message_callback=print):
     """Load xrsdkit data from one or more local dataset directories.
 
     Each dataset directory should contain 
