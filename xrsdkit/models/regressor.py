@@ -117,7 +117,7 @@ class Regressor(XRSDModel):
         """
         if self.trained:
             X = self.scaler.transform(data)
-            preds = self.model.predict(X)
+            preds = self.scaler_y.inverse_transform(self.model.predict(X))
         else:
             preds = self.default_val*np.ones(data.shape[0])
         return preds 
