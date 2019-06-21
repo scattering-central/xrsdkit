@@ -26,17 +26,17 @@ def load_sys_from_yaml(file_path):
     return System(**sd)
 
 def read_local_dataset(dataset_dirs, downsampling_distance=None,message_callback=print):
-    """Load xrsdkit data from a directory.
+    """Load xrsdkit data from one or more local dataset directories.
 
-    The main dataset directory should contain subdirectories,
-    one for each experiment in the dataset.
+    Each dataset directory should contain 
+    one subdirectory for each experiment in the dataset.
     The subdirectory names should be the same as the experiment_id labels
     for all samples in the subdirectory.
     Each subdirectory should contain .yml files describing 
     the xrsdkit.system.System objects from the experiment.
-    Each .yml file should have a corresponding .dat file in the same directory,
-    where the .dat file contains the integrated scattering pattern.
-    The name of the .dat file should be specified in the .yml file,
+    Each .yml file should have a corresponding data file in the same directory,
+    where the data file contains the integrated scattering pattern.
+    The name of the data file should be specified in the .yml file,
     referenced to sample_metadata['data_file'].
     TODO: move this dataset description to the main documentation,  
     then refer to it from here.
@@ -44,7 +44,7 @@ def read_local_dataset(dataset_dirs, downsampling_distance=None,message_callback
     Parameters
     ----------
     dataset_dirs : list
-        list of absolute paths to the root directory of the datasets
+        list of absolute paths to the dataset root directories
 
     Returns
     -------

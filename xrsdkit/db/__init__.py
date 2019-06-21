@@ -242,13 +242,14 @@ def load_yml_to_file_table(db, path_to_dir, drop_table=False):
                     yml_path=file_path, good_fit=sys_dict['fit_report']['good_fit'])
 
 
-def download_sys_data(list_of_paths_to_dir):
-    """Download xrsdkit.system.System data from remote directory.
+def download_sys_data(list_of_paths):
+    """Download a dataset of xrsdkit samples from remote directories.
 
     Parameters
     ----------
-    list_of_paths_to_dir : list
-        list of absolute paths to the directory with the training set
+    list_of_paths : list
+        list of absolute paths to dataset directories
+        
 
     Returns
     -------
@@ -258,7 +259,7 @@ def download_sys_data(list_of_paths_to_dir):
     """
     # get the list of experiments that are in the dataset directory
     all_sys_dicts = OrderedDict()
-    for path_to_dir in list_of_paths_to_dir:
+    for path_to_dir in list_of_paths:
         stdin, stdout, stderr = storage_client.exec_command('ls '+path_to_dir)
         for experiment_id in stdout:
             experiment_id = experiment_id.strip('\n')
