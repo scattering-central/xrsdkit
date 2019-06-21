@@ -324,7 +324,7 @@ def sort_populations(struct_nm,pops_dict):
     if struct_nm == 'disordered': 
         # order disordered structures primarily by interaction,
         # secondly by form factor
-        intxns = xrsdefs.setting_selections(struct_nm)['interaction']
+        intxns = xrsdefs.setting_selections('interaction')
         for l in pop_labels: 
             param_vals[l].append(intxns.index(pops_dict[l].settings['interaction']))
         param_labels.append('interaction')
