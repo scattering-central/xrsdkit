@@ -55,8 +55,9 @@ def read_local_dataset(dataset_dirs, downsampling_distance=None, message_callbac
         with the corresponding experiment_id and sample_id.
     """
     sys_dicts = OrderedDict()
-    idx_df = pd.DataFrame(columns=['sample_id','experiment_id','yml_file','data_file'])
+    ind_dict = {}
     for dataset_dir in dataset_dirs:
+        idx_df = pd.DataFrame(columns=['sample_id','experiment_id','yml_file','data_file'])
         for experiment in os.listdir(dataset_dir):
             exp_data_dir = os.path.join(dataset_dir,experiment)
             if os.path.isdir(exp_data_dir):
@@ -73,10 +74,11 @@ def read_local_dataset(dataset_dirs, downsampling_distance=None, message_callbac
                                     data_file=sys.sample_metadata['data_file']
                                     ), ignore_index=True)
                         sys_dicts[s_data_file] = sys.to_dict()
+        ind_dict[dataset_dir] = idx_df
     df = create_modeling_dataset(list(sys_dicts.values()),
                 downsampling_distance=downsampling_distance,
                 message_callback=message_callback)
-    return df, idx_df
+    return df, ind_dict
     
 def match_data_to_yml(data_files,yml_files):
     all_data_files = OrderedDict()
