@@ -119,7 +119,7 @@ class Classifier(XRSDModel):
             try: # not all models have predict_proba()
                 certs = self.model.predict_proba(X)
             except:
-                certs = None
+                certs = np.zeros(data.shape[0])
         else:
             preds = np.array([self.default_val]*data.shape[0])
             certs = np.zeros(data.shape[0])
