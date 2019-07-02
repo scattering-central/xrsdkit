@@ -1,0 +1,57 @@
+features: {I_fluctuation: 0.11961253555481655, Ilowq_over_Imean: 7.638519406831723,
+  Imax_over_Imean: 15.268941407880117, Imax_sharpness: 1.028413868121382, best_hump_qwidth: 0.019736749706010068,
+  best_hump_qwidth_log: 0.03945063928060669, best_trough_qwidth: 2.0985288083750513,
+  best_trough_qwidth_log: 0.012085385480384762, logI_fluctuation: 1.9866395405267339,
+  logI_max_over_std: 3.081691056623076, pearson_expq: -0.49530469753227097, pearson_invexpq: 0.5725489115113743,
+  pearson_q: -0.5336969358409444, pearson_q2: -0.3998522839378782, q_Icentroid: 0.09086635092814772,
+  q_best_hump: 0.23247145092132013, q_best_hump_log: -0.015260848460250998, q_best_trough: 0.6320420045903976,
+  q_best_trough_log: 0.5586679044640236, q_logIcentroid: -0.3138658097255537, r_fftIcentroid: 0.09773059914896791}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.019376672863815
+  fit_snr: 14.627220461297286
+  good_fit: 0
+  initial_objective: 2.5237147247716556
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.9438719169168008
+pop0:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 114.2070058428625
+    r_hard:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 190.90547510107987
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 30.057049002261927
+    v_fraction:
+      bounds: [0.01, 0.7405]
+      constraint_expr: null
+      fixed: 0
+      value: 0.05804071758917838
+  settings: {interaction: hard_spheres}
+  structure: disordered
+sample_metadata: {data_file: RxnD_201902_17_dz_bgsub.dat, experiment_id: RxnD_201902,
+  notes: '', sample_id: RxnD_201902_1549725342, source_wavelength: 0.799898, time: 1549725342.625643}

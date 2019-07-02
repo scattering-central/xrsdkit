@@ -1,0 +1,136 @@
+condensed_particle:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.8675833529753718
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 24.930994042026263
+    r_hard:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 39.57510472129354
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.0565944188072931
+    v_fraction:
+      bounds: [0.01, 0.7405]
+      constraint_expr: null
+      fixed: 0
+      value: 0.47334358798811965
+  settings: {distribution: r_normal, interaction: hard_spheres, sampling_step: 0.05,
+    sampling_width: 3.5}
+  structure: disordered
+condensed_precursor:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.39297345904290304
+    r_hard:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 8.060280150803118
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 4.7756112005588625
+    v_fraction:
+      bounds: [0.01, 0.7405]
+      constraint_expr: null
+      fixed: 0
+      value: 0.29878060769954584
+  settings: {interaction: hard_spheres}
+  structure: disordered
+features: {I_fluctuation: 0.273424169773719, Ilowq_over_Imean: 2.750244900961844,
+  Imax_over_Imean: 36.08609495932017, Imax_sharpness: 2.1884823207277946, best_hump_qwidth: 2.9390058421506744,
+  best_hump_qwidth_log: 0.0020356815975761168, best_trough_qwidth: 0.18037129322012602,
+  best_trough_qwidth_log: 0.000700048497540909, logI_fluctuation: 2.6987222798767516,
+  logI_max_over_std: 3.838671776119652, pearson_expq: -0.35483277483999187, pearson_invexpq: 0.393127166039371,
+  pearson_q: -0.37473547589569, pearson_q2: -0.3038652185373415, q_Icentroid: 0.10911451297356684,
+  q_best_hump: 0.5290665555636377, q_best_hump_log: 0.5739733292823634, q_best_trough: 0.5976920865938546,
+  q_best_trough_log: 0.6002841283274529, q_logIcentroid: 0.09955153772024233, r_fftIcentroid: 0.06965989786336485}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.016975633228843084
+  fit_snr: 3.459914740218498
+  good_fit: 1
+  initial_objective: 0.23510737578737192
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: low_q_scatter
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1003.255075065094
+    I0_flat_fraction:
+      bounds: [0.0, 1.0]
+      constraint_expr: null
+      fixed: 0
+      value: 1.4183313869486902e-06
+    effective_D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 0
+      value: 1.5344239279798246
+    effective_rg:
+      bounds: [1.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 328.24284714124036
+sample_metadata: {data_file: R3_SAXS_0050_dz_bgsub.dat, experiment_id: R3_201611,
+  notes: '', sample_id: R3_201611_1479676051, source_wavelength: 0.799898, time: 0.0}
+superlattice:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 2.0301376934009863
+    a:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 133.29871480245185
+    hwhm_g:
+      bounds: [1.0e-09, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.002149071290303728
+    hwhm_l:
+      bounds: [1.0e-09, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.0008109348620451984
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 38.67888282754207
+  settings: {distribution: single, integration_mode: spherical, lattice: F_cubic,
+    lorentz_correction: 1, polarization_correction: 1, profile: voigt, q_max: 0.25,
+    q_min: 0.0, space_group: Fm-3m, structure_factor_mode: radial, texture: random,
+    use_symmetry: 1}
+  structure: crystalline

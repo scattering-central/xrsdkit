@@ -1,0 +1,77 @@
+features: {I_fluctuation: 0.6830574443998029, Ilowq_over_Imean: 7.082179375410027,
+  Imax_over_Imean: 26.4454352591964, Imax_sharpness: 1.053915172813357, best_hump_qwidth: 0.0004760545797550842,
+  best_hump_qwidth_log: 0.007590084488357355, best_trough_qwidth: 0.019271510336656247,
+  best_trough_qwidth_log: 0.06377357972854036, logI_fluctuation: 9.012485902953946,
+  logI_max_over_std: 2.5516185892938283, pearson_expq: -0.4098207023766915, pearson_invexpq: 0.476721269078556,
+  pearson_q: -0.4429434010878559, pearson_q2: -0.3276140102856465, q_Icentroid: 0.10496757563990372,
+  q_best_hump: 0.0566757255246364, q_best_hump_log: -0.011378672231772302, q_best_trough: 0.11161013754291019,
+  q_best_trough_log: 0.18592419903747767, q_logIcentroid: 0.4256411253938157, r_fftIcentroid: 0.1260319749800296}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.01922323353545519
+  fit_snr: 8.068732901940525
+  good_fit: 0
+  initial_objective: 2.852712837506416
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.1186607196123077e-12
+pop0:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 0
+      value: 2.454380620790441
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 27.970646714138642
+    r_hard:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 92.87365164283071
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 100.36830006163403
+    v_fraction:
+      bounds: [0.01, 0.7405]
+      constraint_expr: null
+      fixed: 0
+      value: 0.2330509732414685
+  settings: {interaction: hard_spheres}
+  structure: disordered
+precursor:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.12770204736886326
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.5239384352331755
+  settings: {}
+  structure: diffuse
+sample_metadata: {data_file: randomized_goalB7_dz_bgsub.dat, experiment_id: R2_201811,
+  notes: '', sample_id: R2_201811_1541561694, source_wavelength: 0.8265617, time: 1541561694.099252}

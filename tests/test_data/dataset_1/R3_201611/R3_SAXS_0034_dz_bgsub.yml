@@ -1,0 +1,57 @@
+condensed_precursor:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 4.916632574293919
+    r_hard:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 7.961981788803687
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 2.3299271928877987
+    v_fraction:
+      bounds: [0.01, 0.7405]
+      constraint_expr: null
+      fixed: 0
+      value: 0.08188692240092858
+  settings: {interaction: hard_spheres}
+  structure: disordered
+features: {I_fluctuation: 6.067095486285457, Ilowq_over_Imean: 0.7440006837785501,
+  Imax_over_Imean: 1.2907793757001407, Imax_sharpness: 1.0500209610761575, best_hump_qwidth: 0.0001813318629804008,
+  best_hump_qwidth_log: 0.00010594953184665303, best_trough_qwidth: 0.00042648254998290476,
+  best_trough_qwidth_log: 0.00023654563238155557, logI_fluctuation: 4.739771385040131,
+  logI_max_over_std: 10.54747303952412, pearson_expq: 0.030365881256994524, pearson_invexpq: -0.1677146137391567,
+  pearson_q: 0.09946768847705888, pearson_q2: -0.11978662090114094, q_Icentroid: 0.3129796355249285,
+  q_best_hump: 0.03071663542722064, q_best_hump_log: 0.031161742528094505, q_best_trough: 0.03291484478859613,
+  q_best_trough_log: 0.03368536920451737, q_logIcentroid: 0.31236663073336274, r_fftIcentroid: 0.1622908062461475}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.0032868852735411878
+  fit_snr: 16.223538558108384
+  good_fit: 1
+  initial_objective: 0.4194133724943065
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.122566484212939e-10
+sample_metadata: {data_file: R3_SAXS_0034_dz_bgsub.dat, experiment_id: R3_201611,
+  notes: '', sample_id: R3_201611_1479675870, source_wavelength: 0.799898, time: 1479675870.0}
