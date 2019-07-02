@@ -12,25 +12,16 @@ from xrsdkit.models.predict import predict, system_from_prediction
 from xrsdkit.visualization import visualize_dataframe
 
 data_dir = os.path.join(os.path.dirname(__file__),'test_data')
+ds1_path = os.path.join(data_dir,'dataset_1')
+ds2_path = os.path.join(data_dir,'dataset_2')
 temp_models_dir = os.path.join(data_dir,'modeling_data')
-dataset_path = os.path.join(data_dir,'dataset.csv')
 
-df = None
-if os.path.exists(dataset_path):
-    print('loading cached dataset from {}'.format(dataset_path))
-    df = pd.read_csv(dataset_path)
+df,idxs = xrsdyml.read_local_dataset([ds1_path,ds2_path],downsampling_distance=1.)
+df_ds = df 
 
 def test_visualization():
     if df is not None and 'DISPLAY' in os.environ:
         visualize_dataframe(df)
-
-def downsample_df():
-    df_ds = None
-    if df is not None:
-        df_ds = xrsdyml.downsample_by_group(df) 
-    return df_ds
-
-df_ds = downsample_df()
 
 # test prediction on loaded models
 def test_predict_0():
