@@ -1,0 +1,47 @@
+features: {I_fluctuation: 0.047297622359716684, Ilowq_over_Imean: 8.088175127391834,
+  Imax_over_Imean: 11.697379093079642, Imax_sharpness: 1.01150847533504, best_hump_qwidth: 0.006492726454652967,
+  best_hump_qwidth_log: 0.05346570958181402, best_trough_qwidth: 0.10326152957394708,
+  best_trough_qwidth_log: 0.010542589092510867, logI_fluctuation: 4.179084052314874,
+  logI_max_over_std: 2.1901147908613985, pearson_expq: -0.5495949470879065, pearson_invexpq: 0.6354175869790758,
+  pearson_q: -0.592489986716226, pearson_q2: -0.44374447456123367, q_Icentroid: 0.06700912960471592,
+  q_best_hump: 0.014822263327152752, q_best_hump_log: 0.01938011642619386, q_best_trough: 0.17782067349847253,
+  q_best_trough_log: 0.17918261319374848, q_logIcentroid: 1.4993287969807763, r_fftIcentroid: 0.09083068004738026}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.0005028983859373605
+  fit_snr: 35.756675383534
+  good_fit: 1
+  initial_objective: 0.0005035670423036212
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.08106983374990206
+pop1:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 228.17010249189977
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 25.161000993757003
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.12231474056549407
+  settings: {distribution: r_normal, sampling_step: 0.05, sampling_width: 3.5}
+  structure: diffuse
+sample_metadata: {data_file: RxnA_201903_6_dz_bgsub.dat, experiment_id: RxnA_201903,
+  notes: '', sample_id: RxnA_201903_1552030715, source_wavelength: 0.799898, time: 1552030715.732331}

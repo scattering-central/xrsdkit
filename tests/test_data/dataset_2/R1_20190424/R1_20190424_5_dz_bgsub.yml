@@ -1,0 +1,98 @@
+features: {I_fluctuation: 0.5120972083157681, Ilowq_over_Imean: 6.371763478949549,
+  Imax_over_Imean: 13.760605610120137, Imax_sharpness: 1.2563860964766966, best_hump_qwidth: 0.0033737960978928437,
+  best_hump_qwidth_log: 0.010613481542325819, best_trough_qwidth: 0.005548515091290882,
+  best_trough_qwidth_log: 0.004280089573249573, logI_fluctuation: 6.0757664373500955,
+  logI_max_over_std: 2.260745948421441, pearson_expq: -0.5210619422649376, pearson_invexpq: 0.5918579332869996,
+  pearson_q: -0.5569145377065216, pearson_q2: -0.4323639145864705, q_Icentroid: 0.10464924931252767,
+  q_best_hump: 0.032438395141970555, q_best_hump_log: 0.0327643054275954, q_best_trough: 0.1268389115785393,
+  q_best_trough_log: 0.13242584255513526, q_logIcentroid: 0.5063540848714296, r_fftIcentroid: 0.06677894622624309}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.007917539842547682
+  fit_snr: 7.089101155974624
+  good_fit: 1
+  initial_objective: 0.00822927092120124
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.000494596681796633
+pop0:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 10.456660737036923
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 35.78356469946431
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.0038986183831802856
+  settings: {distribution: r_normal, sampling_step: 0.05, sampling_width: 3.5}
+  structure: diffuse
+pop1:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.0009374296975562
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 28.82003738483398
+    r_hard:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 39.83827701958167
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.24343843804898713
+    v_fraction:
+      bounds: [0.01, 0.7405]
+      constraint_expr: null
+      fixed: 0
+      value: 0.4902237826458044
+  settings: {distribution: r_normal, interaction: hard_spheres, sampling_step: 0.05,
+    sampling_width: 3.5}
+  structure: disordered
+precursor:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.27449499880783645
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 2.576590658474561
+  settings: {}
+  structure: diffuse
+sample_metadata: {data_file: R1_20190424_5_dz_bgsub.dat, experiment_id: R1_20190424,
+  notes: '', sample_id: R1_20190424_5_1556245572, source_wavelength: 0.799898, time: 1556239441.925567}

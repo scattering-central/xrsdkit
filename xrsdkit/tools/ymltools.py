@@ -25,26 +25,26 @@ def load_sys_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(**sd)
 
-def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=print):
-    """Load xrsdkit data from a directory.
+def read_local_dataset(dataset_dirs, downsampling_distance=None, message_callback=print):
+    """Load xrsdkit data from one or more local dataset directories.
 
-    The main dataset directory should contain subdirectories,
-    one for each experiment in the dataset.
+    Each dataset directory should contain 
+    one subdirectory for each experiment in the dataset.
     The subdirectory names should be the same as the experiment_id labels
     for all samples in the subdirectory.
     Each subdirectory should contain .yml files describing 
     the xrsdkit.system.System objects from the experiment.
-    Each .yml file should have a corresponding .dat file in the same directory,
-    where the .dat file contains the integrated scattering pattern.
-    The name of the .dat file should be specified in the .yml file,
+    Each .yml file should have a corresponding data file in the same directory,
+    where the data file contains the integrated scattering pattern.
+    The name of the data file should be specified in the .yml file,
     referenced to sample_metadata['data_file'].
     TODO: move this dataset description to the main documentation,  
     then refer to it from here.
 
     Parameters
     ----------
-    dataset_dir : str
-        absolute path to the root directory of the dataset
+    dataset_dirs : list
+        list of absolute paths to the dataset root directories
 
     Returns
     -------
@@ -55,27 +55,30 @@ def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=p
         with the corresponding experiment_id and sample_id.
     """
     sys_dicts = OrderedDict()
-    idx_df = pd.DataFrame(columns=['sample_id','experiment_id','yml_file','data_file'])
-    for experiment in os.listdir(dataset_dir):
-        exp_data_dir = os.path.join(dataset_dir,experiment)
-        if os.path.isdir(exp_data_dir):
-            for s_data_file in os.listdir(exp_data_dir):
-                if s_data_file.endswith('.yml'):
-                    message_callback('loading data from {}'.format(s_data_file))
-                    file_path = os.path.join(exp_data_dir, s_data_file)
-                    sys = load_sys_from_yaml(file_path)
-                    data_file = sys.sample_metadata['data_file']
-                    idx_df = idx_df.append(dict(
-                                sample_id=sys.sample_metadata['sample_id'],
-                                experiment_id=sys.sample_metadata['experiment_id'],
-                                yml_file=s_data_file,
-                                data_file=sys.sample_metadata['data_file']
-                                ), ignore_index=True)
-                    sys_dicts[s_data_file] = sys.to_dict() 
+    ind_dict = {}
+    for dataset_dir in dataset_dirs:
+        idx_df = pd.DataFrame(columns=['sample_id','experiment_id','yml_file','data_file'])
+        for experiment in os.listdir(dataset_dir):
+            exp_data_dir = os.path.join(dataset_dir,experiment)
+            if os.path.isdir(exp_data_dir):
+                for s_data_file in os.listdir(exp_data_dir):
+                    if s_data_file.endswith('.yml'):
+                        message_callback('loading data from {}'.format(s_data_file))
+                        file_path = os.path.join(exp_data_dir, s_data_file)
+                        sys = load_sys_from_yaml(file_path)
+                        data_file = sys.sample_metadata['data_file']
+                        idx_df = idx_df.append(dict(
+                                    sample_id=sys.sample_metadata['sample_id'],
+                                    experiment_id=sys.sample_metadata['experiment_id'],
+                                    yml_file=s_data_file,
+                                    data_file=sys.sample_metadata['data_file']
+                                    ), ignore_index=True)
+                        sys_dicts[s_data_file] = sys.to_dict()
+        ind_dict[dataset_dir] = idx_df
     df = create_modeling_dataset(list(sys_dicts.values()),
                 downsampling_distance=downsampling_distance,
                 message_callback=message_callback)
-    return df, idx_df
+    return df, ind_dict
     
 def match_data_to_yml(data_files,yml_files):
     all_data_files = OrderedDict()
@@ -323,7 +326,7 @@ def sort_populations(struct_nm,pops_dict):
     if struct_nm == 'disordered': 
         # order disordered structures primarily by interaction,
         # secondly by form factor
-        intxns = xrsdefs.setting_selections(struct_nm)['interaction']
+        intxns = xrsdefs.setting_selections('interaction')
         for l in pop_labels: 
             param_vals[l].append(intxns.index(pops_dict[l].settings['interaction']))
         param_labels.append('interaction')

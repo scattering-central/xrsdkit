@@ -1,0 +1,27 @@
+features: {I_fluctuation: 8.41548816225001, Ilowq_over_Imean: 0.9759898170624823,
+  Imax_over_Imean: 1.451359484265462, Imax_sharpness: 1.2016475092009504, best_hump_qwidth: 0.00030845227789642616,
+  best_hump_qwidth_log: 0.0002747451066655586, best_trough_qwidth: 5.869145180596134e-05,
+  best_trough_qwidth_log: 4.720109325036048e-05, logI_fluctuation: 2.880246125856715,
+  logI_max_over_std: 4.200886692140438, pearson_expq: 0.0679207217782845, pearson_invexpq: -0.08631486265598932,
+  pearson_q: 0.07722138491318059, pearson_q2: 0.046203399026114596, q_Icentroid: 0.3117108345252058,
+  q_best_hump: 0.024451538281068497, q_best_hump_log: 0.02671140390367399, q_best_trough: 0.02772543668479177,
+  q_best_trough_log: 0.028008317614665712, q_logIcentroid: 0.3180749966009919, r_fftIcentroid: 0.13132491123554596}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.008494206110918803
+  fit_snr: 8.449479419625685
+  good_fit: 1
+  initial_objective: 64.4848221528511
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 3.0708445051086226
+sample_metadata: {data_file: R13_0010_dz_bgsub.dat, experiment_id: R13_201607, notes: '',
+  sample_id: R13_201607_1468044748, source_wavelength: 0.826562, time: 0.0}

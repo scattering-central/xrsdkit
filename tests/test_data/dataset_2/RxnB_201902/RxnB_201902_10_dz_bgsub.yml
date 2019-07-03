@@ -1,0 +1,67 @@
+features: {I_fluctuation: 6.063942453262083, Ilowq_over_Imean: 4.098459991716655,
+  Imax_over_Imean: 5.188869233799902, Imax_sharpness: 1.0996185471009492, best_hump_qwidth: 0.0017397689634641395,
+  best_hump_qwidth_log: 0.006391542639891121, best_trough_qwidth: 0.14918490792353442,
+  best_trough_qwidth_log: 0.3286774609804601, logI_fluctuation: 7.607171246952901,
+  logI_max_over_std: 0.7435941370871632, pearson_expq: -0.701583479765403, pearson_invexpq: 0.7803357615806608,
+  pearson_q: -0.7417100281116924, pearson_q2: -0.5999561747068652, q_Icentroid: 0.1669749568376449,
+  q_best_hump: 0.036875136314080015, q_best_hump_log: 0.03688720885578839, q_best_trough: 0.634250723327525,
+  q_best_trough_log: -0.5645748943003646, q_logIcentroid: 0.4093751875313431, r_fftIcentroid: 0.09305249720970908}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.03741095946050883
+  fit_snr: 5.946271768401882
+  good_fit: 1
+  initial_objective: 0.06187617575781358
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.00011618730321094617
+pop1:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.896280018332531
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 18.99496174222468
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.0019210372020730393
+  settings: {distribution: r_normal, sampling_step: 0.05, sampling_width: 3.5}
+  structure: diffuse
+precursor:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.2354286835854036
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 2.532751652328941
+  settings: {}
+  structure: diffuse
+sample_metadata: {data_file: RxnB_201902_10_dz_bgsub.dat, experiment_id: RxnB_201902,
+  notes: '', sample_id: RxnB_201902_1549542392, source_wavelength: 0.799898, time: 1549542392.892137}
