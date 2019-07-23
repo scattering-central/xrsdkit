@@ -1,4 +1,29 @@
-"""This module defines the settings and parameters handled by xrsdkit."""
+"""This module defines the settings and parameters handled by xrsdkit.
+
+TODO: document the following module attributes:
+
+    - xrsdkit.definitions.setting_descriptions
+    - xrsdkit.definitions.parameter_descriptions
+    - xrsdkit.definitions.parameter_units
+
+    - xrsdkit.definitions.structures
+    - xrsdkit.definitions.structure_settings
+    - xrsdkit.definitions.modelable_structure_settings
+
+    - xrsdkit.definitions.form_factors
+    - xrsdkit.definitions.form_settings
+    - xrsdkit.definitions.modelable_form_factor_settings
+    - xrsdkit.definitions.form_factor_params
+
+    - xrsdkit.definitions.noise_models
+    - xrsdkit.definitions.noise_params
+
+    - xrsdkit.definitions.crystal_systems
+    - xrsdkit.definitions.crystal_point_groups
+    - xrsdkit.definitions.bravais_lattices
+    - xrsdkit.definitions.lattice_space_groups
+    - xrsdkit.definitions.sg_point_groups
+"""
 from collections import OrderedDict
 import copy
 import os
