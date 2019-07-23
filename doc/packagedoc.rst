@@ -7,6 +7,12 @@ Package Documentation
 .. automodule:: xrsdkit
     :members:
 
+xrsdkit.definitions
+-------------------
+
+.. automodule:: xrsdkit.definitions
+    :members:
+
 xrsdkit.system
 --------------
 
