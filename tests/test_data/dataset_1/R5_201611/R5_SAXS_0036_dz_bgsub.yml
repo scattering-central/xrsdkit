@@ -1,0 +1,68 @@
+features: {I_fluctuation: 0.23447740324307445, Ilowq_over_Imean: 6.916022328846665,
+  Imax_over_Imean: 8.114999547739453, Imax_sharpness: 1.008822982852041, best_hump_qwidth: 0.003120196741693557,
+  best_hump_qwidth_log: 0.022814633498411434, best_trough_qwidth: 0.10327152325605751,
+  best_trough_qwidth_log: 0.005062393149624076, logI_fluctuation: 5.767174129772076,
+  logI_max_over_std: 2.4106497417016954, pearson_expq: -0.6157447608076053, pearson_invexpq: 0.704964794118316,
+  pearson_q: -0.6607537591021019, pearson_q2: -0.5017562134954455, q_Icentroid: 0.07044888863366662,
+  q_best_hump: 0.034799166154681815, q_best_hump_log: 0.034837969217190456, q_best_trough: 0.19767378283420614,
+  q_best_trough_log: 0.19731756935908207, q_logIcentroid: -0.2492609651198509, r_fftIcentroid: 0.08524091727771754}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.002744473901352935
+  fit_snr: 5.398423114267847
+  good_fit: 1
+  initial_objective: 0.016247475940456224
+  logI_weighted: 1
+  q_range: [0.05, .inf]
+  source_wavelength: 0.799898
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [1.0e-12, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.3384682251427193e-10
+particle:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 181.6968043860403
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 22.927269498496052
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.05983761554879441
+  settings: {distribution: r_normal, sampling_step: 0.05, sampling_width: 3.5}
+  structure: diffuse
+precursor:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, 100.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.5492004184762478
+    rg:
+      bounds: [0.1, 10.0]
+      constraint_expr: null
+      fixed: 0
+      value: 2.225114692858636
+  settings: {}
+  structure: diffuse
+sample_metadata: {data_file: R5_SAXS_0036_dz_bgsub.dat, experiment_id: R5_201611,
+  notes: '', sample_id: R5_201611_1479755841, source_wavelength: 0.799898, time: 1479755841.0}

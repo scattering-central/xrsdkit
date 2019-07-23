@@ -25,46 +25,61 @@ def load_sys_from_yaml(file_path):
         sd = yaml.load(yaml_file)
     return System(**sd)
 
-def read_local_dataset(dataset_dir,downsampling_distance=None,message_callback=print):
-    """Load xrsdkit data from a directory.
+def read_local_dataset(dataset_dirs, downsampling_distance=None, message_callback=print):
+    """Load xrsdkit data from one or more local dataset directories.
 
-    The directory should contain subdirectories,
-    one for each experiment in the dataset.
+    Each dataset directory should contain 
+    one subdirectory for each experiment in the dataset.
+    The subdirectory names should be the same as the experiment_id labels
+    for all samples in the subdirectory.
     Each subdirectory should contain .yml files describing 
     the xrsdkit.system.System objects from the experiment.
-    Each .yml file should have a corresponding .dat file in the same directory,
-    where the .dat file contains the integrated scattering pattern.
-    The name of the .dat file should be specified in the .yml file,
-    as the 'data_file' from the sample_metadata dictionary.
+    Each .yml file should have a corresponding data file in the same directory,
+    where the data file contains the integrated scattering pattern.
+    The name of the data file should be specified in the .yml file,
+    referenced to sample_metadata['data_file'].
     TODO: move this dataset description to the main documentation,  
     then refer to it from here.
 
     Parameters
     ----------
-    dataset_dir : str
-        absolute path to the root directory of the dataset
+    dataset_dirs : list
+        list of absolute paths to the dataset root directories
 
     Returns
     -------
     df : pandas.DataFrame 
         modeling DataFrame built from dataset files
+    index_df : pandas.DataFrame
+        indexing DataFrame for associating .yml and .dat files
+        with the corresponding experiment_id and sample_id.
     """
-    sys_dicts = OrderedDict() 
-    for experiment in os.listdir(dataset_dir):
-        exp_data_dir = os.path.join(dataset_dir,experiment)
-        if os.path.isdir(exp_data_dir):
-            for s_data_file in os.listdir(exp_data_dir):
-                if s_data_file.endswith('.yml'):
-                    message_callback('loading data from {}'.format(s_data_file))
-                    file_path = os.path.join(exp_data_dir, s_data_file)
-                    #sys = load_sys_from_yaml(file_path)
-                    #if bool(int(sys.fit_report['good_fit'])):
-                    sys_dicts[s_data_file] = yaml.load(open(file_path,'r')) 
+    sys_dicts = OrderedDict()
+    ind_dict = {}
+    for dataset_dir in dataset_dirs:
+        idx_df = pd.DataFrame(columns=['sample_id','experiment_id','yml_file','data_file'])
+        for experiment in os.listdir(dataset_dir):
+            exp_data_dir = os.path.join(dataset_dir,experiment)
+            if os.path.isdir(exp_data_dir):
+                for s_data_file in os.listdir(exp_data_dir):
+                    if s_data_file.endswith('.yml'):
+                        message_callback('loading data from {}'.format(s_data_file))
+                        file_path = os.path.join(exp_data_dir, s_data_file)
+                        sys = load_sys_from_yaml(file_path)
+                        data_file = sys.sample_metadata['data_file']
+                        idx_df = idx_df.append(dict(
+                                    sample_id=sys.sample_metadata['sample_id'],
+                                    experiment_id=sys.sample_metadata['experiment_id'],
+                                    yml_file=s_data_file,
+                                    data_file=sys.sample_metadata['data_file']
+                                    ), ignore_index=True)
+                        sys_dicts[s_data_file] = sys.to_dict()
+        ind_dict[dataset_dir] = idx_df
     df = create_modeling_dataset(list(sys_dicts.values()),
                 downsampling_distance=downsampling_distance,
                 message_callback=message_callback)
-    return df 
-
+    return df, ind_dict
+    
 def migrate_features(data_dir):
     """Update features for all yml files in a local directory.
 
@@ -112,7 +127,7 @@ def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, messa
     all_cls_labels = set()
 
     for sys in xrsd_system_dicts:
-        expt_id, sample_id, good_fit, feature_labels, \
+        expt_id, sample_id, data_file, good_fit, feature_labels, \
             classification_labels, regression_outputs = unpack_sample(sys)
         if good_fit:
             for k,v in regression_outputs.items():
@@ -143,7 +158,7 @@ def create_modeling_dataset(xrsd_system_dicts, downsampling_distance=None, messa
         datai.extend(list(orl.values()))
         datai.extend(list(ofl.values()))
 
-    colnames = ['experiment_id'] + ['sample_id'] +\
+    colnames = ['experiment_id','sample_id'] + \
             cls_labels_list + \
             reg_labels_list + \
             copy.copy(profiler.profile_keys)
@@ -170,6 +185,8 @@ def unpack_sample(sys_dict):
         id of the experiment (should be unique across all experiments)
     sample_id : str
         id of the sample (must be unique across all samples)
+    data_file, : str
+        name of .dat file that contains q/I array
     good_fit : bool 
         True if this sample's fit is good enough to train models on it
     features : dict 
@@ -182,6 +199,7 @@ def unpack_sample(sys_dict):
     """
     expt_id = sys_dict['sample_metadata']['experiment_id']
     sample_id = sys_dict['sample_metadata']['sample_id']
+    data_file = sys_dict['sample_metadata']['data_file']
     features = sys_dict['features']
     good_fit = bool(sys_dict['fit_report']['good_fit'])
     sys = System(**sys_dict)
@@ -232,7 +250,7 @@ def unpack_sample(sys_dict):
     if sys_cls == '':
         sys_cls = 'unidentified'
     classification_labels['system_class'] = sys_cls
-    return expt_id, sample_id, good_fit, features, classification_labels, regression_labels
+    return expt_id, sample_id, data_file, good_fit, features, classification_labels, regression_labels
 
 
 def sort_populations(struct_nm,pops_dict):
@@ -268,7 +286,7 @@ def sort_populations(struct_nm,pops_dict):
     if struct_nm == 'disordered': 
         # order disordered structures primarily by interaction,
         # secondly by form factor
-        intxns = xrsdefs.setting_selections(struct_nm)['interaction']
+        intxns = xrsdefs.setting_selections('interaction')
         for l in pop_labels: 
             param_vals[l].append(intxns.index(pops_dict[l].settings['interaction']))
         param_labels.append('interaction')

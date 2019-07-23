@@ -2,6 +2,7 @@ import pickle
 import copy
 
 import numpy as np
+import pandas as pd
 import yaml
 from sklearn import preprocessing, utils
 from sklearn.model_selection import LeavePGroupsOut
@@ -106,65 +107,93 @@ class XRSDModel(object):
             If true, before cross-validation, the model's default hyperparameters
             are used to recursively eliminate features
             based on best cross-validation metrics
+
+        Returns
+        -------
+        y_true : pandas.Series
+            y-values from input `data`
+        y_pred : pandas.Series 
+            trained model predictions corresponding to `y_true` 
+        y_xval : pandas.Series
+            cross-validation predictions corresponding to `y_true` 
         """
-        training_possible = self.group_by_pc1(model_data,profiler.profile_keys)
-        #training_possible = self.assign_groups(model_data)
+        group_ids, training_possible = self.group_by_pc1(model_data,profiler.profile_keys)
+        model_data['group_id'] = group_ids
         if not training_possible:
             # not enough samples, or all have identical labels-
             # take a non-standardized default value
-            self.default_val = model_data[self.target].unique()[0]
+            y_true = model_data[self.target].copy()
+            y_pred = y_true.copy()
+            y_xval = y_true.copy()
+            self.default_val = y_true.unique()[0]
+            y_pred.loc[y_true.index] = self.default_val 
+            y_xval.loc[y_true.index] = self.default_val 
             self.model = None
             self.features = []
             self.trained = False
-            return
         else:
-            s_model_data = self.standardize(model_data)
             # remove unlabeled samples
-            s_model_data = s_model_data[s_model_data[self.target].isnull() == False]
+            valid_data = model_data[model_data[self.target].isnull() == False]
+            # exclude samples with group_id==0
+            valid_data = valid_data[valid_data.group_id>0]
             # maybe shuffle: SGD models train more efficiently on shuffled data
             if self.model_type in ['sgd_regressor','sgd_classifier']:
-                s_model_data = utils.shuffle(s_model_data)
-            # exclude samples with group_id==0
-            valid_data = s_model_data[s_model_data.group_id>0]
+                valid_data = utils.shuffle(valid_data)
+            s_valid_data = self.standardize(valid_data,profiler.profile_keys)
 
             # begin by recursively eliminating features on a simple model (default parameters)
             model_feats = copy.deepcopy(profiler.profile_keys)
             if select_features:
-                model_feats = self.cross_validation_rfe(valid_data,model_feats)
-                test_model = self.build_model()
-                test_model.fit(valid_data[model_feats], valid_data[self.target])
-                cv = self.run_cross_validation(test_model,valid_data,model_feats)
+                model_feats = self._cross_validation_rfe(s_valid_data,model_feats)
+                s_valid_data = self.standardize(valid_data,model_feats)
 
             # use model_feats to grid-search hyperparameters
             model_hyperparams = {}
             if train_hyperparameters:
                 test_model = self.build_model()
                 param_grid = self.models_and_params[self.model_type]
-                model_hyperparams = self.grid_search_hyperparams(test_model,valid_data,model_feats,param_grid)
+                model_hyperparams = self.grid_search_hyperparams(test_model,s_valid_data,model_feats,param_grid)
 
             # after parameter and feature selection,
             # the entire dataset is used for final training,
-            new_model = self.build_model(model_hyperparams)
-            self.cross_valid_results = self.run_cross_validation(new_model,valid_data,model_feats)
-            new_model.fit(valid_data[model_feats], valid_data[self.target])
-            self.model = new_model
             self.features = model_feats 
+            self.model = self.build_model(model_hyperparams)
+            self.model.fit(s_valid_data[self.features], s_valid_data[self.target])
+            y_true = s_valid_data[self.target].copy()
+            y_xval = self._cross_validation_test(self.model,s_valid_data,self.features)
+            y_pred = self.model.predict(s_valid_data[self.features])
+            self.cross_valid_results = self.cv_report(s_valid_data,y_true,y_xval) 
             self.trained = True
+        return y_true,y_pred,y_xval
 
-    def standardize(self,data):
-        """Standardize the columns of data that are used as model inputs"""
-        data = data.copy()
+    def standardize(self,data,features):
+        """Standardize the columns of data that are used as model inputs.
+
+        Parameters
+        ----------
+        data : pandas.DataFrame
+            modeling dataset
+        features : list
+            features to be standardized
+
+        Returns
+        -------
+        s_data : pandas.DataFrame
+        """
+        s_data = data.copy()
         self.scaler = preprocessing.StandardScaler()
-        self.scaler.fit(data[profiler.profile_keys])
-        data[profiler.profile_keys] = self.scaler.transform(data[profiler.profile_keys])
-        return data
+        self.scaler.fit(data[features])
+        s_data[features] = self.scaler.transform(data[features])
+        return s_data
 
-    def cross_validation_rfe(self,data,model_feats):
+    def _cross_validation_rfe(self,data,model_feats):
         model_outputs = np.ravel(data[self.target])
         cv_metrics = []
         rfe_feats = []
         test_model = self.build_model()
-        cv = self.run_cross_validation(test_model,data,model_feats)
+        y_true = data[self.target].copy()
+        y_xval = self._cross_validation_test(test_model,data,model_feats)
+        cv = self.cv_report(data,y_true,y_xval)
         cv_metrics.append(cv['minimization_score'])
         rfe_feats.append(copy.deepcopy(model_feats))
         nfeats = len(model_feats)
@@ -178,7 +207,8 @@ class XRSDModel(object):
             for feat in model_feats:
                 trial_feats = copy.deepcopy(model_feats)
                 trial_feats.remove(feat)
-                cv = self.run_cross_validation(test_model,data,trial_feats)
+                y_xval = self._cross_validation_test(test_model,data,trial_feats)
+                cv = self.cv_report(data,y_true,y_xval)
                 feat_cv_metrics.append(cv['minimization_score'])
             best_cv_idx = np.argmin(feat_cv_metrics)
             cv_metrics.append(feat_cv_metrics[best_cv_idx])
@@ -211,7 +241,7 @@ class XRSDModel(object):
         """
         raise NotImplementedError('XRSDModel subclasses must implement group_by_pc1()')
 
-    def cv_report(self,data,y_true,y_pred):
+    def cv_report(self,data,y_true,y_xval):
         """Yield key cross-validation metrics.
 
         Parameters
@@ -220,8 +250,8 @@ class XRSDModel(object):
             DataFrame containing modeling dataset
         y_true : dict of np.array 
             Keys are group_ids, values are arrays of y-values for the group 
-        y_pred : dict of np.array 
-            Keys are group_ids, values are predictions corresponding to `y_true` 
+        y_xval : dict of np.array 
+            Keys are group_ids, values are cross-validation predictions corresponding to `y_true` 
         """
         raise NotImplementedError('XRSDModel subclasses must implement cv_report()')
 
@@ -242,11 +272,25 @@ class XRSDModel(object):
         if any([ct<n_distinct for ct in distinct_value_counts]): return False
         return True
 
-    def run_cross_validation(self,model,data,feature_names):
+    def run_cross_validation(self,data):
+        s_data = data.copy()
+        s_data[self.features] = self.scaler.transform(s_data[self.features])
+        y_xval = self._cross_validation_test(self.model,s_data,self.features)
+        return y_xval
+
+    def get_x_array(self,od):
+        """Extract input array from feature dictionary"""
+        return np.array([od[k] for k in self.features]).reshape(1,-1)
+
+    def predict(self,x):
+        raise NotImplementedError('XRSDModel subclasses must implement predict()')
+
+    def _cross_validation_test(self,model,data,feature_names):
         """Cross-validate a model by LeaveOneGroupOut. 
 
         The train/test groupings are defined by the 'group_id' labels,
-        which are added to the dataframe during self.assign_groups().
+        which should be added to the `data` before calling this method.
+        The input data must be standardized before calling this function.
 
         Parameters
         ----------
@@ -259,21 +303,20 @@ class XRSDModel(object):
 
         Returns
         -------
-        result : dict
-            dictionary of cross validation metrics.
+        y_xval : pandas.Series 
+            cross-validation predictions for all samples from input `data` 
         """
-        y_true = {} 
-        y_pred = {} 
+        y_true = data[self.target].copy() 
+        y_xval = pd.Series(index=y_true.index,name=self.target) 
         group_ids = data.group_id.unique()
         for gid in group_ids:
-            tr = data[(data['group_id'] != gid)]
-            test = data[(data['group_id'] == gid)]
+            train_idx = data.index[(data['group_id']!=gid)]
+            tr = data.loc[train_idx]
+            test_idx = data.index[(data['group_id']==gid)]
+            test = data.loc[test_idx]
             model.fit(tr[feature_names], tr[self.target])
-            yp = model.predict(test[feature_names])
-            yt = test[self.target] 
-            y_pred[gid] = yp
-            y_true[gid] = yt
-        return self.cv_report(data,y_true,y_pred)
+            y_xval.loc[test_idx] = model.predict(test[feature_names])
+        return y_xval
 
     def grid_search_hyperparams(self,model,data,feature_names,hyperparam_grid,n_leave_out=1):
         cv_splits = LeavePGroupsOut(n_groups=n_leave_out).split(

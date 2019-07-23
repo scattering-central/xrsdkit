@@ -1,0 +1,67 @@
+features: {I_fluctuation: 3.4258226212382072, Ilowq_over_Imean: 5.460082691389713,
+  Imax_over_Imean: 7.643470606620812, Imax_sharpness: 1.0619355282910752, best_hump_qwidth: 0.0075863225574162325,
+  best_hump_qwidth_log: 0.02593909945096539, best_trough_qwidth: 0.09150823692094506,
+  best_trough_qwidth_log: 0.03704112293058189, logI_fluctuation: 9.801372107901841,
+  logI_max_over_std: 1.1558217128188715, pearson_expq: -0.6251836770828375, pearson_invexpq: 0.7083845172625058,
+  pearson_q: -0.6670916058371982, pearson_q2: -0.5205204081110717, q_Icentroid: 0.1363151942906112,
+  q_best_hump: 0.017777714986731197, q_best_hump_log: 0.023315325812152787, q_best_trough: 0.2079254386300644,
+  q_best_trough_log: 0.21909034005428935, q_logIcentroid: 0.41456373202493424, r_fftIcentroid: 0.10602008227466535}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.023146373195960777
+  fit_snr: 8.152242158094023
+  good_fit: 1
+  initial_objective: 0.0345516574920684
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 4.098230421689664e-09
+pop0:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 0.2079380866814995
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 2.714078575990418
+  settings: {}
+  structure: diffuse
+pop1:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 3.5423158441181988
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 22.755160096392828
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 0.046648478674712
+  settings: {distribution: r_normal, sampling_step: 0.05, sampling_width: 3.5}
+  structure: diffuse
+sample_metadata: {data_file: randomized_goalB11_dz_bgsub.dat, experiment_id: R2_201811,
+  notes: '', sample_id: R2_201811_1541568535, source_wavelength: 0.8265617, time: 1541568535.290269}

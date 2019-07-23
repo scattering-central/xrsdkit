@@ -242,13 +242,14 @@ def load_yml_to_file_table(db, path_to_dir, drop_table=False):
                     yml_path=file_path, good_fit=sys_dict['fit_report']['good_fit'])
 
 
-def download_sys_data(path_to_dir):
-    """Download xrsdkit.system.System data from remote directory.
+def download_sys_data(list_of_paths):
+    """Download a dataset of xrsdkit samples from remote directories.
 
     Parameters
     ----------
-    path_to_dir : str
-        absolute path to the directory with the training set
+    list_of_paths : list
+        list of absolute paths to dataset directories
+        
 
     Returns
     -------
@@ -257,28 +258,29 @@ def download_sys_data(path_to_dir):
         dicts (values) describing xrsdkit.system.System objects
     """
     # get the list of experiments that are in the dataset directory
-    all_sys_dicts = OrderedDict() 
-    stdin, stdout, stderr = storage_client.exec_command('ls '+path_to_dir)
-    for experiment_id in stdout:
-        experiment_id = experiment_id.strip('\n')
-        exp_data_dir = os.path.join(path_to_dir,experiment_id)
-        # make sure exp_data_dir is a directory
-        if storage_client.exec_command("os.path.isdir(exp_data_dir)"):
-            # get the list of files in the experiment directory
-            stdin2, stdout2, stderr2 = storage_client.exec_command('ls '+exp_data_dir)
-            for s_data_file in stdout2:
-                s_data_file = s_data_file.strip('\n')
-                # if the file is a .yml file, attempt to load it 
-                if s_data_file.endswith('.yml'):
-                    print('downloading sample data from {}'.format(s_data_file))
-                    file_path = os.path.join(exp_data_dir, s_data_file)
-                    # use cat to grab the file content and dump it to a stream
-                    stdin, stdout, stderr = storage_client.exec_command('cat ' + file_path)
-                    net_dump = stdout.readlines()
-                    str_d = "".join(net_dump)
-                    # load the stream to data as yaml, grab key attributes
-                    sys_dict = yaml.load(str_d)
-                    all_sys_dicts[file_path] = sys_dict
+    all_sys_dicts = OrderedDict()
+    for path_to_dir in list_of_paths:
+        stdin, stdout, stderr = storage_client.exec_command('ls '+path_to_dir)
+        for experiment_id in stdout:
+            experiment_id = experiment_id.strip('\n')
+            exp_data_dir = os.path.join(path_to_dir,experiment_id)
+            # make sure exp_data_dir is a directory
+            if storage_client.exec_command("os.path.isdir(exp_data_dir)"):
+                # get the list of files in the experiment directory
+                stdin2, stdout2, stderr2 = storage_client.exec_command('ls '+exp_data_dir)
+                for s_data_file in stdout2:
+                    s_data_file = s_data_file.strip('\n')
+                    # if the file is a .yml file, attempt to load it
+                    if s_data_file.endswith('.yml'):
+                        print('downloading sample data from {}'.format(s_data_file))
+                        file_path = os.path.join(exp_data_dir, s_data_file)
+                        # use cat to grab the file content and dump it to a stream
+                        stdin, stdout, stderr = storage_client.exec_command('cat ' + file_path)
+                        net_dump = stdout.readlines()
+                        str_d = "".join(net_dump)
+                        # load the stream to data as yaml, grab key attributes
+                        sys_dict = yaml.load(str_d)
+                        all_sys_dicts[file_path] = sys_dict
     return all_sys_dicts
 
 
@@ -425,9 +427,9 @@ def get_training_dataframe(db):
     return df
 
 
-def gather_remote_dataset(dataset_dir,downsampling_distance=None):
+def gather_remote_dataset(dataset_dirs,downsampling_distance=None):
     # use storage_client to gather system dicts
-    sys_data = download_sys_data(dataset_dir)
+    sys_data = download_sys_data(dataset_dirs)
     all_sys_dicts = list(sys_data.values())
     # build modeling dataframe from system dicts
     df = create_modeling_dataset(all_sys_dicts,downsampling_distance=downsampling_distance)

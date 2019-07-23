@@ -1,0 +1,27 @@
+features: {I_fluctuation: 1.8598300877678549, Ilowq_over_Imean: 0.8852078328047818,
+  Imax_over_Imean: 1.030783711744477, Imax_sharpness: 1.0111595599659648, best_hump_qwidth: 0.00011645008619250681,
+  best_hump_qwidth_log: 6.495167411546524e-05, best_trough_qwidth: 0.00011645008619250681,
+  best_trough_qwidth_log: 6.495167411546524e-05, logI_fluctuation: 1.3447854993219526,
+  logI_max_over_std: 22.05545436290251, pearson_expq: 0.3362888860483519, pearson_invexpq: -0.38970493810724466,
+  pearson_q: 0.36278280772535004, pearson_q2: 0.26862888251509365, q_Icentroid: 0.3143582836040859,
+  q_best_hump: 0.034902786144511644, q_best_hump_log: 0.03355126836289313, q_best_trough: 0.034902786144511644,
+  q_best_trough_log: 0.03355126836289313, q_logIcentroid: 0.31276745076888407, r_fftIcentroid: 0.15268597051139443}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.003442587350655589
+  fit_snr: 13.624862090732424
+  good_fit: 1
+  initial_objective: 81.29053483433115
+  logI_weighted: 1
+  q_range: [0.0, .inf]
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 8.233219246839353
+sample_metadata: {data_file: R12cooling2rd_0072_dz_bgsub.dat, experiment_id: R12_201607,
+  notes: '', sample_id: R12_201607_1468039720, source_wavelength: 0.826562, time: 0.0}

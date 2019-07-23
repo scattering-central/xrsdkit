@@ -52,6 +52,9 @@ class System(object):
         sd['features'] = self.features
         return sd
 
+    def clone(self):
+        return System(**self.to_dict())
+
     def update_from_dict(self,d):
         for pop_name,pd in d.items():
             if pop_name == 'noise':
@@ -126,6 +129,8 @@ class System(object):
             I += pop.compute_intensity(q,self.sample_metadata['source_wavelength'])
         return I
 
+    # TODO: take logI_weighted and error_weighted as optional inputs.
+    # If values are provided, update the fit_report.
     def evaluate_residual(self,q,I,dI=None,I_comp=None):
         """Evaluate the fit residual for a given populations dict.
     

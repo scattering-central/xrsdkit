@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn import linear_model, preprocessing
 from sklearn.metrics import mean_absolute_error
@@ -75,41 +76,51 @@ class Regressor(XRSDModel):
                 )
         return model_data
 
-    def standardize(self,data):
+    def standardize(self,data,features):
         """Standardize the columns that are used as inputs and outputs.
 
         Reimplementation of XRSDModel.standardize():
         For the regression models the target must also be standardized,
         since the effects of model hyperparameters 
         are relative to the scale of the outputs. 
-        """
-        data = super(Regressor,self).standardize(data)
-        self.scaler_y = preprocessing.StandardScaler() 
-        self.scaler_y.fit(data[self.target].values.reshape(-1, 1))
-        data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
-        return data
-
-    def predict(self, sample_features):
-        """Predict this model's scalar target for a given sample. 
 
         Parameters
         ----------
-        sample_features : OrderedDict
-            OrderedDict of features with their values,
-            similar to output of xrsdkit.tools.profiler.profile_pattern()
+        data : pandas.DataFrame
+            modeling dataset
+        features : list
+            features to be standardized
 
         Returns
         -------
-        prediction : float
-            predicted parameter value
+        s_data : pandas.DataFrame
+        """
+        s_data = super(Regressor,self).standardize(data,features)
+        self.scaler_y = preprocessing.StandardScaler() 
+        self.scaler_y.fit(data[self.target].values.reshape(-1, 1))
+        s_data[self.target] = self.scaler_y.transform(data[self.target].values.reshape(-1, 1))
+        return s_data
+
+    def predict(self,data):
+        """Run predictions for each row of input `data`.
+
+        Each row of `data` represents one sample.
+        The `data` columns are assumed to match self.features.
+
+        Parameters
+        ----------
+        data : array-like
+        
+        Returns
+        -------
+        preds : array
         """
         if self.trained:
-            feature_array = np.array(list(sample_features.values())).reshape(1,-1)
-            feature_idx = [k in self.features for k in sample_features.keys()]
-            x = self.scaler.transform(feature_array)[:, feature_idx]
-            return float(self.scaler_y.inverse_transform(self.model.predict(x))[0])
+            X = self.scaler.transform(data)
+            preds = self.scaler_y.inverse_transform(self.model.predict(X))
         else:
-            return self.default_val
+            preds = self.default_val*np.ones(data.shape[0])
+        return preds 
 
     def get_cv_summary(self):
         return dict(model_type=self.model_type,
@@ -136,27 +147,28 @@ class Regressor(XRSDModel):
 
     def group_by_pc1(self,dataframe,feature_names,n_groups=5):
         groups_possible = self._diverse_groups_possible(dataframe,n_groups,2)
-        if not groups_possible: return False
+        group_ids = pd.Series(np.zeros(dataframe.shape[0]),index=dataframe.index,dtype=int)
+        if not groups_possible: 
+            return group_ids, False
 
-        group_ids = range(1,n_groups+1)
+        gids = range(1,n_groups+1)
         pc1 = PCA(n_components=1)
         data_pc = pc1.fit_transform(dataframe[feature_names]).ravel()
         pc_rank = np.argsort(data_pc)
         gp_size = int(round(dataframe.shape[0]/n_groups))
-        groups = np.zeros(dataframe.shape[0])
-        for igid,gid in enumerate(group_ids):
-            groups[pc_rank[igid*gp_size:(igid+1)*gp_size]] = int(gid)
-        dataframe.loc[:,'group_id'] = groups
+        #groups = np.zeros(dataframe.shape[0])
+        for igid,gid in enumerate(gids):
+            group_ids.iloc[pc_rank[igid*gp_size:(igid+1)*gp_size]] = int(gid)
 
         # check all groups for at least two distinct target values-
         # for any deficient groups, swap samples to balance
         val_cts_by_group = OrderedDict()
         deficient_gids = []
-        for gid in group_ids:
-            val_cts_by_group[gid] = dataframe.loc[dataframe.loc[:,'group_id']==gid,self.target].value_counts()
+        for gid in gids:
+            val_cts_by_group[gid] = dataframe.loc[(group_ids==gid),self.target].value_counts()
             if len(val_cts_by_group[gid]) < 2: deficient_gids.append(gid)
 
-        temp_gid = max(group_ids)+1
+        temp_gid = max(gids)+1
         while len(deficient_gids) > 0:
             gid = deficient_gids.pop(0)
             val = val_cts_by_group[gid].keys()[0]
@@ -164,33 +176,32 @@ class Regressor(XRSDModel):
             # find a group to swap with:
             # the swap group should have plenty of distinct values
             candidate_nvals = [len(vcts) for ggiidd,vcts in val_cts_by_group.items()]
-            swap_gid = val_cts_by_group.keys()[np.argmax(candidate_nvals)]
+            swap_gid = list(val_cts_by_group.keys())[np.argmax(candidate_nvals)]
             # swap the groups half-half:
             # 1. temporarily assign half of swap_gid to temp_gid 
-            dataframe.loc[(dataframe.loc[:,'group_id']==swap_gid)[:round(ct/2)],'group_id'] = temp_gid
+            group_ids.loc[group_ids==swap_gid][:int(round(ct/2))] = temp_gid
             # 2. assign half of gid to swap_gid 
-            dataframe.loc[(dataframe.loc[:,'group_id']==gid)[:round(ct/2)],'group_id'] = swap_gid
+            group_ids.loc[group_ids==gid][:int(round(ct/2))] = swap_gid
             # 3. assign temp_gid to gid
-            dataframe.loc[dataframe.loc[:,'group_id']==temp_gid,'group_id'] = gid
-        return True 
+            group_ids.loc[group_ids==temp_gid] = gid
+        return group_ids, True 
 
     def cv_report(self,data,y_true,y_pred):
-        y_true_all = []
-        y_pred_all = []
         group_MAE = {}
         groupsize_weighted_MAE = {}
-        for gid,yt in y_true.items():
-            y_true_all.extend(yt)
-        for gid,yp in y_pred.items():
-            y_pred_all.extend(yp)
-        for gid in y_true.keys():
-            group_MAE[gid] = mean_absolute_error(y_true[gid],y_pred[gid])
-            groupsize_weighted_MAE[gid] = group_MAE[gid]*y_true[gid].shape[0]/data.shape[0]
+        all_gids = data['group_id'].unique()
+        gids = np.array(data['group_id'])
+        y_true = np.array(y_true)
+        y_pred = np.array(y_pred)
+        for gid in all_gids:
+            gid_idx = gids==gid
+            group_MAE[gid] = mean_absolute_error(y_true[gid_idx],y_pred[gid_idx])
+            groupsize_weighted_MAE[gid] = group_MAE[gid]*y_true[gid_idx].shape[0]/data.shape[0]
         result = dict(
-            MAE = mean_absolute_error(y_true_all,y_pred_all),
+            MAE = mean_absolute_error(y_true,y_pred),
             group_average_MAE = np.mean(list(group_MAE.values())),
             groupsize_weighted_average_MAE = np.sum(list(groupsize_weighted_MAE.values())),
-            coef_of_determination = Rsquared(np.array(y_true_all),np.array(y_pred_all))
+            coef_of_determination = Rsquared(np.array(y_true),np.array(y_pred))
             )
         #result['minimization_score'] = result['MAE']
         result['minimization_score'] = -1*result['coef_of_determination']

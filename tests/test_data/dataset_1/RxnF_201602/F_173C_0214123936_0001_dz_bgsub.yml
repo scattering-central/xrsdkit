@@ -1,0 +1,79 @@
+condensed_particle:
+  form: spherical
+  parameters:
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 51.558866087104136
+    r:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 6.451160858977105
+    r_hard:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 22.91453808928898
+    sigma:
+      bounds: [0.0, 2.0]
+      constraint_expr: null
+      fixed: 0
+      value: 1.1764705866896668
+    v_fraction:
+      bounds: [0.01, 0.7405]
+      constraint_expr: null
+      fixed: 0
+      value: 0.17782907807893045
+  settings: {distribution: r_normal, interaction: hard_spheres, sampling_step: 0.05,
+    sampling_width: 3.5}
+  structure: disordered
+features: {I_fluctuation: 0.49759928933989156, Ilowq_over_Imean: 4.700360436567682,
+  Imax_over_Imean: 9.969198814173865, Imax_sharpness: 1.0340148196199213, best_hump_qwidth: 0.3218444280777572,
+  best_hump_qwidth_log: 0.0009948385529056404, best_trough_qwidth: 0.16615368840864558,
+  best_trough_qwidth_log: 0.003980380666859978, logI_fluctuation: 1.8771927263696344,
+  logI_max_over_std: 2.0274204686433297, pearson_expq: -0.701853753430572, pearson_invexpq: 0.7827529212459802,
+  pearson_q: -0.7434795195007536, pearson_q2: -0.5951488149194393, q_Icentroid: 0.0949414484087418,
+  q_best_hump: 0.47578921803697033, q_best_hump_log: 0.47833324302737723, q_best_trough: 0.5701369832329514,
+  q_best_trough_log: 0.5712270120771064, q_logIcentroid: 0.0005486343003316806, r_fftIcentroid: 0.07828634201391223}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.002896167109555529
+  fit_snr: 1.1199684970983692
+  good_fit: 1
+  initial_objective: 0.00861964955243202
+  logI_weighted: 1
+  q_range: [0.05, .inf]
+  source_wavelength: 0.799898
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [1.0e-12, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 4.635672573582994e-07
+precursor:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.0120856170984025
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 3.34126318989
+  settings: {}
+  structure: diffuse
+sample_metadata: {data_file: F_173C_0214123936_0001_dz_bgsub.dat, experiment_id: RxnF_201602,
+  notes: '', sample_id: RxnF_201602_1455482387, source_wavelength: 0.799898, time: 1455482387.0}

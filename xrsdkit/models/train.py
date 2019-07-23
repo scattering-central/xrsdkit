@@ -5,10 +5,13 @@ from collections import OrderedDict
 
 import yaml
 import numpy as np
+import pandas as pd
+from sklearn.metrics import f1_score, confusion_matrix, accuracy_score, precision_score, recall_score
 
 from . import get_regression_models, get_classification_models, get_reg_conf, get_cl_conf
 from .. import definitions as xrsdefs
 from ..tools import primitives
+from ..tools.profiler import profile_keys
 from .regressor import Regressor
 from .classifier import Classifier
 
@@ -38,14 +41,18 @@ def train_from_dataframe(data, train_hyperparameters=False, select_features=Fals
         # load the current model configs, if any
         model_configs_cl = get_cl_conf()
         model_configs_reg = get_reg_conf()
-    cls_models, new_summary_cl, new_config_cl = train_classification_models(data, train_hyperparameters, select_features, model_configs_cl, message_callback)
-    reg_models, new_summary_reg, new_config_reg = train_regression_models(data, train_hyperparameters, select_features, model_configs_reg, message_callback)
+    cls_models, new_summary_cl, new_config_cl = \
+        train_classification_models(data, train_hyperparameters, select_features, model_configs_cl)
+    reg_models, new_summary_reg, new_config_reg = \
+        train_regression_models(data, train_hyperparameters, select_features, model_configs_reg)
+    sys_cls_results = cross_validate_system_classifiers(cls_models,data)
     if output_dir:
         if not os.path.exists(output_dir): os.mkdir(output_dir)
-        new_summary = collect_summary(new_summary_reg, new_summary_cl, old_summary)
+        new_summary = collect_summary(new_summary_reg, new_summary_cl, sys_cls_results, old_summary)
         yml_f = os.path.join(output_dir,'training_summary.yml')
         with open(yml_f,'w') as yml_file:
             yaml.dump(new_summary,yml_file)
+        sys_cls_results.to_csv(os.path.join(output_dir,'main_classifier_results.csv'))
         if model_config_path:
             new_config = collect_config(new_config_reg, new_config_cl)
             with open(model_config_path,'w') as yml_file:
@@ -59,6 +66,81 @@ def train_from_dataframe(data, train_hyperparameters=False, select_features=Fals
         message_callback('SAVING REGRESSION MODELS TO {}'.format(reg_dir))
         save_regression_models(reg_dir, reg_models)
     return reg_models, cls_models
+
+def cross_validate_system_classifiers(cls_models, data):
+    """Cross-validate the main classifier set.
+
+    This is performed in a special subroutine
+    because of the two-level structure of the main system classifiers.
+    If a test sample is mis-classified in the first level,
+    it must then be evaluated by the second-level classifier that corresponds
+    to the (incorrect) results that were obtained from the first level.
+
+    Parameters
+    ----------
+    cls_models : dict
+        Dictionary of xrsdkit classifiers
+    data : pandas.DataFrame
+        Dataset to cross-validate
+
+    Returns
+    -------
+    predicted : pandas DataFrame
+        Dataframe with cross-validation predictions for the "main" classifiers
+    """
+    # Create a dataframe to keep track of predicted values
+    pred = data[['experiment_id', 'sample_id', 'system_class']].copy()
+    pred.loc[:,'system_class_xval'] = 'unidentified'
+    # Copy input dataframe to avoid mutating it
+    data_copy = data.copy()
+    # Get list of true system classification labels
+    all_sys_cls = data['system_class'].tolist()
+    # Fill in labels for all binary structure flags
+    for struct_nm in xrsdefs.structure_names:
+        model_id = struct_nm+'_binary'
+        labels = [struct_nm in sys_cls for sys_cls in all_sys_cls]
+        pred.loc[:,model_id] = labels
+        data_copy.loc[:,model_id] = labels
+    # Re-assign train/test groups and run cross-validation 
+    # to obtain predicted labels for all binary structure flags
+    for struct_nm in xrsdefs.structure_names:
+        model_id = struct_nm+'_binary'
+        cls = cls_models['main_classifiers'][model_id]
+        if cls.trained:
+            group_ids, training_possible = cls.group_by_pc1(data_copy,profile_keys)
+            data_copy['group_id'] = group_ids
+            y_xval = cls.run_cross_validation(data_copy)
+        else:
+            y_xval = [cls.default_val] * data_copy.shape[0]
+        pred.loc[:,model_id+'_xval'] = y_xval
+        y_pred,certs = cls.predict(data_copy[cls.features])
+        pred.loc[:,model_id+'_pr'] = y_pred 
+    # For each combination of binary flags, 
+    # if the model exists (this combination of flags was in the training set),
+    # use it to cross-validate the data subset with matching binary flag predictions.
+    # if the model does not exist (this combination of flags was not in the training set),
+    # label the data subset with matching binary flags as 'unidentified'
+    all_flag_combs = itertools.product([True,False],repeat=len(xrsdefs.structure_names))
+    for flags in all_flag_combs:
+        if sum(flags) > 0:
+            flag_idx = np.ones(data.shape[0],dtype=bool)
+            model_id = ''
+            for struct_nm, flag in zip(xrsdefs.structure_names,flags):
+                struct_flag_idx = np.array(pred[struct_nm+'_binary_pr']==flag)
+                flag_idx = flag_idx & struct_flag_idx
+                if flag:
+                    if model_id: model_id += '__'
+                    model_id += struct_nm
+            if model_id in cls_models['main_classifiers']:
+                cls = cls_models['main_classifiers'][model_id]
+                if cls.trained:
+                    y_pred, certs = cls.predict(data_copy.loc[flag_idx,cls.features])
+                else:
+                    y_pred = [cls.default_val] * np.sum(flag_idx) 
+            else:
+                y_pred = ['unidentified'] * np.sum(flag_idx)
+            pred.loc[flag_idx,'system_class_xval'] = y_pred
+    return pred
 
 def train_classification_models(data, train_hyperparameters=False, select_features=False, model_configs={}, message_callback=print):
     """Train all classifiers that are trainable from `data`.
@@ -97,8 +179,8 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
 
     # find all system_class labels represented in `data`:
     all_sys_cls = data['system_class'].tolist()
-
     data_copy = data.copy()
+
     for struct_nm in xrsdefs.structure_names:
         message_callback('Training binary classifier for '+struct_nm+' structures')
         model_id = struct_nm+'_binary'
@@ -119,7 +201,9 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
             old_pars = classification_models['main_classifiers'][model_id].model.get_params()
             for param_nm in model.models_and_params[new_model_type]:
                 model.model.set_params(**{param_nm:old_pars[param_nm]})
-        model.train(data_copy, train_hyperparameters, select_features)
+
+        y_true,y_pred,y_xval = model.train(data_copy, train_hyperparameters, select_features)
+
         if model.trained:
             f1_score = model.cross_valid_results['f1']
             acc = model.cross_valid_results['accuracy']
@@ -131,10 +215,10 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
         new_cls_models['main_classifiers'][model_id] = model
         summary['main_classifiers'][model_id] = primitives(model.get_cv_summary())
         config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric) 
+
     # There are 2**n possible outcomes for n binary classifiers.
     # For the (2**n)-1 non-null outcomes, a second classifier is used,
     # to count the number of populations of each structural type.
-
     all_flag_combs = itertools.product([True,False],repeat=len(xrsdefs.structure_names))
     for flags in all_flag_combs:
         if sum(flags) > 0:
@@ -164,7 +248,9 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                     old_pars = classification_models['main_classifiers'][model_id].model.get_params()
                     for param_nm in model.models_and_params[new_model_type]:
                         model.model.set_params(**{param_nm:old_pars[param_nm]})
-                model.train(flag_data, train_hyperparameters, select_features)
+                
+                y_true,y_pred,y_xval = model.train(flag_data, train_hyperparameters, select_features)
+
                 if model.trained:
                     f1_score = model.cross_valid_results['f1']
                     acc = model.cross_valid_results['accuracy']
@@ -176,7 +262,7 @@ def train_classification_models(data, train_hyperparameters=False, select_featur
                 # save the classifier
                 new_cls_models['main_classifiers'][model_id] = model
                 summary['main_classifiers'][model_id] = primitives(model.get_cv_summary())
-                config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric) 
+                config['main_classifiers'][model_id] = dict(model_type=model.model_type, metric=model.metric)
 
     sys_cls_labels = list(data['system_class'].unique())
     # 'unidentified' systems will have no sub-classifiers; drop this label up front 
@@ -768,12 +854,13 @@ def collect_config(config_reg, config_cl):
     model_configs['CLASSIFIERS'] = config_cl 
     return model_configs
 
-def collect_summary(summary_reg, summary_cl, old_summary={}):
-    summary = OrderedDict.fromkeys(['DESCRIPTION','CLASSIFIERS','REGRESSORS'])
+def collect_summary(summary_reg, summary_cl, predicted, old_summary={}):
+    summary = OrderedDict.fromkeys(['DESCRIPTION','SYSTEM_CLASS','CLASSIFIERS','REGRESSORS'])
     summary['DESCRIPTION'] = 'Each metric is reported with two values: '\
         'The first value is the value of the metric, '\
         'and the second value is the difference in the metric '\
         'relative to a reference training summary, if provided'
+    summary['SYSTEM_CLASS'] = make_sys_class_summary(predicted)
     summary['CLASSIFIERS'] = summary_cl 
     summary['REGRESSORS'] = summary_reg 
     old_summary_reg = {}
@@ -805,3 +892,25 @@ def collect_summary(summary_reg, summary_cl, old_summary={}):
     #                diff = None
     #            summary['CLASSIFIERS'][k]['scores'][key] = [value, diff]
     return summary
+
+def make_sys_class_summary(predicted):
+    y_true = predicted['system_class'].tolist()
+    y_xval = predicted['system_class_xval'].tolist()
+    labels = predicted['system_class'].unique().tolist()
+    max_len = max([len(l) for l in labels])
+    cm = str(confusion_matrix(y_true, y_xval, labels)).split('\n')
+    fm_list = []
+    for ilabel,label in enumerate(labels):
+        label_withspc = label+" "*(max_len-len(label)+1)
+        fm_list.append([label_withspc, cm[ilabel]])
+    result = dict(
+            all_labels = labels,
+            confusion_matrix = fm_list,
+            f1 = f1_score(y_true, y_xval, labels=labels, average="macro"),
+            precision = precision_score(y_true, y_xval, average="macro"),
+            recall = recall_score(y_true, y_xval, average="macro"),
+            accuracy = accuracy_score(y_true, y_xval, sample_weight=None)
+            )
+    return primitives(result)
+
+

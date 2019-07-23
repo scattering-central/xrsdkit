@@ -3,21 +3,19 @@
    You can adapt this file completely to your liking, 
    but it should at least contain the root `toctree` directive.
 
-xrsdkit: software for scattering and diffraction modeling and analysis 
-======================================================================
+
+xrsdkit: data-driven data analysis for scattering and diffraction
+=================================================================
 
 Contents:
 
 .. toctree::
    :maxdepth: 3
 
-   description
-   installation
-   db_installation
-   usage
+   introduction
+   tutorials
    packagedoc
-
-
+   db_installation
 
 
 Indices and tables

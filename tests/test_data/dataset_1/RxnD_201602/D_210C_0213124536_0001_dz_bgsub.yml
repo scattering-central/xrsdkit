@@ -1,0 +1,58 @@
+features: {I_fluctuation: 4.756554971640298, Ilowq_over_Imean: 1.7334847111726222,
+  Imax_over_Imean: 3.8174542334917585, Imax_sharpness: 1.125797375920649, best_hump_qwidth: 0.00016145322582683267,
+  best_hump_qwidth_log: 0.000276638654078772, best_trough_qwidth: 0.0277736257268359,
+  best_trough_qwidth_log: 0.049635731305848495, logI_fluctuation: 8.233692350676872,
+  logI_max_over_std: 9.958772398832453, pearson_expq: -0.31833642401348705, pearson_invexpq: 0.3447470771280352,
+  pearson_q: -0.33055494311424954, pearson_q2: -0.2798493574350522, q_Icentroid: 0.28531174366707324,
+  q_best_hump: 0.02863861382474786, q_best_hump_log: 0.028590593849951107, q_best_trough: 0.10740637346807957,
+  q_best_trough_log: 0.15602149093549592, q_logIcentroid: 0.2991293264049144, r_fftIcentroid: 0.12002105785907194}
+fit_report:
+  converged: 1
+  error_weighted: 1
+  final_objective: 0.005087243743322551
+  fit_snr: 1.9964956088589683
+  good_fit: 1
+  initial_objective: 0.466165937071147
+  logI_weighted: 1
+  q_range: [0.1, .inf]
+  source_wavelength: 0.799898
+noise:
+  model: flat
+  parameters:
+    I0:
+      bounds: [1.0e-12, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 1.9575785437098148e-11
+precursor:
+  form: guinier_porod
+  parameters:
+    D:
+      bounds: [0.0, 4.0]
+      constraint_expr: null
+      fixed: 1
+      value: 4.0
+    I0:
+      bounds: [0.0, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 3.067525908311058
+    r_hard:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 6.2200265049146015
+    rg:
+      bounds: [0.1, .inf]
+      constraint_expr: null
+      fixed: 0
+      value: 2.671984824354768
+    v_fraction:
+      bounds: [0.01, 0.7405]
+      constraint_expr: null
+      fixed: 0
+      value: 0.08624334145116735
+  settings: {interaction: hard_spheres}
+  structure: disordered
+sample_metadata: {data_file: D_210C_0213124536_0001_dz_bgsub.dat, experiment_id: RxnD_201602,
+  notes: '', sample_id: RxnD_201602_1455396347, source_wavelength: 0.799898, time: 1455396347.0}
