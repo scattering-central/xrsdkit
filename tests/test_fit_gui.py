@@ -31,13 +31,15 @@ np_sl_sys = System(
     sample_metadata={'source_wavelength':src_wl}
     )
 
-datapath = os.path.join(os.path.dirname(__file__),
-    'test_data','solution_saxs','peaks','peaks_0.dat')
-sysfpath = os.path.splitext(datapath)[0]+'.yml'
-xrsdyml.save_sys_to_yaml(sysfpath,np_sl_sys)
+def test_yml_io():
+    datapath = os.path.join(os.path.dirname(__file__),
+        'test_data','solution_saxs','peaks','peaks_0.dat')
+    sysfpath = os.path.splitext(datapath)[0]+'.yml'
+    xrsdyml.save_sys_to_yaml(sysfpath,np_sl_sys)
+    sys = xrsdyml.load_sys_from_yaml(sysfpath)
+    os.remove(sysfpath)
 
 def test_fit_gui():
     if 'DISPLAY' in os.environ:
-        fit_sys = run_gui([datapath],[sysfpath])
-    os.remove(sysfpath)
+        run_gui()
 
