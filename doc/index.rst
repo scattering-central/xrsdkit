@@ -10,7 +10,7 @@ xrsdkit: data-driven data analysis for scattering and diffraction
 Contents:
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
 
    introduction
    tutorials
