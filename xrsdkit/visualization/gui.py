@@ -68,7 +68,7 @@ class XRSDFitGUI(object):
     def __init__(self):
         super(XRSDFitGUI, self).__init__()
         # start with a default system definition, q, and I(q)
-        self.sys = xrsdsys.System(sample_metadata={'source_wavelength':1.5406})
+        self.sys = xrsdsys.System()
         self.q = q_default
         self.I = I_default
         self.dI = None
@@ -80,7 +80,7 @@ class XRSDFitGUI(object):
         self._build_control_widgets()
         # create the plots
         self._build_plot_widgets()
-        self.fit_gui.geometry('1100x700')
+        self.fit_gui.geometry('1100x750')
         self._draw_plots()
         self.data_file_map = OrderedDict() 
 
@@ -94,7 +94,7 @@ class XRSDFitGUI(object):
         self.fit_gui.destroy()
 
     def _build_gui(self):
-        self.fit_gui.title('xrsd profile fitter')
+        self.fit_gui.title('xrsd pattern analyzer')
         # a horizontal scrollbar and a main canvas belong to the main gui:
         scrollbar = tkinter.Scrollbar(self.fit_gui,orient='horizontal')
         self.main_canvas = tkinter.Canvas(self.fit_gui)
@@ -385,9 +385,17 @@ class XRSDFitGUI(object):
         self.fit_gui.update_idletasks()
 
     def _browse_data_files(self,*args):
+        #self._widgets['io_control']['experiment_id_label'] = None 
+        #self._widgets['io_control']['experiment_id_entry'] = None 
+        #self._widgets['io_control']['wavelength_label'] = None
+        #self._widgets['io_control']['wavelength_entry'] = None
+        #self._widgets['io_control']['new_files_button'] = None 
+
         browser_popup = tkinter.Toplevel(master=self.fit_gui)
         browser_popup.geometry('500x500')
         browser_popup.title('data browser')
+        browser_popup.protocol('WM_DELETE_WINDOW',self._cleanup_data_browser)
+
         main_canvas = tkinter.Canvas(browser_popup)
         main_frame = tkinter.Frame(main_canvas,bd=4,padx=10,pady=10)
         main_frame_window = main_canvas.create_window(0,0,window=main_frame,anchor='nw')
@@ -437,19 +445,27 @@ class XRSDFitGUI(object):
         srcwll = tkinter.Label(entry_frame,text='wavelength (Angstroms):',anchor='w',state='disabled')
         exptide = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['experiment_id'],width=8,state='disabled')
         srcwle = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['source_wavelength'],width=8,state='disabled')
-        exptidl.grid(row=4,column=1,sticky='w')
-        exptide.grid(row=4,column=2,sticky='ew')
-        srcwll.grid(row=5,column=1,sticky='w')
-        srcwle.grid(row=5,column=2,sticky='ew')
+
+        self._vars['io_control']['create_new_files_flag'].set(False)
         newfilesbtn = tkinter.Checkbutton(entry_frame,
                     text='Create new output files:',
                     variable=self._vars['io_control']['create_new_files_flag'],
                     anchor='w')
-        self._vars['io_control']['create_new_files_flag'].trace('w',
-                    partial(self._toggle_new_file_entries,[exptidl,srcwll,exptide,srcwle]))
-        self._vars['io_control']['create_new_files_flag'].set(False)
-        self._vars['io_control']['search_mode'].trace('w',
-                    partial(self._update_search_mode,newfilesbtn))
+
+        exptidl.grid(row=4,column=1,sticky='w')
+        exptide.grid(row=4,column=2,sticky='ew')
+        srcwll.grid(row=5,column=1,sticky='w')
+        srcwle.grid(row=5,column=2,sticky='ew')
+
+        # need references to these for callbacks
+        self._widgets['io_control']['experiment_id_label'] = exptidl
+        self._widgets['io_control']['experiment_id_entry'] = exptide
+        self._widgets['io_control']['wavelength_label'] = srcwll
+        self._widgets['io_control']['wavelength_entry'] = srcwle
+        self._widgets['io_control']['new_files_button'] = newfilesbtn 
+
+        self._vars['io_control']['create_new_files_flag'].trace('w',self._toggle_new_file_entries)
+        self._vars['io_control']['search_mode'].trace('w',self._update_search_mode)
 
         smodelbl.grid(row=3,column=0,sticky='w')
         smodebtn0.grid(row=4,column=0,sticky='w')
@@ -485,23 +501,36 @@ class XRSDFitGUI(object):
         # wait for the browser to close before continuing main loop 
         self.fit_gui.wait_window(browser_popup)
 
-    def _toggle_new_file_entries(self,widgets,*event_args):
+    def _cleanup_data_browser(self,browser):
+        self._vars['io_control']['create_new_files_flag'].trace_vdelete()
+        self._vars['io_control']['search_mode'].trace_vdelete()
+        browser.destroy() 
+
+    def _toggle_new_file_entries(self,*event_args):
         flag = self._vars['io_control']['create_new_files_flag'].get()
-        for widg in widgets:
-            if flag:
-                widg.config(state='normal')
-            else:
-                widg.config(state='disabled')
+
+        for widg in [ self._widgets['io_control']['experiment_id_label'], \
+                self._widgets['io_control']['experiment_id_entry'], \
+                self._widgets['io_control']['wavelength_label'], \
+                self._widgets['io_control']['wavelength_entry'] ]:
+            try:
+                if flag:
+                    widg.config(state='normal')
+                else:
+                    widg.config(state='disabled')
+            except:
+                pass
         return True
 
-    def _update_search_mode(self,new_files_btn,*event_args):
+    def _update_search_mode(self,*event_args):
         search_mode = self._vars['io_control']['search_mode'].get()
+
         if search_mode == 'data_files':
-            new_files_btn.config(state='normal')
+            self._widgets['io_control']['new_files_button'].config(state='normal')
         elif search_mode == 'output_files':
             self._vars['io_control']['create_new_files_flag'].set(False)
             #new_files_btn.deselect() 
-            new_files_btn.config(state='disabled')
+            self._widgets['io_control']['new_files_button'].config(state='disabled')
 
     def _execute_search(self,data_file_listbox,output_file_listbox):
         data_dir = self._vars['io_control']['data_dir'].get()
@@ -660,6 +689,7 @@ class XRSDFitGUI(object):
             q_I = np.loadtxt(dpath)
             self.q = q_I[:,0]
             self.I = q_I[:,1]
+            self.dI = None
             if q_I.shape[1] > 2:
                 self.dI = q_I[:,2]
             sysf = self.data_file_map[df]
@@ -1335,8 +1365,8 @@ class XRSDFitGUI(object):
         if any([pp.structure=='crystalline' for pp in new_sys.populations.values()]):
             if new_sys.sample_metadata['source_wavelength'] == 0.:
                 # TODO: put this warning in a pop-up
-                warnings.warn('Diffraction computations require a nonzero wavelength: setting default 1.5406')
-                new_sys.sample_metadata['source_wavelength'].set(1.5406)
+                warnings.warn('Diffraction computations require a nonzero wavelength: setting default wavelength==1.')
+                new_sys.sample_metadata['source_wavelength'] = 1.
         self._vars['fit_control']['wavelength'].set(self.sys.sample_metadata['source_wavelength'])
         # repack everything 
         self._repack_noise_frame()

@@ -31,7 +31,7 @@ def draw_xrsd_fit(mpl_axes, sys=None, q=None, I=None, dI=None):
             mpl_axes.semilogy(q,I_p,lw=1)
             legend_entries.append(popnm)
     mpl_axes.set_xlabel('q (1/Angstrom)')
-    mpl_axes.set_ylabel('Intensity (counts)')
+    mpl_axes.set_ylabel('Intensity (arb)')
     mpl_axes.legend(legend_entries)
     return I_comp
 
