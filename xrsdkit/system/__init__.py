@@ -27,7 +27,7 @@ class System(object):
             q_range=[0.,float('inf')]
             )
         self.features = dict.fromkeys(profile_keys) 
-        src_wl = 0.
+        src_wl = 1.
         kwargs = copy.deepcopy(kwargs)
         if 'source_wavelength' in kwargs: src_wl = kwargs.pop('source_wavelength')
         # TODO: any other sample metadata items that should be handled from kwargs?
@@ -232,11 +232,6 @@ def fit(sys,q,I,dI=None,
         1d array of intensities corresponding to `q` values
     dI : array of float
         1d array of intensity error estimates for each `I` value 
-
-    Returns
-    -------
-    sys_opt : xrsdkit.system.System 
-        Similar to input `sys`, but with fit-optimized parameters.
     error_weighted : bool
         Flag for weighting the objective with the I(q) error estimates.
     logI_weighted : bool
@@ -244,6 +239,11 @@ def fit(sys,q,I,dI=None,
     q_range : list
         Two floats indicating the lower and 
         upper q-limits for objective evaluation
+
+    Returns
+    -------
+    sys_opt : xrsdkit.system.System 
+        Similar to input `sys`, but with fit-optimized parameters.
     """
 
     # the System to optimize starts as a copy of the input System
