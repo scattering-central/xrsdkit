@@ -6,7 +6,7 @@ Description
 -----------
 
 This is a data-driven modeling framework 
-s-ray scattering and diffraction patterns,
+for x-ray scattering and diffraction patterns,
 including tools to analyze (fit) patterns, 
 curate datasets of analysis results,
 and train machine learning models to speed up or automate further analysis.

@@ -102,16 +102,14 @@ For gui usage, start the GUI from the command line: ::
 
 This should bring up the (empty) GUI.
 
-#.. image:: graphics/gui_init.png
-# TODO: blank gui with frames labeled.
+.. image:: graphics/gui_init.png
 
-Note the panels on the right hand side
-and their respective functionalities.
+Note the panels on the right hand side:
 
-    - I/O: The topmost panel contains all controls for reading raw data and writing analysis results.
-    - Fit control: The second panel is used to enter sample metadata and control the fitting process.
-    - Noise model: The third panel is used to specify a noise model and control its parameters.
-    - Populations: Populations are added by entering a new name and pressing the "+" button. Each new population creates a panel where its settings and parameters are controlled. 
+    - I/O: Read scattering data and write analysis results.
+    - Fit control: Enter sample metadata and control the fitting process.
+    - Noise model: Secify a noise model and control its parameters.
+    - Populations: Add populations and control their settings and parameters. 
 
 
 Tutorial 1: data analysis and dataset curation
