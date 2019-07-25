@@ -63,7 +63,8 @@ def read_local_dataset(dataset_dirs, downsampling_distance=None, message_callbac
             if os.path.isdir(exp_data_dir):
                 for s_data_file in os.listdir(exp_data_dir):
                     if s_data_file.endswith('.yml'):
-                        message_callback('loading data from {}'.format(s_data_file))
+                        if message_callback:
+                            message_callback('loading data from {}'.format(s_data_file))
                         file_path = os.path.join(exp_data_dir, s_data_file)
                         sys = load_sys_from_yaml(file_path)
                         data_file = sys.sample_metadata['data_file']
@@ -347,10 +348,12 @@ def downsample_by_group(df,min_distance=1.,message_callback=print):
     # downsample each group independently
     for group_labels,grp in all_groups.groups.items():
         group_df = df.iloc[grp].copy()
-        message_callback('Downsampling data for group: {}'.format(group_labels))
+        if message_callback:
+            message_callback('Downsampling data for group: {}'.format(group_labels))
         #lbl_df = _filter_by_labels(data,lbls)
         dsamp = downsample(df.iloc[grp].copy(), min_distance)
-        message_callback('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
+        if message_callback:
+            message_callback('Finished downsampling: kept {}/{}'.format(len(dsamp),len(group_df)))
         data_sample = data_sample.append(dsamp)
     return data_sample
 

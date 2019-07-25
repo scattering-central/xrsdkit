@@ -113,7 +113,7 @@ class Classifier(XRSDModel):
         -------
         preds : array
         """
-        if self.trained:
+        if self.trained and data.shape[0]>0:
             X = self.scaler.transform(data)
             preds = self.model.predict(X)
             try: # not all models have predict_proba()
