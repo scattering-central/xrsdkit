@@ -15,27 +15,101 @@ followed by the same functionality via the xrsdkit GUI.
 Tutorial 0: setup and installation
 ----------------------------------
 
+
+1. Get a workable Python 3
+..........................
+
+Open a terminal or command prompt,
+look for Python,
+and check its version.
+
+**Windows** ::
+
+    $ where python
+    $ python --version
+
+**Mac/Linux** ::
+
+    $ which python
+    $ python --version
+
+If you don't have Python, 
+or if your version is less than 3.5.xx,
+install a new Python 3 interpreter.
+
+    - Windows: https://www.python.org/downloads/windows/
+    - Mac: https://docs.python-guide.org/starting/install3/osx/
+    - Linux: use your package manager (yum, apt, rpm, etc.)
+
+
+2. [Optional] Set up a Python virtual environment
+.................................................
+
+A virtual environment is recommended for developers
+and for those who need control over their Python environments.
+Virtual environments hide your system Python libraries, 
+so that you can install Python packages without interfering with existing software.
+
+**Windows** ::
+
+    $ pip install virtualenv 
+    $ pip install virtualenvwrapper-win
+
+More info: http://timmyreilly.azurewebsites.net/python-pip-virtualenv-installation-on-windows/
+
+**Mac/Linux** ::
+
+    $ pip install virtualenv 
+    $ pip install virtualenvwrapper
+
+You may need to update your shell configuration file
+(~/.bashrc or similar) to establish paths for virtual environment files.
+More info: http://exponential.io/blog/2015/02/10/install-virtualenv-and-virtualenvwrapper-on-mac-os-x/
+
+
+3. Install xrsdkit
+..................
+
+If using virtual environments, create one: ::
+
+    $ mkvirtualenv xrsdkit
+
+If the virtual environment already exists, activate it: ::
+
+    $ workon xrsdkit
+
+Use pip to install xrsdkit: ::
+
+    $ pip install xrsdkit
+
+Note, you can deactivate the virtual environment later by: ::
+
+    $ deactivate 
+
+
+4. Check functionality 
+......................
+
 To ensure that the package is installed correctly, 
-invoke a Python interpreter and import it::
+invoke the Python interpreter and import it: ::
 
     $ python 
     >>> import xrsdkit
 
-For gui usage, start the GUI from the command line::
+For gui usage, start the GUI from the command line: ::
 
     $ xrsdkit-gui
 
 This should bring up the (empty) GUI.
 
-#.. image:: graphics/gui_init.png
+.. image:: graphics/gui_init.png
 
-Note the panels on the right hand side
-and their respective functionalities.
+Note the panels on the right hand side:
 
-    - I/O: The topmost panel contains all controls for reading raw data and writing analysis results.
-    - Fit control: The second panel is used to enter sample metadata and control the fitting process.
-    - Noise model: The third panel is used to specify a noise model and control its parameters.
-    - Populations: Populations are added by entering a new name and pressing the "+" button. Each new population creates a panel where its settings and parameters are controlled. 
+    - I/O: Read scattering data and write analysis results.
+    - Fit control: Enter sample metadata and control the fitting process.
+    - Noise model: Secify a noise model and control its parameters.
+    - Populations: Add populations and control their settings and parameters. 
 
 
 Tutorial 1: data analysis and dataset curation
