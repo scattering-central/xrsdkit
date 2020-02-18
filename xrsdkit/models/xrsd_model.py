@@ -311,7 +311,7 @@ class XRSDModel(object):
             cross-validation predictions for all samples from input `data` 
         """
         y_true = data[self.target].copy() 
-        y_xval = pd.Series(index=y_true.index,name=self.target) 
+        y_xval = pd.Series(index=y_true.index,name=self.target,dtype=y_true.dtype) 
         group_ids = data.group_id.unique()
         for gid in group_ids:
             train_idx = data.index[(data['group_id']!=gid)]
