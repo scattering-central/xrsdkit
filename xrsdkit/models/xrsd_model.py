@@ -32,8 +32,12 @@ class XRSDModel(object):
             self.features = model_data['features']
             if model_data['trained']:
                 self.trained = True
-                setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_']))
-                setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_']))
+                feat_idx = [feat in self.features for feat in profiler.profile_keys]
+                # TODO: make sure feature indexing is correct...
+                # NOTE: could also use all features in the scaler, and then make sure to scale before selecting features... 
+                # NOTE: can we just assign these attributes instead of using setattr?
+                setattr(self.scaler, 'mean_', np.array(model_data['scaler']['mean_'])[feat_idx])
+                setattr(self.scaler, 'scale_', np.array(model_data['scaler']['scale_'])[feat_idx])
                 self.model = pickle.load(open(pickle_file, 'rb'))
                 self.cross_valid_results = model_data['cross_valid_results']
         else:
