@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='xrsdkit',
-    version='0.2.3',
+    version='0.2.4',
     url='https://github.com/scattering-central/xrsdkit.git',
     description='Scattering and diffraction modeling and analysis toolkit',
     author='SSRL',
