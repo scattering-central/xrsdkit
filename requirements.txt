@@ -3,7 +3,7 @@ numpy
 scipy
 pandas
 lmfit
-scikit-learn<0.21.0
+scikit-learn
 matplotlib
 dask_ml
 dask[dataframe]
