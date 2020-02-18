@@ -129,6 +129,8 @@ and run it from the repository's root directory.
 Programming interface
 .....................
 
+This section loosely follows `this example notebook <https://github.com/slaclab/xrsdkit_modeling/blob/master/notebooks/pattern_fitting.ipynb>`_.
+
 **Import numpy and some xrsdkit tools** ::
 
     import numpy as np

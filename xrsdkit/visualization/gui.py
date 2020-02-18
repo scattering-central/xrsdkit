@@ -235,8 +235,8 @@ class XRSDFitGUI(object):
         self._vars['io_control']['data_file'] = dfvar
         self._vars['io_control']['output_file'] = tkinter.StringVar(iof)
         self._vars['io_control']['params_file'] = pfvar
-        #self._vars['io_control']['model_training_dirs'] = tkinter.StringVar(iof)
-        #self._vars['io_control']['output_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['training_set_dir'] = tkinter.StringVar(iof)
+        self._vars['io_control']['model_output_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['models_dir'] = tkinter.StringVar(iof)
         self._vars['io_control']['search_mode'] = tkinter.StringVar(iof)
         self._vars['io_control']['create_new_files_flag'] = tkinter.BooleanVar(iof)
@@ -309,16 +309,16 @@ class XRSDFitGUI(object):
         while os.path.exists(default_output_dir):
             default_output_dir = os.path.join(os.getcwd(),'xrsdkit_models_{}'.format(ii))
             ii+=1
-        self._vars['io_control']['output_dir'].set(default_output_dir) 
+        self._vars['io_control']['model_output_dir'].set(default_output_dir) 
 
         odirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
             self._browse_for_directory,browser_popup,
-            self._vars['io_control']['output_dir'],
+            self._vars['io_control']['model_output_dir'],
             'Select output directory for modeling data'
             ))
         ddirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
             self._browse_for_directory,browser_popup,
-            self._vars['io_control']['dataset_dir'],
+            self._vars['io_control']['training_set_dir'],
             'Select training dataset directory'
             ))
         mdirbb = tkinter.Button(entry_frame,text='Browse',command=partial(
@@ -326,8 +326,8 @@ class XRSDFitGUI(object):
             self._vars['io_control']['models_dir'],
             'Select directory of trained xrsdkit models'
             ))
-        odirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['output_dir'])
-        ddirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['dataset_dir'])
+        odirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['model_output_dir'])
+        ddirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['training_set_dir'])
         mdirent = tkinter.Entry(entry_frame,textvariable=self._vars['io_control']['models_dir'])
         # display widgets
         display_frame = tkinter.Frame(main_frame,bd=4,padx=10,pady=10,relief=tkinter.GROOVE)
@@ -357,11 +357,11 @@ class XRSDFitGUI(object):
     def _train_models(self,display):
         # TODO: input widget for downsampling distance?
         # TODO: toggles for hyperparam selection? feature selection?
-        dataset_dir = self._vars['io_control']['dataset_dir'].get()
-        output_dir = self._vars['io_control']['output_dir'].get() 
+        dataset_dir = self._vars['io_control']['training_set_dir'].get()
+        output_dir = self._vars['io_control']['model_output_dir'].get() 
         model_config_path = os.path.join(output_dir,'model_config.yml')
         self._print_to_listbox(display,'LOADING DATASET FROM: {}'.format(dataset_dir))
-        df, idx_df = xrsdyml.read_local_dataset(dataset_dir,downsampling_distance=1.,
+        df, idx_df = xrsdyml.read_local_dataset([dataset_dir],downsampling_distance=1.,
                 message_callback=partial(self._print_to_listbox,display))
         self._print_to_listbox(display,'---- FINISHED LOADING DATASET ----')
         self._print_to_listbox(display,'BEGINNING TO TRAIN MODELS')
